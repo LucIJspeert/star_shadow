@@ -1,4 +1,6 @@
-"""This Python module contains functions for time series analysis;
+"""STAR SHADOW
+
+This Python module contains functions for time series analysis;
 specifically for the fitting of stellar oscillations and eclipses.
 
 Code written by: Luc IJspeert

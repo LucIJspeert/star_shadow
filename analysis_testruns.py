@@ -1396,6 +1396,14 @@ def analyse_parallel(file):
                                        save_dir=file[:64], verbose=False, plot=False)
     return
 
+# plotting in series
+for file in all_files:
+    target_id = file[68:71]  # extract the number (Cole)
+    times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
+    times = times - times[0]
+    i_half_s = np.array([[0, len(times)]])
+    ut.sequential_plotting(target_id, times, signal, i_half_s, file[:64])
+
 all_files = []
 for root, dirs, files in os.walk(os.path.join(syn_dir, 'blind_ecc_Andrej')):
     for file in files:
@@ -1404,6 +1412,39 @@ for root, dirs, files in os.walk(os.path.join(syn_dir, 'blind_ecc_Andrej')):
 
 pool = mp.Pool(14)
 pool.map(analyse_parallel, np.array(all_files))
+# find out where they got
+n_all = []
+for file in all_files:
+    tic = file[68:71]  # extract the number (Cole)
+    data_dir = os.path.join(file[:64], f'tic_{tic}_analysis')
+    if os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.hdf5')):
+        n = '13'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.hdf5')):
+        n = '12'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.hdf5')):
+        n = '11'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.hdf5')):
+        n = '10'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')):
+        n = '9'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')):
+        n = '8'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')):
+        n = '7'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')):
+        n = '6'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')):
+        n = '5'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')):
+        n = '4'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')):
+        n = '3'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_2.hdf5')):
+        n = '2'
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')):
+        n = '1'
+    n_all.append(n)
+np.savetxt(os.path.join(file[:64], 'stage_finished'), np.column_stack(([file[64:] for file in all_files], n_all)), fmt='%s %s')
 
 """Not enough eclipses (not even full period): 04, 05, 06, 08, 09, 10, 13
 slightly more than a period but no 2 eclipses of each (p and s): 07, 11, 12

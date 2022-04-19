@@ -1,4 +1,6 @@
-"""This Python module contains functions for visualisation;
+"""STAR SHADOW
+
+This Python module contains functions for visualisation;
 specifically for visualising the analysis of stellar variability and eclipses.
 
 Code written by: Luc IJspeert
@@ -99,14 +101,14 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     """Plot the periodogram with the full output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.scargle(times, signal - np.mean(signal))
-    freqs_1, ampls_1 = tsf.scargle(times, signal - models[0])
-    freqs_2, ampls_2 = tsf.scargle(times, signal - models[1])
-    freqs_3, ampls_3 = tsf.scargle(times, signal - models[2])
-    freqs_4, ampls_4 = tsf.scargle(times, signal - models[3])
-    freqs_5, ampls_5 = tsf.scargle(times, signal - models[4])
-    freqs_6, ampls_6 = tsf.scargle(times, signal - models[5])
-    freqs_7, ampls_7 = tsf.scargle(times, signal - models[6])
-    freqs_8, ampls_8 = tsf.scargle(times, signal - models[7])
+    freqs_1, ampls_1 = tsf.scargle(times, signal - models[0] - np.all(models[0] == 0) * np.mean(signal))
+    freqs_2, ampls_2 = tsf.scargle(times, signal - models[1] - np.all(models[1] == 0) * np.mean(signal))
+    freqs_3, ampls_3 = tsf.scargle(times, signal - models[2] - np.all(models[2] == 0) * np.mean(signal))
+    freqs_4, ampls_4 = tsf.scargle(times, signal - models[3] - np.all(models[3] == 0) * np.mean(signal))
+    freqs_5, ampls_5 = tsf.scargle(times, signal - models[4] - np.all(models[4] == 0) * np.mean(signal))
+    freqs_6, ampls_6 = tsf.scargle(times, signal - models[5] - np.all(models[5] == 0) * np.mean(signal))
+    freqs_7, ampls_7 = tsf.scargle(times, signal - models[6] - np.all(models[6] == 0) * np.mean(signal))
+    freqs_8, ampls_8 = tsf.scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
     # get error values
     err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_half_s)
     err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_half_s)
@@ -116,8 +118,6 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     err_6 = tsf.formal_uncertainties(times, signal - models[5], a_n_i[5], i_half_s)
     err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_half_s)
     err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_half_s)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7])
-    p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs, ampls, label='signal')
@@ -129,9 +129,12 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     ax.plot(freqs_6, ampls_6, label='NL-LS fit residual \w harmonics')
     ax.plot(freqs_7, ampls_7, label='Reduced frequencies')
     ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual \w harmonics')
-    ax.errorbar([1/p_orb_i[6], 1/p_orb_i[6]], [0, np.max(ampls)],
-                xerr=[0, p_err/p_orb_i[6]**2], yerr=[0, p_err/p_orb_i[6]**2],
-                linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[6]:1.4f}d)')
+    if (p_orb_i[7] > 0):
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7])
+        p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
+        ax.errorbar([1/p_orb_i[7], 1/p_orb_i[7]], [0, np.max(ampls)],
+                    xerr=[0, p_err/p_orb_i[7]**2], yerr=[0, p_err/p_orb_i[7]**2],
+                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
     for i in range(len(f_n_i[0])):
         ax.errorbar([f_n_i[0][i], f_n_i[0][i]], [0, a_n_i[0][i]], xerr=[0, err_1[2][i]], yerr=[0, err_1[3][i]],
                     linestyle=':', capsize=2, c='tab:orange')

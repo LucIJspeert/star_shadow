@@ -1,4 +1,6 @@
-"""This Python module contains functions for data analysis;
+"""STAR SHADOW
+
+This Python module contains functions for data analysis;
 specifically for the analysis of stellar variability and eclipses.
 
 Code written by: Luc IJspeert
