@@ -1417,15 +1417,15 @@ n_all = []
 for file in all_files:
     tic = file[68:71]  # extract the number (Cole)
     data_dir = os.path.join(file[:64], f'tic_{tic}_analysis')
-    if os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.hdf5')):
+    if os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')):
         n = '13'
-    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.hdf5')):
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')):
         n = '12'
-    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.hdf5')):
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')):
         n = '11'
-    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.hdf5')):
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')):
         n = '10'
-    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')):
+    elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')):
         n = '9'
     elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')):
         n = '8'
@@ -1443,6 +1443,8 @@ for file in all_files:
         n = '2'
     elif os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')):
         n = '1'
+    else:
+        n = '0'
     n_all.append(n)
 np.savetxt(os.path.join(file[:64], 'stage_finished'), np.column_stack(([file[64:] for file in all_files], n_all)), fmt='%s %s')
 

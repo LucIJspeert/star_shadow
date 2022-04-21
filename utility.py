@@ -753,8 +753,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
     if os.path.isfile(file_name):
         results_10 = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
         e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = results_10[:7]
-        errors = results_10[7:29].reshape((22, 2))
-        bounds = results_10[29:51].reshape((22, 2))
+        errors = results_10[7:29].reshape((11, 2))
+        bounds = results_10[29:51].reshape((11, 2))
         formal_errors = results_10[51:59]
         intervals_w #? for when the interval is disjoint
     # distributions
