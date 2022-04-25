@@ -166,6 +166,7 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     return periods, pd_all
 
 
+# @nb.njit()  # not jitted for convolve with arg 'same'
 def noise_spectrum(times, signal, window_width=1.):
     """Calculate the noise spectrum by a convolution with a flat window of a certain width.
 
@@ -200,6 +201,7 @@ def noise_spectrum(times, signal, window_width=1.):
     return noise
 
 
+# @nb.njit()  # not sped up
 def noise_at_freq(fs, times, signal, window_width=0.5):
     """Calculate the noise at a given set of frequencies
     
@@ -2317,6 +2319,11 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., data_id=None, sa
     if (np.ptp(times) / p_orb_3  < 1.9):
         if verbose:
             print(f'Period over time-base is less than two: {np.ptp(times) / p_orb_3}')
+        if save_dir is not None:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.txt')
+            col1 = ['Period over time-base is less than two:', 'period', 'time-base']
+            col2 = [np.ptp(times) / p_orb_3, p_orb_3, np.ptp(times)]
+            np.savetxt(file_name, np.column_stack((col1, col2)))
         return [None], [None], [None], [None], [None], [None]
     # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
     out_3 = fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors)

@@ -632,8 +632,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_2 = p_orb_2[0]  # must be a float
         p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = errors
         n_param_2, bic_2, noise_level_2 = stats
-        model_2 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_2 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_2 = tsf.linear_curve(times, const_2, slope_2, i_sectors)
+        model_2 += tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
     else:
         p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = np.array([[], [], [], [], [], []])
         p_orb_2 = 0
@@ -647,8 +647,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_3 = p_orb_3[0]  # must be a float
         p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
         n_param_3, bic_3, noise_level_3 = stats
-        model_3 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_3 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
+        model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
     else:
         p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = np.array([[], [], [], [], [], []])
         p_orb_3 = 0
@@ -662,8 +662,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_4 = p_orb_4[0]  # must be a float
         p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
         n_param_4, bic_4, noise_level_4 = stats
-        model_4 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_4 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
+        model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
     else:
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = np.array([[], [], [], [], [], []])
         p_orb_4 = 0
@@ -677,8 +677,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_5 = p_orb_5[0]  # must be a float
         p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = errors
         n_param_5, bic_5, noise_level_5 = stats
-        model_5 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_5 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
+        model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
     else:
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = np.array([[], [], [], [], [], []])
         p_orb_5 = 0
@@ -692,8 +692,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_6 = p_orb_6[0]  # must be a float
         p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
         n_param_6, bic_6, noise_level_6 = stats
-        model_6 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_6 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
+        model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
     else:
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = np.array([[], [], [], [], [], []])
         p_orb_6 = 0
@@ -707,8 +707,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_7 = p_orb_7[0]  # must be a float
         p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = errors
         n_param_7, bic_7, noise_level_7 = stats
-        model_7 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_7 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
+        model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
     else:
         p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = np.array([[], [], [], [], [], []])
         p_orb_7 = 0
@@ -722,8 +722,8 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_orb_8 = p_orb_8[0]  # must be a float
         p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
         n_param_8, bic_8, noise_level_8 = stats
-        model_8 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_8 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
+        model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
     else:
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], [], []])
         p_orb_8 = 0

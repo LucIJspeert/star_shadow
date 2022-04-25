@@ -1377,8 +1377,18 @@ plt.scatter(times, signal)
 all_files = []
 for root, dirs, files in os.walk(os.path.join(syn_dir, 'simulations_cole')):
     for file in files:
-        if ('sim_' in file):
+        if file.startswith('sim_'):
             all_files.append(os.path.join(root, file))
+files_lc = []
+for root, dirs, files in os.walk(os.path.join(syn_dir, 'simulations_cole')):
+    for file in files:
+        if file.endswith('_lc.dat'):
+            files_lc.append(os.path.join(root, file))
+files_sc = []
+for root, dirs, files in os.walk(os.path.join(syn_dir, 'simulations_cole')):
+    for file in files:
+        if file.endswith('_sc.dat'):
+            files_sc.append(os.path.join(root, file))
 
 def analyse_parallel(file):
     target_id = file[68:71]  # extract the number (Cole)
@@ -1397,21 +1407,15 @@ def analyse_parallel(file):
     return
 
 # plotting in series
-for file in all_files:
+for file in files_lc:
     target_id = file[68:71]  # extract the number (Cole)
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
     ut.sequential_plotting(target_id, times, signal, i_half_s, file[:64])
 
-all_files = []
-for root, dirs, files in os.walk(os.path.join(syn_dir, 'blind_ecc_Andrej')):
-    for file in files:
-        if file.endswith('.lc'):
-            all_files.append(os.path.join(root, file))
-
 pool = mp.Pool(14)
-pool.map(analyse_parallel, np.array(all_files))
+pool.map(analyse_parallel, np.array(files_lc))
 # find out where they got
 n_all = []
 for file in all_files:
@@ -1451,6 +1455,11 @@ np.savetxt(os.path.join(file[:64], 'stage_finished'), np.column_stack(([file[64:
 """Not enough eclipses (not even full period): 04, 05, 06, 08, 09, 10, 13
 slightly more than a period but no 2 eclipses of each (p and s): 07, 11, 12
 """
+all_files = []
+for root, dirs, files in os.walk(os.path.join(syn_dir, 'blind_ecc_Andrej')):
+    for file in files:
+        if file.endswith('.lc'):
+            all_files.append(os.path.join(root, file))
 
 times, signal = np.loadtxt(os.path.join(syn_dir, 'blind_ecc_Andrej/s01.lc'), usecols=(0, 1), unpack=True)
 times = times - times[0]

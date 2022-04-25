@@ -558,6 +558,7 @@ def base_harmonic_search(f_n, f_n_err, a_n, f_tol=None):
     return p_best, gof, minimize
 
 
+@nb.njit()
 def base_harmonic_check(f_n, f_n_err, a_n, p_orb, t_tot, f_tol=None):
     """Test to find the base harmonic testing multiples of a test period
     
@@ -591,7 +592,8 @@ def base_harmonic_check(f_n, f_n_err, a_n, p_orb, t_tot, f_tol=None):
     optimise = np.zeros(len(p_test))
     for i, p in enumerate(p_test):
         harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p, f_tol=min(f_tol, 1 / (2 * p)))
-        optimise[i] = len(harmonics)**1.5 / np.max(harmonic_n)
+        if (len(harmonics) > 0):
+            optimise[i] = len(harmonics)**1.5 / np.max(harmonic_n)
     # select the best set of harmonics and its base period
     p_best = p_test[np.argmax(optimise)]
     return p_best, p_test, optimise
@@ -707,6 +709,7 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
     return cur_i
 
 
+@nb.njit()
 def measure_harmonic_depths(p_orb, f_n, a_n, ph_n, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2):
     """Measure the depths of the eclipses from the harmonic model given
     the timing measurements
