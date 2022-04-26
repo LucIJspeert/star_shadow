@@ -1401,9 +1401,9 @@ def analyse_parallel(file):
     # if output None, stop
     if (out_a[0][0] != None):
         out_b = tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, data_id='blind_ecc_Cole',
-                                     save_dir=file[:64], verbose=False, plot=False)
+                                     save_dir=file[:64], verbose=False, plot=False, overwrite_old=True)
         out_c = tsf.pulsation_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
-                                       save_dir=file[:64], verbose=False, plot=False)
+                                       save_dir=file[:64], verbose=False, plot=False, overwrite_old=True)
     return
 
 # plotting in series

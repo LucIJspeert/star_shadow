@@ -447,8 +447,8 @@ def save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_
     return table
 
 
-def save_results_10(tic, e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
-                    dists_in, dists_out, save_dir, data_id=None):
+def save_results_10(tic, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
+                    formal_errors, dists_in, dists_out, save_dir, data_id=None):
     """Save the results of step 10 of the analysis"""
     e_err, w_err, i_err, phi_0_err, psi_0_err, r_sum_sma_err, r_dif_sma_err, r_ratio_err, sb_ratio_err = errors[:9]
     ecosw_err, esinw_err, f_c_err, f_s_err = errors[9:]
@@ -461,21 +461,23 @@ def save_results_10(tic, e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio, errors, i
         w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1]
     else:
         w_bds_2 = None
-    var_names = ['e', 'w', 'i', 'phi_0', 'r_sum_sma', 'r_ratio', 'sb_ratio',
+    var_names = ['e', 'w', 'i', 'phi_0', 'psi_0', 'r_sum_sma', 'r_dif_sma', 'r_ratio', 'sb_ratio',
                  'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower', 'phi_0_upper', 'phi_0_lower',
                  'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower',
                  'sb_ratio_upper', 'sb_ratio_lower', 'ecosw_upper', 'ecosw_lower',
                  'esinw_upper', 'esinw_lower', 'f_c_upper', 'f_c_lower', 'f_s_upper', 'f_s_lower',
                  'e_ubnd', 'e_lbnd', 'w_ubnd', 'w_lbnd', 'i_ubnd', 'i_lbnd', 'phi_0_ubnd', 'phi_0_lbnd',
-                 'r_sum_sma_ubnd', 'r_sum_sma_lbnd', 'r_ratio_ubnd', 'r_ratio_lbnd',
-                 'sb_ratio_ubnd', 'sb_ratio_lbnd', 'ecosw_ubnd', 'ecosw_lbnd',
+                 'psi_0_ubnd', 'psi_0_lbnd', 'r_sum_sma_ubnd', 'r_sum_sma_lbnd', 'r_dif_sma_ubnd', 'r_dif_sma_lbnd',
+                 'r_ratio_ubnd', 'r_ratio_lbnd', 'sb_ratio_ubnd', 'sb_ratio_lbnd', 'ecosw_ubnd', 'ecosw_lbnd',
                  'esinw_ubnd', 'esinw_lbnd', 'f_c_ubnd', 'f_c_lbnd', 'f_s_ubnd', 'f_s_lbnd',
                  'sigma_e', 'sigma_w', 'sigma_phi_0', 'sigma_r_sum_sma', 'sigma_ecosw', 'sigma_esinw',
                  'sigma_f_c', 'sigma_f_s']
     var_desc = ['eccentricity', 'argument of periastron (radians)', 'inclination (radians)',
-                'auxiliary angle phi_0 (see Kopal 1959) (radians)',
-                'sum of radii divided by the semi-major axis of the relative orbit', 'radius ratio r2/r1',
-                'surface brightness ratio sb2/sb1', 'upper error estimate in e', 'lower error estimate in e',
+                'auxiliary angle phi_0 (see Kopal 1959) (radians)', 'auxiliary angle psi_0 (radians)',
+                'sum of radii divided by the semi-major axis of the relative orbit',
+                'limit on difference of radii divided by the semi-major axis of the relative orbit',
+                'radius ratio r2/r1', 'surface brightness ratio sb2/sb1',
+                'upper error estimate in e', 'lower error estimate in e',
                 'upper error estimate in w', 'lower error estimate in w',
                 'upper error estimate in i', 'lower error estimate in i',
                 'upper error estimate in phi_0', 'lower error estimate in phi_0',
@@ -490,7 +492,9 @@ def save_results_10(tic, e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio, errors, i
                 'upper bound in w (hdi_prob=997)', 'lower bound in w (hdi_prob=997)',
                 'upper bound in i (hdi_prob=997)', 'lower bound in i (hdi_prob=997)',
                 'upper bound in phi_0 (hdi_prob=997)', 'lower bound in phi_0 (hdi_prob=997)',
+                'upper bound in psi_0 (hdi_prob=997)', 'lower bound in psi_0 (hdi_prob=997)',
                 'upper bound in r_sum_sma (hdi_prob=997)', 'lower bound in r_sum_sma (hdi_prob=997)',
+                'upper bound in r_dif_sma (hdi_prob=997)', 'lower bound in r_dif_sma (hdi_prob=997)',
                 'upper bound in r_ratio (hdi_prob=997)', 'lower bound in r_ratio (hdi_prob=997)',
                 'upper bound in sb_ratio (hdi_prob=997)', 'lower bound in sb_ratio (hdi_prob=997)',
                 'upper bound in ecos(w) (hdi_prob=997)', 'lower bound in ecos(w) (hdi_prob=997)',
@@ -501,14 +505,15 @@ def save_results_10(tic, e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio, errors, i
                 'formal uncorrelated error in phi_0', 'formal uncorrelated error in r_sum_sma',
                 'formal uncorrelated error in ecos(w)', 'formal uncorrelated error in esin(w)',
                 'formal uncorrelated error in f_c', 'formal uncorrelated error in f_s']
-    values = [str(e), str(w), str(i), str(phi_0), str(r_sum_sma), str(r_ratio), str(sb_ratio),
-              str(e_err[1]), str(e_err[0]), str(w_err[1]), str(w_err[0]), str(i_err[1]), str(i_err[0]),
+    values = [str(e), str(w), str(i), str(phi_0), str(psi_0), str(r_sum_sma), str(r_dif_sma), str(r_ratio),
+              str(sb_ratio), str(e_err[1]), str(e_err[0]), str(w_err[1]), str(w_err[0]), str(i_err[1]), str(i_err[0]),
               str(phi_0_err[1]), str(phi_0_err[0]), str(r_sum_sma_err[1]), str(r_sum_sma_err[0]),
               str(r_ratio_err[1]), str(r_ratio_err[0]), str(sb_ratio_err[1]), str(sb_ratio_err[0]),
               str(ecosw_err[1]), str(ecosw_err[0]), str(esinw_err[1]), str(esinw_err[0]),
               str(f_c_err[1]), str(f_c_err[0]), str(f_s_err[1]), str(f_s_err[0]),
               str(e_bds[1]), str(e_bds[0]), str(w_bds[1]), str(w_bds[0]), str(i_bds[1]), str(i_bds[0]),
-              str(phi_0_bds[1]), str(phi_0_bds[0]), str(r_sum_sma_bds[1]), str(r_sum_sma_bds[0]),
+              str(phi_0_bds[1]), str(phi_0_bds[0]), str(psi_0_bds[1]), str(psi_0_bds[0]),
+              str(r_sum_sma_bds[1]), str(r_sum_sma_bds[0]), str(r_dif_sma_bds[1]), str(r_dif_sma_bds[0]),
               str(r_ratio_bds[1]), str(r_ratio_bds[0]), str(sb_ratio_bds[1]), str(sb_ratio_bds[0]),
               str(ecosw_bds[1]), str(ecosw_bds[0]), str(esinw_bds[1]), str(esinw_bds[0]),
               str(f_c_bds[1]), str(f_c_bds[0]), str(f_s_bds[1]), str(f_s_bds[0]),
@@ -764,15 +769,15 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         dists_in = results_10_1[:10]
         dists_out = results_10_1[10:]
     # open some more data - ellc fits and pulsation analysis
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11_dists.csv')
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
         results_11 = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
         par_init, par_fit = results_11[:6], results_11[6:]
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12_dists.csv')
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = np.loadtxt(file_name, usecols=(1, 2, 3, 4, 5, 6), delimiter=',', unpack=True)
-        pass_sigma, pass_snr, passed_nh = results_12[4:]
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13_dists.csv')
+        pass_sigma, pass_snr, passed_nh = results_12[3:]
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
         results_13 = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
         const_r = results_13[1, 0]
