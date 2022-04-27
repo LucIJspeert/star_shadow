@@ -1391,24 +1391,24 @@ for root, dirs, files in os.walk(os.path.join(syn_dir, 'simulations_cole')):
             files_sc.append(os.path.join(root, file))
 
 def analyse_parallel(file):
-    target_id = file[68:71]  # extract the number (Cole)
+    target_id = file[68:74]  # extract the number (Cole)
     # target_id = file[65:67]  # extract the number (Andrej)
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
     out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
-                                   save_dir=file[:64], verbose=False, plot=False)
+                                   save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
     # if output None, stop
     if (out_a[0][0] != None):
-        out_b = tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, data_id='blind_ecc_Cole',
-                                     save_dir=file[:64], verbose=False, plot=False, overwrite_old=True)
-        out_c = tsf.pulsation_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
-                                       save_dir=file[:64], verbose=False, plot=False, overwrite_old=True)
+        tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, data_id='blind_ecc_Cole',
+                             save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
+        tsf.pulsation_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
+                               save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
     return
 
 # plotting in series
 for file in files_lc:
-    target_id = file[68:71]  # extract the number (Cole)
+    target_id = file[68:74]  # extract the number (Cole)
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
@@ -1419,7 +1419,7 @@ pool.map(analyse_parallel, np.array(files_lc))
 # find out where they got
 n_all = []
 for file in all_files:
-    tic = file[68:71]  # extract the number (Cole)
+    tic = file[68:74]  # extract the number (Cole)
     data_dir = os.path.join(file[:64], f'tic_{tic}_analysis')
     if os.path.isfile(os.path.join(file[:64], f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')):
         n = '13'
@@ -1452,6 +1452,9 @@ for file in all_files:
     n_all.append(n)
 np.savetxt(os.path.join(file[:64], 'stage_finished'), np.column_stack(([file[64:] for file in all_files], n_all)), fmt='%s %s')
 
+# (but also first make a document outlining what goes wrong)
+# todo: use the first 20 harmonics for initial positions, prewhiten out-of-eclipse harmonic variability,
+# todo: subtract from full harmonics (except perhaps the lowest f?), have disentangled harmonics for new position measurement
 """Not enough eclipses (not even full period): 04, 05, 06, 08, 09, 10, 13
 slightly more than a period but no 2 eclipses of each (p and s): 07, 11, 12
 """
