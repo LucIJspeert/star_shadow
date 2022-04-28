@@ -1414,7 +1414,7 @@ for file in files_lc:
     i_half_s = np.array([[0, len(times)]])
     ut.sequential_plotting(target_id, times, signal, i_half_s, file[:64])
 
-pool = mp.Pool(14)
+pool = mp.Pool(12)
 pool.map(analyse_parallel, np.array(files_lc))
 # find out where they got
 n_all = []

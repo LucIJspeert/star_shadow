@@ -757,7 +757,7 @@ def measure_harmonic_depths(p_orb, f_n, a_n, ph_n, t_zero, t_1, t_2, t_1_1, t_1_
     return depth_1, depth_2
 
 
-def measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level):
+def measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level, use_low_h=False):
     """Determine the eclipse midpoints, depths and widths from the derivatives
     of the harmonic model.
     
@@ -773,6 +773,9 @@ def measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level):
         Corresponding phases of the sinusoids
     noise_level: float
         The noise level (standard deviation of the residuals)
+    use_low_h: bool
+        To avoid interference of variability at orbital harmonic
+        frequencies (sacrificing some accuracy), set this to True.
     
     Returns
     -------
@@ -806,7 +809,11 @@ def measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level):
     harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p_orb)
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
-    model_h = tsf.sum_sines(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+    if use_low_h:
+        h_mask = (harmonic_n < 20)
+        model_h = tsf.sum_sines(t_model, f_n[harmonics[h_mask]], a_n[harmonics[h_mask]], ph_n[harmonics[h_mask]])
+    else:
+        model_h = tsf.sum_sines(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     # the following code utilises a similar idea to find the eclipses as ECLIPSR (except waaay simpler)
     deriv_1 = tsf.sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
     deriv_2 = tsf.sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=2)

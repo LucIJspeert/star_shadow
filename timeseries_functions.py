@@ -2648,6 +2648,78 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., data_id=None, sa
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
+def eclipse_analysis_s9(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level_8, save_dir):
+    """"""
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    if os.path.isfile(file_name) & (not overwrite_old) & (save_dir is not None):
+        t_zero, timings, depths, t_bottoms, timing_errs, depths_err = ut.read_results_9(tic, save_dir)
+        if verbose:
+            print(f'Step 9: Loaded existing results')
+    else:
+        if verbose:
+            print(f'Step 9: Measuring eclipse time points and depths.')
+        t_9a = time.time()
+        # deepest eclipse is put first in each measurement
+        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, use_low_h=True)
+        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = out_9
+        # measurements of the first/last contact points
+        t_1_1, t_1_2, t_2_1, t_2_2 = t_contacts
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
+        timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
+        bottom_dur = np.array([t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1])
+        # define some errors (tau_1_1 error equals t_1_1 error - approximately)
+        tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]
+        t_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + p_err_8**2) / 3  # this is an estimate
+        t_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2 + p_err_8**2) / 3  # this is an estimate
+        timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
+        bottom_dur_err = np.array([4/3*tau_1_1_err, 4/3*tau_1_2_err])
+        # depth errors from the noise levels at contact points and bottom of eclipse
+        # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
+        depths_err = np.array([np.sqrt(3/2 * noise_level_8**2), np.sqrt(3/2 * noise_level_8**2)])
+        t_9b = time.time()
+        if save_dir is not None:
+            _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
+    # convert to durations
+    tau_1_1 = timings[0] - timings[2]  # t_1 - t_1_1
+    tau_1_2 = timings[3] - timings[0]  # t_1_2 - t_1
+    tau_2_1 = timings[1] - timings[4]  # t_2 - t_2_1
+    tau_2_2 = timings[5] - timings[1]  # t_2_2 - t_2
+    timings_tau = np.array([timings[0], timings[1], tau_1_1, tau_1_2, tau_2_1, tau_2_2])
+    if verbose:
+        # determine decimals to print for two significant figures
+        rnd_p_orb = max(ut.decimal_figures(p_err_8, 2), ut.decimal_figures(p_orb_8, 2))
+        rnd_t_zero = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(t_zero, 2))
+        rnd_t_1 = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(timings[0], 2))
+        rnd_t_2 = max(ut.decimal_figures(timing_errs[1], 2), ut.decimal_figures(timings[1], 2))
+        rnd_t_1_1 = max(ut.decimal_figures(timing_errs[2], 2), ut.decimal_figures(timings[2], 2))
+        rnd_t_1_2 = max(ut.decimal_figures(timing_errs[3], 2), ut.decimal_figures(timings[3], 2))
+        rnd_t_2_1 = max(ut.decimal_figures(timing_errs[4], 2), ut.decimal_figures(timings[4], 2))
+        rnd_t_2_2 = max(ut.decimal_figures(timing_errs[5], 2), ut.decimal_figures(timings[5], 2))
+        rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
+        rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths[1], 2))
+        rnd_bot_1 = max(ut.decimal_figures(bottom_dur_err[0], 2), ut.decimal_figures(bottom_dur[0], 2))
+        rnd_bot_2 = max(ut.decimal_figures(bottom_dur_err[1], 2), ut.decimal_figures(bottom_dur[1], 2))
+        print(f'\033[1;32;48mMeasurements of timings and depths:\033[0m')
+        print(f'\033[0;32;48mp_orb: {p_orb_8:.{rnd_p_orb}f} (+-{p_err_8:.{rnd_t_1}f}), '
+              f't_zero: {t_zero:.{rnd_t_zero}f} (+-{timing_errs[0]:.{rnd_t_zero}f}), \n'
+              f't_1: {timings[0]:.{rnd_t_1}f} (+-{timing_errs[0]:.{rnd_t_1}f}), '
+              f't_2: {timings[1]:.{rnd_t_2}f} (+-{timing_errs[1]:.{rnd_t_2}f}), \n'
+              f't_1_1: {timings[2]:.{rnd_t_1_1}f}, tau_1_1: {tau_1_1:.{rnd_t_1_1}f}, '
+              f'(+-{timing_errs[2]:.{rnd_t_1_1}f}), \n'
+              f't_1_2: {timings[3]:.{rnd_t_1_2}f}, tau_1_2: {tau_1_2:.{rnd_t_1_2}f}, '
+              f'(+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
+              f't_2_1: {timings[4]:.{rnd_t_2_1}f}, tau_2_1: {tau_2_1:.{rnd_t_2_1}f}, '
+              f'(+-{timing_errs[4]:.{rnd_t_2_1}f}), \n'
+              f't_2_2: {timings[5]:.{rnd_t_2_2}f}, tau_2_2: {tau_2_2:.{rnd_t_2_2}f}, '
+              f'(+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
+              f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
+              f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
+              f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
+              f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
+              f'Time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
+    return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err
+
+
 def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, save_dir=None, verbose=False, plot=False,
                      overwrite_old=False):
     """Part two of analysis recipe for analysis of EB light curves,
@@ -2696,8 +2768,92 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
     p_orb_8 = p_orb_8[0]  # must be a float
     p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
     n_param_8, bic_8, noise_level_8 = stats
+    # ---------------------------------------
+    # [9] --- Eclipse initial eclipse timings
+    # ---------------------------------------
+
     # ----------------------------------
-    # [9] --- Eclipse timings and depths
+    # [9.1] --- Eclipse timings and depths
+    # ----------------------------------
+    file_name_9 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    if os.path.isfile(file_name_9) & (not overwrite_old) & (save_dir is not None):
+        results_9 = np.loadtxt(file_name_9, usecols=(1,), delimiter=',', unpack=True)
+        # t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = results_9[:13]
+        # t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = results_9[13:]
+        # # put these into some arrays
+        # depths = np.array([depth_1, depth_2])
+        # t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+        # tau_1_1 = t_1 - t_1_1
+        # tau_1_2 = t_1_2 - t_1
+        # tau_2_1 = t_2 - t_2_1
+        # tau_2_2 = t_2_2 - t_2
+        # timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
+        # timings_tau = (t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2)
+        # bottom_dur = (t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1)
+        # timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
+        # depths_err = np.array([d_1_err, d_2_err])
+        if verbose:
+            print(f'Step 9: Loaded existing results\n')
+    else:
+        if verbose:
+            print(f'Step 9: Measuring eclipse time points and depths.')
+        t_9a = time.time()
+        # deepest eclipse is put first in each measurement
+        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8)
+        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = out_9
+        # measurements of the first/last contact points
+        t_1_1, t_1_2, t_2_1, t_2_2 = t_contacts
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
+        # convert to durations
+        tau_1_1 = t_1 - t_1_1
+        tau_1_2 = t_1_2 - t_1
+        tau_2_1 = t_2 - t_2_1
+        tau_2_2 = t_2_2 - t_2
+        timings = (t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
+        timings_tau = (t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2)
+        bottom_dur = (t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1)
+        # define some errors (tau_1_1 error equals t_1_1 error - approximately)
+        tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]
+        t_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + p_err_8**2) / 3  # this is an estimate
+        t_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2 + p_err_8**2) / 3  # this is an estimate
+        timing_errs = (t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err)
+        bottom_dur_err = (4/3*tau_1_1_err, 4/3*tau_1_2_err)
+        # depth errors from the noise levels at contact points and bottom of eclipse
+        # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
+        depths_err = np.array([np.sqrt(3/2 * noise_level_8**2), np.sqrt(3/2 * noise_level_8**2)])
+        t_9b = time.time()
+        if verbose:
+            # determine decimals to print for two significant figures
+            rnd_p_orb = max(ut.decimal_figures(p_err_8, 2), ut.decimal_figures(p_orb_8, 2))
+            rnd_t_zero = max(ut.decimal_figures(t_1_err, 2), ut.decimal_figures(t_zero, 2))
+            rnd_t_1 = max(ut.decimal_figures(t_1_err, 2), ut.decimal_figures(t_1, 2))
+            rnd_t_2 = max(ut.decimal_figures(t_2_err, 2), ut.decimal_figures(t_2, 2))
+            rnd_t_1_1 = max(ut.decimal_figures(tau_1_1_err, 2), ut.decimal_figures(t_1_1, 2))
+            rnd_t_1_2 = max(ut.decimal_figures(tau_1_2_err, 2), ut.decimal_figures(t_1_2, 2))
+            rnd_t_2_1 = max(ut.decimal_figures(tau_2_1_err, 2), ut.decimal_figures(t_2_1, 2))
+            rnd_t_2_2 = max(ut.decimal_figures(tau_2_2_err, 2), ut.decimal_figures(t_2_2, 2))
+            rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
+            rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths[1], 2))
+            rnd_bot_1 = max(ut.decimal_figures(bottom_dur_err[0], 2), ut.decimal_figures(bottom_dur[0], 2))
+            rnd_bot_2 = max(ut.decimal_figures(bottom_dur_err[1], 2), ut.decimal_figures(bottom_dur[1], 2))
+            print(f'\033[1;32;48mMeasurements of timings and depths complete.\033[0m')
+            print(f'\033[0;32;48mp_orb: {p_orb_8:.{rnd_p_orb}f} (+-{p_err_8:.{rnd_t_1}f}), '
+                  f't_zero: {t_zero:.{rnd_t_zero}f} (+-{t_1_err:.{rnd_t_zero}f}), \n'
+                  f't_1: {t_1:.{rnd_t_1}f} (+-{t_1_err:.{rnd_t_1}f}), '
+                  f't_2: {t_2:.{rnd_t_2}f} (+-{t_2_err:.{rnd_t_2}f}), \n'
+                  f't_1_1: {t_1_1:.{rnd_t_1_1}f}, tau_1_1: {tau_1_1:.{rnd_t_1_1}f}, (+-{tau_1_1_err:.{rnd_t_1_1}f}), \n'
+                  f't_1_2: {t_1_2:.{rnd_t_1_2}f}, tau_1_2: {tau_1_2:.{rnd_t_1_2}f}, (+-{tau_1_2_err:.{rnd_t_1_2}f}), \n'
+                  f't_2_1: {t_2_1:.{rnd_t_2_1}f}, tau_2_1: {tau_2_1:.{rnd_t_2_1}f}, (+-{tau_2_1_err:.{rnd_t_2_1}f}), \n'
+                  f't_2_2: {t_2_2:.{rnd_t_2_2}f}, tau_2_2: {tau_2_2:.{rnd_t_2_2}f}, (+-{tau_2_2_err:.{rnd_t_2_2}f}), \n'
+                  f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
+                  f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
+                  f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
+                  f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
+                  f'Time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
+        if save_dir is not None:
+            _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
+    # ----------------------------------
+    # [9.5] --- Eclipse timings and depths
     # ----------------------------------
     file_name_9 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
     if os.path.isfile(file_name_9) & (not overwrite_old) & (save_dir is not None):
@@ -2723,7 +2879,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
             print(f'Step 9: Measuring eclipse time points and depths.')
         t_9a = time.time()
         # deepest eclipse is put first in each measurement
-        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8)
+        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, use_low_h=False)
         t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = out_9
         # measurements of the first/last contact points
         t_1_1, t_1_2, t_2_1, t_2_2 = t_contacts

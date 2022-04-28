@@ -447,6 +447,27 @@ def save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_
     return table
 
 
+def read_results_9(tic, save_dir):
+    """Read in the results of step 9 of the analysis"""
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = results[:13]
+    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = results[13:]
+    # put these into some arrays
+    depths = np.array([depth_1, depth_2])
+    t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+    tau_1_1 = t_1 - t_1_1
+    tau_1_2 = t_1_2 - t_1
+    tau_2_1 = t_2 - t_2_1
+    tau_2_2 = t_2_2 - t_2
+    timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
+    timings_tau = np.array([t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2])
+    bottom_dur = np.array([t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1])
+    timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
+    depths_err = np.array([d_1_err, d_2_err])
+    return t_zero, timings, depths, t_bottoms, timing_errs, depths_err
+
+
 def save_results_10(tic, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
                     formal_errors, dists_in, dists_out, save_dir, data_id=None):
     """Save the results of step 10 of the analysis"""
