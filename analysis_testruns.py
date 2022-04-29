@@ -1396,14 +1396,14 @@ def analyse_parallel(file):
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
-    out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
-                                   save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
+    out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
+                                   verbose=False, plot=False, overwrite_old=False)
     # if output None, stop
     if (out_a[0][0] != None):
-        tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, data_id='blind_ecc_Cole',
-                             save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
-        tsf.pulsation_analysis(target_id, times, signal, i_half_s, data_id='blind_ecc_Cole',
-                               save_dir=file[:64], verbose=False, plot=False, overwrite_old=False)
+        tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, save_dir=file[:64],
+                             data_id='blind_ecc_Cole', verbose=False, plot=False, overwrite_old=False)
+        tsf.pulsation_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
+                               verbose=False, plot=False, overwrite_old=False)
     return
 
 # plotting in series

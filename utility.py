@@ -409,7 +409,7 @@ def read_results(file_name, verbose=False):
     return results, errors, stats
 
 
-def save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id=None):
+def save_results_9_11(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, step, save_dir, data_id=None):
     """Save the results of step 9 of the analysis"""
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
@@ -439,7 +439,7 @@ def save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_
               str(t_1_err), str(t_2_err), str(tau_1_1_err), str(tau_1_2_err), str(tau_2_1_err), str(tau_2_2_err),
               str(d_1_err), str(d_2_err)]
     table = np.column_stack((var_names, values, var_desc))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_{step}.csv')
     file_id = f'TIC {tic}'
     description = '[9] Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
@@ -447,7 +447,7 @@ def save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_
     return table
 
 
-def read_results_9(tic, save_dir):
+def read_results_9_11(tic, step, save_dir):
     """Read in the results of step 9 of the analysis"""
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)

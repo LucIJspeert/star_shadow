@@ -177,6 +177,61 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
     return remove
 
 
+def subtract_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
+    """Analytically subtract a set of sine waves from another set
+     with equal freguencies
+     
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    f_n_1: numpy.ndarray[float]
+        Frequencies of the orbital harmonics, in per day
+    a_n_1: numpy.ndarray[float]
+        Corresponding amplitudes of the sinusoids
+    ph_n_1: numpy.ndarray[float]
+        Corresponding phases of the sinusoids
+    f_n_2: numpy.ndarray[float]
+        Frequencies of the orbital harmonics, in per day
+    a_n_2: numpy.ndarray[float]
+        Corresponding amplitudes of the sinusoids
+    ph_n_2: numpy.ndarray[float]
+        Corresponding phases of the sinusoids
+    
+    Returns
+    -------
+    f_n_3: numpy.ndarray[float]
+        Frequencies of the orbital harmonics, in per day
+    a_n_3: numpy.ndarray[float]
+        Corresponding amplitudes of the sinusoids
+    ph_n_3: numpy.ndarray[float]
+        Corresponding phases of the sinusoids
+
+    Notes
+    -----
+    Subtracts the sine waves in set 2 from the ones in set 1 by:
+    Asin(wt+a) - Bsin(wt+b) = sqrt((Acos(a) - Bcos(b))^2 + (Asin(a) - Bsin(b))^2)
+        * sin(wt + arctan((Asin(a) - Bsin(b))/(Acos(a) - Bcos(b)))
+    """# todo: test this function and jit it
+    h_1 = np.round(f_n_1 * p_orb)
+    h_2 = np.round(f_n_2 * p_orb)
+    h_3 = np.unique(np.append(h_1, h_2))
+    a_n_1_full = np.array([a_n_1[h_1 == n][0] if n in h_1 else 0 for n in h_3])
+    a_n_2_full = np.array([a_n_2[h_2 == n][0] if n in h_2 else 0 for n in h_3])
+    ph_n_1_full = np.array([ph_n_1[h_1 == n][0] if n in h_1 else 0 for n in h_3])
+    ph_n_2_full = np.array([ph_n_2[h_2 == n][0] if n in h_2 else 0 for n in h_3])
+    # duplicate terms
+    cos_term = (a_n_1_full * np.cos(ph_n_1_full) - a_n_2_full * np.cos(ph_n_2_full))
+    sin_term = (a_n_1_full * np.sin(ph_n_1_full) - a_n_2_full * np.sin(ph_n_2_full))
+    # frequency of the new sine waves
+    f_n_3 = h_3 / p_orb
+    # amplitude of new sine wave
+    a_n_3 = np.sqrt(cos_term ^ 2 + sin_term ^ 2)
+    # phase of new sine wave
+    ph_n_3 = np.arctan2(sin_term, cos_term)
+    return f_n_3, a_n_3, ph_n_3
+
+
 @nb.njit()
 def find_harmonics(f_n, f_n_err, p_orb, sigma=1.):
     """Find the orbital harmonics from a set of frequencies, given the orbital period.

@@ -133,7 +133,7 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     
     Returns
@@ -1138,11 +1138,11 @@ def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sector
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1235,11 +1235,11 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1432,11 +1432,11 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1540,11 +1540,11 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1627,8 +1627,110 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     return const, slope, f_n, a_n, ph_n
 
 
+def extract_ooe_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, i_sectors, timings,
+                          verbose=False):
+    """Tries to extract harmonics from the signal after masking the eclipses
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    p_orb: float
+        The orbital period
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    const_r: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+
+    Notes
+    -----
+    Looks for harmonics in the out-of-eclipse signal and checks whether
+    adding them decreases the BIC sufficiently (by more than 2).
+    Assumes the harmonics are fixed multiples of 1/p_orb.
+    """
+    # mask the eclipses
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_folded = (times - t_zero) % p_orb
+    mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < p_orb - t_1_1))
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_line
+    # make a list of not-present possible harmonics
+    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
+    h_candidate = np.arange(1, p_orb * f_max, dtype=int)
+    # initial residuals
+    resid_orig = ecl_signal[mask_ecl]
+    resid_orig_mean = np.mean(resid_orig)  # mean difference between the ellc model and harmonics
+    resid_orig = resid_orig - resid_orig_mean
+    resid = np.copy(resid_orig)
+    f_n_r, a_n_r, ph_n_r = np.array([[], [], []])
+    n_param_orig = 1  # just the mean of the residual
+    bic_prev = calc_bic(resid, n_param_orig)
+    # loop over candidates and try to extract
+    n_accepted = 0
+    for h_c in h_candidate:
+        f_c = h_c / p_orb
+        a_c = scargle_ampl_single(times, resid, f_c)
+        ph_c = scargle_phase_single(times, resid, f_c)
+        # make sure the phase stays within + and - pi
+        ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi
+        # add to temporary parameters
+        f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_r, f_c), np.append(a_n_r, a_c), np.append(ph_n_r, ph_c)
+        # determine new BIC and whether it improved
+        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
+        resid = resid_orig - model - np.mean(resid_orig - model)
+        n_param = n_param_orig + 2 * (n_accepted + 1)
+        bic = calc_bic(resid, n_param)
+        if (np.round(bic_prev - bic, 2) > 2):
+            # h_c is accepted, add it to the final list and continue
+            bic_prev = bic
+            f_n_r, a_n_r, ph_n_r = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
+            n_accepted += 1
+            if verbose:
+                print(f'Succesfully extracted harmonic {h_c}, BIC= {bic:1.2f}')
+        else:
+            # h_c is rejected, revert to previous residual
+            model = sum_sines(times, f_n_r, a_n_r, ph_n_r)  # the sinusoid part of the model
+            resid = resid_orig - model - np.mean(resid_orig - model)
+    const_r = np.mean(resid_orig - model) + resid_orig_mean  # return constant for last model plus initial diff
+    return const_r, f_n_r, a_n_r, ph_n_r
+
+
 def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, i_sectors, ellc_par,
-                               timings, verbose=False):
+                               verbose=False):
     """Tries to extract harmonics from the signal after subtraction of
     an eclipse model
     
@@ -1646,11 +1748,11 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1743,11 +1845,11 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -1884,11 +1986,11 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -2083,11 +2185,11 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n: list[float], numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
@@ -2149,7 +2251,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., data_id=None, save_dir=None, verbose=False, plot=False,
+def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., save_dir=None, data_id=None, verbose=False, plot=False,
                        overwrite_old=False):
     """Recipe for analysis of EB light curves.
     
@@ -2172,12 +2274,12 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., data_id=None, sa
         The orbital period
         if the orbital period is known with certainty beforehand, it can
         be provided as initial value and no new period will be searched.
+    save_dir: str, None
+        Path to a directory for save the results. Also used to load
+        previous analysis results. If None, nothing is saved and the
+        loading of previous results is attempted from a relative path.
     data_id: int, str, None
         Identification for the dataset used
-    save_dir: str, None
-        Path to a directory for save the results. More information
-        is saved than is returned by this function.
-        Set None to save nothing.
     verbose: bool
         If set to True, this function will print some information
     overwrite_old: bool
@@ -2648,43 +2750,167 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb=0., data_id=None, sa
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_analysis_s9(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level_8, save_dir):
-    """"""
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+def eclipse_analysis_s9(tic, p_orb, f_n, a_n, ph_n, p_err, noise_level, use_low_h=False, save_dir=None, data_id=None,
+                        verbose=False, overwrite_old=False):
+    """Takes the output of the frequency analysis and finds the position
+    of the eclipses using the orbital harmonics
+    
+    Parameters
+    ----------
+    tic: int
+        The TESS Input Catalog number for later reference
+        Use any number as reference if not available.
+    p_orb: float
+        The orbital period
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    p_err: float
+        Error in the orbital period
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    use_low_h: bool
+        To avoid interference of variability at orbital harmonic
+        frequencies (sacrificing some accuracy), set this to True.
+    save_dir: str, None
+        Path to a directory for save the results. Also used to load
+        previous analysis results. If None, nothing is saved and the
+        loading of previous results is attempted from a relative path.
+    data_id: int, str, None
+        Identification for the dataset used
+    verbose: bool
+        If set to True, this function will print some information
+    overwrite_old: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    
+    Returns
+    -------
+    t_zero: float
+            Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    timings_tau: numpy.ndarray[float]
+        Eclipse timings of minima and durations from/to first/last contact,
+        t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    t_bottoms: numpy.ndarray[float]
+        Eclipse timings of the possible flat bottom (internal tangency)
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timing_errs: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
+        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
+    
+    Notes
+    -----
+    If use_low_h=True, only the first twenty orbital harmonics are used to avoid
+    interference from other higher frequency variability at the harmonic frequencies.
+    use_low_h=True is for step 9, use_low_h=False is for step 11.
+    """
+    t_a = time.time()
+    if use_low_h:
+        step = 9
+    else:
+        step = 11
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_{step}.csv')
     if os.path.isfile(file_name) & (not overwrite_old) & (save_dir is not None):
-        t_zero, timings, depths, t_bottoms, timing_errs, depths_err = ut.read_results_9(tic, save_dir)
         if verbose:
-            print(f'Step 9: Loaded existing results')
+            print(f'Step 9: Loading existing results')
+        t_zero, timings, depths, t_bottoms, timing_errs, depths_err = ut.read_results_9_11(tic, step, save_dir)
+        bottom_dur = np.array([t_bottoms[1] - t_bottoms[0], t_bottoms[3] - t_bottoms[2]])
+        bottom_dur_err = np.array([4/3*t_i_1_err[0], 4/3*t_i_1_err[1]])
     else:
         if verbose:
             print(f'Step 9: Measuring eclipse time points and depths.')
-        t_9a = time.time()
         # deepest eclipse is put first in each measurement
-        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, use_low_h=True)
-        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = out_9
-        # measurements of the first/last contact points
-        t_1_1, t_1_2, t_2_1, t_2_2 = t_contacts
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
-        timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
-        bottom_dur = np.array([t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1])
+        output = af.measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level, use_low_h=use_low_h)
+        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = output
+        # minima and first/last contact points. t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        timings = np.array([t_1, t_2, t_contacts[0], t_contacts[1], t_contacts[2], t_contacts[3]])
+        # t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
+        bottom_dur = np.array([t_bottoms[1] - t_bottoms[0], t_bottoms[3] - t_bottoms[2]])
         # define some errors (tau_1_1 error equals t_1_1 error - approximately)
         tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]
-        t_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + p_err_8**2) / 3  # this is an estimate
-        t_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2 + p_err_8**2) / 3  # this is an estimate
+        t_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + p_err**2) / 3  # this is an estimate
+        t_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2 + p_err**2) / 3  # this is an estimate
         timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
-        bottom_dur_err = np.array([4/3*tau_1_1_err, 4/3*tau_1_2_err])
+        bottom_dur_err = np.array([4/3*tau_1_1_err, 4/3*tau_2_1_err])
         # depth errors from the noise levels at contact points and bottom of eclipse
         # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
-        depths_err = np.array([np.sqrt(3/2 * noise_level_8**2), np.sqrt(3/2 * noise_level_8**2)])
-        t_9b = time.time()
+        depths_err = np.array([np.sqrt(3 / 2 * noise_level**2), np.sqrt(3 / 2 * noise_level**2)])
         if save_dir is not None:
-            _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
+            _ = ut.save_results_9_11(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
+                                     step, save_dir, data_id)
     # convert to durations
     tau_1_1 = timings[0] - timings[2]  # t_1 - t_1_1
     tau_1_2 = timings[3] - timings[0]  # t_1_2 - t_1
     tau_2_1 = timings[1] - timings[4]  # t_2 - t_2_1
     tau_2_2 = timings[5] - timings[1]  # t_2_2 - t_2
     timings_tau = np.array([timings[0], timings[1], tau_1_1, tau_1_2, tau_2_1, tau_2_2])
+    t_b = time.time()
+    if verbose:
+        # determine decimals to print for two significant figures
+        rnd_p_orb = max(ut.decimal_figures(p_err, 2), ut.decimal_figures(p_orb, 2))
+        rnd_t_zero = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(t_zero, 2))
+        rnd_t_1 = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(timings[0], 2))
+        rnd_t_2 = max(ut.decimal_figures(timing_errs[1], 2), ut.decimal_figures(timings[1], 2))
+        rnd_t_1_1 = max(ut.decimal_figures(timing_errs[2], 2), ut.decimal_figures(timings[2], 2))
+        rnd_t_1_2 = max(ut.decimal_figures(timing_errs[3], 2), ut.decimal_figures(timings[3], 2))
+        rnd_t_2_1 = max(ut.decimal_figures(timing_errs[4], 2), ut.decimal_figures(timings[4], 2))
+        rnd_t_2_2 = max(ut.decimal_figures(timing_errs[5], 2), ut.decimal_figures(timings[5], 2))
+        rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
+        rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths[1], 2))
+        rnd_bot_1 = max(ut.decimal_figures(bottom_dur_err[0], 2), ut.decimal_figures(bottom_dur[0], 2))
+        rnd_bot_2 = max(ut.decimal_figures(bottom_dur_err[1], 2), ut.decimal_figures(bottom_dur[1], 2))
+        print(f'\033[1;32;48mMeasurements of timings and depths:\033[0m')
+        print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_t_1}f}), '
+              f't_zero: {t_zero:.{rnd_t_zero}f} (+-{timing_errs[0]:.{rnd_t_zero}f}), \n'
+              f't_1: {timings[0]:.{rnd_t_1}f} (+-{timing_errs[0]:.{rnd_t_1}f}), '
+              f't_2: {timings[1]:.{rnd_t_2}f} (+-{timing_errs[1]:.{rnd_t_2}f}), \n'
+              f't_1_1: {timings[2]:.{rnd_t_1_1}f}, tau_1_1: {tau_1_1:.{rnd_t_1_1}f}, '
+              f'(+-{timing_errs[2]:.{rnd_t_1_1}f}), \n'
+              f't_1_2: {timings[3]:.{rnd_t_1_2}f}, tau_1_2: {tau_1_2:.{rnd_t_1_2}f}, '
+              f'(+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
+              f't_2_1: {timings[4]:.{rnd_t_2_1}f}, tau_2_1: {tau_2_1:.{rnd_t_2_1}f}, '
+              f'(+-{timing_errs[4]:.{rnd_t_2_1}f}), \n'
+              f't_2_2: {timings[5]:.{rnd_t_2_2}f}, tau_2_2: {tau_2_2:.{rnd_t_2_2}f}, '
+              f'(+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
+              f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
+              f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
+              f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
+              f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err
+
+
+def eclipse_analysis_s10(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level_8, timings, save_dir=None, data_id=None,
+                         verbose=False, overwrite_old=False):
+    """"""
+    t_a = time.time()
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
+    if os.path.isfile(file_name) & (not overwrite_old) & (save_dir is not None):
+        if verbose:
+            print(f'Step 10: Loading existing results')
+        t_zero, timings, depths, t_bottoms, timing_errs, depths_err = ut.read_results_9(tic, save_dir)
+    else:
+        if verbose:
+            print(f'Step 10: Measuring eclipse time points and depths.')
+        output = extract_ooe_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, i_sectors, timings,
+                                       verbose=False)
+        const_r, f_n_r, a_n_r, ph_n_r = output
+        
+        
+        if save_dir is not None:
+            _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
+    t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
         rnd_p_orb = max(ut.decimal_figures(p_err_8, 2), ut.decimal_figures(p_orb_8, 2))
@@ -2716,11 +2942,11 @@ def eclipse_analysis_s9(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level
               f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
               f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
               f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
-              f'Time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err
 
 
-def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, save_dir=None, verbose=False, plot=False,
+def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir=None, data_id=None, verbose=False, plot=False,
                      overwrite_old=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
@@ -2742,12 +2968,12 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
-    data_id: int, str, None
-        Identification for the dataset used
     save_dir: str, None
         Path to a directory for save the results. Also used to load
         previous analysis results. If None, nothing is saved and the
         loading of previous results is attempted from a relative path.
+    data_id: int, str, None
+        Identification for the dataset used
     verbose: bool
         If set to True, this function will print some information
     overwrite_old: bool
@@ -2771,9 +2997,11 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
     # ---------------------------------------
     # [9] --- Eclipse initial eclipse timings
     # ---------------------------------------
-
+    out_9 = eclipse_analysis_s9(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level_8, use_low_h=True,
+                                save_dir=save_dir, data_id=data_id, verbose=verbose, overwrite_old=overwrite_old)
+    t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = out_9
     # ----------------------------------
-    # [9.1] --- Eclipse timings and depths
+    # [10] --- Eclipse timings and depths
     # ----------------------------------
     file_name_9 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
     if os.path.isfile(file_name_9) & (not overwrite_old) & (save_dir is not None):
@@ -2852,86 +3080,13 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
                   f'Time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
         if save_dir is not None:
             _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
-    # ----------------------------------
-    # [9.5] --- Eclipse timings and depths
-    # ----------------------------------
-    file_name_9 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    if os.path.isfile(file_name_9) & (not overwrite_old) & (save_dir is not None):
-        results_9 = np.loadtxt(file_name_9, usecols=(1,), delimiter=',', unpack=True)
-        t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = results_9[:13]
-        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = results_9[13:]
-        # put these into some arrays
-        depths = np.array([depth_1, depth_2])
-        t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
-        tau_1_1 = t_1 - t_1_1
-        tau_1_2 = t_1_2 - t_1
-        tau_2_1 = t_2 - t_2_1
-        tau_2_2 = t_2_2 - t_2
-        timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
-        timings_tau = (t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2)
-        bottom_dur = (t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1)
-        timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
-        depths_err = np.array([d_1_err, d_2_err])
-        if verbose:
-            print(f'Step 9: Loaded existing results\n')
-    else:
-        if verbose:
-            print(f'Step 9: Measuring eclipse time points and depths.')
-        t_9a = time.time()
-        # deepest eclipse is put first in each measurement
-        out_9 = af.measure_eclipses_dt(p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, use_low_h=False)
-        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = out_9
-        # measurements of the first/last contact points
-        t_1_1, t_1_2, t_2_1, t_2_2 = t_contacts
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
-        # convert to durations
-        tau_1_1 = t_1 - t_1_1
-        tau_1_2 = t_1_2 - t_1
-        tau_2_1 = t_2 - t_2_1
-        tau_2_2 = t_2_2 - t_2
-        timings = (t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
-        timings_tau = (t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2)
-        bottom_dur = (t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1)
-        # define some errors (tau_1_1 error equals t_1_1 error - approximately)
-        tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]
-        t_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + p_err_8**2) / 3  # this is an estimate
-        t_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2 + p_err_8**2) / 3  # this is an estimate
-        timing_errs = (t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err)
-        bottom_dur_err = (4/3*tau_1_1_err, 4/3*tau_1_2_err)
-        # depth errors from the noise levels at contact points and bottom of eclipse
-        # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
-        depths_err = np.array([np.sqrt(3/2 * noise_level_8**2), np.sqrt(3/2 * noise_level_8**2)])
-        t_9b = time.time()
-        if verbose:
-            # determine decimals to print for two significant figures
-            rnd_p_orb = max(ut.decimal_figures(p_err_8, 2), ut.decimal_figures(p_orb_8, 2))
-            rnd_t_zero = max(ut.decimal_figures(t_1_err, 2), ut.decimal_figures(t_zero, 2))
-            rnd_t_1 = max(ut.decimal_figures(t_1_err, 2), ut.decimal_figures(t_1, 2))
-            rnd_t_2 = max(ut.decimal_figures(t_2_err, 2), ut.decimal_figures(t_2, 2))
-            rnd_t_1_1 = max(ut.decimal_figures(tau_1_1_err, 2), ut.decimal_figures(t_1_1, 2))
-            rnd_t_1_2 = max(ut.decimal_figures(tau_1_2_err, 2), ut.decimal_figures(t_1_2, 2))
-            rnd_t_2_1 = max(ut.decimal_figures(tau_2_1_err, 2), ut.decimal_figures(t_2_1, 2))
-            rnd_t_2_2 = max(ut.decimal_figures(tau_2_2_err, 2), ut.decimal_figures(t_2_2, 2))
-            rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
-            rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths[1], 2))
-            rnd_bot_1 = max(ut.decimal_figures(bottom_dur_err[0], 2), ut.decimal_figures(bottom_dur[0], 2))
-            rnd_bot_2 = max(ut.decimal_figures(bottom_dur_err[1], 2), ut.decimal_figures(bottom_dur[1], 2))
-            print(f'\033[1;32;48mMeasurements of timings and depths complete.\033[0m')
-            print(f'\033[0;32;48mp_orb: {p_orb_8:.{rnd_p_orb}f} (+-{p_err_8:.{rnd_t_1}f}), '
-                  f't_zero: {t_zero:.{rnd_t_zero}f} (+-{t_1_err:.{rnd_t_zero}f}), \n'
-                  f't_1: {t_1:.{rnd_t_1}f} (+-{t_1_err:.{rnd_t_1}f}), '
-                  f't_2: {t_2:.{rnd_t_2}f} (+-{t_2_err:.{rnd_t_2}f}), \n'
-                  f't_1_1: {t_1_1:.{rnd_t_1_1}f}, tau_1_1: {tau_1_1:.{rnd_t_1_1}f}, (+-{tau_1_1_err:.{rnd_t_1_1}f}), \n'
-                  f't_1_2: {t_1_2:.{rnd_t_1_2}f}, tau_1_2: {tau_1_2:.{rnd_t_1_2}f}, (+-{tau_1_2_err:.{rnd_t_1_2}f}), \n'
-                  f't_2_1: {t_2_1:.{rnd_t_2_1}f}, tau_2_1: {tau_2_1:.{rnd_t_2_1}f}, (+-{tau_2_1_err:.{rnd_t_2_1}f}), \n'
-                  f't_2_2: {t_2_2:.{rnd_t_2_2}f}, tau_2_2: {tau_2_2:.{rnd_t_2_2}f}, (+-{tau_2_2_err:.{rnd_t_2_2}f}), \n'
-                  f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
-                  f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
-                  f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
-                  f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
-                  f'Time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
-        if save_dir is not None:
-            _ = ut.save_results_9(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, save_dir, data_id)
+    # -----------------------------------
+    # [11] --- Eclipse timings and depths
+    # -----------------------------------
+    out_11 = eclipse_analysis_s9(tic, p_orb_8, f_n_8, a_n_8, ph_n_8, p_err_8, noise_level_8, use_low_h=False,
+                                save_dir=save_dir, data_id=data_id, verbose=verbose, overwrite_old=overwrite_old)
+    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11
+    
     # ------------------------------------------
     # [10] --- Determination of orbital elements
     # ------------------------------------------
@@ -3079,7 +3234,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, data_id=None, sa
     return
 
 
-def pulsation_analysis(tic, times, signal, i_sectors, data_id=None, save_dir=None, verbose=False, plot=False,
+def pulsation_analysis(tic, times, signal, i_sectors, save_dir=None, data_id=None, verbose=False, plot=False,
                        overwrite_old=False):
     """Part three of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis and eclipse_analysis
@@ -3099,12 +3254,12 @@ def pulsation_analysis(tic, times, signal, i_sectors, data_id=None, save_dir=Non
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
-    data_id: int, str, None
-        Identification for the dataset used
     save_dir: str, None
         Path to a directory for save the results. Also used to load
         previous analysis results. If None, nothing is saved and the
         loading of previous results is attempted from a relative path.
+    data_id: int, str, None
+        Identification for the dataset used
     verbose: bool
         If set to True, this function will print some information
     overwrite_old: bool
