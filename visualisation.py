@@ -386,6 +386,70 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     return
 
 
+def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                               const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors, save_file=None, show=True):
+    """Shows the separation of the harmonics froming the eclipses and the ones
+    forming the out-of-eclipse harmonic variability.
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    # plotting bounds
+    t_start = t_1_1
+    t_end = p_orb + t_1_2
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    t_model = np.arange(t_start, t_end, 0.001)
+    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+    model_ho = 1 + const_ho + tsf.sum_sines(t_model + t_zero, f_ho, a_ho, ph_ho)
+    model_ho_t = 1 + const_ho + tsf.sum_sines(times + t_zero, f_ho, a_ho, ph_ho)
+    model_he = 1 + tsf.sum_sines(t_model + t_zero, f_he, a_he, ph_he)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_ho_t - model_line + 1
+    # some plotting parameters and extension masks
+    s_minmax = np.array([np.min(signal), np.max(signal)])
+    folded = (times - t_zero) % p_orb
+    extend_l = (folded > p_orb + t_start)
+    extend_r = (folded < t_end - p_orb)
+    h_adjust = 1 - np.mean(signal)
+    # heights at minimum
+    h_1 = np.min(model_h[(t_model > t_1_1) & (t_model < t_1_2)])
+    h_2 = np.min(model_h[(t_model > t_2_1) & (t_model < t_2_2)])
+    # plot
+    fig, ax = plt.subplots(figsize=(16, 9))
+    print('1')
+    ax.scatter(folded, signal + h_adjust, marker='.', label='original folded signal')
+    ax.scatter(folded[extend_l] - p_orb, signal[extend_l] + h_adjust, marker='.', c='tab:blue')
+    ax.scatter(folded[extend_r] + p_orb, signal[extend_r] + h_adjust, marker='.', c='tab:blue')
+    print('2')
+    ax.scatter(folded, ecl_signal, marker='.', c='tab:orange',
+               label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
+    ax.scatter(folded[extend_l] - p_orb, ecl_signal[extend_l], marker='.', c='tab:orange')
+    ax.scatter(folded[extend_r] + p_orb, ecl_signal[extend_r], marker='.', c='tab:orange')
+    print('3')
+    ax.plot(t_model, model_h, '--', c='tab:green', label='harmonics')
+    ax.plot(t_model, model_ho, c='tab:red', label='o.o.e.-harmonics')
+    ax.plot(t_model, model_he, c='tab:purple', label='i.e.-harmonics')
+    ax.plot(t_model, model_ho + model_he, c='tab:brown', label='o.o.e. + i.e. harmonics')
+    print('4')
+    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges')
+    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
+    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:grey')
+    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:grey')
+    print('5')
+    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
+    ax.set_ylabel('normalised flux', fontsize=14)
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    if save_file is not None:
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return
+
+
 def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
                                       ecl_params, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination

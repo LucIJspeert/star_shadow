@@ -177,10 +177,50 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
     return remove
 
 
-def subtract_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
+@nb.njit()
+def subtract_sines(a_n_1, ph_n_1, a_n_2, ph_n_2):
     """Analytically subtract a set of sine waves from another set
      with equal freguencies
      
+    Parameters
+    ----------
+    a_n_1: numpy.ndarray[float]
+        Amplitudes of the sinusoids of set 1
+    ph_n_1: numpy.ndarray[float]
+        Phases of the sinusoids of set 1
+    a_n_2: numpy.ndarray[float]
+        Amplitudes of the sinusoids of set 2
+    ph_n_2: numpy.ndarray[float]
+        Phases of the sinusoids of set 2
+    
+    Returns
+    -------
+    a_n_3: numpy.ndarray[float]
+        Amplitudes of the resulting sinusoids
+    ph_n_3: numpy.ndarray[float]
+        Phases of the resulting sinusoids
+
+    Notes
+    -----
+    Subtracts the sine waves in set 2 from the ones in set 1 by:
+    Asin(wt+a) - Bsin(wt+b) = sqrt((Acos(a) - Bcos(b))^2 + (Asin(a) - Bsin(b))^2)
+        * sin(wt + arctan((Asin(a) - Bsin(b))/(Acos(a) - Bcos(b)))
+    """
+    # duplicate terms
+    cos_term = (a_n_1 * np.cos(ph_n_1) - a_n_2 * np.cos(ph_n_2))
+    sin_term = (a_n_1 * np.sin(ph_n_1) - a_n_2 * np.sin(ph_n_2))
+    # amplitude of new sine wave
+    a_n_3 = np.sqrt(cos_term**2 + sin_term**2)
+    # phase of new sine wave
+    ph_n_3 = np.arctan2(sin_term, cos_term)
+    return a_n_3, ph_n_3
+
+
+@nb.njit()
+def subtract_harmonic_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
+    """Analytically subtract a set of sine waves from another set
+     both containing harmonics of p_orb
+
     Parameters
     ----------
     p_orb: float
@@ -197,7 +237,7 @@ def subtract_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
         Corresponding amplitudes of the sinusoids
     ph_n_2: numpy.ndarray[float]
         Corresponding phases of the sinusoids
-    
+
     Returns
     -------
     f_n_3: numpy.ndarray[float]
@@ -206,29 +246,31 @@ def subtract_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
         Corresponding amplitudes of the sinusoids
     ph_n_3: numpy.ndarray[float]
         Corresponding phases of the sinusoids
-
-    Notes
-    -----
-    Subtracts the sine waves in set 2 from the ones in set 1 by:
-    Asin(wt+a) - Bsin(wt+b) = sqrt((Acos(a) - Bcos(b))^2 + (Asin(a) - Bsin(b))^2)
-        * sin(wt + arctan((Asin(a) - Bsin(b))/(Acos(a) - Bcos(b)))
-    """# todo: test this function and jit it
-    h_1 = np.round(f_n_1 * p_orb)
-    h_2 = np.round(f_n_2 * p_orb)
+    
+    See Also
+    --------
+    subtract_sines
+    """
+    # find the harmonics in each set
+    h_1 = np.zeros(len(f_n_1))
+    for i in range(len(f_n_1)):
+        h_1[i] = np.round(f_n_1[i] * p_orb)  # h_1 = np.round(f_n_1 * p_orb)
+    h_2 = np.zeros(len(f_n_2))
+    for i in range(len(f_n_1)):
+        h_2[i] = np.round(f_n_2[i] * p_orb)  # h_2 = np.round(f_n_2 * p_orb)
     h_3 = np.unique(np.append(h_1, h_2))
+    # organise in neat arrays following h_3
     a_n_1_full = np.array([a_n_1[h_1 == n][0] if n in h_1 else 0 for n in h_3])
     a_n_2_full = np.array([a_n_2[h_2 == n][0] if n in h_2 else 0 for n in h_3])
     ph_n_1_full = np.array([ph_n_1[h_1 == n][0] if n in h_1 else 0 for n in h_3])
     ph_n_2_full = np.array([ph_n_2[h_2 == n][0] if n in h_2 else 0 for n in h_3])
-    # duplicate terms
-    cos_term = (a_n_1_full * np.cos(ph_n_1_full) - a_n_2_full * np.cos(ph_n_2_full))
-    sin_term = (a_n_1_full * np.sin(ph_n_1_full) - a_n_2_full * np.sin(ph_n_2_full))
+    # subtract
+    a_n_3, ph_n_3 = subtract_sines(a_n_1_full, ph_n_1_full, a_n_2_full, ph_n_2_full)
     # frequency of the new sine waves
     f_n_3 = h_3 / p_orb
-    # amplitude of new sine wave
-    a_n_3 = np.sqrt(cos_term ^ 2 + sin_term ^ 2)
-    # phase of new sine wave
-    ph_n_3 = np.arctan2(sin_term, cos_term)
+    # select only non-zero amplitudes
+    non_zero = (a_n_3 > 0)
+    f_n_3, a_n_3, ph_n_3 = f_n_3[non_zero], a_n_3[non_zero], ph_n_3[non_zero]
     return f_n_3, a_n_3, ph_n_3
 
 
@@ -865,14 +907,14 @@ def measure_eclipses_dt(p_orb, f_n, a_n, ph_n, noise_level, use_low_h=False):
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
     if use_low_h:
-        h_mask = (harmonic_n < 20)
-        model_h = tsf.sum_sines(t_model, f_n[harmonics[h_mask]], a_n[harmonics[h_mask]], ph_n[harmonics[h_mask]])
+        h_to_use = harmonics[harmonic_n < 20]
     else:
-        model_h = tsf.sum_sines(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+        h_to_use = np.copy(harmonics)
+    model_h = tsf.sum_sines(t_model, f_n[h_to_use], a_n[h_to_use], ph_n[h_to_use])
     # the following code utilises a similar idea to find the eclipses as ECLIPSR (except waaay simpler)
-    deriv_1 = tsf.sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
-    deriv_2 = tsf.sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=2)
-    deriv_3 = tsf.sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=3)
+    deriv_1 = tsf.sum_sines_deriv(t_model, f_n[h_to_use], a_n[h_to_use], ph_n[h_to_use], deriv=1)
+    deriv_2 = tsf.sum_sines_deriv(t_model, f_n[h_to_use], a_n[h_to_use], ph_n[h_to_use], deriv=2)
+    deriv_3 = tsf.sum_sines_deriv(t_model, f_n[h_to_use], a_n[h_to_use], ph_n[h_to_use], deriv=3)
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
