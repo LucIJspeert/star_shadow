@@ -409,8 +409,8 @@ def read_results(file_name, verbose=False):
     return results, errors, stats
 
 
-def save_results_9_11(tic, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, step, save_dir, data_id=None):
-    """Save the results of step 9 of the analysis"""
+def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, file_name, data_id=None):
+    """Save the results of the eclipse timings"""
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
     t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
@@ -439,20 +439,18 @@ def save_results_9_11(tic, t_zero, timings, depths, t_bottoms, timing_errs, dept
               str(t_1_err), str(t_2_err), str(tau_1_1_err), str(tau_1_2_err), str(tau_2_1_err), str(tau_2_2_err),
               str(d_1_err), str(d_2_err)]
     table = np.column_stack((var_names, values, var_desc))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_{step}.csv')
-    file_id = f'TIC {tic}'
-    description = '[9] Eclipse timings and depths.'
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = 'Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
-    return table
+    return
 
 
-def read_results_9_11(tic, step, save_dir):
-    """Read in the results of step 9 of the analysis"""
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = results[:13]
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = results[13:]
+def read_results_timings(file_name):
+    """Read in the results of the eclipse timings"""
+    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[:13]
+    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = values[13:]
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
     t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
@@ -468,9 +466,60 @@ def read_results_9_11(tic, step, save_dir):
     return t_zero, timings, depths, t_bottoms, timing_errs, depths_err
 
 
-def save_results_10(tic, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
-                    formal_errors, dists_in, dists_out, save_dir, data_id=None):
-    """Save the results of step 10 of the analysis"""
+def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):
+    """Save the results of the harmonic separation"""
+    len_ho = len(f_ho)
+    len_he = len(f_he)
+    var_names = ['const_ho']
+    var_names.extend([f'f_{i + 1}o' for i in range(len_ho)])
+    var_names.extend([f'a_{i + 1}o' for i in range(len_ho)])
+    var_names.extend([f'ph_{i + 1}o' for i in range(len_ho)])
+    var_names.extend([f'f_{i + 1}e' for i in range(len_he)])
+    var_names.extend([f'a_{i + 1}e' for i in range(len_he)])
+    var_names.extend([f'ph_{i + 1}e' for i in range(len_he)])
+    var_desc = ['mean of the residual after subtraction of the o.o.e. harmonics']
+    var_desc.extend([f'frequency of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
+    var_desc.extend([f'amplitude of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
+    var_desc.extend([f'phase of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
+    var_desc.extend([f'frequency of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
+    var_desc.extend([f'amplitude of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
+    var_desc.extend([f'phase of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
+    values = [str(const_ho)]
+    values.extend([str(f_ho[i]) for i in range(len_ho)])
+    values.extend([str(a_ho[i]) for i in range(len_ho)])
+    values.extend([str(ph_ho[i]) for i in range(len_ho)])
+    values.extend([str(f_he[i]) for i in range(len_he)])
+    values.extend([str(a_he[i]) for i in range(len_he)])
+    values.extend([str(ph_he[i]) for i in range(len_he)])
+    table = np.column_stack((var_names, values, var_desc))
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = 'Eclipse timings and depths.'
+    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
+    return
+
+
+def read_results_hsep(file_name):
+    """Read in the results of the harmonic separation"""
+    var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', unpack=True)
+    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    # find out how many sinusoids
+    f_ho_names = var_names[np.char.startswith(var_names, 'f_') & np.char.endswith(var_names, 'o')]
+    len_ho = len(f_ho_names)
+    len_he = (len(var_names) - 1 - 3 * len_ho) // 3
+    const_ho = values[0]
+    f_ho = values[1:1 + len_ho]
+    a_ho = values[1 + len_ho:1 + 2 * len_ho]
+    ph_ho = values[1 + 2 * len_ho:1 + 3 * len_ho]
+    f_he = values[1 + 3 * len_ho:1 + 3 * len_ho + len_he]
+    a_he = values[1 + 3 * len_ho + len_he:1 + 3 * len_ho + 2 * len_he]
+    ph_he = values[1 + 3 * len_ho + 2 * len_he:1 + 3 * len_ho + 2 * len_he]
+    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
+
+
+def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
+                          formal_errors, dists_in, dists_out, file_name, data_id=None):
+    """Save the results of the determination of orbital elements"""
     e_err, w_err, i_err, phi_0_err, psi_0_err, r_sum_sma_err, r_dif_sma_err, r_ratio_err, sb_ratio_err = errors[:9]
     ecosw_err, esinw_err, f_c_err, f_s_err = errors[9:]
     e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
@@ -555,9 +604,8 @@ def save_results_10(tic, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, s
         var_desc_ext = ['second upper bound in w (hdi_prob=997)', 'second lower bound in w (hdi_prob=997)']
         values_ext = [str(w_bds_2[1]), str(w_bds_2[0])]
         table = np.vstack((table, np.column_stack((var_names_ext, var_desc_ext, values_ext))))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    file_id = f'TIC {tic}'
-    description = '[10] Determination of orbital elements.'
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = 'Determination of orbital elements.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save the distributions separately
@@ -565,14 +613,35 @@ def save_results_10(tic, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, s
     d_1_vals, d_2_vals, bot_1_vals, bot_2_vals = dists_in[6:]
     e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals = dists_out
     data = np.column_stack((*dists_in, *dists_out))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10_dists.csv')
-    description = '[10] Prior and posterior distributions (not MCMC).'
+    # file name just adds 'dists' at the end
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, 'dists' + fn_ext)
+    description = 'Prior and posterior distributions (not MCMC).'
     hdr = (f'{file_id}, {data_id}, {description}\n'
            + 't_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals, '
            + 'd_1_vals, d_2_vals, bot_1_vals, bot_2_vals, '
            + 'e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals')
-    np.savetxt(file_name, data, delimiter=',', header=hdr)
-    return table
+    np.savetxt(file_name_2, data, delimiter=',', header=hdr)
+    return
+
+
+def read_results_elements(file_name):
+    """Read in the results of step 10 of the analysis"""
+    results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results[:9]
+    errors = results[9:31].reshape((11, 2))
+    bounds = results[31:53].reshape((11, 2))
+    formal_errors = results[53:61]
+    # intervals_w  # ? for when the interval is disjoint
+    e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
+    ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
+    # distributions
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    all_dists = np.loadtxt(file_name.replace(fn_ext, 'dists' + fn_ext), delimiter=',', unpack=True)
+    dists_in = all_dists[:10]
+    dists_out = all_dists[10:]
+    return (e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, bounds, formal_errors,
+            dists_in, dists_out)
 
 
 def save_results_11(tic, par_init, par_fit, save_dir, data_id=None):

@@ -987,7 +987,7 @@ BIC in fit convergence message above invalid. Actual BIC: -10043.74
 Fit complete. 60 frequencies, 184 free parameters. BIC: -10043.74
 time taken: 287.70
 """
-out_8 = af.measure_eclipses_dt(p_orb_7, f_n_7, a_n_7, ph_n_7)
+out_8 = af.measure_eclipses_dt(p_orb_7, f_n_7, a_n_7, ph_n_7, )
 t_zero, ecl_min, ecl_mid, depths, widths, ratios = out_8  # deepest eclipse is put first
 # measure the first/last contact points
 t_1, t_2 = ecl_min[0], ecl_min[1]
@@ -1397,7 +1397,7 @@ def analyse_parallel(file):
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
     out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
-                                   verbose=False, plot=False, overwrite_old=False)
+                                   overwrite=False, plot=False, verbose=False)
     # if output None, stop
     if (out_a[0][0] != None):
         tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, save_dir=file[:64],
