@@ -846,7 +846,7 @@ def measure_harmonic_depths(f_n_h, a_n_h, ph_n_h, t_zero, t_1, t_2, t_1_1, t_1_2
     return depth_1, depth_2
 
 
-def measure_eclipses_dt(p_orb, f_n_h, a_n_h, ph_n_h, noise_level):
+def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     """Determine the eclipse midpoints, depths and widths from the derivatives
     of the harmonic model.
     
@@ -854,11 +854,11 @@ def measure_eclipses_dt(p_orb, f_n_h, a_n_h, ph_n_h, noise_level):
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    f_n_h: numpy.ndarray[float]
+    f_h: numpy.ndarray[float]
         Frequencies containing the orbital harmonics, in per day
-    a_n_h: numpy.ndarray[float]
+    a_h: numpy.ndarray[float]
         Corresponding amplitudes of the sinusoids
-    ph_n_h: numpy.ndarray[float]
+    ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
     noise_level: float
         The noise level (standard deviation of the residuals)
@@ -885,21 +885,22 @@ def measure_eclipses_dt(p_orb, f_n_h, a_n_h, ph_n_h, noise_level):
         Measurement error estimates of the first contact(s)
     t_i_2_err: numpy.ndarray[float]
         Measurement error estimates of the last contact(s)
+    ecl_indices: numpy.ndarray[int]
+        Indices of several important points in the harmonic model
+        as generated here (see function for details)
     
     Notes
     -----
     The result is ordered according to depth so that the deepest eclipse is the first.
     Timings are shifted by t_zero so that deepest minimum occurs at 0.
     """
-    # select the harmonics and make the models
-    harmonics, harmonic_n = find_harmonics_from_pattern(f_n_h, p_orb)
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
-    model_h = tsf.sum_sines(t_model, f_n_h, a_n_h, ph_n_h)
+    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     # the following code utilises a similar idea to find the eclipses as ECLIPSR (except waaay simpler)
-    deriv_1 = tsf.sum_sines_deriv(t_model, f_n_h, a_n_h, ph_n_h, deriv=1)
-    deriv_2 = tsf.sum_sines_deriv(t_model, f_n_h, a_n_h, ph_n_h, deriv=2)
-    deriv_3 = tsf.sum_sines_deriv(t_model, f_n_h, a_n_h, ph_n_h, deriv=3)
+    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
+    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
+    deriv_3 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=3)
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
@@ -1030,46 +1031,9 @@ def measure_eclipses_dt(p_orb, f_n_h, a_n_h, ph_n_h, noise_level):
     t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
     t_int_tan = (t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2)
     # redetermine depths a tiny bit more precisely
-    depths = measure_harmonic_depths(f_n_h, a_n_h, ph_n_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
+    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
     depths = depths[:2]
-    
-    # import matplotlib.pyplot as plt
-    # fig, ax = plt.subplots(nrows=4, sharex=True, figsize=(16, 9))
-    # ax[0].plot(t_model, model_h)
-    # ax[0].scatter(t_model[peaks_1], model_h[peaks_1], label='peaks_1')
-    # ax[0].scatter(t_model[zeros_1], model_h[zeros_1], label='zeros_1')
-    # ax[0].scatter(t_model[peaks_2_n], model_h[peaks_2_n], label='peaks_2_n')
-    # ax[0].scatter(t_model[minimum_1], model_h[minimum_1], label='minimum_1')
-    # ax[0].scatter(t_model[ecl_indices[:, 4]], model_h[ecl_indices[:, 4]], c='tab:purple')
-    # ax[0].scatter(t_model[ecl_indices[:, -5]], model_h[ecl_indices[:, -5]], c='tab:purple')
-    # ax[0].legend()
-    # ax[1].plot(t_model, deriv_1)
-    # ax[1].plot(t_model, np.zeros(len(t_model)))
-    # ax[1].scatter(t_model[peaks_1], deriv_1[peaks_1])
-    # ax[1].scatter(t_model[zeros_1], deriv_1[zeros_1])
-    # ax[1].scatter(t_model[peaks_2_n], deriv_1[peaks_2_n])
-    # ax[1].scatter(t_model[minimum_1], deriv_1[minimum_1])
-    # ax[1].scatter(t_model[ecl_indices[:, 4]], deriv_1[ecl_indices[:, 4]], c='tab:purple')
-    # ax[1].scatter(t_model[ecl_indices[:, -5]], deriv_1[ecl_indices[:, -5]], c='tab:purple')
-    # ax[2].plot(t_model, deriv_2)
-    # ax[2].plot(t_model, np.zeros(len(t_model)))
-    # ax[2].scatter(t_model[peaks_1], deriv_2[peaks_1])
-    # ax[2].scatter(t_model[zeros_1], deriv_2[zeros_1])
-    # ax[2].scatter(t_model[peaks_2_n], deriv_2[peaks_2_n])
-    # ax[2].scatter(t_model[minimum_1], deriv_2[minimum_1])
-    # ax[2].scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:purple')
-    # ax[2].scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:purple')
-    # ax[3].plot(t_model, deriv_3)
-    # ax[3].plot(t_model, np.zeros(len(t_model)))
-    # ax[3].scatter(t_model[peaks_1], deriv_3[peaks_1])
-    # ax[3].scatter(t_model[zeros_1], deriv_3[zeros_1])
-    # ax[3].scatter(t_model[peaks_2_n], deriv_3[peaks_2_n])
-    # ax[3].scatter(t_model[minimum_1], deriv_3[minimum_1])
-    # ax[3].scatter(t_model[ecl_indices[:, 4]], deriv_3[ecl_indices[:, 4]], c='tab:purple')
-    # ax[3].scatter(t_model[ecl_indices[:, -5]], deriv_3[ecl_indices[:, -5]], c='tab:purple')
-    # plt.tight_layout()
-    # plt.show()
-    return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err
+    return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
 
 
 @nb.njit()

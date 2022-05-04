@@ -386,8 +386,87 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     return
 
 
+def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show=True):
+    """Shows the light curve and three time derivatives with the significant
+    points on the curves used to identify the eclipses
+    """
+    # make a timeframe from 0 to two P to catch both eclipses in full if present
+    t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
+    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
+    # analytic derivatives
+    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
+    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
+    deriv_3 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=3)
+    fig, ax = plt.subplots(nrows=4, sharex=True, figsize=(16, 9))
+    ax[0].plot(t_model, model_h)
+    ax[0].scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:blue', marker='o', label='peaks_1')
+    ax[0].scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:blue', marker='o')
+    ax[0].scatter(t_model[ecl_indices[:, 0]], model_h[ecl_indices[:, 0]], c='tab:orange', marker='>', label='zeros_1')
+    ax[0].scatter(t_model[ecl_indices[:, -1]], model_h[ecl_indices[:, -1]], c='tab:orange', marker='<')
+    ax[0].scatter(t_model[ecl_indices[:, 2]], model_h[ecl_indices[:, 2]], c='tab:green', marker='v', label='peaks_2_n')
+    ax[0].scatter(t_model[ecl_indices[:, -3]], model_h[ecl_indices[:, -3]], c='tab:green', marker='v')
+    ax[0].scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:red', marker='d', label='minimum_1')
+    ax[0].scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:red', marker='d')
+    ax[0].scatter(t_model[ecl_indices[:, 4]], model_h[ecl_indices[:, 4]], c='tab:purple', marker='^', label='peaks_2_p')
+    ax[0].scatter(t_model[ecl_indices[:, -5]], model_h[ecl_indices[:, -5]], c='tab:purple', marker='^')
+    ax[0].scatter(t_model[ecl_indices[:, 5]], model_h[ecl_indices[:, 5]], c='tab:brown', marker='s', label='minimum_0')
+    ax[0].set_ylabel(r'$\mathscr{l}$', fontsize=14)
+    ax[0].legend()
+    ax[1].plot(t_model, deriv_1)
+    ax[1].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
+    ax[1].scatter(t_model[ecl_indices[:, 3]], deriv_1[ecl_indices[:, 3]], c='tab:blue', marker='o')
+    ax[1].scatter(t_model[ecl_indices[:, -4]], deriv_1[ecl_indices[:, -4]], c='tab:blue', marker='o')
+    ax[1].scatter(t_model[ecl_indices[:, 0]], deriv_1[ecl_indices[:, 0]], c='tab:orange', marker='>')
+    ax[1].scatter(t_model[ecl_indices[:, -1]], deriv_1[ecl_indices[:, -1]], c='tab:orange', marker='<')
+    ax[1].scatter(t_model[ecl_indices[:, 2]], deriv_1[ecl_indices[:, 2]], c='tab:green', marker='v')
+    ax[1].scatter(t_model[ecl_indices[:, -3]], deriv_1[ecl_indices[:, -3]], c='tab:green', marker='v')
+    ax[1].scatter(t_model[ecl_indices[:, 1]], deriv_1[ecl_indices[:, 1]], c='tab:red', marker='d')
+    ax[1].scatter(t_model[ecl_indices[:, -2]], deriv_1[ecl_indices[:, -2]], c='tab:red', marker='d')
+    ax[1].scatter(t_model[ecl_indices[:, 4]], deriv_1[ecl_indices[:, 4]], c='tab:purple', marker='^')
+    ax[1].scatter(t_model[ecl_indices[:, -5]], deriv_1[ecl_indices[:, -5]], c='tab:purple', marker='^')
+    ax[1].scatter(t_model[ecl_indices[:, 5]], deriv_1[ecl_indices[:, 5]], c='tab:brown', marker='s')
+    ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$', fontsize=14)
+    ax[2].plot(t_model, deriv_2)
+    ax[2].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
+    ax[2].scatter(t_model[ecl_indices[:, 3]], deriv_2[ecl_indices[:, 3]], c='tab:blue', marker='o')
+    ax[2].scatter(t_model[ecl_indices[:, -4]], deriv_2[ecl_indices[:, -4]], c='tab:blue', marker='o')
+    ax[2].scatter(t_model[ecl_indices[:, 0]], deriv_2[ecl_indices[:, 0]], c='tab:orange', marker='>')
+    ax[2].scatter(t_model[ecl_indices[:, -1]], deriv_2[ecl_indices[:, -1]], c='tab:orange', marker='<')
+    ax[2].scatter(t_model[ecl_indices[:, 2]], deriv_2[ecl_indices[:, 2]], c='tab:green', marker='v')
+    ax[2].scatter(t_model[ecl_indices[:, -3]], deriv_2[ecl_indices[:, -3]], c='tab:green', marker='v')
+    ax[2].scatter(t_model[ecl_indices[:, 1]], deriv_2[ecl_indices[:, 1]], c='tab:red', marker='d')
+    ax[2].scatter(t_model[ecl_indices[:, -2]], deriv_2[ecl_indices[:, -2]], c='tab:red', marker='d')
+    ax[2].scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:purple', marker='^')
+    ax[2].scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:purple', marker='^')
+    ax[2].scatter(t_model[ecl_indices[:, 5]], deriv_2[ecl_indices[:, 5]], c='tab:brown', marker='s')
+    ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$', fontsize=14)
+    ax[3].plot(t_model, deriv_3)
+    ax[3].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
+    ax[3].scatter(t_model[ecl_indices[:, 3]], deriv_3[ecl_indices[:, 3]], c='tab:blue', marker='o')
+    ax[3].scatter(t_model[ecl_indices[:, -4]], deriv_3[ecl_indices[:, -4]], c='tab:blue', marker='o')
+    ax[3].scatter(t_model[ecl_indices[:, 0]], deriv_3[ecl_indices[:, 0]], c='tab:orange', marker='>')
+    ax[3].scatter(t_model[ecl_indices[:, -1]], deriv_3[ecl_indices[:, -1]], c='tab:orange', marker='<')
+    ax[3].scatter(t_model[ecl_indices[:, 2]], deriv_3[ecl_indices[:, 2]], c='tab:green', marker='v')
+    ax[3].scatter(t_model[ecl_indices[:, -3]], deriv_3[ecl_indices[:, -3]], c='tab:green', marker='v')
+    ax[3].scatter(t_model[ecl_indices[:, 1]], deriv_3[ecl_indices[:, 1]], c='tab:red', marker='d')
+    ax[3].scatter(t_model[ecl_indices[:, -2]], deriv_3[ecl_indices[:, -2]], c='tab:red', marker='d')
+    ax[3].scatter(t_model[ecl_indices[:, 4]], deriv_3[ecl_indices[:, 4]], c='tab:purple', marker='^')
+    ax[3].scatter(t_model[ecl_indices[:, -5]], deriv_3[ecl_indices[:, -5]], c='tab:purple', marker='^')
+    ax[3].scatter(t_model[ecl_indices[:, 5]], deriv_3[ecl_indices[:, 5]], c='tab:brown', marker='s')
+    ax[3].set_xlabel('time (d)', fontsize=14)
+    ax[3].set_ylabel(r'$\frac{d^3\mathscr{l}}{dt^3}$', fontsize=14)
+    plt.tight_layout()
+    if save_file is not None:
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return
+
+
 def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, const_ho, f_ho,
-                                a_ho, ph_ho, const_he, f_he, a_he, ph_he, i_sectors, save_file=None, show=True):
+                                a_ho, ph_ho, f_he, a_he, ph_he, i_sectors, save_file=None, show=True):
     """Shows the separation of the harmonics froming the eclipses and the ones
     forming the out-of-eclipse harmonic variability.
     """
@@ -403,7 +482,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     model_h = 1 + tsf.sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_ho = 1 + const_ho + tsf.sum_sines(t_model + t_zero, f_ho, a_ho, ph_ho)
     model_ho_t = const_ho + tsf.sum_sines(times, f_ho, a_ho, ph_ho)
-    model_he = 1 + const_he + tsf.sum_sines(t_model + t_zero, f_he, a_he, ph_he)
+    model_he = 1 + tsf.sum_sines(t_model + t_zero, f_he, a_he, ph_he)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal_1 = signal - model_nh - model_line + 1
     ecl_signal_2 = signal - model_nh - model_ho_t - model_line + 1

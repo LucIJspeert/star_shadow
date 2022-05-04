@@ -409,7 +409,8 @@ def read_results(file_name, verbose=False):
     return results, errors, stats
 
 
-def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, file_name, data_id=None):
+def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
+                         data_id=None):
     """Save the results of the eclipse timings"""
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
@@ -443,6 +444,12 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
     description = 'Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
+    # save eclipse indices separately
+    file_name_2 = file_name.replace(fn_ext, 'ecl_indices' + fn_ext)
+    description = 'Eclipse indices (see function measure_eclipses_dt).'
+    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, peaks_2_p, minimum_0, '
+           f'peaks_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
+    np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
     return
 
 
@@ -847,11 +854,11 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-        e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = results_10[:7]
-        errors = results_10[7:29].reshape((11, 2))
-        bounds = results_10[29:51].reshape((11, 2))
-        formal_errors = results_10[51:59]
-        intervals_w #? for when the interval is disjoint
+        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results_10[:9]
+        errors = results_10[9:31].reshape((11, 2))
+        bounds = results_10[31:53].reshape((11, 2))
+        formal_errors = results_10[53:61]
+        # intervals_w #? for when the interval is disjoint
     # distributions
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10_dists.csv')
     if os.path.isfile(file_name):
@@ -867,6 +874,9 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
     if os.path.isfile(file_name):
         results_12 = np.loadtxt(file_name, usecols=(1, 2, 3, 4, 5, 6), delimiter=',', unpack=True)
         pass_sigma, pass_snr, passed_nh = results_12[3:]
+        pass_sigma = pass_sigma.astype(int)
+        pass_snr = pass_snr.astype(int)
+        passed_nh = passed_nh.astype(int)
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
         results_13 = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)

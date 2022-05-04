@@ -1396,12 +1396,12 @@ def analyse_parallel(file):
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
-    out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
-                                   overwrite=False, plot=False, verbose=False)
+    out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, p_orb=0, save_dir=file[:64],
+                                   data_id='blind_ecc_Cole', overwrite=False, plot=False, verbose=False)
     # if output None, stop
     if (out_a[0][0] != None):
         tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, save_dir=file[:64],
-                             data_id='blind_ecc_Cole', verbose=False, plot=False, overwrite_old=False)
+                             data_id='blind_ecc_Cole', verbose=False, plot=False, overwrite=False)
         tsf.pulsation_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
                                verbose=False, plot=False, overwrite_old=False)
     return
@@ -1415,7 +1415,7 @@ for file in files_lc:
     ut.sequential_plotting(target_id, times, signal, i_half_s, file[:64])
 
 pool = mp.Pool(12)
-pool.map(analyse_parallel, np.array(files_lc))
+pool.map(analyse_parallel, np.array(files_lc)[::-1])
 # find out where they got
 n_all = []
 for file in all_files:
@@ -1451,7 +1451,80 @@ for file in all_files:
         n = '0'
     n_all.append(n)
 np.savetxt(os.path.join(file[:64], 'stage_finished'), np.column_stack(([file[64:] for file in all_files], n_all)), fmt='%s %s')
+"""
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_149_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_146_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_143_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_140_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_136_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_132_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_128_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_125_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_122_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_119_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_116_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_113_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_118_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_124_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_112_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_142_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_110_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_107_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_104_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_101_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_100_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_098_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_095_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_092_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_088_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_085_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_084_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_082_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_079_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_077_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_075_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_072_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_069_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_068_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_074_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_066_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_063_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_060_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_057_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_056_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_054_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_050_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_046_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_045_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_043_lc.dat
+/lhome/lijspeert/data/test_data/eccentricities/simulations_cole/sim_042_lc.dat
+multiprocessing.pool.RemoteTraceback:
 
+Traceback (most recent call last):
+  File "/lhome/lijspeert/miniconda3/envs/star_shadow/lib/python3.8/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/lhome/lijspeert/miniconda3/envs/star_shadow/lib/python3.8/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+  File "<input>", line 8, in analyse_parallel
+  File "/lhome/lijspeert/git/star_shadow/timeseries_functions.py", line 2618, in frequency_analysis
+    out_5 = extract_additional_frequencies(times, signal, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4,
+  File "/lhome/lijspeert/git/star_shadow/timeseries_functions.py", line 1502, in extract_additional_frequencies
+    f_i, a_i, ph_i = extract_single_harmonics(times, resid, p_orb, verbose=verbose)
+  File "/lhome/lijspeert/git/star_shadow/timeseries_functions.py", line 1104, in extract_single_harmonics
+    f_refine, a_refine = scargle(times, signal, f0=freqs[mask][p1 - 1], fn=freqs[mask][p1 + 1], df=df/100)
+IndexError: index 1 is out of bounds for axis 0 with size 1
+
+The above exception was the direct cause of the following exception:
+Traceback (most recent call last):
+  File "/lhome/lijspeert/miniconda3/envs/star_shadow/lib/python3.8/code.py", line 90, in runcode
+    exec(code, self.locals)
+  File "<input>", line 2, in <module>
+  File "/lhome/lijspeert/miniconda3/envs/star_shadow/lib/python3.8/multiprocessing/pool.py", line 364, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+  File "/lhome/lijspeert/miniconda3/envs/star_shadow/lib/python3.8/multiprocessing/pool.py", line 771, in get
+    raise self._value
+IndexError: index 1 is out of bounds for axis 0 with size 1
+"""
 # (but also first make a document outlining what goes wrong)
 # todo: use the first 20 harmonics for initial positions, prewhiten out-of-eclipse harmonic variability,
 # todo: subtract from full harmonics (except perhaps the lowest f?), have disentangled harmonics for new position measurement

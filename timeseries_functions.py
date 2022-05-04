@@ -2811,7 +2811,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_analysis_timings(p_orb, f_n_h, a_n_h, ph_n_h, p_err, noise_level, file_name=None, data_id=None,
+def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name=None, data_id=None,
                              overwrite=False, verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
@@ -2820,11 +2820,11 @@ def eclipse_analysis_timings(p_orb, f_n_h, a_n_h, ph_n_h, p_err, noise_level, fi
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    f_n_h: numpy.ndarray[float]
+    f_h: numpy.ndarray[float]
         The frequencies of a number of harmonic sine waves
-    a_n_h: numpy.ndarray[float]
+    a_h: numpy.ndarray[float]
         The amplitudes of a number of harmonic sine waves
-    ph_n_h: numpy.ndarray[float]
+    ph_h: numpy.ndarray[float]
         The phases of a number of harmonic sine waves
     p_err: float
         Error in the orbital period
@@ -2875,8 +2875,8 @@ def eclipse_analysis_timings(p_orb, f_n_h, a_n_h, ph_n_h, p_err, noise_level, fi
         if verbose:
             print(f'Measuring eclipse time points and depths.')
         # deepest eclipse is put first in each measurement
-        output = af.measure_eclipses_dt(p_orb, f_n_h, a_n_h, ph_n_h, noise_level)
-        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err = output
+        output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level)
+        t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err, ecl_indices = output
         # minima and first/last contact points. t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         timings = np.array([t_1, t_2, t_contacts[0], t_contacts[1], t_contacts[2], t_contacts[3]])
         # t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
@@ -2891,7 +2891,8 @@ def eclipse_analysis_timings(p_orb, f_n_h, a_n_h, ph_n_h, p_err, noise_level, fi
         # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
         depths_err = np.array([np.sqrt(3 / 2 * noise_level**2), np.sqrt(3 / 2 * noise_level**2)])
         if file_name is not None:
-            ut.save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, file_name, data_id)
+            ut.save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices,
+                                    file_name, data_id)
     # convert to durations
     tau_1_1 = timings[0] - timings[2]  # t_1 - t_1_1
     tau_1_2 = timings[3] - timings[0]  # t_1_2 - t_1
@@ -3174,7 +3175,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, ti
 
 
 def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, verbose=False, plot=False,
-                     overwrite_old=False):
+                     overwrite=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
     
@@ -3202,7 +3203,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         Identification for the dataset used
     verbose: bool
         If set to True, this function will print some information
-    overwrite_old: bool
+    overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
     
@@ -3219,21 +3220,21 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     n_param_8, bic_8, noise_level_8 = stats
     # --- [9] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
     low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
     f_h, a_h, ph_h = f_n_8[harmonics][low_h], a_n_8[harmonics][low_h], ph_n_8[harmonics][low_h]
     out_9 = eclipse_analysis_timings(p_orb_8, f_h, a_h, ph_h, p_err_8, noise_level_8, file_name=file_name,
-                                     data_id=data_id, overwrite=overwrite_old, verbose=verbose)
+                                     data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = out_9
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_hsep(p_orb_8, t_zero_9, timings_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                   file_name=file_name, data_id=data_id, overwrite=overwrite_old, verbose=verbose)
+                                   file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_timings(p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8, file_name=file_name,
-                                      data_id=data_id, overwrite=overwrite_old, verbose=verbose)
+                                      data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
@@ -3245,7 +3246,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     # --- [13] --- Fit for the light curve parameters
     
     file_name_11 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    if os.path.isfile(file_name_11) & (not overwrite_old) & (save_dir is not None):
+    if os.path.isfile(file_name_11) & (not overwrite) & (save_dir is not None):
         results_11 = np.loadtxt(file_name_11, usecols=(1,), delimiter=',', unpack=True)
         par_init = results_11[:6]
         f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
@@ -3282,6 +3283,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
         vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
                                        const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, save_file=file_name, show=False)
+        # todo: add this plot and the one for hsep. Also to sequential plotting
+        # vis.plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show=True)
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_simple_lc.png')
         vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8,
                                               a_n_8, ph_n_8, i_sectors, (e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio),
