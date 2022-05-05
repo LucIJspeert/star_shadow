@@ -633,7 +633,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
 
 
 def read_results_elements(file_name):
-    """Read in the results of step 10 of the analysis"""
+    """Read in the results of the determination of orbital elements"""
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results[:9]
     errors = results[9:31].reshape((11, 2))
@@ -651,9 +651,8 @@ def read_results_elements(file_name):
             dists_in, dists_out)
 
 
-def save_results_11(tic, par_init, par_fit, save_dir, data_id=None):
-    """Save the results of step 11 of the analysis"""
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
+def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
+    """Save the results of the fit with ellc models"""
     var_names = ['f_c_0', 'f_s_0', 'i_0', 'r_sum_0', 'r_rat_0', 'sb_rat_0',
                  'f_c_1', 'f_s_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1', 'offset']
     var_desc = ['initial sqrt(e)cos(w)', 'initial sqrt(e)sin(w)', 'initial orbital inclination i (radians)',
@@ -661,18 +660,26 @@ def save_results_11(tic, par_init, par_fit, save_dir, data_id=None):
                 'initial surface brightness ratio sb2/sb1 or (Teff2/Teff1)^4',
                 'sqrt(e)cos(w) after fit', 'sqrt(e)sin(w) after fit', 'i after fit (radians)',
                 '(r1+r2)/a after fit', 'r2/r1 after fit', 'sb2/sb1 after fit', 'ellc lc offset']
-    values = [str(f_c), str(f_s), str(i), str(r_sum_sma), str(r_ratio), str(sb_ratio), str(par_fit[0]),
-              str(par_fit[1]), str(par_fit[2]), str(par_fit[3]), str(par_fit[4]), str(par_fit[5]), str(par_fit[6])]
+    values = [str(par_init[0]), str(par_init[1]), str(par_init[2]), str(par_init[3]), str(par_init[4]),
+              str(par_init[5]), str(par_fit[0]), str(par_fit[1]), str(par_fit[2]), str(par_fit[3]), str(par_fit[4]),
+              str(par_fit[5]), str(par_fit[6])]
     table = np.column_stack((var_names, values, var_desc))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    file_id = f'TIC {tic}'
-    description = f'[11] Fit for the light curve parameters. Fit uses the eclipses only.'
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = f'Fit for the light curve parameters. Fit uses the eclipses only.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
-    return table
+    return
 
 
-def save_results_12(tic, f_n, a_n, ph_n, non_harm, remove_sigma, remove_snr, save_dir, data_id=None):
+def read_results_fit_ellc(file_name):
+    """Read in the results of the fit with ellc models"""
+    results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = results[:6]
+    opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = results[6:]
+    return (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset)
+
+
+def save_results_12(f_n, a_n, ph_n, non_harm, remove_sigma, remove_snr, file_name, data_id=None):
     """Save the results of step 12 of the analysis"""
     remove = np.union1d(remove_sigma, remove_snr)
     passed_nh = np.delete(non_harm, remove)
@@ -686,21 +693,19 @@ def save_results_12(tic, f_n, a_n, ph_n, non_harm, remove_sigma, remove_snr, sav
     passed_nh_b = (pass_sigma_b & pass_snr_b)
     # stick together
     table = np.column_stack((np.arange(1, len(f_n)+1), f_n, a_n, ph_n, pass_sigma_b, pass_snr_b, passed_nh_b))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
-    file_id = f'TIC {tic}'
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'[12] Selection of credible non-harmonic frequencies'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
     return table
 
 
-def save_results_13(tic, const_r, f_n_r, a_n_r, ph_n_r, save_dir, data_id=None):
+def save_results_13(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=None):
     """Save the results of step 13 of the analysis"""
     # stick together
     table = np.column_stack((np.arange(len(f_n_r)+1), np.append([0], f_n_r), np.append([const_r], a_n_r),
                              np.append([0], ph_n_r)))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
-    file_id = f'TIC {tic}'
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'[13] Disentangelment of harmonics using ellc lc model'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
@@ -929,6 +934,19 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
             pass  # some variable wasn't loaded (file did not exist)
     # eclipse_analysis
     if save_dir is not None:
+        # todo: update plot parameters
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
+            vis.plot_lc_derivatives(p_orb_8, f_h, a_h, ph_h, ecl_indices, save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
+                                        save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs,
@@ -965,6 +983,16 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
+        try:
+            vis.plot_lc_derivatives(p_orb_8, f_h, a_h, ph_h, ecl_indices, save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
+                                        save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs,
                                            depths_err, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,

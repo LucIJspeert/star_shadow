@@ -3121,7 +3121,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, ti
         errors, bounds, formal_errors, dists_in, dists_out = results[9:]
     else:
         if verbose:
-            print(f'Determining eclipse parameters and error estimates.')
+            print('Determining eclipse parameters and error estimates.')
         output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err)
         e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = output
         # calculate the errors
@@ -3174,6 +3174,103 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, ti
            formal_errors, dists_in, dists_out)
 
 
+def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                         i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
+    """Obtains orbital elements from the eclispe timings
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    par_init: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str, None
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found. If None, nothing is
+        saved and loading previous results is not attempted.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    par_opt: tuple[float]
+        Optimised eclipse parameters , consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
+        The offset is a constant added to the model to match
+        the light level of the data
+    
+    Notes
+    -----
+    The fit parameters include f_c=sqrt(e)cos(w) and
+    f_s=sqrt(e)sin(w), instead of e and w themselves.
+    """
+    t_a = time.time()
+    if os.path.isfile(file_name) & (not overwrite):
+        if verbose:
+            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        results = ut.read_results_fit_ellc(file_name)
+        par_init, par_opt = results[:6], results[6:]
+    else:
+        if verbose:
+            print('Fitting for the light curve parameters.')
+        e, w = par_init[:2]
+        f_c = e**0.5 * np.cos(w)
+        f_s = e**0.5 * np.sin(w)
+        par_init_ellc = (f_c, f_s, *par_init[2:])
+        par_bounds = (None, None, None, None, None, None)  # not used atm
+        # todo: test with ldc_1=0.5 and 1.0 on the synthetics
+        output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                        f_n, a_n, ph_n, i_sectors, par_init_ellc, par_bounds, verbose=verbose)
+        # todo: think of a way to get errors?
+        # get e and w from fitting parameters f_c and f_s
+        opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = output.x
+        opt_e = opt_f_c**2 + opt_f_s**2
+        opt_w = np.arctan2(opt_f_s, opt_f_c) % (2 * np.pi)
+        par_opt = (opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset)
+        if save_dir is not None:
+            ut.save_results_fit_ellc(par_init, par_opt, file_name, data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mOptimisation of the light curve parameters complete.\033[0m')
+        print(f'\033[0;32;48me: {opt_e:2.4}, w: {opt_w/np.pi*180:2.4} deg, i: {opt_i/np.pi*180:2.4} deg, '
+              f'(r1+r2)/a: {opt_r_sum_sma:2.4}, r2/r1: {opt_r_ratio:2.4}, sb2/sb1: {opt_sb_ratio:2.4}, '
+              f'offset: {offset:2.4}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return par_opt
+
+
 def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, verbose=False, plot=False,
                      overwrite=False):
     """Part two of analysis recipe for analysis of EB light curves,
@@ -3222,9 +3319,9 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
     low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
-    f_h, a_h, ph_h = f_n_8[harmonics][low_h], a_n_8[harmonics][low_h], ph_n_8[harmonics][low_h]
-    out_9 = eclipse_analysis_timings(p_orb_8, f_h, a_h, ph_h, p_err_8, noise_level_8, file_name=file_name,
-                                     data_id=data_id, overwrite=overwrite, verbose=verbose)
+    f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
+    out_9 = eclipse_analysis_timings(p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
+                                     file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = out_9
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
@@ -3244,47 +3341,24 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12 = out_12[:9]
     errors_12, intervals_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = out_12[9:]
     # --- [13] --- Fit for the light curve parameters
-    
-    file_name_11 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    if os.path.isfile(file_name_11) & (not overwrite) & (save_dir is not None):
-        results_11 = np.loadtxt(file_name_11, usecols=(1,), delimiter=',', unpack=True)
-        par_init = results_11[:6]
-        f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
-        opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = results_11[6:]
-        if verbose:
-            print(f'Step 11: Loaded existing results\n')
-    else:
-        if verbose:
-            print(f'Step 11: Fitting for the light curve parameters.')
-        t_11a = time.time()
-        f_c = e**0.5 * np.cos(w)
-        f_s = e**0.5 * np.sin(w)
-        par_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
-        par_bounds = (f_c_bds, f_s_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds)
-        # todo: test with ldc_1=0.5 and 1.0 on the synthetics
-        out_11 = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb_8, t_zero, timings, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, i_sectors, par_init, par_bounds, verbose=verbose)
-        opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = out_11.x
-        # get e and w from fitting parameters f_c and f_s
-        opt_e = opt_f_c**2 + opt_f_s**2
-        opt_w = np.arctan2(opt_f_s, opt_f_c) % (2 * np.pi)
-        opt_teff_ratio = opt_sb_ratio**(1/4)
-        # todo: think of a way to get errors?
-        t_11b = time.time()
-        if verbose:
-            print(f'\033[1;32;48mOptimisation of the light curve parameters complete.\033[0m')
-            print(f'\033[0;32;48me: {opt_e:2.4}, w: {opt_w/np.pi*180:2.4} deg, i: {opt_i/np.pi*180:2.4} deg, '
-                  f'(r1+r2)/a: {opt_r_sum_sma:2.4}, r2/r1: {opt_r_ratio:2.4}, sb2/sb1: {opt_sb_ratio:2.4}, '
-                  f'Teff2/Teff1: {opt_teff_ratio:2.4}. Time taken: {t_11b - t_11a:1.1f}s\033[0m\n')
-        if save_dir is not None:
-            _ = ut.save_results_11(tic, par_init, out_11.x, save_dir, data_id)
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
+    par_init = (e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
+    out_13 = eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+                                  f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
+                                  overwrite=overwrite, verbose=verbose)
+    e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13 = out_13
     # make and/or save plots
     if (save_dir is not None) & plot:
+        # todo: update plotting parameters
+        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
+        vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices, save_file=file_name, show=False)
+        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
+        vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
+                                        save_file=file_name, show=False)
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
         vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
                                        const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, save_file=file_name, show=False)
-        # todo: add this plot and the one for hsep. Also to sequential plotting
-        # vis.plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show=True)
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_simple_lc.png')
         vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8,
                                               a_n_8, ph_n_8, i_sectors, (e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio),
@@ -3301,6 +3375,10 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                   (opt_f_c, opt_f_s, opt_i/np.pi*180, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio),
                                   *dists_out, save_file=file_name, show=False)
     if plot:
+        vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices, save_file=None, show=True)
+        vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
+                                        save_file=None, show=True)
         vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
                                        const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, save_file=None, show=True)
         vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8,
