@@ -525,8 +525,8 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     return
 
 
-def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                                      ecl_params, save_file=None, show=True):
+def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, ecl_params,
+                                      i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using the eclipse timings and depths
     """
@@ -962,8 +962,8 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
     return
 
 
-def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                     par_init, par_res, save_file=None, show=True):
+def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init, par_opt,
+                     i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -983,12 +983,16 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio, offset = par_res
+    e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
+    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
+    i = i_rad / np.pi * 180
+    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = par_opt
+    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
+    opt_i = opt_i_rad / np.pi * 180
     # make the ellc models
     model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
-    model1 = tsfit.ellc_lc_simple(t_model, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma, opt1_r_ratio,
-                                  opt1_sb_ratio, offset)
+    model1 = tsfit.ellc_lc_simple(t_model, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
+                                  opt_sb_ratio, offset)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_model, ecl_signal, marker='.', label='eclipse signal')
@@ -1078,8 +1082,18 @@ def plot_corner_ellc_pars(parameters_1, parameters_2, e_vals, w_vals, i_vals, ph
     """Corner plot of the distributions and the given 'truths' indicated
     using the parametrisation of ellc
     """
+    # transform some params
+    e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = parameters_1
+    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
+    i = i_rad / np.pi * 180
+    parameters_1 = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
+    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = parameters_2
+    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
+    opt_i = opt_i_rad / np.pi * 180
+    parameters_2 = [opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio]
     f_c_vals = np.sqrt(e_vals) * np.cos(w_vals)
     f_s_vals = np.sqrt(e_vals) * np.sin(w_vals)
+    # stack dists and plot
     dist_data = np.column_stack((f_c_vals, f_s_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
     fig = corner.corner(dist_data, labels=('f_c', 'f_s', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
                         r'$\frac{sb_2}{sb_1}$'), truth_color='tab:orange')

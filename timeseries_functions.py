@@ -1027,17 +1027,19 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     if (p1 in [0, len(freqs) - 1]):
         if verbose:
             print(f'Edge of frequency range {freqs[p1]:1.6f} at position {p1} during extraction phase 1.')
-        p1 = (p1 == 0) + (p1 == len(freqs) - 1) * (len(freqs) - 2)
     # now refine once by increasing the frequency resolution x100
-    f_refine, a_refine = scargle(times, signal, f0=freqs[p1 - 1], fn=freqs[p1 + 1], df=df/100)
-    p2 = np.argmax(a_refine)
+    f_left_1 = max(freqs[p1] - df, 0.01 / np.ptp(times))  # may not get too low
+    f_right_1 = freqs[p1] + df
+    f_refine_1, a_refine_1 = scargle(times, signal, f0=f_left_1, fn=f_right_1, df=df/100)
+    p2 = np.argmax(a_refine_1)
     # check if we pick the boundary frequency
-    if (p2 in [0, len(f_refine) - 1]):
+    if (p2 in [0, len(f_refine_1) - 1]):
         if verbose:
-            print(f'Edge of frequency range {f_refine[p2]:1.6f} at position {p2} during extraction phase 2.')
-        p2 = (p2 == 0) + (p2 == len(f_refine) - 1) * (len(f_refine) - 2)
+            print(f'Edge of frequency range {f_refine_1[p2]:1.6f} at position {p2} during extraction phase 2.')
     # now refine another time by increasing the frequency resolution x100 again
-    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_refine[p2 - 1], fn=f_refine[p2 + 1], df=df/10000)
+    f_left_2 = max(f_refine_1[p2] - df/100, 0.01 / np.ptp(times))  # may not get too low
+    f_right_2 = f_refine_1[p2] + df/100
+    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_left_2, fn=f_right_2, df=df/10000)
     p3 = np.argmax(a_refine_2)
     # check if we pick the boundary frequency
     if (p3 in [0, len(f_refine_2) - 1]):
@@ -1090,26 +1092,32 @@ def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
     peak is oversampled by a factor 10^4 to get a precise measurement.
     """
     freq_res = 1.5 / np.ptp(times)
-    avoid = freq_res / (np.ptp(times) / p_orb)  # avoidance zone around harmonics
     df = 0.1 / np.ptp(times)
     freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
-    mask = (freqs % p_orb > p_orb - avoid / 2) | (freqs % p_orb < avoid / 2)
+    avoid = freq_res / (np.ptp(times) / p_orb)  # avoidance zone around harmonics
+    mask = (freqs % (1 / p_orb) > avoid / 2) & (freqs % (1 / p_orb) < (1 / p_orb) - avoid / 2)
+    # check that the mask does not cover everything:
+    len_m = len(freqs[mask])
+    if (len_m == 0):
+        return 0, 0, 0
     p1 = np.argmax(ampls[mask])
     # check if we pick the boundary frequency (does not take into account masked positions)
-    if (p1 in [0, len(freqs[mask]) - 1]):
+    if (p1 in [0, len_m - 1]):
         if verbose:
             print(f'Edge of frequency range {freqs[mask][p1]:1.6f} at position {p1} during extraction phase 1.')
-        p1 = (p1 == 0) + (p1 == len(freqs[mask]) - 1) * (len(freqs[mask]) - 2)
     # now refine once by increasing the frequency resolution x100
-    f_refine, a_refine = scargle(times, signal, f0=freqs[mask][p1 - 1], fn=freqs[mask][p1 + 1], df=df/100)
-    p2 = np.argmax(a_refine)
+    f_left_1 = max(freqs[mask][p1] - df, 0.01 / np.ptp(times))  # may not get too low
+    f_right_1 = freqs[mask][p1] + df
+    f_refine_1, a_refine_1 = scargle(times, signal, f0=f_left_1, fn=f_right_1, df=df/100)
+    p2 = np.argmax(a_refine_1)
     # check if we pick the boundary frequency
-    if (p2 in [0, len(f_refine) - 1]):
+    if (p2 in [0, len(f_refine_1) - 1]):
         if verbose:
-            print(f'Edge of frequency range {f_refine[p2]:1.6f} at position {p2} during extraction phase 2.')
-        p2 = (p2 == 0) + (p2 == len(f_refine) - 1) * (len(f_refine) - 2)
+            print(f'Edge of frequency range {f_refine_1[p2]:1.6f} at position {p2} during extraction phase 2.')
     # now refine another time by increasing the frequency resolution x100 again
-    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_refine[p2 - 1], fn=f_refine[p2 + 1], df=df/10000)
+    f_left_2 = max(f_refine_1[p2] - df/100, 0.01 / np.ptp(times))  # may not get too low
+    f_right_2 = f_refine_1[p2] + df/100
+    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_left_2, fn=f_right_2, df=df/10000)
     p3 = np.argmax(a_refine_2)
     # check if we pick the boundary frequency
     if (p3 in [0, len(f_refine_2) - 1]):
@@ -1785,7 +1793,7 @@ def extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f
     return const_ho, f_ho, a_ho, ph_ho
 
 
-def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, i_sectors, ellc_par,
+def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc, i_sectors,
                                verbose=False):
     """Tries to extract harmonics from the signal after subtraction of
     an eclipse model
@@ -1810,13 +1818,13 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+    par_ellc: numpy.ndarray[float]
+        Parameters of the best ellc model, consisting of:
+        [sqrt(e)cos(w), sqrt(e)sin(w), i, (r1+r2)/a, r2/r1, sb2/sb1]
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    ellc_par: numpy.ndarray[float]
-        Parameters of the best ellc model, consisting of:
-        [sqrt(e)cos(w), sqrt(e)sin(w), i, (r1+r2)/a, r2/r1, sb2/sb1]
     verbose: bool
         If set to True, this function will print some information
     
@@ -1837,7 +1845,7 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
     decreases the BIC sufficiently (by more than 2).
     Assumes the harmonics are fixed multiples of 1/p_orb.
     """
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = ellc_par
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = par_ellc
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -2311,8 +2319,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=None, overwrite=False,
-                       plot=False, verbose=False):
+def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=None, overwrite=False, verbose=False):
     """Recipe for analysis of EB light curves.
     
     Parameters
@@ -2342,8 +2349,6 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
-    plot: bool
-        If set to True, this function will show some plots
     verbose: bool
         If set to True, this function will print some information
     
@@ -2527,7 +2532,13 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
                 col1 = ['Period over time-base is less than two:', 'period', 'time-base']
                 col2 = [np.ptp(times) / p_orb_3, p_orb_3, np.ptp(times)]
                 np.savetxt(file_name, np.column_stack((col1, col2)))
-            return [None], [None], [None], [None], [None], [None]
+            p_orb_i = [0, 0, p_orb_3]
+            const_i = [const_1, const_2, const_3]
+            slope_i = [slope_1, slope_2, slope_3]
+            f_n_i = [f_n_1, f_n_2, f_n_3]
+            a_n_i = [a_n_1, a_n_2, a_n_3]
+            ph_n_i = [ph_n_1, ph_n_2, ph_n_3]
+            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
         # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
         out_3 = fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors)
         t_3b = time.time()
@@ -2789,30 +2800,20 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
     # final timing and message
     t_0b = time.time()
     if verbose:
-        print(f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s. Creating plots.\n')
+        plot_str = 'Creating plots.' * plot
+        print(f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s. {plot_str}\n')
     # make and/or save plots
-    models = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8]
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_3, p_orb_6, p_orb_6, p_orb_8]
     const_i = [const_1, const_2, const_3, const_4, const_5, const_6, const_7, const_8]
     slope_i = [slope_1, slope_2, slope_3, slope_4, slope_5, slope_6, slope_7, slope_8]
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8]
     ph_n_i = [ph_n_1, ph_n_2, ph_n_3, ph_n_4, ph_n_5, ph_n_6, ph_n_7, ph_n_8]
-    if (save_dir is not None) & plot:
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_full_pd.png')
-        vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_models.png')
-        vis.plot_harmonic_output(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                 save_file=file_name, show=False)
-    if plot:
-        vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
-        vis.plot_harmonic_output(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                 save_file=None, show=True)
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name=None, data_id=None,
-                             overwrite=False, verbose=False):
+def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name=None, data_id=None, overwrite=False,
+                             verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
     
@@ -2932,7 +2933,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
               f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
               f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err
+    return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err, ecl_indices
 
 
 def eclipse_analysis_hsep(p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors, file_name=None, data_id=None,
@@ -3247,9 +3248,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         if verbose:
             print('Fitting for the light curve parameters.')
         e, w = par_init[:2]
-        f_c = e**0.5 * np.cos(w)
-        f_s = e**0.5 * np.sin(w)
-        par_init_ellc = (f_c, f_s, *par_init[2:])
+        par_init_ellc = (e**0.5 * np.cos(w), e**0.5 * np.sin(w), *par_init[2:])
         par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
         output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
@@ -3271,8 +3270,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
     return par_opt
 
 
-def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, verbose=False, plot=False,
-                     overwrite=False):
+def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, verbose=False, overwrite=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
     
@@ -3306,7 +3304,16 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     
     Returns
     -------
-    None
+    out_9: tuple
+        output of eclipse_analysis_timings
+    out_10: tuple
+        output of eclipse_analysis_hsep
+    out_11: tuple
+        output of eclipse_analysis_timings
+    out_12: tuple
+        output of eclipse_analysis_elements
+    out_13: tuple
+        output of eclipse_analysis_fit
     """
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
@@ -3322,7 +3329,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
     out_9 = eclipse_analysis_timings(p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = out_9
+    t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9, ecl_indices_9 = out_9
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_hsep(p_orb_8, t_zero_9, timings_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
@@ -3332,7 +3339,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_timings(p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8, file_name=file_name,
                                       data_id=data_id, overwrite=overwrite, verbose=verbose)
-    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11
+    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11[:7]
+    ecl_indices_11 = out_11[7]
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     out_12 = eclipse_analysis_elements(p_orb_8, t_zero_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11,
@@ -3342,63 +3350,173 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     errors_12, intervals_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = out_12[9:]
     # --- [13] --- Fit for the light curve parameters
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
-    par_init = (e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
-    out_13 = eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
-                                  f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
+    par_init_12 = (e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
+    out_13 = eclipse_analysis_fit(times, signal, signal_err, par_init_12, p_orb_8, t_zero_11, timings_11, const_8,
+                                  slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
                                   overwrite=overwrite, verbose=verbose)
-    e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13 = out_13
-    # make and/or save plots
-    if (save_dir is not None) & plot:
-        # todo: update plotting parameters
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
-        vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices, save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
-        vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
-                                        save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-        vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
-                                       const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_simple_lc.png')
-        vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8,
-                                              a_n_8, ph_n_8, i_sectors, (e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio),
-                                              save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
-        vis.plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, *dists_in, e, w, i, phi_0, psi_0,
-                                           r_sum_sma, r_dif_sma, r_ratio, sb_ratio, *dists_out,
-                                           save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_fit.png')
-        vis.plot_lc_ellc_fit(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                             i_sectors, par_init, out_11.x, save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_corner.png')
-        vis.plot_corner_ellc_pars((f_c, f_s, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio),
-                                  (opt_f_c, opt_f_s, opt_i/np.pi*180, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio),
-                                  *dists_out, save_file=file_name, show=False)
-    if plot:
-        vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices, save_file=None, show=True)
-        vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, i_sectors,
-                                        save_file=None, show=True)
-        vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero, timings, depths, t_bottoms, timing_errs, depths_err,
-                                       const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, save_file=None, show=True)
-        vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8,
-                                              a_n_8, ph_n_8, i_sectors, (e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio),
-                                              save_file=None, show=True)
-        vis.plot_dists_eclipse_parameters(timings_tau, depths, bottom_dur, *dists_in, e, w, i, phi_0, psi_0,
-                                          r_sum_sma, r_dif_sma, r_ratio, sb_ratio, *dists_out)
-        vis.plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, *dists_in, e, w, i, phi_0, psi_0,
-                                           r_sum_sma, r_dif_sma, r_ratio, sb_ratio, *dists_out,
-                                           save_file=None, show=True)
-        vis.plot_lc_ellc_fit(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                             i_sectors, par_init, out_11.x, save_file=None, show=True)
-        vis.plot_corner_ellc_pars((f_c, f_s, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio),
-                                  (opt_f_c, opt_f_s, opt_i/np.pi*180, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio),
-                                  *dists_out, save_file=None, show=True)
-    return
+    e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13, offset_13 = out_13
+    return out_9, out_10, out_11, out_12, out_13
 
 
-def pulsation_analysis(tic, times, signal, i_sectors, save_dir=None, data_id=None, verbose=False, plot=False,
-                       overwrite_old=False):
+def pulsation_analysis_fselect(p_orb, f_n, a_n, ph_n, f_n_err, a_n_err, file_name=None, data_id=None, overwrite=False,
+                               verbose=False):
+    """Selects the credible frequencies from the given set,
+    ignoring the harmonics
+    
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    f_n_err: numpy.ndarray[float]
+        Formal errors in the frequencies
+    a_n_err: numpy.ndarray[float]
+        Formal errors in the amplitudes
+    file_name: str, None
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found. If None, nothing is
+        saved and loading previous results is not attempted.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    pass_sigma: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the sigma check
+    pass_snr: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the signal-to-noise check
+    passed_nh_b: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed both checks
+    """
+    t_a = time.time()
+    if os.path.isfile(file_name) & (not overwrite):
+        if verbose:
+            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        passed_nh_sigma, passed_nh_snr, passed_nh_b = ut.read_results_read_results_f_select(file_name)
+    else:
+        if verbose:
+            print(f'Selecting credible frequencies')
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        non_harm = np.delete(np.arange(len(f_n)), harmonics)
+        remove_sigma = af.remove_insignificant_sigma(f_n[non_harm], f_n_err[non_harm],
+                                                     a_n[non_harm], a_n_err[non_harm], sigma_a=3., sigma_f=1.)
+        remove_snr = af.remove_insignificant_snr(a_n_8[non_harm], noise_level_8, len(times))
+        # non-harmonics that pass sigma criteria
+        passed_nh_sigma = np.zeros(len(f_n), dtype=bool)
+        passed_nh_sigma[np.delete(non_harm, remove_sigma)] = True
+        # non-harmonics that pass S/N criteria
+        passed_nh_snr = np.zeros(len(f_n), dtype=bool)
+        passed_nh_snr[np.delete(non_harm, remove_snr)] = True
+        # passing both
+        passed_nh_b = (passed_nh_sigma & passed_nh_snr)
+        if save_dir is not None:
+            ut.save_results_fselect(tic, f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, save_dir, data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mFrequencies selected.\033[0m')
+        print(f'\033[0;32;48mNumber of non-harmonic frequencies passed: {len(passed_nh_b)}, '
+              f'total number of non-harmonic frequencies: {len(non_harm)}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return pass_sigma, pass_snr, passed_nh_b
+
+
+def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc,
+                                   i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
+    """Selects the credible frequencies from the given set,
+    ignoring the harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    par_ellc: numpy.ndarray[float]
+        Parameters of the best ellc model, consisting of:
+        [sqrt(e)cos(w), sqrt(e)sin(w), i, (r1+r2)/a, r2/r1, sb2/sb1]
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str, None
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found. If None, nothing is
+        saved and loading previous results is not attempted.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    const_r, f_n_r, a_n_r, ph_n_r
+    """
+    t_a = time.time()
+    if os.path.isfile(file_name) & (not overwrite):
+        if verbose:
+            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        const_r, f_n_r, a_n_r, ph_n_r = ut.read_results_disentangle(file_name)
+    else:
+        if verbose:
+            print(f'Disentangling eclipses from other harmonics')
+        output = extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
+                                            par_ellc, i_sectors, verbose=verbose)
+        const_r, f_n_r, a_n_r, ph_n_r = output
+        # make the models
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        non_harm = np.delete(np.arange(len(f_n)), harmonics)
+        model_line = linear_curve(times, const, slope, i_sectors)
+        model_h = sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+        model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+        model_ellc_h = sum_sines(times, f_n_r, a_n_r, ph_n_r)
+        model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, *par_ellc)
+        # resid of full sinusoid model and ellc + sinusoid model
+        resid_sines = signal - model_line - model_nh - model_h
+        resid_ellc = signal - model_line - model_nh - model_ellc - const_r - model_ellc_h
+        bic_sines = calc_bic(resid_sines, 2 * len(const) + 3 * len(non_harm) + 2 * len(harmonics))
+        bic_ellc = calc_bic(resid_ellc, 2 * len(const) + 3 * len(non_harm) + 7 + 2 * len(f_n_r))
+        if save_dir is not None:
+            ut.save_results_disentangle(tic, const_r, f_n_r, a_n_r, ph_n_r, save_dir, data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mHarmonic model disentangled.\033[0m')
+        print(f'\033[0;32;48mNumber of harmonic frequencies before: {len(harmonics)}, '
+              f'total number of harmonic frequencies after: {len(f_n_r)}. \n'
+              f'BIC of full model of sinusoids: {bic_sines:1.2f}, '
+              f'BIC of full model with ellc lc: {bic_ellc:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return const_r, f_n_r, a_n_r, ph_n_r
+
+
+def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, verbose=False, overwrite=False):
     """Part three of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis and eclipse_analysis
     
@@ -3417,147 +3535,55 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir=None, data_id=Non
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
-    save_dir: str, None
+    save_dir: str
         Path to a directory for save the results. Also used to load
-        previous analysis results. If None, nothing is saved and the
-        loading of previous results is attempted from a relative path.
+        previous analysis results.
     data_id: int, str, None
         Identification for the dataset used
     verbose: bool
         If set to True, this function will print some information
-    overwrite_old: bool
+    overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
     
     Returns
     -------
-    None
+    out_14: tuple
+        output of pulsation_analysis_fselect
+    out_15: tuple
+        output of pulsation_analysis_disentangle
     """
     # read in the frequency analysis results
-    if save_dir is not None:
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
-    else:
-        file_name = os.path.join(f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
     results, errors, stats = ut.read_results(file_name, verbose=verbose)
     p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
     p_orb_8 = p_orb_8[0]  # must be a float
     p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
     n_param_8, bic_8, noise_level_8 = stats
     # load t_zero from the timings file
-    if save_dir is not None:
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    else:
-        file_name = os.path.join(f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    timings_all = np.loadtxt(file_name, usecols=(1,), delimiter=',')
-    t_zero = timings_all[0]
-    timings = timings_all[1:7]
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
+    results_11 = ut.read_results_timings(file_name)
+    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
+    ecl_indices_11 = results_11[7]
     # open the orbital elements file
-    if save_dir is not None:
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    else:
-        file_name = os.path.join(f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    params_ellc = np.loadtxt(file_name, usecols=(1,), delimiter=',')
-    params_ellc = params_ellc[6:]
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
-    # -------------------------------------
-    # [12] --- Frequency selection criteria
-    # -------------------------------------
-    file_name_12 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
-    if os.path.isfile(file_name_12) & (not overwrite_old) & (save_dir is not None):
-        results_12 = np.loadtxt(file_name_12, usecols=(1, 2, 3, 4, 5, 6), delimiter=',', unpack=True)
-        pass_sigma, pass_snr, passed_nh = results_12[3:]
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
-        non_harm = np.delete(np.arange(len(f_n_8)), harmonics)
-        if verbose:
-            print(f'Step 12: Loaded existing results\n')
-    else:
-        if verbose:
-            print(f'Step 12: Selecting credible frequencies.')
-        t_12a = time.time()
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
-        non_harm = np.delete(np.arange(len(f_n_8)), harmonics)
-        remove_sigma = af.remove_insignificant_sigma(f_n_8[non_harm], f_n_err_8[non_harm],
-                                                     a_n_8[non_harm], a_n_err_8[non_harm], sigma_a=3., sigma_f=1.)
-        remove_snr = af.remove_insignificant_snr(a_n_8[non_harm], noise_level_8, len(times))
-        # make selections based on this
-        remove = np.union1d(remove_sigma, remove_snr)
-        passed_nh = np.delete(non_harm, remove)
-        failed_nh = non_harm[remove]
-        t_12b = time.time()
-        if verbose:
-            print(f'\033[1;32;48mFrequencies selected.\033[0m')
-            print(f'\033[0;32;48mNumber of non-harmonic frequencies passed: {len(passed_nh)}, '
-                  f'total number of non-harmonic frequencies: {len(non_harm)}. Time taken: {t_12b - t_12a:1.1f}s\033[0m\n')
-        if save_dir is not None:
-            table_1 = ut.save_results_12(tic, f_n_8, a_n_8, ph_n_8, non_harm, remove_sigma, remove_snr, save_dir, data_id)
-    # ------------------------------------
-    # [13] --- Eclipse model disentangling
-    # ------------------------------------
-    file_name_13 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
-    if os.path.isfile(file_name_13) & (not overwrite_old) & (save_dir is not None):
-        results_13 = np.loadtxt(file_name_13, usecols=(1, 2, 3), delimiter=',', unpack=True)
-        const_r = results_13[1, 0]
-        f_n_r, a_n_r, ph_n_r = results_13[:, 1:]
-        if verbose:
-            print(f'Step 13: Loaded existing results\n')
-    else:
-        if verbose:
-            print(f'Step 13: Disentangling eclipses from other harmonics.')
-        t_13a = time.time()
-        out_13 = extract_residual_harmonics(times, signal, p_orb_8, t_zero, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                            i_sectors, params_ellc, timings, verbose=verbose)
-        const_r, f_n_r, a_n_r, ph_n_r = out_13
-        # make the models
-        model_line = linear_curve(times, const_8, slope_8, i_sectors)
-        model_h = sum_sines(times, f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics])
-        model_nh = sum_sines(times, f_n_8[non_harm], a_n_8[non_harm], ph_n_8[non_harm])
-        model_ellc_h = sum_sines(times, f_n_r, a_n_r, ph_n_r)
-        model_ellc = tsfit.ellc_lc_simple(times, p_orb_8, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
-        # resid of full sinusoid model and ellc + sinusoid model
-        resid_sines = signal - model_line - model_nh - model_h
-        resid_ellc = signal - model_line - model_nh - model_ellc - const_r - model_ellc_h
-        bic_sines = calc_bic(resid_sines, 2 * len(const_8) + 3 * len(non_harm) + 2 * len(harmonics))
-        bic_ellc = calc_bic(resid_ellc, 2 * len(const_8) + 3 * len(non_harm) + 7 + 2 * len(f_n_r))
-        t_13b = time.time()
-        if verbose:
-            print(f'\033[1;32;48mHarmonic model disentangled.\033[0m')
-            print(f'\033[0;32;48mNumber of harmonic frequencies before: {len(harmonics)}, '
-                  f'total number of harmonic frequencies after: {len(f_n_r)}. \n'
-                  f'BIC of full model of sinusoids: {bic_sines:1.2f}, '
-                  f'BIC of full model with ellc lc: {bic_ellc:1.2f}. '
-                  f'Time taken: {t_12b - t_12a:1.1f}s\033[0m\n')
-        if save_dir is not None:
-            table_2 = ut.save_results_13(tic, const_r, f_n_r, a_n_r, ph_n_r, save_dir, data_id)
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
+    results_13 = ut.read_results_fit_ellc(file_name)
+    par_init_12, par_opt_13 = results_13[:6], results_13[6:]
+    opt_e, opt_w = par_opt_13[:2]
+    par_ellc = (opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w), *par_opt_13[2:])
+    # --- [14] --- Frequency selection
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
+    out_14 = pulsation_analysis_fselect(p_orb_8, f_n_8, a_n_8, ph_n_8, f_n_err_8, a_n_err_8, file_name=file_name,
+                                        data_id=data_id, overwrite=overwrite, verbose=verbose)
+    pass_sigma, pass_snr, passed_nh_b = out_14
+    # --- [13] --- Eclipse model disentangling
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
+    out_15 = pulsation_analysis_disentangle(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                            par_ellc, i_sectors, file_name=file_name, data_id=data_id,
+                                            overwrite=overwrite, verbose=verbose)
+    const_r, f_n_r, a_n_r, ph_n_r = out_15
     # todo: perhaps after this I can dig into the non-harmonic model and try to simplify (ltt effect, blocked light)
-    # make and/or save plots
-    if (save_dir is not None) & plot:
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_pd.png')
-        vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh,
-                                       save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
-        vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                       passed_nh, t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings,
-                                       save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_lc.png')
-        vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                   i_sectors, const_r, f_n_r, a_n_r, ph_n_r, params_ellc,
-                                   save_file=file_name, show=False)
-        file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
-        vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                   noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings,
-                                   save_file=file_name, show=False)
-    if plot:
-        vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh,
-                                       save_file=None, show=True)
-        vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                       passed_nh, t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings,
-                                       save_file=None, show=True)
-        vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero, timings, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                   i_sectors, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True)
-        vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                   noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings,
-                                   save_file=None, show=True)
-    return
+    return out_14, out_15
 
 
 
