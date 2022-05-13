@@ -1009,14 +1009,12 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
     t_zero = ecl_min[0]
     ecl_min = (ecl_min - t_zero) % p_orb
-    ecl_mid[0] = (ecl_mid[0] - t_zero) % p_orb
+    ecl_mid = (ecl_mid - t_zero) % p_orb
     if ecl_mid[0] > (p_orb - widths[0] / 2):
-        ecl_mid[0] = ecl_mid[0] - t_zero
-    ecl_mid[1] = (ecl_mid[1] - t_zero) % p_orb
-    ecl_mid_b[0] = (ecl_mid_b[0] - t_zero) % p_orb
+        ecl_mid[0] = ecl_mid[0] - p_orb
+    ecl_mid_b = (ecl_mid_b - t_zero) % p_orb
     if ecl_mid_b[0] > (p_orb - widths[0] / 2):
-        ecl_mid_b[0] = ecl_mid_b[0] - t_zero
-    ecl_mid_b[1] = (ecl_mid_b[1] - t_zero) % p_orb
+        ecl_mid_b[0] = ecl_mid_b[0] - p_orb
     t_zero = t_zero % p_orb
     # define in terms of time points
     t_1, t_2 = ecl_min[0], ecl_min[1]

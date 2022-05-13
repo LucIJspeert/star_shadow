@@ -6,3 +6,4 @@ This Python module contains the main functions that link together all functional
 
 Code written by: Luc IJspeert
 """
+# todo: refactor functions to here

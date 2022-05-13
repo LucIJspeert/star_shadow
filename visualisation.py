@@ -1213,8 +1213,8 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     return
 
 
-def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, i_sectors, noise_level,
-                           const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings, save_file=None, show=True):
+def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
+                           const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.

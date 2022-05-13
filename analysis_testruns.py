@@ -1366,6 +1366,7 @@ vis.plot_pd_single_output(times, signal, const_8, slope_8, f_n_8[sn_cut_h], a_n_
 # emcee for ellc model?
 # not beneficial it seems
 
+
 # the synthetic tests by Cole and Andrej
 import multiprocessing as mp
 syn_dir = '/lhome/lijspeert/data/test_data/eccentricities'
@@ -1397,13 +1398,13 @@ def analyse_parallel(file):
     times = times - times[0]
     i_half_s = np.array([[0, len(times)]])
     out_a = tsf.frequency_analysis(target_id, times, signal, i_half_s, p_orb=0, save_dir=file[:64],
-                                   data_id='blind_ecc_Cole', overwrite=False, plot=False, verbose=False)
-    # if output None, stop
-    if (out_a[0][0] != None):
-        tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, save_dir=file[:64],
-                             data_id='blind_ecc_Cole', verbose=False, plot=False, overwrite=False)
-        tsf.pulsation_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
-                               verbose=False, plot=False, overwrite=False)
+                                   data_id='blind_ecc_Cole', overwrite=False, verbose=False)
+    # if not full output, stop
+    if (len(out_a[0]) < 8):
+        out_b = tsf.eclipse_analysis(target_id, times, signal, signal_err, i_half_s, save_dir=file[:64],
+                                     data_id='blind_ecc_Cole', verbose=False, overwrite=False)
+        out_c = tsf.pulsation_analysis(target_id, times, signal, i_half_s, save_dir=file[:64], data_id='blind_ecc_Cole',
+                                       verbose=False, overwrite=False)
     return
 
 # plotting in series

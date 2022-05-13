@@ -14,6 +14,7 @@ import numba as nb
 import astropy.io.fits as fits
 
 import timeseries_functions as tsf
+import analysis_functions as af
 import visualisation as vis
 
 
@@ -445,7 +446,8 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save eclipse indices separately
-    file_name_2 = file_name.replace(fn_ext, 'ecl_indices' + fn_ext)
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     description = 'Eclipse indices (see function measure_eclipses_dt).'
     hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, peaks_2_p, minimum_0, '
            f'peaks_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
@@ -470,7 +472,11 @@ def read_results_timings(file_name):
     bottom_dur = np.array([t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1])
     timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
     depths_err = np.array([d_1_err, d_2_err])
-    return t_zero, timings, depths, t_bottoms, timing_errs, depths_err
+    # eclipse indices
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
+    ecl_indices = np.loadtxt(file_name_2, delimiter=',', dtype=int)
+    return t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices
 
 
 def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):
@@ -508,7 +514,7 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name,
 
 def read_results_hsep(file_name):
     """Read in the results of the harmonic separation"""
-    var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', unpack=True)
+    var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', dtype=str, unpack=True)
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     # find out how many sinusoids
     f_ho_names = var_names[np.char.startswith(var_names, 'f_') & np.char.endswith(var_names, 'o')]
@@ -520,7 +526,7 @@ def read_results_hsep(file_name):
     ph_ho = values[1 + 2 * len_ho:1 + 3 * len_ho]
     f_he = values[1 + 3 * len_ho:1 + 3 * len_ho + len_he]
     a_he = values[1 + 3 * len_ho + len_he:1 + 3 * len_ho + 2 * len_he]
-    ph_he = values[1 + 3 * len_ho + 2 * len_he:1 + 3 * len_ho + 2 * len_he]
+    ph_he = values[1 + 3 * len_ho + 2 * len_he:1 + 3 * len_ho + 3 * len_he]
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 
@@ -622,7 +628,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     data = np.column_stack((*dists_in, *dists_out))
     # file name just adds 'dists' at the end
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, 'dists' + fn_ext)
+    file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
     description = 'Prior and posterior distributions (not MCMC).'
     hdr = (f'{file_id}, {data_id}, {description}\n'
            + 't_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals, '
@@ -644,7 +650,7 @@ def read_results_elements(file_name):
     ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    all_dists = np.loadtxt(file_name.replace(fn_ext, 'dists' + fn_ext), delimiter=',', unpack=True)
+    all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
     dists_in = all_dists[:10]
     dists_out = all_dists[10:]
     return (e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, bounds, formal_errors,
@@ -693,10 +699,13 @@ def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_na
     return
 
 
-def read_results_f_select(file_name):
+def read_results_fselect(file_name):
     """Read in the results of the frequency selection"""
     results = np.loadtxt(file_name, usecols=(4, 5, 6), delimiter=',', unpack=True)
     passed_nh_sigma, passed_nh_snr, passed_nh_b = results
+    passed_nh_sigma = passed_nh_sigma.astype(int).astype(bool)  # stored as floats
+    passed_nh_snr = passed_nh_snr.astype(int).astype(bool)  # stored as floats
+    passed_nh_b = passed_nh_b.astype(int).astype(bool)  # stored as floats
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
@@ -719,12 +728,12 @@ def read_results_disentangle(file_name):
     return const_r, f_n_r, a_n_r, ph_n_r
 
 
-def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False):
+def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, show=False):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
     """
     # open all the data
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_1, const_1, slope_1, f_n_1, a_n_1, ph_n_1 = results
@@ -739,7 +748,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1 = np.array([[], [], [], [], [], []])
         n_param_1, bic_1, noise_level_1 = 0, 0, 0
         model_1 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = results
@@ -754,7 +763,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = np.array([[], [], [], [], [], []])
         n_param_2, bic_2, noise_level_2 = 0, 0, 0
         model_2 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
@@ -769,7 +778,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = np.array([[], [], [], [], [], []])
         n_param_3, bic_3, noise_level_3 = 0, 0, 0
         model_3 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = results
@@ -784,7 +793,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
         n_param_4, bic_4, noise_level_4 = 0, 0, 0
         model_4 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = results
@@ -799,7 +808,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = np.array([[], [], [], [], [], []])
         n_param_5, bic_5, noise_level_5 = 0, 0, 0
         model_5 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = results
@@ -814,7 +823,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
         n_param_6, bic_6, noise_level_6 = 0, 0, 0
         model_6 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results
@@ -829,7 +838,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = np.array([[], [], [], [], [], []])
         n_param_7, bic_7, noise_level_7 = 0, 0, 0
         model_7 = np.zeros(len(times))
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
     if os.path.isfile(file_name):
         results, errors_12, stats = read_results(file_name, verbose=False)
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
@@ -852,22 +861,22 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8]
     # open some more data - timings, harmonic separation, eclipse parameters
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
     if os.path.isfile(file_name):
         results_9 = read_results_timings(file_name)
-        t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:7]
-        ecl_indices_9 = results_9[7]
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
+        t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:6]
+        ecl_indices_9 = results_9[6]
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_hsep(file_name)
         const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = results_10
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
         results_11 = read_results_timings(file_name)
-        t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
-        ecl_indices_11 = results_11[7]
+        t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:6]
+        ecl_indices_11 = results_11[6]
         bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
         e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12 = results_12[:9]
@@ -875,29 +884,25 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         # intervals_w #? for when the interval is disjoint
         ecl_pars = (e_12, w_12, i_12, phi_0_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
     # open some more data - ellc fits and pulsation analysis
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
         results_13 = read_results_fit_ellc(file_name)
         par_init_12, par_opt_13 = results_13[:6], results_13[6:]
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     if os.path.isfile(file_name):
-        results_13 = np.loadtxt(file_name, usecols=(1, 2, 3, 4, 5, 6), delimiter=',', unpack=True)
-        pass_sigma, pass_snr, passed_nh = results_12[3:]
-        pass_sigma = pass_sigma.astype(int)
-        pass_snr = pass_snr.astype(int)
-        passed_nh = passed_nh.astype(int)
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
+        results_14 = read_results_fselect(file_name)
+        pass_sigma, pass_snr, passed_nh_b = results_14[3:]
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     if os.path.isfile(file_name):
-        results_14 = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
-        const_r = results_13[1, 0]
-        f_n_r, a_n_r, ph_n_r = results_13[:, 1:]
+        results_15 = read_results_disentangle(file_name)
+        const_r, f_n_r, a_n_r, ph_n_r = results_13
     # frequency_analysis
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_full_pd.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
                                     show=False)
-            plot_nr = np.arange(len(p_orb_i))[p_orb_i != 0][-1] + 1
+            plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1] + 1
             plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                          eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
@@ -908,7 +913,7 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
     if show:
         try:
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
-            plot_nr = np.arange(len(p_orb_i))[p_orb_i != 0][-1] + 1
+            plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1] + 1
             plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                          eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
             vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
@@ -1004,56 +1009,56 @@ def sequential_plotting(tic, times, signal, i_sectors, save_dir=None, show=False
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # pulsation_analysis
-    # todo: update plot parameters
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_pd.png')
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh_b,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
-                                           save_file=file_name, show=False)
+                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+                                           timings_11, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_lc.png')
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+                                       f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       i_sectors, noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
-                                       save_file=file_name, show=False)
+                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
+                                       i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh_b,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
-                                           save_file=None, show=True)
+                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+                                           timings_11, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, save_file=None, show=True)
+            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+                                       f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+                                       save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       i_sectors, noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
-                                       save_file=None, show=True)
+                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
+                                       i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     return
