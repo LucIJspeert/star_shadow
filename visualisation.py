@@ -1,4 +1,6 @@
 """STAR SHADOW
+Satellite Time-series Analysis Routine using
+Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This Python module contains functions for visualisation;
 specifically for visualising the analysis of stellar variability and eclipses.
@@ -45,12 +47,12 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
     ax1 = fig.add_subplot(fsubgrid[0])
     ax2 = fig.add_subplot(fsubgrid[1], sharex=ax1)
     ax0.text(0.5, 0.95, f'(n_param: {n_param}, BIC: {bic:1.2f})', fontsize=14, horizontalalignment='center',
-             verticalalignment='center', transform = ax0.transAxes)
+             verticalalignment='center', transform=ax0.transAxes)
     ax0.plot(freqs, ampls, label='signal')
     ax0.plot(freqs_r, ampls_r, label=f'residual')
     for i in range(len(f_n)):
         ax0.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, err[2][i]], yerr=[0, err[3][i]],
-                    linestyle=':', capsize=2, c='tab:red')
+                     linestyle=':', capsize=2, c='tab:red')
         if annotate:
             ax0.annotate(f'{i+1}', (f_n[i], a_n[i] + 1.1 * err[3][i]), alpha=0.6)
         if (i == len(f_n) - 1):
@@ -126,9 +128,9 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     ax.plot(freqs_3, ampls_3, label='fixed harmonics residual')
     ax.plot(freqs_4, ampls_4, label='extra harmonics residual')
     ax.plot(freqs_5, ampls_5, label='extra non-harmonics residual')
-    ax.plot(freqs_6, ampls_6, label='NL-LS fit residual \w harmonics')
+    ax.plot(freqs_6, ampls_6, label='NL-LS fit residual with harmonics')
     ax.plot(freqs_7, ampls_7, label='Reduced frequencies')
-    ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual \w harmonics')
+    ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual with harmonics')
     if (p_orb_i[7] > 0):
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7])
         p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
@@ -491,10 +493,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     folded = (times - t_zero) % p_orb
     extend_l = (folded > p_orb + t_start)
     extend_r = (folded < t_end - p_orb)
-    h_adjust = 1 - np.mean(signal)
-    # heights at minimum
-    h_1 = np.min(model_h[(t_model > t_1_1) & (t_model < t_1_2)])
-    h_2 = np.min(model_h[(t_model > t_2_1) & (t_model < t_2_2)])
+    # h_adjust = 1 - np.mean(signal)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(folded, ecl_signal_1, marker='.', label='original folded signal')
@@ -594,18 +593,13 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     return
 
 
-def plot_dists_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals,
-                                  tau_2_1_vals, tau_2_2_vals, d_1_vals, d_2_vals, bot_1_vals, bot_2_vals, e, w, i,
-                                  phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, e_vals, w_vals, i_vals,
-                                  phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals):
+def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  r_ratio, sb_ratio, e_vals, w_vals,
+                                  i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals):
     """Shows the histograms resulting from the input distributions
     and the hdi_prob=0.683 and hdi_prob=0.997 bounds resulting from the HDI's
 
     Note: produces several plots
     """
-    t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau
-    d_1, d_2 = depths
-    bot_1, bot_2 = bottom_dur[0], bottom_dur[1]
     cos_w = np.cos(w)
     sin_w = np.sin(w)
     # inclination
@@ -1038,7 +1032,6 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # unpack and define parameters
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
-    opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = params
     # make the ellc models
     model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     par_p = np.copy(params)
@@ -1077,11 +1070,11 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     return
 
 
-def plot_corner_ellc_pars(parameters_1, parameters_2, e_vals, w_vals, i_vals, phi0_vals, psi0_vals,
-                          rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals, save_file=None, show=True):
+def plot_corner_ellc_pars(parameters_1, parameters_2, distributions, save_file=None, show=True):
     """Corner plot of the distributions and the given 'truths' indicated
     using the parametrisation of ellc
     """
+    e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals = distributions
     # transform some params
     e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = parameters_1
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
@@ -1111,7 +1104,7 @@ def plot_corner_ellc_pars(parameters_1, parameters_2, e_vals, w_vals, i_vals, ph
     return
 
 
-def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, ph_n, noise_level, passed_nh, save_file=None, show=True):
+def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, passed_nh, save_file=None, show=True):
     """Plot the periodogram with the output of the pulsation analysis."""
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -1146,7 +1139,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, ph_n, noise_level
 
 
 def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, passed_nh,
-                               t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings, save_file=None, show=True):
+                               t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
     # make models
@@ -1158,8 +1151,6 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_pnh = tsf.sum_sines(times, f_n[passed_nh], a_n[passed_nh], ph_n[passed_nh])
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
-    p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
     # ellc models
     model_ellc_h = tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
     model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
@@ -1214,7 +1205,7 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
 
 
 def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
-                           const_r, f_n_r, a_n_r, ph_n_r, params_ellc, timings, i_sectors, save_file=None, show=True):
+                           const_r, f_n_r, a_n_r, params_ellc, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1344,10 +1335,10 @@ def refine_subset_visual(times, signal, close_f, const, slope, f_n, a_n, ph_n, i
         for j in close_f:
             model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
             model += tsf.sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j),
-                               np.delete(ph_n_temp, j))  # the sinusoid part of the model
+                                   np.delete(ph_n_temp, j))  # the sinusoid part of the model
             resid = signal - model
             f_j, a_j, ph_j = tsf.extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
-                                            verbose=verbose)
+                                                verbose=verbose)
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
         model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
@@ -1380,6 +1371,7 @@ def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
     const, slope = tsf.linear_slope(times, signal, i_sectors)
     resid = signal - tsf.linear_curve(times, const, slope, i_sectors)
     f_n_temp, a_n_temp, ph_n_temp = np.array([[], [], []])
+    f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
     n_param = 2 * n_sectors
     bic_prev = np.inf  # initialise previous BIC to infinity
     bic = tsf.calc_bic(resid, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
@@ -1387,7 +1379,7 @@ def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
     i = 0
     while (bic_prev - bic > 2):
         # last frequency is accepted
-        f_n, a_n, ph_n = f_n_temp, a_n_temp, ph_n_temp
+        f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
         bic_prev = bic
         if verbose:
             print(f'Iteration {i}, {len(f_n)} frequencies, BIC= {bic:1.2f}')
@@ -1479,32 +1471,3 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
         plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, bic, i_half_s, title,
                               zoom=xlim, annotate=False, save_file=f_name, show=False)
     return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

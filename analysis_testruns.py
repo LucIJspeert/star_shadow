@@ -16,6 +16,7 @@ import ellc
 import importlib as ilib
 
 import eclipsr as ecl
+import main_functions as mf
 import timeseries_functions as tsf
 import timeseries_fitting as tsfit
 import analysis_functions as af

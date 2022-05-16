@@ -1,4 +1,6 @@
 """STAR SHADOW
+Satellite Time-series Analysis Routine using
+Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This module contains utility functions for data processing, unit conversions
 and loading in data (some functions specific to TESS data).
@@ -67,7 +69,7 @@ def normalise_counts(flux_counts, i_sectors):
 
 def get_tess_sectors(times, bjd_ref=2457000.0):
     """Load the times of the TESS sectors from a file and return a set of
-    indices indicating the separate sectors in the time series.
+    indices indicating the separate sectors in the time-series.
     Make sure to use the appropriate BJD reference date for your data.
     """
     # the 0.5 offset comes from test results, and the fact that no exact JD were found (just calendar days)
@@ -92,14 +94,14 @@ def convert_tess_t_sectors(times, t_sectors):
 def load_tess_data(file_name):
     """Load in the data from a fits file, TESS specific.
     
-    Returns the time series (timestamps and observations).
+    Returns the time-series (timestamps and observations).
     The SAP flux is returned as well as the processed data (depending on the data source
     this is PDC_SAP or KSP_SAP) and reported errors
     Also returned are the sector number and time of start and end.
     """
     if ((file_name[-5:] != '.fits') & (file_name[-4:] != '.fit')):
         file_name += '.fits'
-    # grab the time series data, sector number, start and stop time
+    # grab the time-series data, sector number, start and stop time
     with fits.open(file_name, mode='readonly') as hdul:
         sector = hdul[0].header['SECTOR']
         times = hdul[1].data['TIME']
@@ -304,7 +306,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     elif (corr > -0.7):
         check = True
         s1, s2 = 'a moderate', ', indicative that the target might not be the EB'
-    elif (corr <= -0.7):
+    else:  # (corr <= -0.7)
         check = True
         s1, s2 = 'a strong', ', indicative that the target might not be the EB'
 
@@ -314,10 +316,9 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     return corr, check
 
 
-def save_results(results, errors, stats, file_name, identifier='none', description='none', dataset='none'):
+def save_results(results, errors, stats, file_name, description='none', dataset='none'):
     """Save the full output of the frequency analysis function to an hdf5 file.
     
-    Give an identifier to be inserted into the file.
     The file contains the datasets (array-like) and attributes to describe the data.
     """
     # unpack all the variables
@@ -329,7 +330,7 @@ def save_results(results, errors, stats, file_name, identifier='none', descripti
         file_name += '.hdf5'
     # create the file
     with h5py.File(file_name, 'w') as file:
-        file.attrs['identifier'] = identifier
+        file.attrs['identifier'] = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
         file.attrs['description'] = description
         file.attrs['dataset'] = dataset
         file.attrs['date_time'] = str(datetime.datetime.now())
@@ -463,13 +464,7 @@ def read_results_timings(file_name):
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
     t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
-    tau_1_1 = t_1 - t_1_1
-    tau_1_2 = t_1_2 - t_1
-    tau_2_1 = t_2 - t_2_1
-    tau_2_2 = t_2_2 - t_2
     timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
-    timings_tau = np.array([t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2])
-    bottom_dur = np.array([t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1])
     timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
@@ -540,6 +535,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi
     if (len(np.shape(w_bds)) > 1):
+        w_interval = intervals[:, [1, 2]]  # (this is probably not right)
         w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1]
         w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1]
     else:
@@ -622,9 +618,6 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save the distributions separately
-    t_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals = dists_in[:6]
-    d_1_vals, d_2_vals, bot_1_vals, bot_2_vals = dists_in[6:]
-    e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals = dists_out
     data = np.column_stack((*dists_in, *dists_out))
     # file name just adds 'dists' at the end
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
@@ -646,8 +639,6 @@ def read_results_elements(file_name):
     bounds = results[31:53].reshape((11, 2))
     formal_errors = results[53:61]
     # intervals_w  # ? for when the interval is disjoint
-    e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
-    ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
@@ -875,6 +866,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_11 = read_results_timings(file_name)
         t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:6]
         ecl_indices_11 = results_11[6]
+        timings_tau_11 = np.array([timings_11[0], timings_11[1],
+                                   timings_11[0] - timings_11[2], timings_11[3] - timings_11[0],
+                                   timings_11[1] - timings_11[4], timings_11[5] - timings_11[1]])
         bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
@@ -895,7 +889,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     if os.path.isfile(file_name):
         results_15 = read_results_disentangle(file_name)
-        const_r, f_n_r, a_n_r, ph_n_r = results_13
+        const_r, f_n_r, a_n_r, ph_n_r = results_15
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -962,12 +956,12 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_corner.png')
-            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, *dists_out_12, save_file=file_name, show=False)
+            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, dists_out_12, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices, save_file=None, show=True)
+            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices_11, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -988,9 +982,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_dists_eclipse_parameters(timings_tau_11, depths_11, bottom_dur, *dists_in_12, e_12, w_12, i_12,
-                                              phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
-                                              *dists_out_12)
+            vis.plot_dists_eclipse_parameters(e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12,
+                                              r_ratio_12, sb_ratio_12, *dists_out_12)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1005,14 +998,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, *dists_out_12, save_file=None, show=True)
+            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, dists_out_12, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # pulsation_analysis
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_pd.png')
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh_b,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, noise_level_8, passed_nh_b,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1020,7 +1013,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
                                            passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
-                                           timings_11, save_file=file_name, show=False)
+                                           save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1032,21 +1025,21 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
+            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
                                        i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, ph_n_8, noise_level_8, passed_nh_b,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, noise_level_8, passed_nh_b,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
                                            passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
-                                           timings_11, save_file=None, show=True)
+                                           save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1056,24 +1049,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13, timings_11,
+            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                       noise_level_8, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
                                        i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

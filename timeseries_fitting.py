@@ -1,6 +1,8 @@
 """STAR SHADOW
+Satellite Time-series Analysis Routine using
+Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
-This Python module contains functions for time series analysis;
+This Python module contains functions for time-series analysis;
 specifically for the fitting of stellar oscillations and eclipses.
 
 Code written by: Luc IJspeert
@@ -9,12 +11,12 @@ Code written by: Luc IJspeert
 import numpy as np
 import numba as nb
 import scipy as sp
-import scipy.spatial
+import scipy.optimize
 import ellc
 
-import utility as ut
 import timeseries_functions as tsf
 import analysis_functions as af
+import utility as ut
 
 
 @nb.njit
@@ -268,7 +270,7 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
 
 
 @nb.njit
-def objective_third_light(params, times, signal, p_orb, const, slope, a_h, ph_h, harmonic_n, i_sectors, verbose=False):
+def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
 
@@ -279,7 +281,6 @@ def objective_third_light(params, times, signal, p_orb, const, slope, a_h, ph_h,
     See linear_curve and sum_sines for the definition of some of the the parameters.
     """
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
-    n_harm = len(harmonic_n)
     # separate the parameters
     light_3 = params[:n_sect]
     stretch = params[-1]
@@ -320,14 +321,13 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     n_f_tot = len(f_n)
     n_sin = len(non_harm)  # each independent sine has freq, ampl and phase
     n_harm = len(harmonics)
-    if verbose:
-        model = tsf.sum_sines(times, f_n, a_n, ph_n)
-        model += tsf.linear_curve(times, const, slope, i_sectors)
-        bic_init = tsf.calc_bic(signal - model, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
+    model_init = tsf.sum_sines(times, f_n, a_n, ph_n)
+    model_init += tsf.linear_curve(times, const, slope, i_sectors)
+    bic_init = tsf.calc_bic(signal - model_init, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
     # start off at third light of 0.01 and stretch parameter of 1.01
     params_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
     param_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
-    arguments = (times, signal, p_orb, const, slope, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, verbose)
+    arguments = (times, signal, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, verbose)
     # do the fit
     result = sp.optimize.minimize(objective_third_light, x0=params_init, args=arguments, method='Nelder-Mead',
                                   bounds=param_bounds, options={'maxfev': 10**5 * len(params_init)})
@@ -358,7 +358,7 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
     return model
 
 
-def objective_ellc_lc(params, times, signal, signal_err, p_orb, timings):
+def objective_ellc_lc(params, times, signal, signal_err, p_orb):
     """Objective function for a set of eclipse parameters"""
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
     r_1 = r_sum_sma / (1 + r_ratio)
@@ -410,19 +410,18 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     # bounds = ((max(f_c - 2*(f_c - f_c_bd[0]), -1), min(f_c + 2*(f_c_bd[1] - f_c), 1)),
     #             (max(f_s - 2*(f_s - f_s_bd[0]), -1), min(f_s + 2*(f_s_bd[1] - f_s), 1)),
     #             (max(i - 2*(i - i_bd[0]), 0), min(i + 2*(i_bd[1] - i), np.pi/2)),
-    #             (max(r_sum_sma - 2*(r_sum_sma - r_sum_sma_bd[0]), 0), min(r_sum_sma + 2*(r_sum_sma_bd[1] - r_sum_sma), 1)),
+    #             (max(r_sum_sma - 2*(r_sum_sma - r_sum_sma_bd[0]), 0),
+    #              min(r_sum_sma + 2*(r_sum_sma_bd[1] - r_sum_sma), 1)),
     #             (max(r_ratio - 2*(r_ratio - r_ratio_bd[0]), 0), min(r_ratio + 2*(r_ratio_bd[1] - r_ratio), 1)),
     #             (max(sb_ratio - 2*(sb_ratio - sb_ratio_bd[0]), 0), min(sb_ratio + 2*(sb_ratio_bd[1] - sb_ratio), 1)),
     #             (-0.5, 0.5))
     bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100), (-0.5, 0.5))
-    args = (t_model[mask], ecl_signal[mask], signal_err[mask], p_orb, timings)
+    args = (t_model[mask], ecl_signal[mask], signal_err[mask], p_orb)
     res = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
-                               options={'maxiter':10000})
+                               options={'maxiter': 10000})
     if verbose:
         print('Fit 1 complete')
         print(f'fun: {res.fun}')
         print(f'message: {res.message}')
         print(f'nfev: {res.nfev}, nit: {res.nit}, status: {res.status}, success: {res.success}')
     return res
-
-
