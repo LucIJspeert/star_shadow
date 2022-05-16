@@ -22,11 +22,31 @@ import utility as ut
 @nb.njit
 def objective_sines(params, times, signal, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves.
+    
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        The parameters of a set of sine waves and linear curve(s).
+        Has to be a flat array and are ordered in the following way:
+        [constant1, constant2, ..., slope1, slope2, ...,
+         freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
 
-    The parameters (params) have to be a flat array and are ordered in the following way:
-    params = array(constant1, constant2, ..., slope1, slope2, ..., freq1, freg2, ..., ampl1, ampl2, ...,
-                   phase1, phase2, ...)
-    See linear_curve and sum_sines for the definition of the parameters.
+    See Also
+    --------
+    linear_curve and sum_sines for the definition of the parameters.
     """
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = (len(params) - 2 * n_sect) // 3  # each sine has freq, ampl and phase
@@ -51,6 +71,44 @@ def objective_sines(params, times, signal, i_sectors, verbose=False):
 def multi_sine_NL_LS_fit(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit.
     
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    res_const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    res_slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    res_freqs: numpy.ndarray[float]
+        Updated frequencies of a number of sine waves
+    res_ampls: numpy.ndarray[float]
+        Updated amplitudes of a number of sine waves
+    res_phases: numpy.ndarray[float]
+        Updated phases of a number of sine waves
+    
+    Notes
+    -----
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
@@ -82,6 +140,46 @@ def multi_sine_NL_LS_fit(times, signal, const, slope, f_n, a_n, ph_n, i_sectors,
 def multi_sine_NL_LS_fit_per_group(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, f_groups, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
 
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    f_groups: list[numpy.ndarray[int]]
+        List of sets of frequencies to be fit separately in order
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    res_const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    res_slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    res_freqs: numpy.ndarray[float]
+        Updated frequencies of a number of sine waves
+    res_ampls: numpy.ndarray[float]
+        Updated amplitudes of a number of sine waves
+    res_phases: numpy.ndarray[float]
+        Updated phases of a number of sine waves
+    
+    Notes
+    -----
     In reducing the overall runtime of the NL-LS fit, this will improve the
     fits on just the given groups of (closely spaced) frequencies, leaving the other
     frequencies as fixed parameters.
@@ -92,29 +190,29 @@ def multi_sine_NL_LS_fit_per_group(times, signal, const, slope, f_n, a_n, ph_n, 
     # make a copy of the initial parameters
     res_const = np.copy(const)
     res_slope = np.copy(slope)
-    freqs = np.copy(f_n)
-    ampls = np.copy(a_n)
-    phases = np.copy(ph_n)
+    res_freqs = np.copy(f_n)
+    res_ampls = np.copy(a_n)
+    res_phases = np.copy(ph_n)
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
             print(f'Starting fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
-        resid = signal - tsf.sum_sines(times, np.delete(freqs, group), np.delete(ampls, group),
-                                       np.delete(phases, group))  # the sinusoid part of the model
+        resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
+                                       np.delete(res_phases, group))  # the sinusoid part of the model
         # fit only the frequencies in this group (constant and slope are also fitted still)
-        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, freqs[group], ampls[group],
-                                      phases[group], i_sectors, verbose=verbose)
+        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
+                                      res_phases[group], i_sectors, verbose=verbose)
         res_const, res_slope, res_freqs, res_ampls, res_phases = result
-        freqs[group] = res_freqs
-        ampls[group] = res_ampls
-        phases[group] = res_phases
+        res_freqs[group] = res_freqs
+        res_ampls[group] = res_ampls
+        res_phases[group] = res_phases
         if verbose:
             model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, freqs, ampls, phases)
+            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             bic = tsf.calc_bic(signal - model, 2 * n_sect + 3 * n_sin)
             print(f'BIC in fit convergence message above invalid. Actual BIC: {bic:1.2f}')
-    return res_const, res_slope, freqs, ampls, phases
+    return res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
 @nb.njit
@@ -122,12 +220,37 @@ def objective_sines_harmonics(params, times, signal, harmonic_n, i_sectors, verb
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
 
-    The parameters (params) have to be a flat array and are ordered in the following way:
-    params = array(p_orb, constant1, constant2, ..., slope1, slope2, ..., freq1, freg2, ..., ampl1, ampl2, ...,
-                   phase1, phase2, ..., ampl_h1, ampl_h2, ..., phase_h1, phase_h2, ...)
-    where _hi indicates harmonics. The harmonic number must also be provided in the order that
-    the harmonics appear in the parameters.
-    See linear_curve and sum_sines for the definition of the parameters.
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        The parameters of a set of sine waves and linear curve(s).
+        Has to be a flat array and are ordered in the following way:
+        [p_orb, constant1, constant2, ..., slope1, slope2, ...,
+         freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...,
+         ampl_h1, ampl_h2, ..., phase_h1, phase_h2, ...]
+        where _hi indicates harmonics.
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    harmonic_n: numpy.ndarray[int]
+        Integer indicating which harmonic each index in 'harmonics'
+        points to. n=1 for the base frequency (=orbital frequency)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
+
+    See Also
+    --------
+    linear_curve and sum_sines for the definition of the parameters.
     """
     n_harm = len(harmonic_n)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
@@ -161,6 +284,48 @@ def objective_sines_harmonics(params, times, signal, harmonic_n, i_sectors, verb
 def multi_sine_NL_LS_harmonics_fit(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit with harmonic frequencies.
     
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    res_p_orb: float
+        Updated Orbital period in days
+    res_const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    res_slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    res_freqs: numpy.ndarray[float]
+        Updated frequencies of a number of sine waves
+    res_ampls: numpy.ndarray[float]
+        Updated amplitudes of a number of sine waves
+    res_phases: numpy.ndarray[float]
+        Updated phases of a number of sine waves
+    
+    Notes
+    -----
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
@@ -202,10 +367,52 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
                                              verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit with harmonic frequencies
     per frequency group
-
-    In reducing the overall runtime of the NL-LS fit, this will improve the
-    fits on just the given groups of (closely spaced) frequencies, leaving the other
-    frequencies as fixed parameters.
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    res_p_orb: float
+        Updated Orbital period in days
+    res_const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    res_slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    res_freqs: numpy.ndarray[float]
+        Updated frequencies of a number of sine waves
+    res_ampls: numpy.ndarray[float]
+        Updated amplitudes of a number of sine waves
+    res_phases: numpy.ndarray[float]
+        Updated phases of a number of sine waves
+    
+    Notes
+    -----
+    In reducing the overall runtime of the NL-LS fit, this will improve
+    the fits per group of 20-25 frequencies, leaving the otherfrequencies
+    as fixed parameters.
     Contrary to multi_sine_NL_LS_fit_per_group, the groups don't have to be provided
     as they are made with the default parameters of ut.group_fequencies_for_fit.
     The orbital harmonics are always the first group.
@@ -223,14 +430,12 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
     # make a copy of the initial parameters
     res_const = np.copy(np.atleast_1d(const))
     res_slope = np.copy(np.atleast_1d(slope))
-    freqs = np.copy(f_n)
-    ampls = np.copy(a_n)
-    phases = np.copy(ph_n)
+    res_freqs, res_ampls, res_phases = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     # fit the harmonics (first group)
     if verbose:
         print(f'Starting fit of orbital harmonics')
-    resid = signal - tsf.sum_sines(times, np.delete(freqs, harmonics), np.delete(ampls, harmonics),
-                                   np.delete(phases, harmonics))  # the sinusoid part of the model without harmonics
+    resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
+                                   np.delete(res_phases, harmonics))  # the sinusoid part of the model without harmonics
     params_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
     result = sp.optimize.minimize(objective_sines_harmonics, x0=params_init,
                                   args=(times, resid, harmonic_n, i_sectors, verbose), method='Nelder-Mead',
@@ -239,12 +444,12 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
     res_p_orb = result.x[0]
     res_const = result.x[1:1 + n_sect]
     res_slope = result.x[1 + n_sect:1 + 2 * n_sect]
-    freqs[harmonics] = harmonic_n / res_p_orb
-    ampls[harmonics] = result.x[1 + 2 * n_sect:1 + 2 * n_sect + n_harm]
-    phases[harmonics] = result.x[1 + 2 * n_sect + n_harm:1 + 2 * n_sect + 2 * n_harm]
+    res_freqs[harmonics] = harmonic_n / res_p_orb
+    res_ampls[harmonics] = result.x[1 + 2 * n_sect:1 + 2 * n_sect + n_harm]
+    res_phases[harmonics] = result.x[1 + 2 * n_sect + n_harm:1 + 2 * n_sect + 2 * n_harm]
     if verbose:
         model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-        model += tsf.sum_sines(times, freqs, ampls, phases)
+        model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
         bic = tsf.calc_bic(signal - model, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     # update the parameters for each group
@@ -252,21 +457,21 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
         if verbose:
             print(f'Starting fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
-        resid = signal - tsf.sum_sines(times, np.delete(freqs, group), np.delete(ampls, group),
-                                       np.delete(phases, group))  # the sinusoid part of the model without group
+        resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
+                                       np.delete(res_phases, group))  # the sinusoid part of the model without group
         # fit only the frequencies in this group (constant and slope are also fitted still)
-        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, freqs[group], ampls[group],
-                                      phases[group], i_sectors, verbose=verbose)
+        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
+                                      res_phases[group], i_sectors, verbose=verbose)
         res_const, res_slope, res_freqs, res_ampls, res_phases = result
-        freqs[group] = res_freqs
-        ampls[group] = res_ampls
-        phases[group] = res_phases
+        res_freqs[group] = res_freqs
+        res_ampls[group] = res_ampls
+        res_phases[group] = res_phases
         if verbose:
             model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, freqs, ampls, phases)
+            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             bic = tsf.calc_bic(signal - model, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
             print(f'BIC in fit convergence message above invalid. Actual BIC: {bic:1.2f}')
-    return res_p_orb, res_const, res_slope, freqs, ampls, phases
+    return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
 @nb.njit
@@ -274,11 +479,40 @@ def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
 
-    The parameters (params) have to be a flat array and are ordered in the following way:
-    params = array(third_light1, third_light2, ..., ampl_h1, ampl_h2, ...)
-    where _hi indicates harmonics. The harmonic number (harmonic_n) must also be provided
-    in the order that the harmonics appear in the parameters.
-    See linear_curve and sum_sines for the definition of some of the the parameters.
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        Third light for a set of sectors and a stretch parameter.
+        Has to be ordered in the following way:
+        [third_light1, third_light2, ..., stretch]
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    a_h: numpy.ndarray[float]
+        Corresponding amplitudes of the orbital harmonics
+    ph_h: numpy.ndarray[float]
+        Corresponding phases of the orbital harmonics
+    harmonic_n: numpy.ndarray[int]
+        Integer indicating which harmonic each index in 'harmonics'
+        points to. n=1 for the base frequency (=orbital frequency)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
+    
+    See Also
+    --------
+    linear_curve and sum_sines for the definition of the parameters.
     """
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     # separate the parameters
@@ -307,12 +541,51 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     fully data driven fitting for third light will result in a lower bound for
     the flux fraction of contaminating light in the aperture per sector.
     (corresponding to an upper bound to CROWDSAP parameter, or 1-third_light)
-    In the null hypothesis that our target is the one eclipsing, the lowest depths
-    present in the data are in the sector with least third light.
+    In the null hypothesis that our target is the one eclipsing, the deepest
+    eclipses present in the data are in the sector with least third light.
     If we have the CROWDSAP parameter, this can be compared to check the null hypothesis
     or we can simply use the CROWDSAP as starting point.
     
-    For this to work we need at least an initial harmonic model of the eclipses.
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    res_light_3: float
+        Minimum third light needed in each sector
+    res_stretch: float
+        Scaling factor for the harmonic amplitudes
+    const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    
+    Notes
+    -----
+    For this to work we need at least an initial harmonic model of the eclipses
+    (and at least a hand full of sectors).
     The given third light values are fractional values of a median-normalised light curve.
     """
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
@@ -346,7 +619,36 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
 
 
 def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset):
-    """Wrapper for a simple ELLC model with some fixed inputs"""
+    """Wrapper for a simple ELLC model with some fixed inputs
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    f_c: float
+        Combination of e and w: sqrt(e)cos(w)
+    f_s: float
+        Combination of e and w: sqrt(e)sin(w)
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    offset: float
+        Constant offset for the light level
+    
+    Returns
+    -------
+    model: numpy.ndarray[float]
+        Eclipse light curve model for the given time points
+    """
     incl = i / np.pi * 180  # ellc likes degrees
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
@@ -359,7 +661,32 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
 
 
 def objective_ellc_lc(params, times, signal, signal_err, p_orb):
-    """Objective function for a set of eclipse parameters"""
+    """Objective function for a set of eclipse parameters
+    
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        The parameters of a simple eclipse light curve model.
+        Has to be ordered in the following way:
+        [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset]
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
+    
+    See Also
+    --------
+    ellc_lc_simple
+    """
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
@@ -376,15 +703,62 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
     return -ln_likelihood
 
 
-def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                     par_init, par_bounds, verbose=False):
+def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init,
+                     par_bounds, i_sectors, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
     
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    par_init: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
+    par_bounds: tuple[tuple[float]], list[tuple[float]], numpy.ndarray[tuple[float]]
+        Bounds on the eclipse parameters (par_init)
+        (may also be different combinations of tuple/list/array)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    result: Object
+        Fit results object from the scipy optimizer
+    
+    See Also
+    --------
+    ellc_lc_simple, objective_ellc_lc
+    
+    Notes
+    -----
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
-    The fit has free parameters:
-    sqrt(e)*cos(w), sqrt(e)*sin(w), i, (r1+r2)/a, r2/r1, sb_ratio
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
@@ -417,11 +791,11 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     #             (-0.5, 0.5))
     bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100), (-0.5, 0.5))
     args = (t_model[mask], ecl_signal[mask], signal_err[mask], p_orb)
-    res = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
+    result = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
                                options={'maxiter': 10000})
     if verbose:
         print('Fit 1 complete')
-        print(f'fun: {res.fun}')
-        print(f'message: {res.message}')
-        print(f'nfev: {res.nfev}, nit: {res.nit}, status: {res.status}, success: {res.success}')
-    return res
+        print(f'fun: {result.fun}')
+        print(f'message: {result.message}')
+        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
+    return result

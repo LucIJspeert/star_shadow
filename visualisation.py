@@ -1108,6 +1108,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
     """Plot the periodogram with the output of the pulsation analysis."""
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    passed_nh_i = np.arange(len(f_n))[passed_nh]
     # make periodograms
     freqs, ampls = tsf.scargle(times, signal - np.mean(signal))
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
@@ -1122,7 +1123,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
     for k in non_harm:
         ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle=':', c='tab:red')
     ax.plot([], [], linestyle=':', c='tab:red', label='failed criteria')
-    for k in passed_nh:
+    for k in passed_nh_i:
         ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle='--', c='tab:green')
     ax.plot([], [], linestyle='--', c='tab:green', label='passed criteria')
     plt.xlabel('frequency (1/d)', fontsize=14)

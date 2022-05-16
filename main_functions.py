@@ -942,7 +942,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
         output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                        f_n, a_n, ph_n, i_sectors, par_init_ellc, par_bounds, verbose=verbose)
+                                        f_n, a_n, ph_n, par_init_ellc, par_bounds, i_sectors, verbose=verbose)
         # todo: think of a way to get errors?
         # get e and w from fitting parameters f_c and f_s
         opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = output.x
@@ -955,7 +955,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
     if verbose:
         print(f'\033[1;32;48mOptimisation of the light curve parameters complete.\033[0m')
         print(f'\033[0;32;48me: {opt_e:2.4}, w: {opt_w / np.pi * 180:2.4} deg, i: {opt_i / np.pi * 180:2.4} deg, '
-              f'(r1+r2)/a: {opt_r_sum_sma:2.4}, r2/r1: {opt_r_ratio:2.4}, sb2/sb1: {opt_sb_ratio:2.4}, '
+              f'(r1+r2)/a: {opt_r_sum_sma:2.4}, \nr2/r1: {opt_r_ratio:2.4}, sb2/sb1: {opt_sb_ratio:2.4}, '
               f'offset: {offset:2.4}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return par_opt
 
@@ -1261,7 +1261,7 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ve
     # load t_zero from the timings file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     results_11 = ut.read_results_timings(file_name)
-    t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
+    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
     # open the orbital elements file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     results_13 = ut.read_results_fit_ellc(file_name)
