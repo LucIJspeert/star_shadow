@@ -201,12 +201,12 @@ def multi_sine_NL_LS_fit_per_group(times, signal, const, slope, f_n, a_n, ph_n, 
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))  # the sinusoid part of the model
         # fit only the frequencies in this group (constant and slope are also fitted still)
-        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
+        output = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group], i_sectors, verbose=verbose)
-        res_const, res_slope, res_freqs, res_ampls, res_phases = result
-        res_freqs[group] = res_freqs
-        res_ampls[group] = res_ampls
-        res_phases[group] = res_phases
+        res_const, res_slope, out_freqs, out_ampls, out_phases = output
+        res_freqs[group] = out_freqs
+        res_ampls[group] = out_ampls
+        res_phases[group] = out_phases
         if verbose:
             model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
@@ -437,21 +437,21 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
     resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
                                    np.delete(res_phases, harmonics))  # the sinusoid part of the model without harmonics
     params_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
-    result = sp.optimize.minimize(objective_sines_harmonics, x0=params_init,
+    output = sp.optimize.minimize(objective_sines_harmonics, x0=params_init,
                                   args=(times, resid, harmonic_n, i_sectors, verbose), method='Nelder-Mead',
                                   options={'maxfev': 10**5 * len(params_init)})
     # separate results
-    res_p_orb = result.x[0]
-    res_const = result.x[1:1 + n_sect]
-    res_slope = result.x[1 + n_sect:1 + 2 * n_sect]
+    res_p_orb = output.x[0]
+    res_const = output.x[1:1 + n_sect]
+    res_slope = output.x[1 + n_sect:1 + 2 * n_sect]
     res_freqs[harmonics] = harmonic_n / res_p_orb
-    res_ampls[harmonics] = result.x[1 + 2 * n_sect:1 + 2 * n_sect + n_harm]
-    res_phases[harmonics] = result.x[1 + 2 * n_sect + n_harm:1 + 2 * n_sect + 2 * n_harm]
+    res_ampls[harmonics] = output.x[1 + 2 * n_sect:1 + 2 * n_sect + n_harm]
+    res_phases[harmonics] = output.x[1 + 2 * n_sect + n_harm:1 + 2 * n_sect + 2 * n_harm]
     if verbose:
         model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
         model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
         bic = tsf.calc_bic(signal - model, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
-        print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
+        print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
@@ -460,12 +460,12 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb, const, slope,
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))  # the sinusoid part of the model without group
         # fit only the frequencies in this group (constant and slope are also fitted still)
-        result = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
+        output = multi_sine_NL_LS_fit(times, resid, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group], i_sectors, verbose=verbose)
-        res_const, res_slope, res_freqs, res_ampls, res_phases = result
-        res_freqs[group] = res_freqs
-        res_ampls[group] = res_ampls
-        res_phases[group] = res_phases
+        res_const, res_slope, out_freqs, out_ampls, out_phases = output
+        res_freqs[group] = out_freqs
+        res_ampls[group] = out_ampls
+        res_phases[group] = out_phases
         if verbose:
             model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
