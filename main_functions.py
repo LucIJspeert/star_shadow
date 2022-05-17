@@ -198,6 +198,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             print(f'Step 3: Coupling the harmonic frequencies to the orbital frequency.')
         t_3a = time.time()
         if (p_orb == 0):
+            # todo: target 76 - try harmonic search, see if that finds the ecl
             # first to get a global minimum, inform the pdm by the frequencies
             periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n_2)
             base_p = periods[np.argmin(phase_disp)]

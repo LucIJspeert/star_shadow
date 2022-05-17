@@ -965,8 +965,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_p2n_1 = t_model[ecl_indices[:, 2]]  # first times of negative extremum deriv_2 (from peaks_2_n)
     t_p2n_2 = t_model[ecl_indices[:, -3]]  # last times of negative extremum deriv_2 (from peaks_2_n)
     # determine the eclipse edges from the midpoint between peaks_2_n and minimum_1
-    t_i_1 = (t_m1_1 + t_p2n_1) / 2 * (t_p2n_1 > t_m1_1) + (t_m1_1 + t_p2n_1 - 2 * p_orb) / 2 * (t_p2n_1 < t_m1_1)
-    t_i_2 = (t_m1_2 + t_p2n_2) / 2 * (t_m1_2 > t_p2n_2) + (t_m1_2 + t_p2n_2 - 2 * p_orb) / 2 * (t_m1_2 < t_p2n_2)
+    t_i_1 = (t_m1_1 + t_p2n_1) / 2 * (t_p2n_1 >= t_m1_1) + (t_m1_1 + t_p2n_1 - 2 * p_orb) / 2 * (t_p2n_1 < t_m1_1)
+    t_i_2 = (t_m1_2 + t_p2n_2) / 2 * (t_m1_2 >= t_p2n_2) + (t_m1_2 + t_p2n_2 - 2 * p_orb) / 2 * (t_m1_2 < t_p2n_2)
     indices_t_i_1 = np.searchsorted(t_model, t_i_1)  # if t_model is granular enough, this should be precise enough
     indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
     # use the intervals as 3 sigma limits on either side
