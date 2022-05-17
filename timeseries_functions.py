@@ -13,8 +13,8 @@ import scipy as sp
 import scipy.stats
 import numba as nb
 
-import timeseries_fitting as tsfit
-import analysis_functions as af
+from . import timeseries_fitting as tsfit
+from . import analysis_functions as af
 
 
 @nb.njit(cache=True)

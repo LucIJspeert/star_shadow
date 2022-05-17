@@ -15,9 +15,9 @@ import numpy as np
 import numba as nb
 import astropy.io.fits as fits
 
-import timeseries_functions as tsf
-import analysis_functions as af
-import visualisation as vis
+from . import timeseries_functions as tsf
+from . import analysis_functions as af
+from . import visualisation as vis
 
 
 @nb.njit()

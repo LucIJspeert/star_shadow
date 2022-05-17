@@ -19,10 +19,10 @@ import h5py
 import arviz
 import corner
 
-import timeseries_functions as tsf
-import timeseries_fitting as tsfit
-import analysis_functions as af
-import utility as ut
+from . import timeseries_functions as tsf
+from . import timeseries_fitting as tsfit
+from . import analysis_functions as af
+from . import utility as ut
 
 
 def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, bic, i_sectors, title, zoom=None,

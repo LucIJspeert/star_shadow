@@ -18,8 +18,8 @@ import itertools as itt
 
 import arviz
 
-import timeseries_functions as tsf
-import utility as ut
+from . import timeseries_functions as tsf
+from . import utility as ut
 
 
 @nb.njit()

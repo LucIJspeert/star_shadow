@@ -14,9 +14,9 @@ import scipy as sp
 import scipy.optimize
 import ellc
 
-import timeseries_functions as tsf
-import analysis_functions as af
-import utility as ut
+from . import timeseries_functions as tsf
+from . import analysis_functions as af
+from . import utility as ut
 
 
 @nb.njit

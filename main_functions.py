@@ -13,10 +13,10 @@ import numpy as np
 import scipy as sp
 import scipy.signal
 
-import timeseries_functions as tsf
-import timeseries_fitting as tsfit
-import analysis_functions as af
-import utility as ut
+from . import timeseries_functions as tsf
+from . import timeseries_fitting as tsfit
+from . import analysis_functions as af
+from . import utility as ut
 
 
 def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=None, overwrite=False, verbose=False):
