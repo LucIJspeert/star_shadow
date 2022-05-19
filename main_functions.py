@@ -42,7 +42,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         If the orbital period is known with certainty beforehand, it can
         be provided as initial value and no new period will be searched.
     save_dir: str
-        Path to a directory for save the results. Also used to load
+        Path to a directory for saving the results. Also used to load
         previous analysis results.
     data_id: int, str, None
         Identification for the dataset used
@@ -670,11 +670,11 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
     -------
     const_ho: numpy.ndarray[float]
         Mean of the residual
-    f_n_ho: numpy.ndarray[float]
+    f_ho: numpy.ndarray[float]
         Frequencies of a number of harmonic sine waves
-    a_n_ho: numpy.ndarray[float]
+    a_ho: numpy.ndarray[float]
         Amplitudes of a number of harmonic sine waves
-    ph_n_ho: numpy.ndarray[float]
+    ph_ho: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
     f_he: numpy.ndarray[float]
         Frequencies of a number of harmonic sine waves
@@ -983,7 +983,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
     save_dir: str
-        Path to a directory for save the results. Also used to load
+        Path to a directory for saving the results. Also used to load
         previous analysis results.
     data_id: int, str, None
         Identification for the dataset used
@@ -1176,7 +1176,14 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
 
     Returns
     -------
-    const_r, f_n_r, a_n_r, ph_n_r
+    const_r: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
     """
     t_a = time.time()
     if os.path.isfile(file_name) & (not overwrite):
@@ -1235,7 +1242,7 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ve
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
     save_dir: str
-        Path to a directory for save the results. Also used to load
+        Path to a directory for saving the results. Also used to load
         previous analysis results.
     data_id: int, str, None
         Identification for the dataset used

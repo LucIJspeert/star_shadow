@@ -109,11 +109,11 @@ def remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     f_n_err: numpy.ndarray[float]
         Formal errors in the frequencies
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
     a_n_err: numpy.ndarray[float]
         Formal errors in the amplitudes
@@ -153,7 +153,7 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
     
     Parameters
     ----------
-    a_n: list[float], numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
     noise_level: float
         The noise level (standard deviation of the residuals)
@@ -280,7 +280,7 @@ def find_harmonics(f_n, f_n_err, p_orb, sigma=1.):
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     f_n_err: numpy.ndarray[float]
         Formal errors in the frequencies
@@ -350,7 +350,7 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     p_orb: float
         The orbital period
@@ -393,7 +393,7 @@ def find_harmonics_tolerance(f_n, p_orb, f_tol):
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     p_orb: float
         The orbital period
@@ -661,7 +661,7 @@ def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     p_orb: float
         Test period of the eclipsing binary in days
@@ -700,7 +700,7 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     f_n_err: numpy.ndarray[float]
         Formal errors in the frequencies

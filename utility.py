@@ -20,29 +20,67 @@ from . import analysis_functions as af
 from . import visualisation as vis
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def weighted_mean(x, w):
-    """Jitted weighted mean since Numba doesn't support numpy.average"""
-    return np.sum(x * w) / np.sum(w)
+    """Jitted weighted mean since Numba doesn't support numpy.average
+    
+    Parameters
+    ----------
+    x: numpy.array[float]
+        Values to calculate the mean over
+    w: numpy.array[float]
+        Weights corresponding to each value
+    
+    Returns
+    -------
+    weighted_mean: float
+        Mean of x weighted by w
+    """
+    weighted_mean = np.sum(x * w) / np.sum(w)
+    return weighted_mean
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def decimal_figures(x, n_sf):
     """Determine the number of decimal figures to print given a target
-    number of significant figures (n_sf) and a value (x)
+    number of significant figures
+    
+    Parameters
+    ----------
+    x: float
+        Value to determine the number of decimals for
+    n_sf: int
+        Number of significant figures to compute
+    
+    Returns
+    -------
+    decimals: int
+        Number of decimal places to round to
     """
     if (x != 0):
-        decimals = (n_sf - 1)-int(np.floor(np.log10(abs(x))))
+        decimals = (n_sf - 1) - int(np.floor(np.log10(abs(x))))
     else:
         decimals = 1
     return decimals
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def signal_to_noise_threshold(n_points):
     """Determine the signal to noise threshold for accepting frequencies
     based on the number of points
     
+    Parameters
+    ----------
+    n_points: int
+        Number of data points in the time-series
+    
+    Returns
+    -------
+    sn_thr: float
+        Signal-to-noise threshold for this data set
+    
+    Notes
+    -----
     Baran & Koen 2021, eq 6.
     (https://ui.adsabs.harvard.edu/abs/2021AcA....71..113B/abstract)
     """
@@ -56,6 +94,25 @@ def normalise_counts(flux_counts, i_sectors):
     """Median-normalises flux (counts or otherwise, should be positive) by
     dividing by the median.
     
+    Parameters
+    ----------
+    flux_counts: numpy.ndarray[float]
+        Flux measurement values in counts of the time-series
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans.
+        These can indicate the TESS observation sectors, but taking
+        half the sectors is recommended. If only a single curve is
+        wanted, set i_half_s = np.array([[0, len(times)]]).
+    
+    Returns
+    -------
+    flux_norm: numpy.ndarray[float]
+        Normalised flux measurements
+    median: numpy.ndarray[float]
+        Median flux counts per sector
+    
+    Notes
+    -----
     The result is positive and varies around one.
     The signal is processed per sector.
     """
@@ -70,7 +127,24 @@ def normalise_counts(flux_counts, i_sectors):
 def get_tess_sectors(times, bjd_ref=2457000.0):
     """Load the times of the TESS sectors from a file and return a set of
     indices indicating the separate sectors in the time-series.
-    Make sure to use the appropriate BJD reference date for your data.
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    bjd_ref: float
+        BJD reference date
+        
+    Returns
+    -------
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the TESS observing sectors
+    
+    Notes
+    -----
+    Make sure to use the appropriate Baricentric Julian Date (BJD)
+    reference date for your data set. This reference date is subtracted
+    from the loaded sector dates.
     """
     # the 0.5 offset comes from test results, and the fact that no exact JD were found (just calendar days)
     script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
@@ -84,7 +158,22 @@ def get_tess_sectors(times, bjd_ref=2457000.0):
 
 
 def convert_tess_t_sectors(times, t_sectors):
-    """Converts from the sector start and end times to the indices in the array."""
+    """Converts from the sector start and end times to the indices in the array.
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    t_sectors: numpy.ndarray[float]
+        Pair(s) of times indicating the timespans of each sector
+    
+    Returns
+    -------
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans.
+        These can indicate the TESS observation sectors, but taking
+        half the sectors is recommended.
+    """
     starts = np.searchsorted(times, t_sectors[:, 0])
     ends = np.searchsorted(times, t_sectors[:, 1])
     i_sectors = np.column_stack((starts, ends))
@@ -92,12 +181,35 @@ def convert_tess_t_sectors(times, t_sectors):
 
 
 def load_tess_data(file_name):
-    """Load in the data from a fits file, TESS specific.
+    """Load in the data from a single fits file, TESS specific.
     
-    Returns the time-series (timestamps and observations).
-    The SAP flux is returned as well as the processed data (depending on the data source
-    this is PDC_SAP or KSP_SAP) and reported errors
-    Also returned are the sector number and time of start and end.
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    sap_flux: numpy.ndarray[float]
+        Raw measurement values of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    errors: numpy.ndarray[float]
+        Errors in the measurement values
+    qual_flags: numpy.ndarray[int]
+        Integer values representing the quality of the
+        data points. Zero means good quality.
+    sector: int
+        Sector number of the TESS observations
+    crowdsap: float
+        Light contamination parameter (1-third_light)
+    
+    Notes
+    -----
+    The SAP flux is Simple Aperture Phonometry, the processed data
+    can be PDC_SAP or KSP_SAP depending on the data source.
     """
     if ((file_name[-5:] != '.fits') & (file_name[-4:] != '.fit')):
         file_name += '.fits'
@@ -132,10 +244,33 @@ def load_tess_data(file_name):
 def load_tess_lc(tic, all_files, apply_flags=True):
     """Load in the data from (potentially) multiple TESS specific fits files.
     
-    Returns times, SAP signal, processed signal (if present), observation errors,
-    sectors and sector indices.
-    Quality flags are already applied to the light curves (taking out bad data points),
-    although this can be turned off by setting apply_flags=False
+    Parameters
+    ----------
+    tic: int
+        The TESS Input Catalog number for later reference
+        Use any number (or even str) as reference if not available.
+    all_files: list[str]
+        A list of file names (including path) for loading the results.
+        This list is searched for files with the correct tic number.
+    apply_flags: bool
+        Whether to apply the quality flags to the time-series data
+        
+    Returns
+    -------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    sap_signal: numpy.ndarray[float]
+        Raw measurement values of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    sectors: list[int]
+        List of sector numbers of the TESS observations
+    t_sectors: numpy.ndarray[float]
+        Pair(s) of times indicating the timespans of each sector
+    crowdsap: list[float]
+        Light contamination parameter (1-third_light) listed per sector
     """
     tic_files = [file for file in all_files if f'{tic:016.0f}' in file]
     times = np.array([])
@@ -181,31 +316,73 @@ def load_tess_lc(tic, all_files, apply_flags=True):
 def stitch_tess_sectors(times, signal, i_sectors):
     """Stitches the different TESS sectors of a light curve together.
     
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the TESS observing sectors
+    
+    Returns
+    -------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series (shifted start at zero)
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    medians: numpy.ndarray[float]
+        Median flux counts per sector
+    t_start: float
+        Original starting point of the time-series
+    t_combined: numpy.ndarray[float]
+        Pair(s) of times indicating the timespans of each half sector
+    i_half_s: numpy.ndarray[int]
+        Pair(s) of indices indicating the timespans of each half sector
+    
+    Notes
+    -----
     The flux/counts are median-normalised per sector. The median values are returned.
     Each sector is divided in two and the timestamps are provided, since the
     momentum dump happens in the middle of each sector, which can cause a jump in the flux.
     It is recommended that these half-sector timestamps be used in the further analysis.
     The time of first observation is subtracted from all other times, for better numerical
-    performance when deriving sinusoidal phase information. The zero point is returned.
+    performance when deriving sinusoidal phase information. The original start point is given.
     """
     # median normalise
     signal, medians = normalise_counts(signal, i_sectors=i_sectors)
     # zero the timeseries
-    t_zero = times[0]
-    times -= t_zero
+    t_start = times[0]
+    times -= t_start
     # times of sector mid point and resulting half-sectors
     dt = np.median(np.diff(times))
     t_start = times[i_sectors[:, 0]] - dt/2
     t_end = times[i_sectors[:, 1] - 1] + dt/2
     t_mid = (t_start + t_end) / 2
     t_combined = np.column_stack((np.append(t_start, t_mid + dt/2), np.append(t_mid - dt/2, t_end)))
-    i_half = convert_tess_t_sectors(times, t_combined)
-    return times, signal, medians, t_zero, t_combined, i_half
+    i_half_s = convert_tess_t_sectors(times, t_combined)
+    return times, signal, medians, t_start, t_combined, i_half_s
 
 
 def group_fequencies_for_fit(a_n, g_min=20, g_max=25):
     """Groups frequencies into sets of 10 to 15 for multi-sine fitting
     
+    Parameters
+    ----------
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    g_min: int
+        Minimum group size
+    g_max: int
+        Maximum group size (g_max > g_min)
+    
+    Returns
+    -------
+    groups: list[numpy.ndarray[int]]
+        List of sets of indices indicating the groups
+    
+    Notes
+    -----
     To make the task of fitting more managable, the free parameters are binned into groups,
     in which the remaining parameters are kept fixed. Frequencies of similar amplitude are
     grouped together, and the group cut-off is determined by the biggest gaps in amplitude
@@ -234,6 +411,26 @@ def group_fequencies_for_fit(a_n, g_min=20, g_max=25):
 def correct_for_crowdsap(signal, crowdsap, i_sectors):
     """Correct the signal for flux contribution of a third source
     
+    Parameters
+    ----------
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    crowdsap: list[float], numpy.ndarray[float]
+        Light contamination parameter (1-third_light) listed per sector
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans.
+        These can indicate the TESS observation sectors, but taking
+        half the sectors is recommended. If only a single curve is
+        wanted, set i_half_s = np.array([[0, len(times)]]).
+    
+    Returns
+    -------
+    cor_signal: numpy.ndarray[float]
+        Measurement values of the time-series corrected for
+        contaminating light
+    
+    Notes
+    -----
     Uses the parameter CROWDSAP included with some TESS data.
     flux_corrected = (flux - (1 - crowdsap)) / crowdsap
     where all quantities are median-normalised, including the result.
@@ -251,6 +448,25 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
 def model_crowdsap(signal, crowdsap, i_sectors):
     """Incorporate flux contribution of a third source into the signal
     
+    Parameters
+    ----------
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    crowdsap: list[float], numpy.ndarray[float]
+        Light contamination parameter (1-third_light) listed per sector
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans.
+        These can indicate the TESS observation sectors, but taking
+        half the sectors is recommended. If only a single curve is
+        wanted, set i_half_s = np.array([[0, len(times)]]).
+    
+    Returns
+    -------
+    model: numpy.ndarray[float]
+        Model of the signal incorporating light contamination
+    
+    Notes
+    -----
     Does the opposite as correct_for_crowdsap, to be able to model the effect of
     third light to some degree (can only achieve an upper bound on CROWDSAP).
     """
@@ -264,6 +480,30 @@ def model_crowdsap(signal, crowdsap, i_sectors):
 def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=False):
     """Check the CROWDSAP correlation with the data-extracted third light.
 
+    Parameters
+    ----------
+    min_third_light: numpy.ndarray[float]
+        Minimum amount of third light present per sector
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans.
+        These can indicate the TESS observation sectors, but taking
+        half the sectors is recommended. If only a single curve is
+        wanted, set i_half_s = np.array([[0, len(times)]]).
+    crowdsap: list[float], numpy.ndarray[float]
+        Light contamination parameter (1-third_light) listed per sector
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    corr: float
+        correlation found with the measured third light
+        and crowdsap paramter
+    check: bool
+        Can be used to decide whether the data needs a manual check
+    
+    Notes
+    -----
     If the CROWDSAP parameter from the TESS data is anti-correlated with the similar
     measure fitted from the light curve, it may indicate that the source is not the
     eclipsing binary but a neighbouring star is. This would indicate further
@@ -319,7 +559,31 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
 def save_results(results, errors, stats, file_name, description='none', dataset='none'):
     """Save the full output of the frequency analysis function to an hdf5 file.
     
-    The file contains the datasets (array-like) and attributes to describe the data.
+    Parameters
+    ----------
+    results: tuple[numpy.ndarray[float]]
+        Results containing the following data:
+        p_orb, const, slope, f_n, a_n, ph_n
+    errors: tuple[numpy.ndarray[float]]
+        Error values containing the following data:
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
+    stats: tuple[numpy.ndarray[float]]
+        Statistic parameters: n_param, bic, noise_level
+    file_name: str, None
+        File name (including path) for saving the results.
+    description: str
+        Optional description of the saved results
+    dataset: str
+        Optional identifier for the data set used
+    
+    Returns
+    -------
+    None
+    
+    Notes
+    -----
+    The file contains the data sets (array-like) and attributes
+    to describe the data, in hdf5 format.
     """
     # unpack all the variables
     p_orb, const, slope, f_n, a_n, ph_n = results
@@ -369,6 +633,16 @@ def save_results(results, errors, stats, file_name, description='none', dataset=
 def load_results(file_name):
     """Load the full output of the find_eclipses function from the hdf5 file.
     returns an h5py file object, which has to be closed by the user (file.close()).
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    file: Object
+        The hdf5 file object
     """
     file = h5py.File(file_name, 'r')
     return file
@@ -377,6 +651,24 @@ def load_results(file_name):
 def read_results(file_name, verbose=False):
     """Read the full output of the find_eclipses function from the hdf5 file.
     This returns the set of variables as they appear in eclipsr and closes the file.
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    verbose: bool
+        If set to True, this function will print some information
+    
+    Returns
+    -------
+    results: tuple[numpy.ndarray[float]]
+        Results containing the following data:
+        p_orb, const, slope, f_n, a_n, ph_n
+    errors: tuple[numpy.ndarray[float]]
+        Error values containing the following data:
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
+    stats: tuple[numpy.ndarray[float]]
+        Statistic parameters: n_param, bic, noise_level
     """
     with h5py.File(file_name, 'r') as file:
         identifier = file.attrs['identifier']
@@ -413,7 +705,38 @@ def read_results(file_name, verbose=False):
 
 def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
                          data_id=None):
-    """Save the results of the eclipse timings"""
+    """Save the results of the eclipse timings
+    
+    Parameters
+    ----------
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    t_bottoms: numpy.ndarray[float]
+        Eclipse timings of the possible flat bottom (internal tangency)
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timing_errs: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
+        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
+    ecl_indices: numpy.ndarray[int]
+        Indices of several important points in the harmonic model
+        as generated here (see function for details)
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
     t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
@@ -457,7 +780,35 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
 
 
 def read_results_timings(file_name):
-    """Read in the results of the eclipse timings"""
+    """Read in the results of the eclipse timings
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    t_bottoms: numpy.ndarray[float]
+        Eclipse timings of the possible flat bottom (internal tangency)
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timing_errs: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
+        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
+    ecl_indices: numpy.ndarray[int]
+        Indices of several important points in the harmonic model
+        as generated here (see function for details)
+    """
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[:13]
     t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = values[13:]
@@ -475,7 +826,33 @@ def read_results_timings(file_name):
 
 
 def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):
-    """Save the results of the harmonic separation"""
+    """Save the results of the harmonic separation
+    
+    Parameters
+    ----------
+    const_ho: numpy.ndarray[float]
+        Mean of the residual
+    f_ho: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_ho: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_ho: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    f_he: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_he: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_he: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     len_ho = len(f_ho)
     len_he = len(f_he)
     var_names = ['const_ho']
@@ -508,7 +885,30 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name,
 
 
 def read_results_hsep(file_name):
-    """Read in the results of the harmonic separation"""
+    """Read in the results of the harmonic separation
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    const_ho: numpy.ndarray[float]
+        Mean of the residual
+    f_ho: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_ho: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_ho: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    f_he: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_he: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_he: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    """
     var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', dtype=str, unpack=True)
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     # find out how many sinusoids
@@ -527,7 +927,54 @@ def read_results_hsep(file_name):
 
 def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
                           formal_errors, dists_in, dists_out, file_name, data_id=None):
-    """Save the results of the determination of orbital elements"""
+    """Save the results of the determination of orbital elements
+    
+    Parameters
+    ----------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    phi_0: float
+        Auxilary angle (see Kopal 1959)
+    psi_0: float
+        Auxilary angle like phi_0 but for the eclipse bottoms
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_dif_sma: float
+        Absolute difference of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    errors: tuple[numpy.ndarray[float]]
+        The (non-symmetric) errors for the same parameters as intervals.
+        Derived from the intervals
+    intervals: tuple[numpy.ndarray[float]]
+        The HDIs (hdi_prob=0.683) for the parameters:
+        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio,
+        sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+    bounds: tuple[numpy.ndarray[float]]
+        The HDIs (hdi_prob=0.997) for the same parameters as intervals
+    formal_errors: tuple[float]
+        Formal (symmetric) errors in the parameters:
+        e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
+    dists_in: tuple[numpy.ndarray[float]]
+        Full input distributions for: t_1, t_2,
+        tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bot_1, bot_2
+    dists_out: tuple[numpy.ndarray[float]]
+        Full output distributions for the same parameters as intervals
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     e_err, w_err, i_err, phi_0_err, psi_0_err, r_sum_sma_err, r_dif_sma_err, r_ratio_err, sb_ratio_err = errors[:9]
     ecosw_err, esinw_err, f_c_err, f_s_err = errors[9:]
     e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
@@ -632,7 +1079,51 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
 
 
 def read_results_elements(file_name):
-    """Read in the results of the determination of orbital elements"""
+    """Read in the results of the determination of orbital elements
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    phi_0: float
+        Auxilary angle (see Kopal 1959)
+    psi_0: float
+        Auxilary angle like phi_0 but for the eclipse bottoms
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_dif_sma: float
+        Absolute difference of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    errors: tuple[numpy.ndarray[float]]
+        The (non-symmetric) errors for the same parameters as intervals.
+        Derived from the intervals
+    intervals: tuple[numpy.ndarray[float]]
+        The HDIs (hdi_prob=0.683) for the parameters:
+        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio,
+        sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+    bounds: tuple[numpy.ndarray[float]]
+        The HDIs (hdi_prob=0.997) for the same parameters as intervals
+    formal_errors: tuple[float]
+        Formal (symmetric) errors in the parameters:
+        e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
+    dists_in: tuple[numpy.ndarray[float]]
+        Full input distributions for: t_1, t_2,
+        tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bot_1, bot_2
+    dists_out: tuple[numpy.ndarray[float]]
+        Full output distributions for the same parameters as intervals
+    """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results[:9]
     errors = results[9:31].reshape((11, 2))
@@ -649,7 +1140,27 @@ def read_results_elements(file_name):
 
 
 def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
-    """Save the results of the fit with ellc models"""
+    """Save the results of the fit with ellc models
+    
+    Parameters
+    ----------
+    par_init: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    par_fit: tuple[float]
+        Optimised eclipse parameters , consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
+        The offset is a constant added to the model to match
+        the light level of the data
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     var_names = ['e_0', 'w_0', 'i_0', 'r_sum_0', 'r_rat_0', 'sb_rat_0',
                  'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1', 'offset']
     var_desc = ['initial eccentricity', 'initial argument of periastron', 'initial orbital inclination i (radians)',
@@ -669,7 +1180,49 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
 
 
 def read_results_fit_ellc(file_name):
-    """Read in the results of the fit with ellc models"""
+    """Read in the results of the fit with ellc models
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    par_init: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    par_fit: tuple[float]
+        Optimised eclipse parameters , consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
+        The offset is a constant added to the model to match
+        the light level of the data
+        
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    opt_e: float
+        Optimised eccentricity of the orbit
+    opt_w: float
+        Optimised argument of periastron
+    opt_i: float
+        Optimised inclination of the orbit
+    opt_r_sum_sma: float
+        Optimised sum of radii in units of the semi-major axis
+    opt_r_ratio: float
+        Optimised radius ratio r_2/r_1
+    opt_sb_ratio: float
+        Optimised surface brightness ratio sb_2/sb_1
+    """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     e, w, i, r_sum_sma, r_ratio, sb_ratio = results[:6]
     opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = results[6:]
@@ -678,7 +1231,29 @@ def read_results_fit_ellc(file_name):
 
 
 def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_name, data_id=None):
-    """Save the results of the frequency selection"""
+    """Save the results of the frequency selection
+    
+    Parameters
+    ----------
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    passed_nh_sigma: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the sigma check
+    passed_nh_snr: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the signal-to-noise check
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     # passing both
     passed_nh_b = (passed_nh_sigma & passed_nh_snr)
     # stick together
@@ -691,7 +1266,22 @@ def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_na
 
 
 def read_results_fselect(file_name):
-    """Read in the results of the frequency selection"""
+    """Read in the results of the frequency selection
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    passed_nh_sigma: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the sigma check
+    passed_nh_snr: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the signal-to-noise check
+    passed_nh_b: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed both checks
+    """
     results = np.loadtxt(file_name, usecols=(4, 5, 6), delimiter=',', unpack=True)
     passed_nh_sigma, passed_nh_snr, passed_nh_b = results
     passed_nh_sigma = passed_nh_sigma.astype(int).astype(bool)  # stored as floats
@@ -701,7 +1291,27 @@ def read_results_fselect(file_name):
 
 
 def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=None):
-    """Save the results of disentangling the harmonics from the eclipse model"""
+    """Save the results of disentangling the harmonics from the eclipse model
+    
+    Parameters
+    ----------
+    const_r: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
     table = np.column_stack((np.arange(len(f_n_r)+1), np.append([0], f_n_r), np.append([const_r], a_n_r),
                              np.append([0], ph_n_r)))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
@@ -712,7 +1322,24 @@ def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=N
 
 
 def read_results_disentangle(file_name):
-    """Read in the results of disentangling the harmonics from the eclipse model"""
+    """Read in the results of disentangling the harmonics from the eclipse model
+    
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    const_r: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    """
     results = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
     const_r = results[1, 0]
     f_n_r, a_n_r, ph_n_r = results[:, 1:]
@@ -722,6 +1349,30 @@ def read_results_disentangle(file_name):
 def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, show=False):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
+    
+    Parameters
+    ----------
+    tic: int
+        The TESS Input Catalog number for later reference
+        Use any number (or even str) as reference if not available.
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    load_dir: str
+        Path to a directory for loading analysis results.
+    save_dir: str, None
+        Path to a directory for save the plots.
+    
+    Returns
+    -------
+    None
     """
     # open all the data
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')
