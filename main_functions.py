@@ -198,7 +198,6 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             print(f'Step 3: Coupling the harmonic frequencies to the orbital frequency.')
         t_3a = time.time()
         if (p_orb == 0):
-            # todo: target 76 - try harmonic search, see if that finds the ecl
             # first to get a global minimum, inform the pdm by the frequencies
             periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n_2)
             base_p = periods[np.argmin(phase_disp)]
@@ -225,9 +224,9 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
                 print(f'Period over time-base is less than two: {np.ptp(times) / p_orb_3}')
             if save_dir is not None:
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.txt')
-                col1 = ['Period over time-base is less than two:', 'period', 'time-base']
+                col1 = ['Period over time-base is less than two:', 'period (days)', 'time-base (days)']
                 col2 = [np.ptp(times) / p_orb_3, p_orb_3, np.ptp(times)]
-                np.savetxt(file_name, np.column_stack((col1, col2)))
+                np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s')
             p_orb_i = [0, 0, p_orb_3]
             const_i = [const_1, const_2, const_2]
             slope_i = [slope_1, slope_2, slope_2]
@@ -961,7 +960,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
     return par_opt
 
 
-def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, verbose=False, overwrite=False):
+def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
 
@@ -987,11 +986,11 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         previous analysis results.
     data_id: int, str, None
         Identification for the dataset used
-    verbose: bool
-        If set to True, this function will print some information
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
@@ -1222,7 +1221,7 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
     return const_r, f_n_r, a_n_r, ph_n_r
 
 
-def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, verbose=False, overwrite=False):
+def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, overwrite=False, verbose=False):
     """Part three of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis and eclipse_analysis
 
@@ -1246,11 +1245,11 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ve
         previous analysis results.
     data_id: int, str, None
         Identification for the dataset used
-    verbose: bool
-        If set to True, this function will print some information
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
