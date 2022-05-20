@@ -1221,6 +1221,80 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
     return const_r, f_n_r, a_n_r, ph_n_r
 
 
+def pulsation_analysis_fselect_h(p_orb, f_n_r, a_n_r, ph_n_r, f_n_err, a_n_err, noise_level, n_points, file_name=None,
+                                 data_id=None, overwrite=False, verbose=False):
+    """Selects the credible frequencies from the given set,
+    ignoring the harmonics
+
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    f_n_r: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    f_n_err: numpy.ndarray[float]
+        Formal errors in the frequencies
+    a_n_err: numpy.ndarray[float]
+        Formal errors in the amplitudes
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    n_points: int
+        Number of data points in the time-series
+    file_name: str, None
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found. If None, nothing is
+        saved and loading previous results is not attempted.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    passed_h_sigma: numpy.ndarray[bool]
+        Harmonic frequencies that passed the sigma check
+    passed_h_snr: numpy.ndarray[bool]
+        Harmonic frequencies that passed the signal-to-noise check
+    passed_h_b: numpy.ndarray[bool]
+        Harmonic frequencies that passed both checks
+    """
+    t_a = time.time()
+    if os.path.isfile(file_name) & (not overwrite):
+        if verbose:
+            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        passed_h_sigma, passed_h_snr, passed_h_b = ut.read_results_fselect(file_name)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_r, p_orb)
+        non_harm = np.delete(np.arange(len(f_n_r)), harmonics)
+    else:
+        if verbose:
+            print(f'Selecting credible frequencies')
+        remove_sigma = af.remove_insignificant_sigma(f_n_r, f_n_err, a_n_r, a_n_err, sigma_a=3., sigma_f=1.)
+        remove_snr = af.remove_insignificant_snr(a_n_r, noise_level, n_points)
+        # non-harmonics that pass sigma criteria
+        passed_h_sigma = np.ones(len(f_n_r), dtype=bool)
+        passed_h_sigma[remove_sigma] = False
+        # non-harmonics that pass S/N criteria
+        passed_h_snr = np.ones(len(f_n_r), dtype=bool)
+        passed_h_snr[remove_snr] = False
+        # passing both
+        passed_h_b = (passed_h_sigma & passed_h_snr)
+        if file_name is not None:
+            ut.save_results_fselect(f_n_r, a_n_r, ph_n_r, passed_h_sigma, passed_h_snr, file_name, data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mFrequencies selected.\033[0m')
+        print(f'\033[0;32;48mNumber of non-harmonic frequencies passed: {len(passed_h_b)}, '
+              f'total number of non-harmonic frequencies: {len(non_harm)}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return passed_h_sigma, passed_h_snr, passed_h_b
+
+
 def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, overwrite=False, verbose=False):
     """Part three of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis and eclipse_analysis
@@ -1257,6 +1331,8 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
         output of pulsation_analysis_fselect
     out_15: tuple
         output of pulsation_analysis_disentangle
+    out_16: tuple
+        output of pulsation_analysis_fselect_h
     """
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
@@ -1279,12 +1355,21 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     out_14 = pulsation_analysis_fselect(p_orb_8, f_n_8, a_n_8, ph_n_8, f_n_err_8, a_n_err_8, noise_level_8, len(times),
                                         file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    # pass_sigma, pass_snr, passed_nh_b = out_14
-    # --- [13] --- Eclipse model disentangling
+    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_14
+    # --- [15] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     out_15 = pulsation_analysis_disentangle(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                             par_ellc, i_sectors, file_name=file_name, data_id=data_id,
                                             overwrite=overwrite, verbose=verbose)
-    # const_r, f_n_r, a_n_r, ph_n_r = out_15
-    # todo: perhaps after this I can dig into the non-harmonic model and try to simplify (ltt effect, blocked light)
-    return out_14, out_15
+    const_r, f_n_r, a_n_r, ph_n_r = out_15
+    # --- [16] --- Frequency selection f_n_r
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
+    f_n_r_err = [f_n_err_8[i] * a_n_8[i] / a_n_r[i] for i in range(len(f_n_8)) if np.allclose([f_n_r[i]], [f_n_8[i]])]
+    a_n_r_err = [a_n_err_8[i] for i in range(len(f_n_8)) if np.allclose([f_n_r[i]], [f_n_8[i]])]
+    out_16 = pulsation_analysis_fselect_h(p_orb_8, f_n_r, a_n_r, ph_n_r, f_n_r_err, a_n_r_err, noise_level_8,
+                                          len(times), file_name=file_name, data_id=data_id, overwrite=overwrite,
+                                          verbose=verbose)
+    # pass_hr_sigma, pass_hr_snr, passed_hr_b = out_16
+    # --- [17] --- Amplitude modulation
+    # todo: use wavelet transform or smth to see which star is pulsating
+    return out_14, out_15, out_16

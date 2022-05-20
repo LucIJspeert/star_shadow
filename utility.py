@@ -1259,7 +1259,7 @@ def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_na
     # stick together
     table = np.column_stack((np.arange(1, len(f_n)+1), f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, passed_nh_b))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
-    description = f'Selection of credible non-harmonic frequencies'
+    description = f'Selection of credible (non-)harmonic frequencies'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
     return
@@ -1539,11 +1539,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     if os.path.isfile(file_name):
         results_14 = read_results_fselect(file_name)
-        pass_sigma, pass_snr, passed_nh_b = results_14
+        pass_nh_sigma, pass_nh_snr, passed_nh_b = results_14
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     if os.path.isfile(file_name):
         results_15 = read_results_disentangle(file_name)
         const_r, f_n_r, a_n_r, ph_n_r = results_15
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
+    if os.path.isfile(file_name):
+        results_16 = read_results_fselect(file_name)
+        pass_hr_sigma, pass_hr_snr, passed_hr_b = results_16
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1680,7 +1684,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, par_opt_13, i_sectors,
+                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1704,7 +1708,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, par_opt_13, i_sectors,
+                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

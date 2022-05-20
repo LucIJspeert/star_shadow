@@ -1119,12 +1119,13 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
     ax.plot(freqs, ampls, label='signal')
     for k in harmonics:
         ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle='--', c='tab:orange')
-    ax.plot([], [], linestyle='--', c='tab:orange', label='harmonics')
     for k in non_harm:
-        ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle=':', c='tab:red')
+        if k in passed_nh_i:
+            ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle='--', c='tab:green')
+        else:
+            ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle=':', c='tab:red')
+    ax.plot([], [], linestyle='--', c='tab:orange', label='harmonics')
     ax.plot([], [], linestyle=':', c='tab:red', label='failed criteria')
-    for k in passed_nh_i:
-        ax.plot([f_n[k], f_n[k]], [0, a_n[k]], linestyle='--', c='tab:green')
     ax.plot([], [], linestyle='--', c='tab:green', label='passed criteria')
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
@@ -1206,12 +1207,13 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
 
 
 def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
-                           const_r, f_n_r, a_n_r, params_ellc, i_sectors, save_file=None, show=True):
+                           const_r, f_n_r, a_n_r, passed_hr, params_ellc, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
     # make the model times array, one full period plus the primary eclipse halves
+    passed_hr_i = np.arange(len(f_n_r))[passed_hr]
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
@@ -1230,7 +1232,10 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     ax.plot(times[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
             label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
-        ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:orange')
+        if k in passed_hr_i:
+            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:green')
+        else:
+            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:orange')
     ax.plot([], [], linestyle='--', c='tab:orange', label='disentangled harmonics')
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
