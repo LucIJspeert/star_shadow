@@ -1364,8 +1364,11 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     const_r, f_n_r, a_n_r, ph_n_r = out_15
     # --- [16] --- Frequency selection f_n_r
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
-    f_n_r_err = [f_n_err_8[i] * a_n_8[i] / a_n_r[i] for i in range(len(f_n_8)) if np.allclose([f_n_r[i]], [f_n_8[i]])]
-    a_n_r_err = [a_n_err_8[i] for i in range(len(f_n_8)) if np.allclose([f_n_r[i]], [f_n_8[i]])]
+    resid = np.copy(signal)  # errors should be the same as for model_8, but with updated amplitudes
+    resid -= tsf.linear_curve(times, const_8, slope_8, i_sectors)
+    resid -= tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
+    errors = tsf.formal_uncertainties(times, resid, a_n_r, i_sectors)
+    _, _, f_n_r_err, a_n_r_err, ph_n_r_err = errors
     out_16 = pulsation_analysis_fselect_h(p_orb_8, f_n_r, a_n_r, ph_n_r, f_n_r_err, a_n_r_err, noise_level_8,
                                           len(times), file_name=file_name, data_id=data_id, overwrite=overwrite,
                                           verbose=verbose)

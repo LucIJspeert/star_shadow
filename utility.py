@@ -1312,8 +1312,10 @@ def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=N
     -------
     None
     """
+    print(const_r, f_n_r, a_n_r, ph_n_r)
     table = np.column_stack((np.arange(len(f_n_r)+1), np.append([0], f_n_r), np.append([const_r], a_n_r),
                              np.append([0], ph_n_r)))
+    print(table)
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Disentangelment of harmonics using ellc lc model'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
@@ -1341,6 +1343,7 @@ def read_results_disentangle(file_name):
         Phases of a number of harmonic sine waves
     """
     results = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
+    print(results)
     const_r = results[1, 0]
     f_n_r, a_n_r, ph_n_r = results[:, 1:]
     return const_r, f_n_r, a_n_r, ph_n_r

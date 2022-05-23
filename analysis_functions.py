@@ -904,6 +904,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
+    if (len(peaks_1) == 0):
+        raise ValueError(f'No eclipse signatures found above the noise level of {noise_level}')
     ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
     peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
@@ -911,7 +913,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
     # find the minima in deriv_2 betweern peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
-    peaks_2_n = np.array(peaks_2_n)
+    peaks_2_n = np.array(peaks_2_n).astype(int)
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, slope_sign, mode='down')
     # make all the consecutive combinations of peaks (as many as there are peaks)
@@ -934,6 +936,10 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
             if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
                 ecl_indices = np.vstack((ecl_indices, [ecl]))
     # determine the points of eclipse minima and flat bottoms
+    if (len(ecl_indices) == 0):
+        raise ValueError(f'No eclipse found passing the criteria (of {len(combinations)//2} candidates)')
+    elif (len(ecl_indices) == 1):
+        raise ValueError(f'Only one eclipse found passing the criteria (of {len(combinations)//2} candidates)')
     indices_t = np.arange(len(t_model))
     for i, ecl in enumerate(ecl_indices):
         if (ecl[2] > ecl[-3]):
