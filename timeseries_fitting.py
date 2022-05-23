@@ -652,9 +652,16 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
     incl = i / np.pi * 180  # ellc likes degrees
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
-    model = ellc.lc(times, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
-                    light_3=0, q=1, shape_1='roche', shape_2='roche',
-                    ld_1='lin', ld_2='lin', ldc_1=0.5, ldc_2=0.5, gdc_1=0., gdc_2=0., heat_1=0., heat_2=0.)
+    # try to prevent fatal crashes from RLOF cases
+    d_roche_1 = 2.44 * r_2 * (r_1 / r_2) * (q)**(1 / 3)  # 2.44*R_M*(rho_M/rho_m)**(1/3)
+    d_roche_2 = 2.44 * r_1 * (r_2 / r_1) * (1 / q)**(1 / 3)
+    d_peri = (1 - e)  # a*(1 - e), but a=1
+    if (max(d_roche_1, d_roche_2) > d_peri):
+        model = np.ones(len(times))
+    else:
+        model = ellc.lc(times, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
+                        light_3=0, q=1, shape_1='roche', shape_2='roche',
+                        ld_1='lin', ld_2='lin', ldc_1=0.5, ldc_2=0.5, gdc_1=0., gdc_2=0., heat_1=0., heat_2=0.)
     # add constant offset for light level
     model = model + offset
     return model

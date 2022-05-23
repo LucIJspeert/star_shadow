@@ -1126,9 +1126,9 @@ def read_results_elements(file_name):
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results[:9]
-    errors = results[9:31].reshape((11, 2))
-    bounds = results[31:53].reshape((11, 2))
-    formal_errors = results[53:61]
+    errors = results[9:35].reshape((13, 2))
+    bounds = results[35:61].reshape((13, 2))
+    formal_errors = results[61:69]
     # intervals_w  # ? for when the interval is disjoint
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
