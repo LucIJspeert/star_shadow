@@ -739,6 +739,7 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
         t_folded = (times - t_zero) % p_orb
         mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+        # todo: maybe instead of masking I could try to remove the eclipses with my own simple model
         if (np.sum(mask_ecl) / len(times) > 0.01):
             output = tsf.extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
                                                i_sectors, verbose=verbose)
