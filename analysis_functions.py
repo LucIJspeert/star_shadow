@@ -905,7 +905,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
-        raise ValueError(f'No eclipse signatures found above the noise level of {noise_level}')
+        return (None,) * 9  # No eclipse signatures found above the noise level
     ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
     peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
@@ -936,32 +936,31 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
             if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
                 ecl_indices = np.vstack((ecl_indices, [ecl]))
     # determine the points of eclipse minima and flat bottoms
-    if (len(ecl_indices) == 0):
-        raise ValueError(f'No eclipse found passing the criteria (of {len(combinations)//2} candidates)')
-    elif (len(ecl_indices) == 1):
-        raise ValueError(f'Only one eclipse found passing the criteria (of {len(combinations)//2} candidates)')
     indices_t = np.arange(len(t_model))
     for i, ecl in enumerate(ecl_indices):
         if (ecl[2] > ecl[-3]):
-            i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3]])))
-            ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3]])[i_min]
+            i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3] + 1])))
+            ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3] + 1])[i_min]
         else:
-            i_min = np.argmin(np.abs(deriv_1[ecl[2]:ecl[-3]]))
-            ecl_indices[i, 5] = indices_t[ecl[2]:ecl[-3]][i_min]
+            i_min = np.argmin(np.abs(deriv_1[ecl[2]:ecl[-3] + 1]))
+            ecl_indices[i, 5] = indices_t[ecl[2]:ecl[-3] + 1][i_min]
         # left bottom turning point (peaks_2_p)
         if (ecl_indices[i, 5] < ecl[1]):
-            i_max = np.argmax(np.append(deriv_2[ecl[1]:], deriv_2[:ecl_indices[i, 5]]))
-            ecl_indices[i, 4] = np.append(indices_t[ecl[1]:], indices_t[:ecl_indices[i, 5]])[i_max]
+            i_max = np.argmax(np.append(deriv_2[ecl[1]:], deriv_2[:ecl_indices[i, 5] + 1]))
+            ecl_indices[i, 4] = np.append(indices_t[ecl[1]:], indices_t[:ecl_indices[i, 5] + 1])[i_max]
         else:
-            i_max = np.argmax(deriv_2[ecl[1]:ecl_indices[i, 5]])
-            ecl_indices[i, 4] = indices_t[ecl[1]:ecl_indices[i, 5]][i_max]
+            i_max = np.argmax(deriv_2[ecl[1]:ecl_indices[i, 5] + 1])
+            ecl_indices[i, 4] = indices_t[ecl[1]:ecl_indices[i, 5] + 1][i_max]
         # right bottom turning point (peaks_2_p)
         if (ecl_indices[i, 5] > ecl[-2]):
-            i_max = np.argmax(np.append(deriv_2[ecl_indices[i, 5]:], deriv_2[:ecl[-2]]))
-            ecl_indices[i, -5] = np.append(indices_t[ecl_indices[i, 5]:], indices_t[:ecl[-2]])[i_max]
+            i_max = np.argmax(np.append(deriv_2[ecl_indices[i, 5]:], deriv_2[:ecl[-2] + 1]))
+            ecl_indices[i, -5] = np.append(indices_t[ecl_indices[i, 5]:], indices_t[:ecl[-2] + 1])[i_max]
         else:
-            i_max = np.argmax(deriv_2[ecl_indices[i, 5]:ecl[-2]])
-            ecl_indices[i, -5] = indices_t[ecl_indices[i, 5]:ecl[-2]][i_max]
+            i_max = np.argmax(deriv_2[ecl_indices[i, 5]:ecl[-2] + 1])
+            ecl_indices[i, -5] = indices_t[ecl_indices[i, 5]:ecl[-2] + 1][i_max]
+    # check that we have some eclipses
+    if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
+        return (None,) * 8 + (ecl_indices,)
     # correct for not quite reaching the top of the peak in some cases
     ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
     ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
@@ -977,7 +976,9 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
     # use the intervals as 3 sigma limits on either side
     t_i_1_err = (t_p2n_1 - t_m1_1) / 6 * (t_p2n_1 > t_m1_1) + (t_p2n_1 - t_m1_1 + 2 * p_orb) / 6 * (t_p2n_1 < t_m1_1)
+    t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
     t_i_2_err = (t_m1_2 - t_p2n_2) / 6 * (t_m1_2 > t_p2n_2) + (t_m1_2 - t_p2n_2 + 2 * p_orb) / 6 * (t_m1_2 < t_p2n_2)
+    t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
     # convert to midpoints and widths
     ecl_min = t_model[ecl_indices[:, 5]]
     ecl_mid = (t_i_1 + t_i_2) / 2 * (t_i_2 > t_i_1) + (t_i_1 + t_i_2 - 2 * p_orb) / 2 * (t_i_2 < t_i_1)
@@ -992,6 +993,15 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # now pick out two consecutive, fully covered eclipses
     indices = np.arange(len(ecl_indices))
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
+    # check overlap of the eclipses
+    comb_remove = []
+    for i, comb in enumerate(combinations):
+        c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
+        if (c_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
+            comb_remove.append(i)
+    combinations = np.delete(combinations, comb_remove, axis=0)
+    if (len(combinations) == 0):
+        return (None,) * 8 + (ecl_indices,)
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
@@ -2101,9 +2111,14 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     rdifsma_vals = np.zeros(n_gen)
     rratio_vals = np.zeros(n_gen)
     sbratio_vals = np.zeros(n_gen)
+    i_delete = []  # to be deleted due to out of bounds parameter
     for k in range(n_gen):
         timings_tau_dist = (normal_t_1[k], normal_t_2[k],
                             normal_tau_1_1[k], normal_tau_1_2[k], normal_tau_2_1[k], normal_tau_2_2[k])
+        # if sum of tau happens to be larger than p_orb, skip and delete
+        if (np.sum(timings_tau_dist[2:]) > p_orb):
+            i_delete.append(k)
+            continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
         bottom_dur_dist = np.array([normal_bot_1[k], normal_bot_2[k]])
         out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, bottom_dur_dist, timing_errs, depths_err)
@@ -2117,7 +2132,27 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         rratio_vals[k] = out[7]
         sbratio_vals[k] = out[8]
         if verbose & (k % 100 == 0):
-            print(f'parameter calculations {k / n_gen * 100}% done')
+            print(f'parameter calculations {k / (n_gen) * 100}% done')
+    # delete the skipped parameters
+    normal_t_1 = np.delete(normal_t_1, i_delete)
+    normal_t_2 = np.delete(normal_t_2, i_delete)
+    normal_tau_1_1 = np.delete(normal_tau_1_1, i_delete)
+    normal_tau_1_2 = np.delete(normal_tau_1_2, i_delete)
+    normal_tau_2_1 = np.delete(normal_tau_2_1, i_delete)
+    normal_tau_2_2 = np.delete(normal_tau_2_2, i_delete)
+    normal_d_1 = np.delete(normal_d_1, i_delete)
+    normal_d_2 = np.delete(normal_d_2, i_delete)
+    normal_bot_1 = np.delete(normal_bot_1, i_delete)
+    normal_bot_2 = np.delete(normal_bot_2, i_delete)
+    e_vals = np.delete(e_vals, i_delete)
+    w_vals = np.delete(w_vals, i_delete)
+    i_vals = np.delete(i_vals, i_delete)
+    phi0_vals = np.delete(phi0_vals, i_delete)
+    psi0_vals = np.delete(psi0_vals, i_delete)
+    rsumsma_vals = np.delete(rsumsma_vals, i_delete)
+    rdifsma_vals = np.delete(rdifsma_vals, i_delete)
+    rratio_vals = np.delete(rratio_vals, i_delete)
+    sbratio_vals = np.delete(sbratio_vals, i_delete)
     # Calculate the highest density interval (HDI) for a given probability.
     cos_w = np.cos(w)
     sin_w = np.sin(w)

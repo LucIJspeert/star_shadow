@@ -19,6 +19,55 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
+def frequency_analysis_porb(times, signal, f_n, a_n, ph_n):
+    """Find the most likely eclipse period from a sinusoid model
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    """
+    t_tot = np.ptp(times)
+    freq_res = 1.5 / t_tot  # Rayleigh criterion
+    # first to get a global minimum, inform the pdm by the frequencies
+    periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n)
+    # go from best to worst period, skipping those with only 1 harmonic
+    sorter = np.argsort(phase_disp)  # ascending order
+    for i in sorter:
+        base_p = periods[i]
+        # do a first test for once or twice the period
+        p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res / 2)
+        # then refine by using a dense sampling
+        f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
+        periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_refine)
+        p_orb = periods[np.argmin(phase_disp)]
+        # try to find out whether we need to double the period
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
+        model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+        sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
+        peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level_2, prominence=noise_level_2, width=9)
+        if (len(peaks) == 1):
+            p_orb = 2 * p_orb
+        # if we have too few harmonics, try the next period, else stop
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
+        if (len(harmonics) > 1):
+            break
+    return p_orb
+
+
 def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=None, overwrite=False, verbose=False):
     """Recipe for analysis of EB light curves.
 
@@ -198,28 +247,12 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             print(f'Step 3: Coupling the harmonic frequencies to the orbital frequency.')
         t_3a = time.time()
         if (p_orb == 0):
-            # first to get a global minimum, inform the pdm by the frequencies
-            periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n_2)
-            base_p = periods[np.argmin(phase_disp)]
-            # do a first test for once or twice the period
-            p_best, p_test, opt = af.base_harmonic_check(f_n_2, base_p, np.ptp(times), f_tol=freq_res / 2)
-            # then refine by using a dense sampling
-            f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
-            periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_refine)
-            p_orb_3 = periods[np.argmin(phase_disp)]
-            # try to find out whether we need to double the period
-            harmonics, harmonic_n = af.find_harmonics_tolerance(f_n_2, p_orb_3, f_tol=freq_res / 2)
-            model_h = tsf.sum_sines(times, f_n_2[harmonics], a_n_2[harmonics], ph_n_2[harmonics])
-            sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb_3))]
-            peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level_2, prominence=noise_level_2,
-                                                width=9)
-            if (len(peaks) == 1):
-                p_orb_3 = 2 * p_orb_3
+            p_orb_3 = frequency_analysis_porb(times, signal, f_n_2, a_n_2, ph_n_2)
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
-        # if time-series too short, cut off the analysis
-        if (np.ptp(times) / p_orb_3 < 1.9):
+        # if time-series too short, warn and cut off the analysis
+        if (np.ptp(times) / p_orb_3 < 2):
             if verbose:
                 print(f'Period over time-base is less than two: {np.ptp(times) / p_orb_3}')
             if save_dir is not None:
@@ -227,13 +260,14 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
                 col1 = ['Period over time-base is less than two:', 'period (days)', 'time-base (days)']
                 col2 = [np.ptp(times) / p_orb_3, p_orb_3, np.ptp(times)]
                 np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s')
-            p_orb_i = [0, 0, p_orb_3]
-            const_i = [const_1, const_2, const_2]
-            slope_i = [slope_1, slope_2, slope_2]
-            f_n_i = [f_n_1, f_n_2, f_n_2]
-            a_n_i = [a_n_1, a_n_2, a_n_2]
-            ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
-            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+            if (np.ptp(times) / p_orb_3 < 1.1):
+                p_orb_i = [0, 0, p_orb_3]
+                const_i = [const_1, const_2, const_2]
+                slope_i = [slope_1, slope_2, slope_2]
+                f_n_i = [f_n_1, f_n_2, f_n_2]
+                a_n_i = [a_n_1, a_n_2, a_n_2]
+                ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
+                return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
         # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
         out_3 = tsf.fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors)
         t_3b = time.time()
@@ -562,6 +596,10 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
         # deepest eclipse is put first in each measurement
         output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level)
         t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err, ecl_indices = output
+        if np.all([item is None for item in output]):
+            raise RuntimeError(f'No eclipse signatures found above the noise level of {noise_level}')
+        elif np.any([item is None for item in output]):
+            raise RuntimeError(f'No two eclipses found passing the criteria')
         # minima and first/last contact points. t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         timings = np.array([t_1, t_2, t_contacts[0], t_contacts[1], t_contacts[2], t_contacts[3]])
         # define some errors (tau_1_1 error equals t_1_1 error - approximately)
@@ -696,12 +734,21 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
     else:
         if verbose:
             print(f'Separating out-of-eclipse signal')
-        output = tsf.extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                                           i_sectors, verbose=verbose)
-        const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
-        output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
-        f_he, a_he, ph_he = output  # eclipse harmonics
+        # check if the eclipses cover the whole lc
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+        t_folded = (times - t_zero) % p_orb
+        mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+        if (np.sum(mask_ecl) / len(times) > 0.01):
+            output = tsf.extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                                               i_sectors, verbose=verbose)
+            const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
+            output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
+                                                ph_ho)
+            f_he, a_he, ph_he = output  # eclipse harmonics
+        else:
+            const_ho, f_ho, a_ho, ph_ho = 0, np.array([]), np.array([]), np.array([])
+            f_he, a_he, ph_he = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
         if file_name is not None:
             ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=data_id)
     t_b = time.time()
@@ -798,7 +845,10 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, p_
         Full output distributions for the same parameters as intervals
     """
     t_a = time.time()
-    if os.path.isfile(file_name) & (not overwrite):
+    # opens two files so both need to exist
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
+    if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_elements(file_name)
@@ -810,6 +860,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, p_
         output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err)
         e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = output
         # calculate the errors
+        print(timings_tau)
         output_2 = af.error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero,
                                           f_h, a_h, ph_h, timings_tau, bottom_dur, timing_errs, depths_err,
                                           verbose=verbose)

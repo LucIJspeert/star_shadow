@@ -157,6 +157,8 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
             periods[7*i:7*i+7] = np.arange(1, 8) / f
     # stay below the maximum
     periods = periods[periods < np.ptp(times)]
+    # and above the minimum
+    periods = periods[periods > (2 * np.min(times[1:] - times[:-1]))]
     # compute the dispersion measures
     pd_all = np.zeros(len(periods))
     for i, p in enumerate(periods):
