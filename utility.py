@@ -981,6 +981,8 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi
+    print(w_bds)
+    print(intervals[:, [1, 2]])
     if (len(np.shape(w_bds)) > 1):
         w_interval = intervals[:, [1, 2]]  # (this is probably not right)
         w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1]
@@ -1508,6 +1510,10 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_9 = read_results_timings(file_name)
         t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:6]
         ecl_indices_9 = results_9[6]
+        # get the low harmonics
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+        low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
+        f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_hsep(file_name)
@@ -1574,6 +1580,18 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     # eclipse_analysis
     if save_dir is not None:
         try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives_lh.png')
+            vis.plot_lc_derivatives(p_orb_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9, save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps|_lh.png')
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, t_bottoms_9,
+                                           timing_errs_9, depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                           i_sectors, save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
             vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices_11, save_file=file_name, show=False)
         except NameError:
@@ -1618,6 +1636,16 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
+        try:
+            vis.plot_lc_derivatives(p_orb_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9, save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, t_bottoms_9,
+                                           timing_errs_9, depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                           i_sectors, save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices_11, save_file=None, show=True)
         except NameError:

@@ -600,6 +600,11 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
             raise RuntimeError(f'No eclipse signatures found above the noise level of {noise_level}')
         elif np.any([item is None for item in output]):
             raise RuntimeError(f'No two eclipses found passing the criteria')
+            if file_name is not None:
+                timings = np.array([t_1, t_2, None, None, None, None])
+                timing_errs = np.array([None, None, None, None, None, None])
+                ut.save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, (None, None), ecl_indices,
+                                        file_name, data_id)
         # minima and first/last contact points. t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         timings = np.array([t_1, t_2, t_contacts[0], t_contacts[1], t_contacts[2], t_contacts[3]])
         # define some errors (tau_1_1 error equals t_1_1 error - approximately)
@@ -861,7 +866,6 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, p_
         output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err)
         e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = output
         # calculate the errors
-        print(timings_tau)
         output_2 = af.error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero,
                                           f_h, a_h, ph_h, timings_tau, bottom_dur, timing_errs, depths_err,
                                           verbose=verbose)
@@ -1080,9 +1084,16 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    out_11 = eclipse_analysis_timings(p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8, file_name=file_name,
-                                      data_id=data_id, overwrite=overwrite, verbose=verbose)
-    t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11[:7]
+    try:
+        out_11 = eclipse_analysis_timings(p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8,
+                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+        t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_11[:7]
+        # ecl_indices_11 = out_11[7]
+    except RuntimeError as err:
+        if verbose:
+            print(err, 'using low-harmonic results')
+        t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_9[:7]
+        # ecl_indices_11 = out_9[7]
     # ecl_indices_11 = out_11[7]
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')

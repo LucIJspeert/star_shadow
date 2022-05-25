@@ -926,33 +926,47 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
         if (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1):
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], 0, 0,
                    0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
-            # check in the harmonic light curve model that all points in eclipse lie beneath the top points
-            l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
-                                                           t_model[ecl[-3]], model_h[ecl[-3]])
-            line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
-                                    np.array([[0, ecl[-3]-ecl[2]]]))
-            ineq = (model_h[ecl[2]:ecl[-3]] <= line)  # everything has to be below the line (or equal to it)
-            # allclose takes into account floating point tolerance (np.all(ineq) does not)
-            if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
-                ecl_indices = np.vstack((ecl_indices, [ecl]))
+            # be careful of wrap-around
+            if (ecl[2] > ecl[-3]):
+                # check in the harmonic light curve model that all points in eclipse lie beneath the top points
+                l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
+                                                               t_model[ecl[-3]] + p_orb, model_h[ecl[-3]])
+                t_model_wrapped = np.append(t_model[ecl[2]:], t_model[:ecl[-3] + 1])
+                model_h_wrapped = np.append(model_h[ecl[2]:], model_h[:ecl[-3] + 1])
+                line = tsf.linear_curve(t_model_wrapped, np.array([l_const]), np.array([l_slope]),
+                                        np.array([[0, len(t_model_wrapped)]]))
+                ineq = (model_h_wrapped <= line)  # everything has to be below the line (or equal to it)
+                # allclose takes into account floating point tolerance (np.all(ineq) does not)
+                if np.allclose(model_h_wrapped[np.invert(ineq)], line[np.invert(ineq)]):
+                    ecl_indices = np.vstack((ecl_indices, [ecl]))
+            else:
+                # check in the harmonic light curve model that all points in eclipse lie beneath the top points
+                l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
+                                                               t_model[ecl[-3]], model_h[ecl[-3]])
+                line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
+                                        np.array([[0, ecl[-3] - ecl[2]]]))
+                ineq = (model_h[ecl[2]:ecl[-3]] <= line)  # everything has to be below the line (or equal to it)
+                # allclose takes into account floating point tolerance (np.all(ineq) does not)
+                if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
+                    ecl_indices = np.vstack((ecl_indices, [ecl]))
     # determine the points of eclipse minima and flat bottoms
     indices_t = np.arange(len(t_model))
     for i, ecl in enumerate(ecl_indices):
-        if (ecl[2] > ecl[-3]):
+        if (ecl[2] > ecl[-3]):  # wrap-around
             i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3] + 1])))
             ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3] + 1])[i_min]
         else:
             i_min = np.argmin(np.abs(deriv_1[ecl[2]:ecl[-3] + 1]))
             ecl_indices[i, 5] = indices_t[ecl[2]:ecl[-3] + 1][i_min]
         # left bottom turning point (peaks_2_p)
-        if (ecl_indices[i, 5] < ecl[1]):
+        if (ecl_indices[i, 5] < ecl[1]):  # wrap-around
             i_max = np.argmax(np.append(deriv_2[ecl[1]:], deriv_2[:ecl_indices[i, 5] + 1]))
             ecl_indices[i, 4] = np.append(indices_t[ecl[1]:], indices_t[:ecl_indices[i, 5] + 1])[i_max]
         else:
             i_max = np.argmax(deriv_2[ecl[1]:ecl_indices[i, 5] + 1])
             ecl_indices[i, 4] = indices_t[ecl[1]:ecl_indices[i, 5] + 1][i_max]
         # right bottom turning point (peaks_2_p)
-        if (ecl_indices[i, 5] > ecl[-2]):
+        if (ecl_indices[i, 5] > ecl[-2]):  # wrap-around
             i_max = np.argmax(np.append(deriv_2[ecl_indices[i, 5]:], deriv_2[:ecl[-2] + 1]))
             ecl_indices[i, -5] = np.append(indices_t[ecl_indices[i, 5]:], indices_t[:ecl[-2] + 1])[i_max]
         else:
