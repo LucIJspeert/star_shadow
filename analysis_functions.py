@@ -1510,7 +1510,8 @@ def covered_area(d, r_1, r_2):
     return area
 
 
-def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio=1):
+@nb.njit()
+def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2):
     """Surface brightness ratio from the ratio of eclipse depths
     
     Parameters
@@ -1528,6 +1529,10 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio=1):
         Sum of radii in units of the semi-major axis
     r_ratio: float
         Radius ratio r_2/r_1
+    theta_1: float
+        Phase angle of primary minimum
+    theta_2: float
+        Phase angle of secondary minimum
     
     Returns
     -------
@@ -1540,17 +1545,18 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio=1):
     covered in either eclipse (area_i):
     sb_ratio = (d_2 area_1)/(d_1 area_2)
     """
-    theta_1, theta_2 = minima_phase_angles(e, w, i)
     sep_1 = projected_separation(e, w, i, theta_1)
     sep_2 = projected_separation(e, w, i, theta_2)
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     area_1 = covered_area(sep_1, r_1, r_2)
     area_2 = covered_area(sep_2, r_1, r_2)
-    if (d_ratio > 0) & (d_ratio < 1000) & (area_2 == 0):
+    if (area_2 > 0):
+        sb_ratio = d_ratio * area_1 / area_2
+    elif (area_1 > 0):
         sb_ratio = 1000  # we get into territory where the secondary is not visible
     else:
-        sb_ratio = d_ratio * area_1 / area_2
+        sb_ratio = 1  # we get into territory where neither eclipse is visible
     return sb_ratio
 
 
@@ -1681,7 +1687,7 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     dur_2 = integral_tau_2_1 + integral_tau_2_2
     # calculate the depths
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
-    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio=r_ratio)
+    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
     depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
@@ -1795,7 +1801,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
-    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio=r_ratio)
+    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
     depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
@@ -1896,7 +1902,8 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
     # value for sb_ratio from the depths ratio and the other parameters
-    sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio=r_ratio)
+    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     return e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio
 
 
@@ -2146,7 +2153,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         rratio_vals[k] = out[7]
         sbratio_vals[k] = out[8]
         if verbose & (k % 100 == 0):
-            print(f'parameter calculations {k / (n_gen) * 100}% done')
+            print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)
     normal_t_2 = np.delete(normal_t_2, i_delete)

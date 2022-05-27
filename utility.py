@@ -980,11 +980,9 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
     ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
-    # multi
-    print(w_bds)
-    print(intervals[:, [1, 2]])
+    # multi interval
     if (len(np.shape(w_bds)) > 1):
-        w_interval = intervals[:, [1, 2]]  # (this is probably not right)
+        w_interval = intervals[1]
         w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1]
         w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1]
     else:

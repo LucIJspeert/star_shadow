@@ -19,7 +19,7 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-def frequency_analysis_porb(times, signal, f_n, a_n, ph_n):
+def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     """Find the most likely eclipse period from a sinusoid model
     
     Parameters
@@ -58,7 +58,7 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n):
         harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
         sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
-        peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level_2, prominence=noise_level_2, width=9)
+        peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
         if (len(peaks) == 1):
             p_orb = 2 * p_orb
         # if we have too few harmonics, try the next period, else stop
@@ -247,7 +247,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             print(f'Step 3: Coupling the harmonic frequencies to the orbital frequency.')
         t_3a = time.time()
         if (p_orb == 0):
-            p_orb_3 = frequency_analysis_porb(times, signal, f_n_2, a_n_2, ph_n_2)
+            p_orb_3 = frequency_analysis_porb(times, signal, f_n_2, a_n_2, ph_n_2, noise_level_2)
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
@@ -1092,6 +1092,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     except RuntimeError as err:
         if verbose:
             print(err, 'using low-harmonic results')
+        out_11 = None
         t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_9[:7]
         # ecl_indices_11 = out_9[7]
     # ecl_indices_11 = out_11[7]
@@ -1286,8 +1287,7 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
 
 def pulsation_analysis_fselect_h(p_orb, f_n_r, a_n_r, ph_n_r, f_n_err, a_n_err, noise_level, n_points, file_name=None,
                                  data_id=None, overwrite=False, verbose=False):
-    """Selects the credible frequencies from the given set,
-    ignoring the harmonics
+    """Selects the credible frequencies from the given set
 
     Parameters
     ----------
@@ -1333,17 +1333,15 @@ def pulsation_analysis_fselect_h(p_orb, f_n_r, a_n_r, ph_n_r, f_n_err, a_n_err, 
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         passed_h_sigma, passed_h_snr, passed_h_b = ut.read_results_fselect(file_name)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_r, p_orb)
-        non_harm = np.delete(np.arange(len(f_n_r)), harmonics)
     else:
         if verbose:
             print(f'Selecting credible frequencies')
         remove_sigma = af.remove_insignificant_sigma(f_n_r, f_n_err, a_n_r, a_n_err, sigma_a=3., sigma_f=1.)
         remove_snr = af.remove_insignificant_snr(a_n_r, noise_level, n_points)
-        # non-harmonics that pass sigma criteria
+        # harmonics that pass sigma criteria
         passed_h_sigma = np.ones(len(f_n_r), dtype=bool)
         passed_h_sigma[remove_sigma] = False
-        # non-harmonics that pass S/N criteria
+        # harmonics that pass S/N criteria
         passed_h_snr = np.ones(len(f_n_r), dtype=bool)
         passed_h_snr[remove_snr] = False
         # passing both
@@ -1354,7 +1352,7 @@ def pulsation_analysis_fselect_h(p_orb, f_n_r, a_n_r, ph_n_r, f_n_err, a_n_err, 
     if verbose:
         print(f'\033[1;32;48mFrequencies selected.\033[0m')
         print(f'\033[0;32;48mNumber of non-harmonic frequencies passed: {len(passed_h_b)}, '
-              f'total number of non-harmonic frequencies: {len(non_harm)}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_h_sigma, passed_h_snr, passed_h_b
 
 
@@ -1406,7 +1404,10 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     n_param_8, bic_8, noise_level_8 = stats
     # load t_zero from the timings file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    results_11 = ut.read_results_timings(file_name)
+    if os.path.isfile(file_name):
+        results_11 = ut.read_results_timings(file_name)
+    else:
+        results_11 = ut.read_results_timings(file_name.replace('_11', '_9'))  # load results from previous step
     t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
     # open the orbital elements file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
