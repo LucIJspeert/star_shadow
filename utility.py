@@ -90,7 +90,7 @@ def signal_to_noise_threshold(n_points):
 
 
 @nb.njit(cache=True)
-def normalise_counts(flux_counts, i_sectors):
+def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
     """Median-normalises flux (counts or otherwise, should be positive) by
     dividing by the median.
     
@@ -103,6 +103,8 @@ def normalise_counts(flux_counts, i_sectors):
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
         wanted, set i_half_s = np.array([[0, len(times)]]).
+    flux_counts_err: numpy.ndarray[float], None
+        Errors in the flux measurements
     
     Returns
     -------
@@ -110,6 +112,8 @@ def normalise_counts(flux_counts, i_sectors):
         Normalised flux measurements
     median: numpy.ndarray[float]
         Median flux counts per sector
+    flux_err_norm: numpy.ndarray[float]
+        Normalised flux errors (zeros if flux_counts_err is None)
     
     Notes
     -----
@@ -118,10 +122,13 @@ def normalise_counts(flux_counts, i_sectors):
     """
     median = np.zeros(len(i_sectors))
     flux_norm = np.zeros(len(flux_counts))
+    flux_err_norm = np.zeros(len(flux_counts))
     for i, s in enumerate(i_sectors):
         median[i] = np.median(flux_counts[s[0]:s[1]])
         flux_norm[s[0]:s[1]] = flux_counts[s[0]:s[1]] / median[i]
-    return flux_norm, median
+        if flux_counts_err is not None:
+            flux_err_norm[s[0]:s[1]] = flux_counts_err[s[0]:s[1]] / median[i]
+    return flux_norm, median, flux_err_norm
 
 
 def get_tess_sectors(times, bjd_ref=2457000.0):
@@ -313,7 +320,7 @@ def load_tess_lc(tic, all_files, apply_flags=True):
     return times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap
 
 
-def stitch_tess_sectors(times, signal, i_sectors):
+def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     """Stitches the different TESS sectors of a light curve together.
     
     Parameters
@@ -322,6 +329,8 @@ def stitch_tess_sectors(times, signal, i_sectors):
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
     
@@ -333,7 +342,7 @@ def stitch_tess_sectors(times, signal, i_sectors):
         Measurement values of the time-series
     medians: numpy.ndarray[float]
         Median flux counts per sector
-    t_start: float
+    times_0: float
         Original starting point of the time-series
     t_combined: numpy.ndarray[float]
         Pair(s) of times indicating the timespans of each half sector
@@ -350,10 +359,10 @@ def stitch_tess_sectors(times, signal, i_sectors):
     performance when deriving sinusoidal phase information. The original start point is given.
     """
     # median normalise
-    signal, medians = normalise_counts(signal, i_sectors=i_sectors)
+    signal, medians = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
     # zero the timeseries
-    t_start = times[0]
-    times -= t_start
+    times_0 = times[0]
+    times -= times_0
     # times of sector mid point and resulting half-sectors
     dt = np.median(np.diff(times))
     t_start = times[i_sectors[:, 0]] - dt/2
@@ -361,7 +370,7 @@ def stitch_tess_sectors(times, signal, i_sectors):
     t_mid = (t_start + t_end) / 2
     t_combined = np.column_stack((np.append(t_start, t_mid + dt/2), np.append(t_mid - dt/2, t_end)))
     i_half_s = convert_tess_t_sectors(times, t_combined)
-    return times, signal, medians, t_start, t_combined, i_half_s
+    return times, signal, medians, times_0, t_combined, i_half_s
 
 
 def group_fequencies_for_fit(a_n, g_min=20, g_max=25):
@@ -627,7 +636,7 @@ def save_results(results, errors, stats, file_name, description='none', dataset=
         file['ph_n'].attrs['phase_zero_point'] = 'times[0] (time-series start)'
         file.create_dataset('phase', data=ph_n)
         file.create_dataset('ph_n_err', data=ph_n_err)
-    return
+    return None
 
 
 def load_results(file_name):
@@ -703,6 +712,36 @@ def read_results(file_name, verbose=False):
     return results, errors, stats
 
 
+def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
+    """Save the eclipse indices of the eclipse timings
+
+    Parameters
+    ----------
+    ecl_indices: numpy.ndarray[int]
+        Indices of several important points in the harmonic model
+        as generated here (see function for details)
+    file_name: str, None
+        File name (including path) for saving the results.
+        This name is altered slightly to not interfere with another
+        save file (from save_results_timings).
+    data_id: int, str, None
+        Identification for the dataset used
+
+    Returns
+    -------
+    None
+    """
+    split_name = os.path.splitext(os.path.basename(file_name))
+    file_id = split_name[0]  # the file name without extension
+    fn_ext = split_name[1]
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
+    description = 'Eclipse indices (see function measure_eclipses_dt).'
+    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, peaks_2_p, minimum_0, '
+           f'peaks_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
+    np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
+    return None
+
+
 def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
                          data_id=None):
     """Save the results of the eclipse timings
@@ -770,13 +809,28 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save eclipse indices separately
+    save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
+    return None
+
+
+def read_results_ecl_indices(file_name):
+    """Read in the eclipse indices of the eclipse timings
+
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+
+    Returns
+    -------
+    ecl_indices: numpy.ndarray[int]
+        Indices of several important points in the harmonic model
+        as generated here (see function for details)
+    """
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
-    description = 'Eclipse indices (see function measure_eclipses_dt).'
-    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, peaks_2_p, minimum_0, '
-           f'peaks_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
-    np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
-    return
+    ecl_indices = np.loadtxt(file_name_2, delimiter=',', dtype=int)
+    return ecl_indices
 
 
 def read_results_timings(file_name):
@@ -819,9 +873,7 @@ def read_results_timings(file_name):
     timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
-    ecl_indices = np.loadtxt(file_name_2, delimiter=',', dtype=int)
+    ecl_indices = read_results_ecl_indices(file_name)
     return t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices
 
 
@@ -881,7 +933,7 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name,
     description = 'Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
-    return
+    return None
 
 
 def read_results_hsep(file_name):
@@ -981,10 +1033,14 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi interval
-    if (len(np.shape(w_bds)) > 1):
-        w_interval = intervals[1]
-        w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1]
-        w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1]
+    if hasattr(w_bds[0], '__len__'):
+        if (len(w_bds) > 1):
+            w_interval = intervals[1]
+            w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1][0]
+            w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1][0]
+        else:
+            w_bds = w_bds[0]
+            w_bds_2 = None
     else:
         w_bds_2 = None
     var_names = ['e', 'w', 'i', 'phi_0', 'psi_0', 'r_sum_sma', 'r_dif_sma', 'r_ratio', 'sb_ratio',
@@ -1046,14 +1102,15 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
               str(sigma_e), str(sigma_w), str(sigma_phi_0), str(sigma_r_sum_sma), str(sigma_ecosw), str(sigma_esinw),
               str(sigma_f_c), str(sigma_f_s)]
     table = np.column_stack((var_names, values, var_desc))
-    if (len(np.shape(intervals[1])) > 1):
-        # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
-        var_names_ext = ['w_interval_1_low', 'w_interval_1_high', 'w_interval_2_low', 'w_interval_2_high']
-        var_desc_ext = ['lower bound of the first w interval', 'upper bound of the first w interval',
-                        'lower bound of the second w interval', 'upper bound of the second w interval']
-        values_ext = [str(intervals[1][0, 0]), str(intervals[1][0, 1]),
-                      str(intervals[1][1, 0]), str(intervals[1][1, 1])]
-        table = np.vstack((table, np.column_stack((var_names_ext, var_desc_ext, values_ext))))
+    if hasattr(intervals[1][0], '__len__'):
+        if (len(intervals[1]) > 1):
+            # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
+            var_names_ext = ['w_interval_1_low', 'w_interval_1_high', 'w_interval_2_low', 'w_interval_2_high']
+            var_desc_ext = ['lower bound of the first w interval', 'upper bound of the first w interval',
+                            'lower bound of the second w interval', 'upper bound of the second w interval']
+            values_ext = [str(intervals[1][0, 0]), str(intervals[1][0, 1]),
+                          str(intervals[1][1, 0]), str(intervals[1][1, 1])]
+            table = np.vstack((table, np.column_stack((var_names_ext, var_desc_ext, values_ext))))
     if w_bds_2 is not None:
         # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
         var_names_ext = ['w_ubnd_2', 'w_lbnd_2']
@@ -1075,7 +1132,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
            + 'd_1_vals, d_2_vals, bot_1_vals, bot_2_vals, '
            + 'e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals')
     np.savetxt(file_name_2, data, delimiter=',', header=hdr)
-    return
+    return None
 
 
 def read_results_elements(file_name):
@@ -1176,7 +1233,7 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
     description = f'Fit for the light curve parameters. Fit uses the eclipses only.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
-    return
+    return None
 
 
 def read_results_fit_ellc(file_name):
@@ -1262,7 +1319,7 @@ def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_na
     description = f'Selection of credible (non-)harmonic frequencies'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
-    return
+    return None
 
 
 def read_results_fselect(file_name):
@@ -1318,7 +1375,7 @@ def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=N
     description = f'Disentangelment of harmonics using ellc lc model'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
-    return
+    return None
 
 
 def read_results_disentangle(file_name):
@@ -1517,6 +1574,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_10 = read_results_hsep(file_name)
         const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = results_10
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_11 = read_results_timings(file_name)
         t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:6]
@@ -1525,6 +1584,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                                    timings_11[0] - timings_11[2], timings_11[3] - timings_11[0],
                                    timings_11[1] - timings_11[4], timings_11[5] - timings_11[1]])
         bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
+    elif os.path.isfile(file_name_2):
+        ecl_indices_11 = read_results_ecl_indices(file_name)
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
@@ -1738,4 +1799,4 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
-    return
+    return None

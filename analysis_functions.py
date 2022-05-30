@@ -867,27 +867,27 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     
     Returns
     -------
-    t_zero: float
+    t_zero: float, None
         Time of deepest minimum modulo p_orb
-    t_1: float
+    t_1: float, None
         Time of primary minimum in domain [0, p_orb)
         Shifted by t_zero so that deepest minimum occurs at 0
-    t_2: float
+    t_2: float, None
         Time of secondary minimum in domain [0, p_orb)
         Shifted by t_zero so that deepest minimum occurs at 0
-    t_contacts: tuple[float]
+    t_contacts: tuple[float], None
         Measurements of the times of contact in the order:
         t_1_1, t_1_2, t_2_1, t_2_2
-    depths: numpy.ndarray[float]
+    depths: numpy.ndarray[float], None
         Measurements of the elcipse depths in units of a_n
-    t_int_tan: tuple[float]
+    t_int_tan: tuple[float], None
         Measurements of the times near internal tangency in the order:
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    t_i_1_err: numpy.ndarray[float]
+    t_i_1_err: numpy.ndarray[float], None
         Measurement error estimates of the first contact(s)
-    t_i_2_err: numpy.ndarray[float]
+    t_i_2_err: numpy.ndarray[float], None
         Measurement error estimates of the last contact(s)
-    ecl_indices: numpy.ndarray[int]
+    ecl_indices: numpy.ndarray[int], None
         Indices of several important points in the harmonic model
         as generated here (see function for details)
     
@@ -1200,11 +1200,22 @@ def minima_phase_angles(e, w, i):
         Phase angle of primary minimum
     theta_2: float
         Phase angle of secondary minimum
+    
+    Notes
+    -----
+    If theta_2 equals zero, this means no solution was possible
+    (no opposite signs), physically there was no minimum separation
     """
-    opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
-    opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
-    theta_1 = opt_1.root
-    theta_2 = opt_2.root
+    try:
+        opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
+        theta_1 = opt_1.root
+    except ValueError:
+        theta_1 = 0
+    try:
+        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
+        theta_2 = opt_2.root
+    except ValueError:
+        theta_2 = 0
     return theta_1, theta_2
 
 
@@ -1354,22 +1365,22 @@ def contact_phase_angles(e, w, i, phi_0):
         opt_3 = sp.optimize.root_scalar(first_contact_angle_1, args=(e, w, i, phi_0), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
-        phi_1_1 = 0.  # interval likely did not have different signs because it did not quite reach 0 at 0
+        phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
         opt_4 = sp.optimize.root_scalar(last_contact_angle_1, args=(e, w, i, phi_0), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
-        phi_1_2 = 0.  # interval likely did not have different signs because it did not quite reach 0 at 0
+        phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
         opt_5 = sp.optimize.root_scalar(first_contact_angle_2, args=(e, w, i, phi_0), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
-        phi_2_1 = 0.  # interval likely did not have different signs because it did not quite reach 0 at 0
+        phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
         opt_6 = sp.optimize.root_scalar(last_contact_angle_2, args=(e, w, i, phi_0), method='brentq', bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
-        phi_2_2 = 0.  # interval likely did not have different signs because it did not quite reach 0 at 0
+        phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     return phi_1_1, phi_1_2, phi_2_1, phi_2_2
 
 
@@ -1663,9 +1674,8 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     e, w = ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi_0)
     # minimise for the phases of minima (theta)
-    try:
-        theta_1, theta_2 = minima_phase_angles(e, w, i)
-    except ValueError:
+    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    if (theta_2 == 0):
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
@@ -1768,9 +1778,8 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     # minimise for the phases of minima (theta)
-    try:
-        theta_1, theta_2 = minima_phase_angles(e, w, i)
-    except ValueError:
+    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    if (theta_2 == 0):
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
@@ -2213,12 +2222,12 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
-        if (len(np.shape(w_interval)) > 1):
-            # sign of w - w_interval only changes if w is in the interval
+        if (len(w_interval) > 1):
+            # sign of (w - w_interval) only changes if w is in the interval
             w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
-            w_errs = np.array([w - w_interval[w_in_interval, 0][0], w_interval[w_in_interval, 1][0] - w])
+            w_errs = np.array([w - w_interval[w_in_interval, 0], w_interval[w_in_interval, 1] - w])
         else:
-            w_errs = np.array([w - w_interval[0], w_interval[1] - w])
+            w_errs = np.array([w - w_interval[0, 0], w_interval[0, 1] - w])
     else:
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
