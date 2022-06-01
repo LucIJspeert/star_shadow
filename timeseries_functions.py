@@ -12,6 +12,7 @@ import numpy as np
 import scipy as sp
 import scipy.stats
 import numba as nb
+import astropy.timeseries as apyt
 
 from . import timeseries_fitting as tsfit
 from . import analysis_functions as af
@@ -167,7 +168,6 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     return periods, pd_all
 
 
-# @nb.njit()  # not jitted for convolve with arg 'same'
 def noise_spectrum(times, signal, window_width=1.):
     """Calculate the noise spectrum by a convolution with a flat window of a certain width.
 
@@ -188,7 +188,7 @@ def noise_spectrum(times, signal, window_width=1.):
         in the same units as ampls.
     """
     # calculate the periodogram
-    freqs, ampls = scargle(times, signal)  # use defaults to get full amplitude spectrum
+    freqs, ampls = astropy_scargle(times, signal)  # use defaults to get full amplitude spectrum
     # determine the number of points to extend the spectrum with for convolution
     n_points = int(np.ceil(window_width / np.abs(freqs[1] - freqs[0])))  # .astype(int)
     window = np.full(n_points, 1 / n_points)
@@ -202,7 +202,6 @@ def noise_spectrum(times, signal, window_width=1.):
     return noise
 
 
-# @nb.njit()  # not sped up
 def noise_at_freq(fs, times, signal, window_width=0.5):
     """Calculate the noise at a given set of frequencies
     
@@ -223,7 +222,7 @@ def noise_at_freq(fs, times, signal, window_width=0.5):
     noise: numpy.ndarray[float]
         The noise level calculated from a window around the frequency in the periodogram
     """
-    freqs, ampls = scargle(times, signal)  # use defaults to get full amplitude spectrum
+    freqs, ampls = astropy_scargle(times, signal)  # use defaults to get full amplitude spectrum
     margin = window_width / 2
     noise = np.array([np.average(ampls[(freqs > f - margin) & (freqs <= f + margin)]) for f in fs])
     return noise
@@ -589,6 +588,65 @@ def scargle_phase(times, signal, fs):
         # phase (radians)
         phi[i] = np.pi / 2 - np.arctan2(b_sin, a_cos) - two_pi * fs[i] * tau
     return phi
+
+
+def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
+    """Wrapper for the astropy Scargle periodogram.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    f0: float
+        Starting frequency of the periodogram.
+        If left zero, default is f0 = 1/(100*T)
+    fn: float
+        Last frequency of the periodogram.
+        If left zero, default is fn = 1/(2*np.min(np.diff(times))) = Nyquist frequency
+    df: float
+        Frequency sampling space of the periodogram
+        If left zero, default is df = 1/(10*T) = oversampling factor of ten (recommended)
+    norm: str
+        Normalisation of the periodogram. Choose from:
+        'amplitude', 'density' or 'distribution'
+
+    Returns
+    -------
+    f1: numpy.ndarray[float]
+        Frequencies at which the periodogram was calculated
+    s1: numpy.ndarray[float]
+        The periodogram spectrum in the chosen units
+
+    Notes
+    -----
+    Much faster than the other scargle in mode='fast',
+    but beware of computing narrower frequency windows,
+    as there is inconsistency when doing this.
+    Useful extra information: VanderPlas 2018,
+        https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    """
+    n = len(signal)
+    t_tot = np.ptp(times)
+    f0 = max(f0, 0.01 / t_tot)  # don't go lower than T/100
+    if (df == 0):
+        df = 0.1 / t_tot
+    if (fn == 0):
+        fn = 1 / (2 * np.min(times[1:] - times[:-1]))
+    nf = int((fn - f0) / df + 0.001) + 1
+    f1 = f0 + np.arange(nf) * df
+    # use the astropy fast algorithm and normalise afterward
+    ls = apyt.LombScargle(times, signal, fit_mean=False, center_data=False)
+    s1 = ls.power(f1, normalization='psd', method='fast')
+    # convert to the wanted normalisation
+    if norm == 'distribution':  # statistical distribution
+        s1 /= np.var(signal)
+    elif norm == 'amplitude':  # amplitude spectrum
+        s1 = np.sqrt(4 / n) * np.sqrt(s1)
+    elif norm == 'density':  # power density
+        s1 = (4 / n) * s1 * t_tot
+    return f1, s1
 
 
 @nb.njit()
@@ -1012,7 +1070,7 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     peak is oversampled by a factor 10^4 to get a precise measurement.
     """
     df = 0.1 / np.ptp(times)
-    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+    freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
@@ -1030,6 +1088,7 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     # now refine another time by increasing the frequency resolution x100 again
     f_left_2 = max(f_refine_1[p2] - df/100, 0.01 / np.ptp(times))  # may not get too low
     f_right_2 = f_refine_1[p2] + df/100
+    # todo: do I need this extra oversampling step?
     f_refine_2, a_refine_2 = scargle(times, signal, f0=f_left_2, fn=f_right_2, df=df/10000)
     p3 = np.argmax(a_refine_2)
     # check if we pick the boundary frequency
@@ -1086,7 +1145,7 @@ def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
     """
     freq_res = 1.5 / np.ptp(times)
     df = 0.1 / np.ptp(times)
-    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+    freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
     avoid = freq_res / (np.ptp(times) / p_orb)  # avoidance zone around harmonics
     mask = (freqs % (1 / p_orb) > avoid / 2) & (freqs % (1 / p_orb) < (1 / p_orb) - avoid / 2)
     # check that the mask does not cover everything:

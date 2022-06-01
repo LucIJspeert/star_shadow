@@ -33,8 +33,8 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
     # preparations
     model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model += tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    freqs, ampls = tsf.scargle(times, signal - np.mean(signal))
-    freqs_r, ampls_r = tsf.scargle(times, signal - model)
+    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model)
     err = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
     a_height = np.max(ampls)
     a_width = np.max(freqs)
@@ -102,15 +102,15 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
 def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, save_file=None, show=True):
     """Plot the periodogram with the full output of the analysis recipe."""
     # make periodograms
-    freqs, ampls = tsf.scargle(times, signal - np.mean(signal))
-    freqs_1, ampls_1 = tsf.scargle(times, signal - models[0] - np.all(models[0] == 0) * np.mean(signal))
-    freqs_2, ampls_2 = tsf.scargle(times, signal - models[1] - np.all(models[1] == 0) * np.mean(signal))
-    freqs_3, ampls_3 = tsf.scargle(times, signal - models[2] - np.all(models[2] == 0) * np.mean(signal))
-    freqs_4, ampls_4 = tsf.scargle(times, signal - models[3] - np.all(models[3] == 0) * np.mean(signal))
-    freqs_5, ampls_5 = tsf.scargle(times, signal - models[4] - np.all(models[4] == 0) * np.mean(signal))
-    freqs_6, ampls_6 = tsf.scargle(times, signal - models[5] - np.all(models[5] == 0) * np.mean(signal))
-    freqs_7, ampls_7 = tsf.scargle(times, signal - models[6] - np.all(models[6] == 0) * np.mean(signal))
-    freqs_8, ampls_8 = tsf.scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
+    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freqs_1, ampls_1 = tsf.astropy_scargle(times, signal - models[0] - np.all(models[0] == 0) * np.mean(signal))
+    freqs_2, ampls_2 = tsf.astropy_scargle(times, signal - models[1] - np.all(models[1] == 0) * np.mean(signal))
+    freqs_3, ampls_3 = tsf.astropy_scargle(times, signal - models[2] - np.all(models[2] == 0) * np.mean(signal))
+    freqs_4, ampls_4 = tsf.astropy_scargle(times, signal - models[3] - np.all(models[3] == 0) * np.mean(signal))
+    freqs_5, ampls_5 = tsf.astropy_scargle(times, signal - models[4] - np.all(models[4] == 0) * np.mean(signal))
+    freqs_6, ampls_6 = tsf.astropy_scargle(times, signal - models[5] - np.all(models[5] == 0) * np.mean(signal))
+    freqs_7, ampls_7 = tsf.astropy_scargle(times, signal - models[6] - np.all(models[6] == 0) * np.mean(signal))
+    freqs_8, ampls_8 = tsf.astropy_scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
     # get error values
     err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_half_s)
     err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_half_s)
@@ -231,8 +231,8 @@ def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_h
         plt.close()
     # periodogram non-harmonics
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    freqs_nh, ampls_nh = tsf.scargle(times, signal - model_h - model_line)
-    freqs, ampls = tsf.scargle(times, signal - model)
+    freqs_nh, ampls_nh = tsf.astropy_scargle(times, signal - model_h - model_line)
+    freqs, ampls = tsf.astropy_scargle(times, signal - model)
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs_nh, ampls_nh, label='residuals after harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
@@ -260,7 +260,7 @@ def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_h
     else:
         plt.close()
     # periodogram harmonics
-    freqs_h, ampls_h = tsf.scargle(times, signal - model_nh - model_line)
+    freqs_h, ampls_h = tsf.astropy_scargle(times, signal - model_nh - model_line)
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs_h, ampls_h, label='residuals after non-harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
@@ -1110,7 +1110,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     passed_nh_i = np.arange(len(f_n))[passed_nh]
     # make periodograms
-    freqs, ampls = tsf.scargle(times, signal - np.mean(signal))
+    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -1224,7 +1224,7 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     resid_ellc = signal - model_nh - model_line - model_ellc - const_r
     # make periodograms
-    freqs, ampls = tsf.scargle(times, resid_ellc)
+    freqs, ampls = tsf.astropy_scargle(times, resid_ellc)
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
