@@ -639,6 +639,11 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     # use the astropy fast algorithm and normalise afterward
     ls = apyt.LombScargle(times, signal, fit_mean=False, center_data=False)
     s1 = ls.power(f1, normalization='psd', method='fast')
+    # prevent negative values at the end
+    inv_s1 = (s1 < 0)
+    if np.any(inv_s1):
+        cut = np.arange(len(f1))[inv_s1][0] - 1
+        f1, s1 = f1[:cut], s1[:cut]
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
         s1 /= np.var(signal)
@@ -1070,7 +1075,11 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     peak is oversampled by a factor 10^4 to get a precise measurement.
     """
     df = 0.1 / np.ptp(times)
-    freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+    if (f0 == 0) & (fn == 0):
+        freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+    else:
+        # inconsistency with astropy_scargle for small freq intervals
+        freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
@@ -1085,18 +1094,8 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     if (p2 in [0, len(f_refine_1) - 1]):
         if verbose:
             print(f'Edge of frequency range {f_refine_1[p2]:1.6f} at position {p2} during extraction phase 2.')
-    # now refine another time by increasing the frequency resolution x100 again
-    f_left_2 = max(f_refine_1[p2] - df/100, 0.01 / np.ptp(times))  # may not get too low
-    f_right_2 = f_refine_1[p2] + df/100
-    # todo: do I need this extra oversampling step?
-    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_left_2, fn=f_right_2, df=df/10000)
-    p3 = np.argmax(a_refine_2)
-    # check if we pick the boundary frequency
-    if (p3 in [0, len(f_refine_2) - 1]):
-        if verbose:
-            print(f'Edge of frequency range {f_refine_2[p3]:1.6f} at position {p3} during extraction phase 3.')
-    f_final = f_refine_2[p3]
-    a_final = a_refine_2[p3]
+    f_final = f_refine_1[p2]
+    a_final = a_refine_1[p2]
     # finally, compute the phase (and make sure it stays within + and - pi)
     ph_final = scargle_phase_single(times, signal, f_final)
     ph_final = (ph_final + np.pi) % (2 * np.pi) - np.pi

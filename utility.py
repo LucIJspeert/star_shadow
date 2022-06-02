@@ -339,7 +339,9 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     times: numpy.ndarray[float]
         Timestamps of the time-series (shifted start at zero)
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time-series (normalised)
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values (normalised)
     medians: numpy.ndarray[float]
         Median flux counts per sector
     times_0: float
@@ -359,7 +361,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     performance when deriving sinusoidal phase information. The original start point is given.
     """
     # median normalise
-    signal, medians = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
+    signal, medians, signal_err = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
     # zero the timeseries
     times_0 = times[0]
     times -= times_0
@@ -370,7 +372,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     t_mid = (t_start + t_end) / 2
     t_combined = np.column_stack((np.append(t_start, t_mid + dt/2), np.append(t_mid - dt/2, t_end)))
     i_half_s = convert_tess_t_sectors(times, t_combined)
-    return times, signal, medians, times_0, t_combined, i_half_s
+    return times, signal, signal_err, medians, times_0, t_combined, i_half_s
 
 
 def group_fequencies_for_fit(a_n, g_min=20, g_max=25):

@@ -1560,7 +1560,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
-    times, signal, sector_medians, times_0, t_combined, i_half_s = lc_processed
+    times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
     # do the analysis
     out_a = sts.frequency_analysis(tic, times, signal, i_half_s, p_orb=0,
                                    save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
