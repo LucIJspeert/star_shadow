@@ -621,9 +621,9 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
 
     Notes
     -----
-    Much faster than the other scargle in mode='fast',
-    but beware of computing narrower frequency windows,
-    as there is inconsistency when doing this.
+    Approximation using fft, much faster than the other scargle in mode='fast'.
+    Beware of computing narrower frequency windows, as there is inconsistency
+    when doing this.
     Useful extra information: VanderPlas 2018,
         https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
     """
@@ -639,11 +639,6 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     # use the astropy fast algorithm and normalise afterward
     ls = apyt.LombScargle(times, signal, fit_mean=False, center_data=False)
     s1 = ls.power(f1, normalization='psd', method='fast')
-    # prevent negative values at the end
-    inv_s1 = (s1 < 0)
-    if np.any(inv_s1):
-        cut = np.arange(len(f1))[inv_s1][0] - 1
-        f1, s1 = f1[:cut], s1[:cut]
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
         s1 /= np.var(signal)
@@ -1075,11 +1070,11 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     peak is oversampled by a factor 10^4 to get a precise measurement.
     """
     df = 0.1 / np.ptp(times)
-    if (f0 == 0) & (fn == 0):
-        freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
-    else:
-        # inconsistency with astropy_scargle for small freq intervals
-        freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+    # if (f0 == 0) & (fn == 0):
+    #     freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+    # else:
+    #     # inconsistency with astropy_scargle for small freq intervals
+    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
@@ -1144,7 +1139,7 @@ def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
     """
     freq_res = 1.5 / np.ptp(times)
     df = 0.1 / np.ptp(times)
-    freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
     avoid = freq_res / (np.ptp(times) / p_orb)  # avoidance zone around harmonics
     mask = (freqs % (1 / p_orb) > avoid / 2) & (freqs % (1 / p_orb) < (1 / p_orb) - avoid / 2)
     # check that the mask does not cover everything:

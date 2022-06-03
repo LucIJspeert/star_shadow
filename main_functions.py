@@ -237,12 +237,11 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             # save freqs and linear curve in ascii format at this stage
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2_sinusoid.csv')
             data = np.column_stack((f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2))
-            hdr = f'p_orb_2: {p_orb_2}, p_err_2: {p_err_2}\nf_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2'
+            hdr = f'f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2'
             np.savetxt(file_name, data, delimiter=',', header=hdr)
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2_linear.csv')
             data = np.column_stack((const_2, c_err_2, slope_2, sl_err_2, i_sectors[:, 0], i_sectors[:, 1]))
-            hdr = (f'p_orb_2: {p_orb_2}, p_err_2: {p_err_2}\n'
-                   f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
+            hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
             np.savetxt(file_name, data, delimiter=',', header=hdr)
     # -------------------------------------------------------------------------------
     # [3] --- measure the orbital period with pdm and couple the harmonic frequencies
@@ -1485,12 +1484,12 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     return out_14, out_15, out_16
 
 
-def analyse_from_file(file, p_orb=0, data_id=None, overwrite=False):
+def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
     ----------
-    file: str
+    file_name: str
         Path to a file containing the light curve data, with
         timestamps, normalised flux, error values as the
         first three columns, respectively.
@@ -1512,19 +1511,19 @@ def analyse_from_file(file, p_orb=0, data_id=None, overwrite=False):
     """
     # load the data
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
-    times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
+    save_dir = os.path.dirname(file_name)
+    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
     i_half_s = np.array([[0, len(times)]])  # no sector information
-    save_dir = os.path.dirname(file_name)
     # do the analysis
-    out_a = sts.frequency_analysis(target_id, times, signal, i_half_s, p_orb=0,
+    out_a = frequency_analysis(target_id, times, signal, i_half_s, p_orb=0,
                                    save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = sts.eclipse_analysis(target_id, times, signal, signal_err, i_half_s,
+        out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s,
                                      save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
     if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
-        out_c = sts.pulsation_analysis(target_id, times, signal, i_half_s,
+        out_c = pulsation_analysis(target_id, times, signal, i_half_s,
                                        save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
     return None
 
@@ -1562,14 +1561,14 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
     # do the analysis
-    out_a = sts.frequency_analysis(tic, times, signal, i_half_s, p_orb=0,
+    out_a = frequency_analysis(tic, times, signal, i_half_s, p_orb=0,
                                    save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = sts.eclipse_analysis(tic, times, signal, signal_err, i_half_s,
+        out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s,
                                      save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
     if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
-        out_c = sts.pulsation_analysis(tic, times, signal, i_half_s,
+        out_c = pulsation_analysis(tic, times, signal, i_half_s,
                                        save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
     return None
 

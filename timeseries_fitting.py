@@ -697,9 +697,6 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
-    # catch radii that come too close to the Roche lobe
-    if (r_1 > 0.33) | (r_2 > 0.33):
-        return 10**9
     try:
         model = ellc_lc_simple(times, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     except:

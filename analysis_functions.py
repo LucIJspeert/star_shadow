@@ -922,13 +922,19 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # make eclipses
     ecl_indices = np.zeros((0, 11), dtype=int)
     for comb in combinations:
-        # can only be an eclipse if ingress and then egress
-        if (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1):
+        # eclipses can only be an eclipse if ingress and then egress
+        condition = (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1)
+        # restrict duration to half the orbital period
+        if (peaks_2_n[comb[0]] > peaks_2_n[comb[1]]):  # be careful with wrap-around
+            duration = t_model[zeros_1[comb[1]]] + (p_orb - t_model[zeros_1[comb[0]]])
+        else:
+            duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
+        condition &= (duration < p_orb / 2)
+        if condition:
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], 0, 0,
                    0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
-            # be careful of wrap-around
-            if (ecl[2] > ecl[-3]):
-                # check in the harmonic light curve model that all points in eclipse lie beneath the top points
+            # check in the harmonic light curve model that all points in eclipse lie beneath the top points
+            if (ecl[2] > ecl[-3]):  # be careful with wrap-around
                 l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
                                                                t_model[ecl[-3]] + p_orb, model_h[ecl[-3]])
                 t_model_wrapped = np.append(t_model[ecl[2]:], t_model[:ecl[-3] + 1])
@@ -940,7 +946,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
                 if np.allclose(model_h_wrapped[np.invert(ineq)], line[np.invert(ineq)]):
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
             else:
-                # check in the harmonic light curve model that all points in eclipse lie beneath the top points
                 l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
                                                                t_model[ecl[-3]], model_h[ecl[-3]])
                 line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
