@@ -303,6 +303,17 @@ def load_tess_lc(tic, all_files, apply_flags=True):
         sectors = np.append(sectors, sec)
         crowdsap = np.append(crowdsap, cro)
     t_sectors = np.array(t_sectors)
+    # sort by sector (and merges duplicate sectors as byproduct)
+    if np.any(np.diff(times) < 0):
+        sec_sorter = np.argsort(sectors)
+        time_sorter = np.argsort(times)
+        times = times[time_sorter]
+        sap_signal = sap_signal[time_sorter]
+        signal = signal[time_sorter]
+        signal_err = signal_err[time_sorter]
+        sectors = sectors[sec_sorter]
+        t_sectors = t_sectors[sec_sorter]
+        crowdsap = crowdsap[sec_sorter]
     # apply quality flags
     if apply_flags:
         # convert quality flags to boolean mask

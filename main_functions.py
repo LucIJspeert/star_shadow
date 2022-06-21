@@ -1555,7 +1555,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     None
     """
     # load the data
-    lc_data = load_tess_lc(tic, all_files, apply_flags=True)
+    lc_data = ut.load_tess_lc(tic, all_files, apply_flags=True)
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
