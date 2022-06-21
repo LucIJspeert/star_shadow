@@ -611,15 +611,20 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     t_a = time.time()
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
+    file_name_3 = file_name.replace(fn_ext, '.txt')
     if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_timings(file_name)
         t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices = results
     elif os.path.isfile(file_name_2) & (not overwrite):  # not enough eclipses found last time
-        ecl_indices = ut.read_results_ecl_indices(file_name)
+        ecl_indices = ut.read_results_ecl_indices(file_name)  # read only the indices file
+        if verbose:
+            print(f'Not enough eclipses found last time. Loaded indices file.')
         return (None,) * 7 + (ecl_indices,)
-    elif os.path.isfile(file_name.replace(fn_ext, '.txt')) & (not overwrite):  # not enough eclipses found last time
+    elif os.path.isfile(file_name_3) & (not overwrite):
+        if verbose:
+            print(f'Not enough eclipses found last time (see {os.path.splitext(os.path.basename(file_name_3))[0]})')
         return (None,) * 8
     else:
         if verbose:
@@ -800,8 +805,8 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
         print(f'\033[1;32;48mSeparated harmonic output:\033[0m')
         print(f'\033[0;32;48mStarting from {len(harmonics)}, separated into '
-              f'{len(f_ho)} harmonics capturing the out-of-eclipse signal\n '
-              f'and {len(f_he)} harmonics capturing the eclipse signal'
+              f'{len(f_ho)} harmonics capturing the out-of-eclipse signal\n'
+              f'and {len(f_he)} harmonics capturing the eclipse signal. '
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
@@ -1130,7 +1135,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     # ecl_indices_11 = out_11[7]
     if np.any([item is None for item in out_11]):
         if verbose:
-            print('Not enough eclipses found. Now using low-harmonic results.')
+            print(f'Not enough eclipses found. Now using low-harmonics result.\n')
         out_11 = None
         t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = out_9[:7]
         # ecl_indices_11 = out_9[7]
@@ -1442,10 +1447,11 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     n_param_8, bic_8, noise_level_8 = stats
     # load t_zero from the timings file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
+    file_name_2 = file_name.replace('_11.', '_9.')
     if os.path.isfile(file_name):
         results_11 = ut.read_results_timings(file_name)
-    elif os.path.isfile(file_name.replace('_11', '_9')):
-        results_11 = ut.read_results_timings(file_name.replace('_11', '_9'))  # load results from previous step
+    elif os.path.isfile(file_name_2):
+        results_11 = ut.read_results_timings(file_name_2)  # load results from previous step
     else:
         if verbose:
             print('No timing results found')
