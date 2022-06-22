@@ -1908,6 +1908,8 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     bounds_ep = ((max(ecosw - 0.1, -1), min(ecosw + 0.1, 1)), (max(esinw - 0.1, -1), min(esinw + 0.1, 1)),
                  (i - 0.08, min(i + 0.08, np.pi/2)), (phi_0/1.1, min(2*phi_0, np.pi/2)),
                  (psi_0/1.1, min(2*psi_0, np.pi/2)), (r_small/r_large/1.1, r_large/r_small*1.1))  # 0.08 rad ~ 4.5 deg
+    # if np.any([b1 > b2 for b1, b2 in bounds_ep]):
+    #     raise ValueError('Not good')
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
     e = np.sqrt(ecosw**2 + esinw**2)

@@ -1574,14 +1574,20 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8]
     # open some more data - timings, harmonic separation, eclipse parameters
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_9 = read_results_timings(file_name)
         t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:6]
         ecl_indices_9 = results_9[6]
+        
         # get the low harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
         f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
+    elif os.path.isfile(file_name_2):
+        ecl_indices_9 = read_results_ecl_indices(file_name)
+    ecl_indices_9 = np.atleast_2d(ecl_indices_9)
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_hsep(file_name)
@@ -1599,6 +1605,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
     elif os.path.isfile(file_name_2):
         ecl_indices_11 = read_results_ecl_indices(file_name)
+    ecl_indices_11 = np.atleast_2d(ecl_indices_11)
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
@@ -1657,7 +1664,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps|_lh.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, t_bottoms_9,
                                            timing_errs_9, depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                            i_sectors, save_file=file_name, show=False)

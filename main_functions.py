@@ -263,6 +263,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         f_n_i = [f_n_1, f_n_2]
         a_n_i = [a_n_1, a_n_2]
         ph_n_i = [ph_n_1, ph_n_2]
+        if verbose:
+            print(f'Step 3: Period over time-base is less than two\n')
         return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
     else:
         if verbose:
@@ -1521,16 +1523,14 @@ def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False, verbose
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
     i_half_s = np.array([[0, len(times)]])  # no sector information
+    kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = frequency_analysis(target_id, times, signal, i_half_s, p_orb=0,
-                                   save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
+    out_a = frequency_analysis(target_id, times, signal, i_half_s, p_orb=0, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s,
-                                     save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
-        out_c = pulsation_analysis(target_id, times, signal, i_half_s,
-                                       save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
+        out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s, **kw_args)
+        if not np.all([item is None for item in out_b]):
+            out_c = pulsation_analysis(target_id, times, signal, i_half_s, **kw_args)
     return None
 
 
@@ -1566,16 +1566,14 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
+    kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = frequency_analysis(tic, times, signal, i_half_s, p_orb=0,
-                                   save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
+    out_a = frequency_analysis(tic, times, signal, i_half_s, p_orb=0, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s,
-                                     save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
-        out_c = pulsation_analysis(tic, times, signal, i_half_s,
-                                       save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
+        out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s, **kw_args)
+        if not np.all([item is None for item in out_b]):
+            out_c = pulsation_analysis(tic, times, signal, i_half_s, **kw_args)
     return None
 
 
