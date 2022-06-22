@@ -1490,7 +1490,7 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     return out_14, out_15, out_16
 
 
-def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False):
+def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False, verbose=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
@@ -1523,18 +1523,18 @@ def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False):
     i_half_s = np.array([[0, len(times)]])  # no sector information
     # do the analysis
     out_a = frequency_analysis(target_id, times, signal, i_half_s, p_orb=0,
-                                   save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
+                                   save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
         out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s,
-                                     save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
+                                     save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
         out_c = pulsation_analysis(target_id, times, signal, i_half_s,
-                                       save_dir=save_dir, data_id=data_id, overwrite=False, verbose=False)
+                                       save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     return None
 
 
-def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overwrite=False):
+def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overwrite=False, verbose=False):
     """Do all steps of the analysis for a given TIC number
     
     Parameters
@@ -1568,14 +1568,14 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
     # do the analysis
     out_a = frequency_analysis(tic, times, signal, i_half_s, p_orb=0,
-                                   save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
+                                   save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
         out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s,
-                                     save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
+                                     save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     if (not (len(out_a[0]) < 8)) & (not np.all([item is None for item in out_b])):
         out_c = pulsation_analysis(tic, times, signal, i_half_s,
-                                       save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=False)
+                                       save_dir=save_dir, data_id=data_id, overwrite=overwrite, verbose=verbose)
     return None
 
 
