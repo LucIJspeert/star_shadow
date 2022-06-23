@@ -652,9 +652,13 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
     incl = i / np.pi * 180  # ellc likes degrees
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
-    # try to prevent fatal crashes from RLOF cases
-    d_roche_1 = 2.44 * r_2 * (r_1 / r_2) # * (q)**(1 / 3)  # 2.44*R_M*(rho_M/rho_m)**(1/3)
-    d_roche_2 = 2.44 * r_1 * (r_2 / r_1) # * (1 / q)**(1 / 3)
+    # try to prevent fatal crashes from RLOF cases (or from zero radius)
+    if (r_sum_sma > 0):
+        d_roche_1 = 2.44 * r_2 * (r_1 / r_2) # * (q)**(1 / 3)  # 2.44*R_M*(rho_M/rho_m)**(1/3)
+        d_roche_2 = 2.44 * r_1 * (r_2 / r_1) # * (1 / q)**(1 / 3)
+    else:
+        d_roche_1 = 1
+        d_roche_2 = 1
     d_peri = (1 - f_c**2 - f_s**2)  # a*(1 - e), but a=1
     if (max(d_roche_1, d_roche_2) > d_peri):
         model = np.ones(len(times))
@@ -695,8 +699,6 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
     ellc_lc_simple
     """
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
-    r_1 = r_sum_sma / (1 + r_ratio)
-    r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     try:
         model = ellc_lc_simple(times, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     except:

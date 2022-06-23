@@ -64,6 +64,37 @@ def decimal_figures(x, n_sf):
     return decimals
 
 
+def bounds_multiplicity_check(bounds, value):
+    """Some bounds can have multiple intervals
+    
+    Parameters
+    ----------
+    bounds: numpy.ndarray
+        One or more sets of bounding values
+    value: float
+        Value that is bounded (by one of the bounds)
+    
+    Returns
+    -------
+    bounds_1: numpy.ndarray[float]
+        Bounds that contain the value
+    bounds_2: numpy.ndarray[float], None
+        Bounds that do not contain the value
+    """
+    if hasattr(bounds[0], '__len__'):
+        if (len(bounds) > 1):
+            sign_change = np.sign((value - bounds[:, 0]) * (bounds[:, 1] - value))
+            bounds_1 = bounds[sign_change == 1][0]
+            bounds_2 = bounds[sign_change == -1][0]
+        else:
+            bounds_1 = bounds[0]
+            bounds_2 = None
+    else:
+        bounds_1 = bounds
+        bounds_2 = None
+    return bounds_1, bounds_2
+
+
 @nb.njit(cache=True)
 def signal_to_noise_threshold(n_points):
     """Determine the signal to noise threshold for accepting frequencies
@@ -1046,16 +1077,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi interval
-    if hasattr(w_bds[0], '__len__'):
-        if (len(w_bds) > 1):
-            w_interval = intervals[1]
-            w_bds_2 = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1][0]
-            w_bds = w_bds[np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1][0]
-        else:
-            w_bds = w_bds[0]
-            w_bds_2 = None
-    else:
-        w_bds_2 = None
+    w_bds, w_bds_2 = bounds_multiplicity_check(w_bds, w)
     var_names = ['e', 'w', 'i', 'phi_0', 'psi_0', 'r_sum_sma', 'r_dif_sma', 'r_ratio', 'sb_ratio',
                  'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower', 'phi_0_upper', 'phi_0_lower',
                  'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower',

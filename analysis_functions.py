@@ -1453,6 +1453,7 @@ def radius_sum_from_phi0(e, i, phi_0):
         Sum of radii in units of the semi-major axis
     """
     r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)
+    r_sum_sma = max(r_sum_sma, 0)  # prevent it going below zero (i.e. for e>1)
     return r_sum_sma
 
 
@@ -1614,8 +1615,11 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     sep = projected_separation(e, w, i, theta)
     # with those, calculate the covered area and light lost due to that
-    area = covered_area(sep, r_1, r_2)
-    light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
+    if (r_sum_sma == 0):
+        light_lost = 0
+    else:
+        area = covered_area(sep, r_1, r_2)
+        light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
     # factor sb_ratio depends on primary or secondary, theta ~ 180 is secondary
     if (theta > np.pi/2) & (theta < 3*np.pi/2):
         light_lost = light_lost * sb_ratio
@@ -1678,6 +1682,8 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # obtain phi_0 and the approximate e and w
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     e, w = ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi_0)
+    if (e >= 1):
+        return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     if (theta_2 == 0):
@@ -1782,6 +1788,8 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     ecosw, esinw, i, phi_0, psi_0, r_ratio = params
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
+    if (e >= 1):
+        return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     if (theta_2 == 0):
@@ -1901,22 +1909,27 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     # r_dif_sma only valid if psi_0 is not zero, otherwise it will give limits on the radii
     r_small = (r_sum_sma - r_dif_sma)/2  # if psi_0=0, this is a lower limit on the smaller radius
     r_large = (r_sum_sma + r_dif_sma)/2  # if psi_0=0, this is an upper limit on the bigger radius
-    # fit for e, w, i, phi_0, psi_0 and r_ratio
+    if (r_small == 0) | (r_large == 0):
+        rr_bounds = (0.001, 1000)
+    else:
+        rr_bounds = (r_small/r_large/1.1, r_large/r_small*1.1)
+    # prepare for fit of: e, w, i, phi_0, psi_0 and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, phi_0, psi_0, 1)
     args_ep = (p_orb, *timings_tau, *depths, *bottom_dur, *timing_errs, *depths_err)
     bounds_ep = ((max(ecosw - 0.1, -1), min(ecosw + 0.1, 1)), (max(esinw - 0.1, -1), min(esinw + 0.1, 1)),
                  (i - 0.08, min(i + 0.08, np.pi/2)), (phi_0/1.1, min(2*phi_0, np.pi/2)),
-                 (psi_0/1.1, min(2*psi_0, np.pi/2)), (r_small/r_large/1.1, r_large/r_small*1.1))  # 0.08 rad ~ 4.5 deg
-    # if np.any([b1 > b2 for b1, b2 in bounds_ep]):
-    #     raise ValueError('Not good')
-    res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
-    ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
-    e = np.sqrt(ecosw**2 + esinw**2)
-    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    # update radii
-    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
-    r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
+                 (psi_0/1.1, min(2*psi_0, np.pi/2)), rr_bounds)  # 0.08 rad ~ 4.5 deg
+    # the minimization will crash if bounds are reversed - prevent this.
+    if np.all([b1 < b2 for b1, b2 in bounds_ep]):
+        # now we can safely fit
+        res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
+        ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
+        e = np.sqrt(ecosw**2 + esinw**2)
+        w = np.arctan2(esinw, ecosw) % (2 * np.pi)
+        # update radii
+        r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
+        r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
     # value for sb_ratio from the depths ratio and the other parameters
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
@@ -2168,7 +2181,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         rdifsma_vals[k] = out[6]
         rratio_vals[k] = out[7]
         sbratio_vals[k] = out[8]
-        if verbose & (k % 100 == 0):
+        if verbose & (k % 200 == 0):
             print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)

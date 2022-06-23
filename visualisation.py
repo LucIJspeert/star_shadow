@@ -375,7 +375,7 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
         ax.fill_between([t_b_1_1, t_b_1_2], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3,
                         label='flat bottom')
         ax.fill_between([t_b_2_1, t_b_2_2], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
-    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
+    ax.set_xlabel(r'$(time - t_0)\ mod\ P_{orb}$ (d)', fontsize=14)
     ax.set_ylabel('normalised flux', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()

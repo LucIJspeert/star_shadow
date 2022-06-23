@@ -936,6 +936,8 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, p_
         rnd_sbratio = max(ut.decimal_figures(min(sb_ratio_err), 2), ut.decimal_figures(sb_ratio, 2))
         rnd_ecosw = max(ut.decimal_figures(min(ecosw_err), 2), ut.decimal_figures(e * np.cos(w), 2))
         rnd_esinw = max(ut.decimal_figures(min(esinw_err), 2), ut.decimal_figures(e * np.sin(w), 2))
+        # multi interval
+        w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bds, w)
         print(f'\033[1;32;48mMeasurements and initial optimisation of the eclipse parameters complete.\033[0m')
         print(f'\033[0;32;48me: {e:.{rnd_e}f} (+{e_err[1]:.{rnd_e}f} -{e_err[0]:.{rnd_e}f}), '
               f'bounds ({e_bds[0]:.{rnd_e}f}, {e_bds[1]:.{rnd_e}f}), \n'
@@ -1039,6 +1041,9 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         if verbose:
             print('Fitting for the light curve parameters.')
         e, w = par_init[:2]
+        print(par_init)
+        if e > 0.999:
+            e = 0.999
         par_init_ellc = (e**0.5 * np.cos(w), e**0.5 * np.sin(w), *par_init[2:])
         par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
