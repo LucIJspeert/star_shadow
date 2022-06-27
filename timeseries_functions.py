@@ -1425,6 +1425,11 @@ def extract_all(times, signal, i_sectors, verbose=True):
     Exclusively uses the Lomb-Scargle periodogram (and an iterative parameter
     improvement scheme) to extract the frequencies.
     Uses a delta BIC > 2 stopping criterion.
+    
+    [Author's note] Although it is my belief that doing a non-linear
+    multi-sinusoid fit at each iteration of the prewhitening is the
+    best approach, it is also a very time consuming one and this
+    algorithm aims to be fast while approaching the optimal solution.
     """
     times -= times[0]  # shift reference time to times[0]
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
