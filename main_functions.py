@@ -44,17 +44,19 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     """
     t_tot = np.ptp(times)
     freq_res = 1.5 / t_tot  # Rayleigh criterion
-    # first to get a global minimum, inform the pdm by the frequencies
-    periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n)
+    # first to get a global minimum do combined PDM and LS, at select frequencies
+    periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n, local=False)
+    ampls = tsf.scargle_ampl(times, signal - np.mean(signal), 1/periods)
+    psi_measure = ampls / phase_disp
     # go from best to worst period, skipping those with only 1 harmonic
-    sorter = np.argsort(phase_disp)  # ascending order
+    sorter = np.argsort(psi_measure)[::-1]  # descending order
     for i in sorter:
         base_p = periods[i]
         # do a first test for once or twice the period
         p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res / 2)
         # then refine by using a dense sampling
         f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
-        periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_refine)
+        periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
         p_orb = periods[np.argmin(phase_disp)]
         # try to find out whether we need to double the period
         harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)

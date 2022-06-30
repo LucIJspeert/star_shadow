@@ -1602,14 +1602,16 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_9 = read_results_timings(file_name)
         t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:6]
         ecl_indices_9 = results_9[6]
-        
         # get the low harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
         f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
     elif os.path.isfile(file_name_2):
         ecl_indices_9 = read_results_ecl_indices(file_name)
-    ecl_indices_9 = np.atleast_2d(ecl_indices_9)
+    if os.path.isfile(file_name) | os.path.isfile(file_name_2):
+        ecl_indices_9 = np.atleast_2d(ecl_indices_9)
+        if (len(ecl_indices_9) == 0):
+            del ecl_indices_9  # delete the empty array to not do the plot
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_hsep(file_name)
@@ -1627,7 +1629,10 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
     elif os.path.isfile(file_name_2):
         ecl_indices_11 = read_results_ecl_indices(file_name)
-    ecl_indices_11 = np.atleast_2d(ecl_indices_11)
+    if os.path.isfile(file_name) | os.path.isfile(file_name_2):
+        ecl_indices_11 = np.atleast_2d(ecl_indices_11)
+        if (np.shape(ecl_indices_11)[1] == 0):
+            del ecl_indices_11  # delete the empty array to not do the plot
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
@@ -1661,21 +1666,23 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_full_pd.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
                                     show=False)
-            plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1] + 1
-            plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
-                         eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_frequency_analysis_models_{plot_nr}.png')
-            vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
+            if np.any(np.nonzero(p_orb_i)):
+                plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1]
+                plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
+                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                         f'tic_{tic}_frequency_analysis_models_{plot_nr}.png')
+                vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
-            plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1] + 1
-            plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
-                         eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-            vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
+            if np.any(np.nonzero(p_orb_i)):
+                plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1]
+                plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
+                vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # eclipse_analysis

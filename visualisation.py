@@ -123,14 +123,22 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs, ampls, label='signal')
-    ax.plot(freqs_1, ampls_1, label='extraction residual')
-    ax.plot(freqs_2, ampls_2, label='NL-LS fit residual')
-    ax.plot(freqs_3, ampls_3, label='fixed harmonics residual')
-    ax.plot(freqs_4, ampls_4, label='extra harmonics residual')
-    ax.plot(freqs_5, ampls_5, label='extra non-harmonics residual')
-    ax.plot(freqs_6, ampls_6, label='NL-LS fit residual with harmonics')
-    ax.plot(freqs_7, ampls_7, label='Reduced frequencies')
-    ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual with harmonics')
+    if (len(f_n_i[0]) > 0):
+        ax.plot(freqs_1, ampls_1, label='extraction residual')
+    if (len(f_n_i[1]) > 0):
+        ax.plot(freqs_2, ampls_2, label='NL-LS fit residual')
+    if (len(f_n_i[2]) > 0):
+        ax.plot(freqs_3, ampls_3, label='fixed harmonics residual')
+    if (len(f_n_i[3]) > 0):
+        ax.plot(freqs_4, ampls_4, label='extra harmonics residual')
+    if (len(f_n_i[4]) > 0):
+        ax.plot(freqs_5, ampls_5, label='extra non-harmonics residual')
+    if (len(f_n_i[5]) > 0):
+        ax.plot(freqs_6, ampls_6, label='NL-LS fit residual with harmonics')
+    if (len(f_n_i[6]) > 0):
+        ax.plot(freqs_7, ampls_7, label='Reduced frequencies')
+    if (len(f_n_i[7]) > 0):
+        ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual with harmonics')
     if (p_orb_i[7] > 0):
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7])
         p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
@@ -544,8 +552,16 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # determine a lc offset to match the model at the edges
-    edge_level_1_1 = np.max(ecl_signal[(t_extended > t_1_1) & (t_extended < t_1)])
-    edge_level_1_2 = np.max(ecl_signal[(t_extended > t_1) & (t_extended < t_1_2)])
+    edge_1_1 = (t_extended > t_1_1) & (t_extended < t_1)
+    edge_1_2 = (t_extended > t_1) & (t_extended < t_1_2)
+    if np.any(edge_1_1):
+        edge_level_1_1 = np.max(ecl_signal[(t_extended > t_1_1) & (t_extended < t_1)])
+    else:
+        edge_level_1_1 = 1
+    if np.any(edge_1_2):
+        edge_level_1_2 = np.max(ecl_signal[(t_extended > t_1) & (t_extended < t_1_2)])
+    else:
+        edge_level_1_2 = 1
     offset = 1 - min(edge_level_1_1, edge_level_1_2)
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
@@ -887,12 +903,18 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
         mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
         w_vals_hist[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
     # input
+    value_names = np.array([r'$t_1$', r'$t_2$', r'$\tau_{1,1}$', r'$\tau_{1,2}$', r'$\tau_{2,1}$', r'$\tau_{2,2}$',
+                            r'$width_{b,1}$', r'$width_{b,2}$'])
+    values = np.array([t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, bot_1, bot_2])
     dist_data = np.column_stack((t_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals,
                                  bot_1_vals, bot_2_vals))
-    fig = corner.corner(dist_data, truths=(t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, bot_1, bot_2),
-                        labels=(r'$t_1$', r'$t_2$', r'$\tau_{1,1}$', r'$\tau_{1,2}$', r'$\tau_{2,1}$', r'$\tau_{2,2}$',
-                                r'$width_{b,1}$', r'$width_{b,2}$'))
-    fig.suptitle('Input distributions', fontsize=14)
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    if not np.all(nonzero_range):
+        fig.suptitle(f'Input distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
+    else:
+        fig.suptitle('Input distributions', fontsize=14)
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_in.png')
@@ -904,12 +926,18 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
     else:
         plt.close()
     # corner plot
-    dist_data = np.column_stack((e_vals, w_vals_hist/np.pi*180, i_vals/np.pi*180, rsumsma_vals,
-                                 rratio_vals, sbratio_vals))
-    fig = corner.corner(dist_data, truths=(e, w/np.pi*180, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio),
-                        labels=('e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
-                                r'$\frac{sb_2}{sb_1}$'))
-    fig.suptitle('Output distributions', fontsize=14)
+    value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
+                            r'$\frac{sb_2}{sb_1}$'])
+    values = np.array([e, w/np.pi*180, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio])
+    dist_data = np.column_stack((e_vals, w_vals_hist / np.pi * 180, i_vals / np.pi * 180, rsumsma_vals, rratio_vals,
+                                 sbratio_vals))
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    if not np.all(nonzero_range):
+        fig.suptitle(f'Output distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
+    else:
+        fig.suptitle('Output distributions', fontsize=14)
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_out.png')
@@ -921,13 +949,19 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
     else:
         plt.close()
     # alternate parameterisation
-    dist_data = np.column_stack((e_vals*np.cos(w_vals_hist), e_vals*np.sin(w_vals_hist), i_vals/np.pi*180,
+    value_names = np.array([r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
+                                r'$log10\left(\frac{r_2}{r_1}\right)$', r'$log10\left(\frac{sb_2}{sb_1}\right)$'])
+    values = np.array([e*cos_w, e*sin_w, i/np.pi*180, r_sum_sma, np.log10(r_ratio), np.log10(sb_ratio)])
+    dist_data = np.column_stack((e_vals * np.cos(w_vals_hist), e_vals * np.sin(w_vals_hist), i_vals / np.pi * 180,
                                  rsumsma_vals, np.log10(rratio_vals), np.log10(sbratio_vals)))
-    fig = corner.corner(dist_data,
-                        truths=(e*cos_w, e*sin_w, i/np.pi*180, r_sum_sma, np.log10(r_ratio), np.log10(sb_ratio)),
-                        labels=(r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
-                                r'$log10\left(\frac{r_2}{r_1}\right)$', r'$log10\left(\frac{sb_2}{sb_1}\right)$'))
-    fig.suptitle('Output distributions (alternate parametrisation)', fontsize=14)
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    if not np.all(nonzero_range):
+        fig.suptitle('Output distributions (alternate parametrisation)'
+                     f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
+    else:
+        fig.suptitle('Output distributions (alternate parametrisation)', fontsize=14)
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_out_alt.png')
@@ -939,10 +973,16 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
     else:
         plt.close()
     # other parameters
+    value_names = np.array([r'$depth_1$', r'$depth_2$', r'$phi_0$', r'$psi_0$', r'$\frac{|r_1-r_2|}{a}$'])
+    values = np.array([d_1, d_2, phi_0, psi_0, r_dif_sma])
     dist_data = np.column_stack((d_1_vals, d_2_vals, phi0_vals, psi0_vals, rdifsma_vals))
-    fig = corner.corner(dist_data, truths=(d_1, d_2, phi_0, psi_0, r_dif_sma),
-                        labels=(r'$depth_1$', r'$depth_2$', r'$phi_0$', r'$psi_0$', r'$\frac{|r_1-r_2|}{a}$'))
-    fig.suptitle('Intermediate distributions', fontsize=14)
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    if not np.all(nonzero_range):
+        fig.suptitle(f'Intermediate distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
+    else:
+        fig.suptitle('Intermediate distributions', fontsize=14)
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_other.png')
