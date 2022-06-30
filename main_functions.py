@@ -41,6 +41,12 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     -------
     p_orb: float
         Orbital period of the eclipsing binary in days
+    
+    Notes
+    -----
+    Uses a combination of phase dispersion minimisation and
+    Lomb-Scargle periodogram (see Saha & Vivas 2017), and some
+    refining steps to get the best period.
     """
     t_tot = np.ptp(times)
     freq_res = 1.5 / t_tot  # Rayleigh criterion
