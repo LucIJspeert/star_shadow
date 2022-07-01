@@ -1031,6 +1031,88 @@ def formal_period_uncertainty(p_orb, f_n_err, harmonics, harmonic_n):
     return p_orb_err
 
 
+def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors):
+    """Fixes the frequecy of harmonics to the theoretical value, then
+    re-determines the amplitudes and phases.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+
+    Returns
+    -------
+    const: numpy.ndarray[float]
+        (Updated) y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        (Updated) slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        (Updated) frequencies of the same number of sine waves
+    a_n: numpy.ndarray[float]
+        (Updated) amplitudes of the same number of sine waves
+    ph_n: numpy.ndarray[float]
+        (Updated) phases of the same number of sine waves
+    """
+    # extract the harmonics using the period and determine some numbers
+    freq_res = 1.5 / np.ptp(times)
+    f_tolerance = min(freq_res / 2, 1 / (2 * p_orb))
+    harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
+    if (len(harmonics) == 0):
+        raise ValueError('No harmonic frequencies found')
+    # go through the harmonics by harmonic number
+    for n in np.unique(harmonic_n):
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
+        remove = np.arange(len(f_n))[harmonics][harmonic_n == n]
+        f_n = np.delete(f_n, remove)
+        a_n = np.delete(a_n, remove)
+        ph_n = np.delete(ph_n, remove)
+        # make a model excluding the 'n' harmonics
+        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
+        resid = signal - model
+        f_n = np.append(f_n, [n / p_orb])
+        a_n = np.append(a_n, [scargle_ampl_single(times, resid, n / p_orb)])
+        ph_n = np.append(ph_n, [scargle_phase_single(times, resid, n / p_orb)])
+        # make sure the phase stays within + and - pi
+        ph_n[-1] = np.mod(ph_n[-1] + np.pi, 2 * np.pi) - np.pi
+        # as a last model-refining step, redetermine the constant
+        resid = signal - sum_sines(times, f_n, a_n, ph_n)
+        const, slope = linear_slope(times, resid, i_sectors)
+    # re-extract the non-harmonics
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    for i in non_harm:
+        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model += sum_sines(times, np.delete(f_n, i),
+                           np.delete(a_n, i), np.delete(ph_n, i))  # the sinusoid part of the model
+        fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
+        f_n[i], a_n[i], ph_n[i] = extract_single(times, signal - model, f0=fl, fn=fr, verbose=False)
+        # make sure the phase stays within + and - pi
+        ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi
+        # as a last model-refining step, redetermine the constant
+        resid = signal - sum_sines(times, f_n, a_n, ph_n)
+        const, slope = linear_slope(times, resid, i_sectors)
+    return const, slope, f_n, a_n, ph_n
+
+
 def extract_single(times, signal, f0=0, fn=0, verbose=True):
     """Extract a single frequency from a time-series using oversampling
     of the periodogram.
@@ -1067,7 +1149,7 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     -----
     The extracted frequency is based on the highest amplitude in the
     periodogram (over the interval where it is calculated). The highest
-    peak is oversampled by a factor 10^4 to get a precise measurement.
+    peak is oversampled by a factor 100 to get a precise measurement.
     """
     df = 0.1 / np.ptp(times)
     # if (f0 == 0) & (fn == 0):
@@ -2265,86 +2347,4 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     # lastly re-determine slope and const
     model = sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
     const, slope = linear_slope(times, signal - model, i_sectors)
-    return const, slope, f_n, a_n, ph_n
-
-
-def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors):
-    """Fixes the frequecy of harmonics to the theoretical value, then
-    re-determines the amplitudes and phases.
-    
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time-series
-    signal: numpy.ndarray[float]
-        Measurement values of the time-series
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-    
-    Returns
-    -------
-    const: numpy.ndarray[float]
-        (Updated) y-intercept(s) of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        (Updated) slope(s) of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        (Updated) frequencies of the same number of sine waves
-    a_n: numpy.ndarray[float]
-        (Updated) amplitudes of the same number of sine waves
-    ph_n: numpy.ndarray[float]
-        (Updated) phases of the same number of sine waves
-    """
-    # extract the harmonics using the period and determine some numbers
-    freq_res = 1.5 / np.ptp(times)
-    f_tolerance = min(freq_res / 2, 1 / (2 * p_orb))
-    harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
-    if (len(harmonics) == 0):
-        raise ValueError('No harmonic frequencies found')
-    # go through the harmonics by harmonic number
-    for n in np.unique(harmonic_n):
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
-        remove = np.arange(len(f_n))[harmonics][harmonic_n == n]
-        f_n = np.delete(f_n, remove)
-        a_n = np.delete(a_n, remove)
-        ph_n = np.delete(ph_n, remove)
-        # make a model excluding the 'n' harmonics
-        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-        resid = signal - model
-        f_n = np.append(f_n, [n / p_orb])
-        a_n = np.append(a_n, [scargle_ampl_single(times, resid, n / p_orb)])
-        ph_n = np.append(ph_n, [scargle_phase_single(times, resid, n / p_orb)])
-        # make sure the phase stays within + and - pi
-        ph_n[-1] = np.mod(ph_n[-1] + np.pi, 2 * np.pi) - np.pi
-        # as a last model-refining step, redetermine the constant
-        resid = signal - sum_sines(times, f_n, a_n, ph_n)
-        const, slope = linear_slope(times, resid, i_sectors)
-    # re-extract the non-harmonics
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    for i in non_harm:
-        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        model += sum_sines(times, np.delete(f_n, i),
-                           np.delete(a_n, i), np.delete(ph_n, i))  # the sinusoid part of the model
-        fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
-        f_n[i], a_n[i], ph_n[i] = extract_single(times, signal - model, f0=fl, fn=fr, verbose=False)
-        # make sure the phase stays within + and - pi
-        ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi
-        # as a last model-refining step, redetermine the constant
-        resid = signal - sum_sines(times, f_n, a_n, ph_n)
-        const, slope = linear_slope(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n

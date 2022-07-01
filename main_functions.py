@@ -1049,9 +1049,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         if verbose:
             print('Fitting for the light curve parameters.')
         e, w = par_init[:2]
-        print(par_init)
-        if e > 0.999:
-            e = 0.999
+        e = min(e, 0.999)  # prevent unbound orbits
         par_init_ellc = (e**0.5 * np.cos(w), e**0.5 * np.sin(w), *par_init[2:])
         par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
