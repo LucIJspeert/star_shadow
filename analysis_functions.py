@@ -682,7 +682,8 @@ def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
         times the completeness of the found harmonic series
     """
     p_test = np.append(p_orb / np.arange(3, 1, -1), p_orb * np.arange(1, 4))
-    p_test = p_test[p_test < t_tot]
+    p_test = p_test[p_test < t_tot]  # keep p below maximum
+    p_test = p_test[p_test > 1 / np.max(f_n)]  # and above minimum (use max f_n in absence of times)
     # determine the best one (based on some goodness of fit parameters)
     optimise = np.zeros(len(p_test))
     for i, p in enumerate(p_test):
@@ -690,7 +691,10 @@ def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
         if (len(harmonics) > 0):
             optimise[i] = len(harmonics)**1.5 / np.max(harmonic_n)
     # select the best set of harmonics and its base period
-    p_best = p_test[np.argmax(optimise)]
+    if (len(p_test) != 0):
+        p_best = p_test[np.argmax(optimise)]
+    else:
+        p_best = p_orb
     return p_best, p_test, optimise
 
 

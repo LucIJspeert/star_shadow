@@ -62,8 +62,8 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
         p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res / 2)
         # then refine by using a dense sampling
         f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
-        periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
-        p_orb = periods[np.argmin(phase_disp)]
+        p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
+        p_orb = p_refine[np.argmin(phase_disp_refine)]
         # try to find out whether we need to double the period
         harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
