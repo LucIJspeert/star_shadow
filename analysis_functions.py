@@ -1007,6 +1007,15 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     ecl_mid = (t_i_1 + t_i_2) / 2 * (t_i_2 > t_i_1) + (t_i_1 + t_i_2 - 2 * p_orb) / 2 * (t_i_2 < t_i_1)
     widths = (t_i_2 - t_i_1) * (t_i_2 > t_i_1) + (t_i_2 - t_i_1 + 2 * p_orb) * (t_i_2 < t_i_1)
     depths = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 5]]
+    # remove too shallow eclipses
+    remove_shallow = (depths > noise_level / 4)
+    ecl_min = ecl_min[remove_shallow]
+    ecl_mid = ecl_mid[remove_shallow]
+    widths = widths[remove_shallow]
+    depths = depths[remove_shallow]
+    t_i_1_err = t_i_1_err[remove_shallow]
+    t_i_2_err = t_i_2_err[remove_shallow]
+    ecl_indices = ecl_indices[remove_shallow]
     # estimates of flat bottom
     t_b_i_1 = t_model[ecl_indices[:, 4]]
     t_b_i_2 = t_model[ecl_indices[:, -5]]

@@ -660,8 +660,8 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
         d_roche_1 = 1
         d_roche_2 = 1
     d_peri = (1 - f_c**2 - f_s**2)  # a*(1 - e), but a=1
-    if (max(d_roche_1, d_roche_2) > d_peri):
-        model = np.ones(len(times))
+    if (max(d_roche_1, d_roche_2) > 0.98 * d_peri):
+        model = np.ones(len(times))  # Roche radius close to periastron distance
     else:
         model = ellc.lc(times, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
                         light_3=0, q=1, shape_1='roche', shape_2='roche',

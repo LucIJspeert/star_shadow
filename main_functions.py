@@ -59,20 +59,20 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     for i in sorter:
         base_p = periods[i]
         # do a first test for once or twice the period
-        p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res / 2)
+        p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res/2)
         # then refine by using a dense sampling
         f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
         p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
         p_orb = p_refine[np.argmin(phase_disp_refine)]
         # try to find out whether we need to double the period
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
         sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
         peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
         if (len(peaks) == 1):
             p_orb = 2 * p_orb
         # if we have too few harmonics, try the next period, else stop
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
         if (len(harmonics) > 1):
             break
     return p_orb
@@ -283,7 +283,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
-        # if time-series too short, warn and cut off the analysis
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n_2, p_orb_3, f_tol=freq_res/2)
+        # if time-series too short, or no harmonics found, warn and cut off the analysis
         if (np.ptp(times) / p_orb_3 < 2):
             if verbose:
                 print(f'Period over time-base is less than two: {np.ptp(times) / p_orb_3}')
@@ -299,6 +300,20 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
                 a_n_i = [a_n_1, a_n_2, a_n_2]
                 ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
                 return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+        elif (len(harmonics) < 2):
+            if verbose:
+                print(f'Not enough harmonics found: {len(harmonics)}')
+            if save_dir is not None:
+                col1 = ['Not enough harmonics found:', 'period (days)', 'time-base (days)']
+                col2 = [len(harmonics), p_orb_3, np.ptp(times)]
+                np.savetxt(file_name_3.replace(fn_ext, '.txt'), np.column_stack((col1, col2)), fmt='%s')
+            p_orb_i = [0, 0, p_orb_3]
+            const_i = [const_1, const_2, const_2]
+            slope_i = [slope_1, slope_2, slope_2]
+            f_n_i = [f_n_1, f_n_2, f_n_2]
+            a_n_i = [a_n_1, a_n_2, a_n_2]
+            ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
+            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
         # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
         out_3 = tsf.fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors)
         t_3b = time.time()
@@ -451,6 +466,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
     # ----------------------------------------------------------------------
     # [7] --- try to reduce the number of frequencies after the fit was done
     # ----------------------------------------------------------------------
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_6)
     file_name_7 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
     if os.path.isfile(file_name_7) & (not overwrite) & (save_dir is not None):
         results, errors, stats = ut.read_results(file_name_7, verbose=verbose)
@@ -1051,6 +1067,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         e, w = par_init[:2]
         e = min(e, 0.999)  # prevent unbound orbits
         par_init_ellc = (e**0.5 * np.cos(w), e**0.5 * np.sin(w), *par_init[2:])
+        print(par_init_ellc)
         par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
         output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,

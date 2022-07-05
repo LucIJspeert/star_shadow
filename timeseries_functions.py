@@ -2243,8 +2243,9 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     # make an array of sets of frequencies to be investigated for replacement
-    close_f_g = af.chains_within_rayleigh(f_n[non_harm], freq_res)
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_g for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))]
+    close_f_groups = af.chains_within_rayleigh(f_n[non_harm], freq_res)
+    close_f_groups = [non_harm[group] for group in close_f_groups]  # convert to the right indices
+    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))]
     s_indices = np.arange(len(f_sets))
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by 1 freq)
     used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
@@ -2293,8 +2294,8 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
               f'BIC= {bic_prev:1.2f}')
     # make an array of sets of frequencies to be investigated (now with harmonics)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
-    close_f_g = af.chains_within_rayleigh(f_n, freq_res)
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_g for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))
+    close_f_groups = af.chains_within_rayleigh(f_n, freq_res)
+    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))
               if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
     s_indices = np.arange(len(f_sets))
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by a harmonic)
