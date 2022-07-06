@@ -852,6 +852,46 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     return depth_1, depth_2
 
 
+@nb.njit(cache=True)
+def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
+    """Measure the flux level at the contact points from the harmonic model given
+    the timing measurements
+
+    Parameters
+    ----------
+    f_h: numpy.ndarray[float]
+        Frequencies of the orbital harmonics, in per day
+    a_h: numpy.ndarray[float]
+        Corresponding amplitudes of the sinusoids
+    ph_h: numpy.ndarray[float]
+        Corresponding phases of the sinusoids
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    t_1_1: float
+        Time of primary first contact
+    t_1_2: float
+        Time of primary last contact
+    t_2_1: float
+        Time of secondary first contact
+    t_2_2: float
+        Time of secondary last contact
+
+    Returns
+    -------
+    height_1: float
+        Averaged flux level at primary first and last contact
+    height_2: float
+        Averaged flux level at secondary first and last contact
+    """
+    # calculate the harmonic model at the eclipse time points
+    t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
+    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h)
+    # calculate depths based on the average level at contacts and the minima
+    height_1 = (model_h[0] + model_h[1]) / 2
+    height_2 = (model_h[2] + model_h[3]) / 2
+    return height_1, height_2
+
+
 def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     """Determine the eclipse midpoints, depths and widths from the derivatives
     of the harmonic model.

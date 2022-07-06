@@ -307,6 +307,12 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     # plotting bounds
     t_start = t_1_1 - 6 * tau_1_1_err
     t_end = p_orb + t_1_2 + 6 * tau_1_2_err
+    # make the model times array, one full period plus the primary eclipse halves
+    t_extended = (times - t_zero) % p_orb
+    ext_left = (t_extended > p_orb + t_start)
+    ext_right = (t_extended < t_end - p_orb)
+    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     t_model = np.arange(t_start, t_end, 0.001)
@@ -315,22 +321,17 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
-    s_minmax = np.array([np.min(signal), np.max(signal)])
-    folded = (times - t_zero) % p_orb
-    extend_l = (folded > p_orb + t_start)
-    extend_r = (folded < t_end - p_orb)
+    ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
+    # determine a lc offset to match the model at the edges
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
+    # some plotting parameters
     h_adjust = 1 - np.mean(signal)
-    # heights at minimum
-    h_1 = np.min(model_h[(t_model > t_1_1) & (t_model < t_1_2)])
-    h_2 = np.min(model_h[(t_model > t_2_1) & (t_model < t_2_2)])
+    s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(folded, signal + h_adjust, marker='.', label='original folded signal')
-    ax.scatter(folded[extend_l] - p_orb, signal[extend_l] + h_adjust, marker='.', c='tab:blue')
-    ax.scatter(folded[extend_r] + p_orb, signal[extend_r] + h_adjust, marker='.', c='tab:blue')
-    ax.scatter(folded, ecl_signal, marker='.', c='tab:orange', label='signal minus non-harmonics and linear curve')
-    ax.scatter(folded[extend_l] - p_orb, ecl_signal[extend_l], marker='.', c='tab:orange')
-    ax.scatter(folded[extend_r] + p_orb, ecl_signal[extend_r], marker='.', c='tab:orange')
+    ax.scatter(t_extended, s_extended + h_adjust, marker='.', label='original folded signal')
+    ax.scatter(t_extended, ecl_signal, marker='.', c='tab:orange', label='signal minus non-harmonics and linear curve')
     ax.plot(t_model, model_h, c='tab:green', label='harmonics')
     ax.plot([t_1, t_1], s_minmax, '--', c='tab:red', label='eclipse minimum')
     ax.plot([t_2, t_2], s_minmax, '--', c='tab:red')
@@ -340,10 +341,10 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
+    ax.plot([t_1_1, t_1_2], [h_1 - depths[0], h_1 - depths[0]], '--', c='tab:pink')
+    ax.plot([t_2_1, t_2_2], [h_2 - depths[1], h_2 - depths[1]], '--', c='tab:pink')
     ax.plot([t_1_1, t_1_2], [h_1, h_1], '--', c='tab:pink')
     ax.plot([t_2_1, t_2_2], [h_2, h_2], '--', c='tab:pink')
-    ax.plot([t_1_1, t_1_2], [h_1 + depths[0], h_1 + depths[0]], '--', c='tab:pink')
-    ax.plot([t_2_1, t_2_2], [h_2 + depths[1], h_2 + depths[1]], '--', c='tab:pink')
     # 1 sigma errors
     ax.fill_between([t_1 - t_1_err, t_1 + t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.3)
@@ -357,10 +358,10 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:purple', alpha=0.3)
     ax.fill_between([t_2_2 - tau_2_2_err, t_2_2 + tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_1_1, t_1_2], y1=[h_1 + depths_err[0], h_1 + depths_err[0]],
-                    y2=[h_1 - depths_err[0], h_1 - depths_err[0]], color='tab:pink', alpha=0.3)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_2 + depths_err[1], h_2 + depths_err[1]],
-                    y2=[h_2 - depths_err[1], h_2 - depths_err[1]], color='tab:pink', alpha=0.3)
+    ax.fill_between([t_1_1, t_1_2], y1=[h_1 - depths[0] + depths_err[0], h_1 - depths[0] + depths_err[0]],
+                    y2=[h_1 - depths[0] - depths_err[0], h_1 - depths[0] - depths_err[0]], color='tab:pink', alpha=0.3)
+    ax.fill_between([t_2_1, t_2_2], y1=[h_2 - depths[1] + depths_err[1], h_2 - depths[1] + depths_err[1]],
+                    y2=[h_2 - depths[1] - depths_err[1], h_2 - depths[1] - depths_err[1]], color='tab:pink', alpha=0.3)
     # 3 sigma errors
     ax.fill_between([t_1 - 3*t_1_err, t_1 + 3*t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
@@ -374,10 +375,12 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:purple', alpha=0.2)
     ax.fill_between([t_2_2 - 3*tau_2_2_err, t_2_2 + 3*tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_1_1, t_1_2], y1=[h_1 + 3*depths_err[0], h_1 + 3*depths_err[0]],
-                    y2=[h_1 - 3*depths_err[0], h_1 - 3*depths_err[0]], color='tab:pink', alpha=0.2)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_2 + 3*depths_err[1], h_2 + 3*depths_err[1]],
-                    y2=[h_2 - 3*depths_err[1], h_2 - 3*depths_err[1]], color='tab:pink', alpha=0.2)
+    ax.fill_between([t_1_1, t_1_2], y1=[h_1 - depths[0] + 3*depths_err[0], h_1 - depths[0] + 3*depths_err[0]],
+                    y2=[h_1 - depths[0] - 3*depths_err[0], h_1 - depths[0] - 3*depths_err[0]],
+                    color='tab:pink', alpha=0.2)
+    ax.fill_between([t_2_1, t_2_2], y1=[h_2 - depths[1] + 3*depths_err[1], h_2 - depths[1] + 3*depths_err[1]],
+                    y2=[h_2 - depths[1] - 3*depths_err[1], h_2 - depths[1] - 3*depths_err[1]],
+                    color='tab:pink', alpha=0.2)
     # flat bottom
     if (t_b_1_2 - t_b_1_1 != 0) | (t_b_2_1 - t_b_2_2 != 0):
         ax.fill_between([t_b_1_1, t_b_1_2], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3,
@@ -484,6 +487,11 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     # plotting bounds
     t_start = t_1_1
     t_end = p_orb + t_1_2
+    # make the model times array, one full period plus the primary eclipse halves
+    t_extended = (times - t_zero) % p_orb
+    ext_left = (t_extended > p_orb + t_start)
+    ext_right = (t_extended < t_end - p_orb)
+    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     t_model = np.arange(t_start, t_end, 0.001)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
@@ -495,22 +503,21 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     model_he = 1 + tsf.sum_sines(t_model + t_zero, f_he, a_he, ph_he)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal_1 = signal - model_nh - model_line + 1
+    ecl_signal_1 = np.concatenate((ecl_signal_1[ext_left], ecl_signal_1, ecl_signal_1[ext_right]))
     ecl_signal_2 = signal - model_nh - model_ho_t - model_line + 1
-    # some plotting parameters and extension masks
-    s_minmax = np.array([np.min(signal), np.max(signal)])
-    folded = (times - t_zero) % p_orb
-    extend_l = (folded > p_orb + t_start)
-    extend_r = (folded < t_end - p_orb)
-    # h_adjust = 1 - np.mean(signal)
+    ecl_signal_2 = np.concatenate((ecl_signal_2[ext_left], ecl_signal_2, ecl_signal_2[ext_right]))
+    # determine a lc offset to match the model at the edges
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
+    # some plotting parameters
+    h_adjust = 1 - np.mean(signal)
+    s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
+    h_adjust_2 = np.mean(ecl_signal_1) - np.mean(ecl_signal_2)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(folded, ecl_signal_1, marker='.', label='original folded signal')
-    ax.scatter(folded[extend_l] - p_orb, ecl_signal_1[extend_l], marker='.', c='tab:blue')
-    ax.scatter(folded[extend_r] + p_orb, ecl_signal_1[extend_r], marker='.', c='tab:blue')
-    ax.scatter(folded, ecl_signal_2, marker='.', c='tab:orange',
+    ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')
+    ax.scatter(t_extended, ecl_signal_2 + offset + h_adjust_2, marker='.', c='tab:orange',
                label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
-    ax.scatter(folded[extend_l] - p_orb, ecl_signal_2[extend_l], marker='.', c='tab:orange')
-    ax.scatter(folded[extend_r] + p_orb, ecl_signal_2[extend_r], marker='.', c='tab:orange')
     ax.plot(t_model, model_he, c='tab:green', label='i.e.-harmonics')
     ax.plot(t_model, model_h, '--', c='tab:red', label='harmonics')
     ax.plot(t_model, model_ho, c='tab:purple', label='o.o.e.-harmonics')
@@ -550,19 +557,10 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # determine a lc offset to match the model at the edges
-    edge_1_1 = (t_extended > t_1_1) & (t_extended < t_1)
-    edge_1_2 = (t_extended > t_1) & (t_extended < t_1_2)
-    if np.any(edge_1_1):
-        edge_level_1_1 = np.max(ecl_signal[(t_extended > t_1_1) & (t_extended < t_1)])
-    else:
-        edge_level_1_1 = 1
-    if np.any(edge_1_2):
-        edge_level_1_2 = np.max(ecl_signal[(t_extended > t_1) & (t_extended < t_1_2)])
-    else:
-        edge_level_1_2 = 1
-    offset = 1 - min(edge_level_1_1, edge_level_1_2)
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
+    s_minmax = [np.min(signal), np.max(signal)]
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
     # determine phase angles of crucial points
@@ -1008,32 +1006,40 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_model = (times - t_zero) % p_orb
-    ext_left = (t_model > p_orb + t_1_1)
-    ext_right = (t_model < t_1_2)
-    t_model = np.concatenate((t_model[ext_left] - p_orb, t_model, t_model[ext_right] + p_orb))
-    sorter = np.argsort(t_model)
+    t_extended = (times - t_zero) % p_orb
+    ext_left = (t_extended > p_orb + t_1_1)
+    ext_right = (t_extended < t_1_2)
+    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    sorter = np.argsort(t_extended)
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
+    s_minmax = [np.min(signal), np.max(signal)]
+    # determine a lc offset to match the model at the edges
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
-    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = par_opt
+    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, opt_offset = par_opt
     opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
     # make the ellc models
-    model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
-    model1 = tsfit.ellc_lc_simple(t_model, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
-                                  opt_sb_ratio, offset)
+    model = tsfit.ellc_lc_simple(t_extended, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    model1 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
+                                  opt_sb_ratio, opt_offset)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_model, ecl_signal, marker='.', label='eclipse signal')
-    ax.plot(t_model[sorter], model[sorter], c='tab:orange', label='initial values from formulae')
-    ax.plot(t_model[sorter], model1[sorter], c='tab:green', label='fit for f_c, f_s, i, r_sum, r_rat, sb_rat')
+    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
+    ax.plot(t_extended[sorter], model[sorter], c='tab:orange', label='initial values from formulae')
+    ax.plot(t_extended[sorter], model1[sorter], c='tab:green',
+            label='fit for f_c, f_s, i, r_sum, r_rat, sb_rat, offset')
+    if np.all(model1 == 1 + opt_offset):
+        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt_i:2.4} rad)',
+                    (0, 1 + opt_offset))
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
@@ -1059,11 +1065,11 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_model = (times - t_zero) % p_orb
-    ext_left = (t_model > p_orb + t_1_1)
-    ext_right = (t_model < t_1_2)
-    t_model = np.concatenate((t_model[ext_left] - p_orb, t_model, t_model[ext_right] + p_orb))
-    sorter = np.argsort(t_model)
+    t_extended = (times - t_zero) % p_orb
+    ext_left = (t_extended > p_orb + t_1_1)
+    ext_right = (t_extended < t_1_2)
+    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    sorter = np.argsort(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -1071,27 +1077,31 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
+    s_minmax = [np.min(signal), np.max(signal)]
+    # determine a lc offset to match the model at the edges
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
+    opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, opt_offset = params
     # make the ellc models
-    model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
+    model = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
+                                 opt_sb_ratio, opt_offset)
     par_p = np.copy(params)
     par_n = np.copy(params)
     par_p[par_i] = par_bounds[1]
     par_n[par_i] = par_bounds[0]
-    model_p = tsfit.ellc_lc_simple(t_model, p_orb, 0, par_p[0], par_p[1], par_p[2], par_p[3], par_p[4], par_p[5],
-                                   offset)
-    model_m = tsfit.ellc_lc_simple(t_model, p_orb, 0, par_n[0], par_n[1], par_n[2], par_n[3], par_n[4], par_n[5],
-                                   offset)
+    model_p = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_p[0], par_p[1], par_p[2], par_p[3], par_p[4], par_p[5],
+                                   opt_offset)
+    model_m = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_n[0], par_n[1], par_n[2], par_n[3], par_n[4], par_n[5],
+                                   opt_offset)
     par_names = ['f_c', 'f_s', 'i', 'r_sum', 'r_ratio', 'sb_ratio']
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_model, ecl_signal, marker='.', label='eclipse signal')
-    ax.plot(t_model[sorter], model[sorter], c='tab:orange', label='best parameters')
-    ax.fill_between(t_model[sorter], y1=model[sorter], y2=model_p[sorter], color='tab:orange', alpha=0.3,
+    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
+    ax.plot(t_extended[sorter], model[sorter], c='tab:orange', label='best parameters')
+    ax.fill_between(t_extended[sorter], y1=model[sorter], y2=model_p[sorter], color='tab:orange', alpha=0.3,
                     label=f'upper bound {par_names[par_i]}')
-    ax.fill_between(t_model[sorter], y1=model[sorter], y2=model_m[sorter], color='tab:purple', alpha=0.3,
+    ax.fill_between(t_extended[sorter], y1=model[sorter], y2=model_m[sorter], color='tab:purple', alpha=0.3,
                     label=f'lower bound {par_names[par_i]}')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label=r'eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
@@ -1185,7 +1195,8 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
 def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, passed_nh,
                                t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
+    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make models
     model = tsf.linear_curve(times, const, slope, i_sectors)
     model += tsf.sum_sines(times, f_n, a_n, ph_n)
