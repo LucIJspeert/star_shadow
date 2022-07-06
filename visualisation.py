@@ -910,7 +910,8 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
                                  bot_1_vals, bot_2_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
     if not np.all(nonzero_range):
         fig.suptitle(f'Input distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
     else:
@@ -933,7 +934,8 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
                                  sbratio_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
     if not np.all(nonzero_range):
         fig.suptitle(f'Output distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
     else:
@@ -956,7 +958,8 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
                                  rsumsma_vals, np.log10(rratio_vals), np.log10(sbratio_vals)))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
     if not np.all(nonzero_range):
         fig.suptitle('Output distributions (alternate parametrisation)'
                      f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
@@ -978,7 +981,8 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
     dist_data = np.column_stack((d_1_vals, d_2_vals, phi0_vals, psi0_vals, rdifsma_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range], labels=value_names[nonzero_range])
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
     if not np.all(nonzero_range):
         fig.suptitle(f'Intermediate distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
     else:
@@ -1020,9 +1024,8 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     i = i_rad / np.pi * 180
-    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = par_opt
+    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = par_opt
     opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
-    opt_i = opt_i_rad / np.pi * 180
     # make the ellc models
     model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     model1 = tsfit.ellc_lc_simple(t_model, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
@@ -1129,7 +1132,7 @@ def plot_corner_ellc_pars(parameters_1, parameters_2, distributions, save_file=N
     # stack dists and plot
     dist_data = np.column_stack((f_c_vals, f_s_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
     fig = corner.corner(dist_data, labels=('f_c', 'f_s', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
-                        r'$\frac{sb_2}{sb_1}$'), truth_color='tab:orange')
+                        r'$\frac{sb_2}{sb_1}$'), truth_color='tab:orange', quiet=True)
     corner.overplot_lines(fig, parameters_1, color='tab:blue')
     corner.overplot_points(fig, [parameters_1], marker='s', color='tab:blue')
     corner.overplot_lines(fig, parameters_2, color='tab:orange')

@@ -634,7 +634,7 @@ def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_rat
     f_s: float
         Combination of e and w: sqrt(e)sin(w)
     i: float
-        Inclination of the orbit
+        Inclination of the orbit (radians)
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
     r_ratio: float

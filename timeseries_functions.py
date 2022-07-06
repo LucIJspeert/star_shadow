@@ -79,7 +79,7 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     return bins, binned
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def phase_dispersion(phases, signal, n_bins):
     """Phase dispersion, as in PDM, without overlapping bins.
     
@@ -120,7 +120,7 @@ def phase_dispersion(phases, signal, n_bins):
     return total_var / overall_var
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def phase_dispersion_minimisation(times, signal, f_n, local=False):
     """Determine the phase dispersion over a set of periods to find the minimum
     
@@ -261,7 +261,7 @@ def spectral_window(times, freqs):
     return spec_win
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     """Scargle periodogram with no weights.
     
@@ -357,7 +357,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     return f1, s1
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def scargle_ampl_single(times, signal, f):
     """Amplitude at one frequency from the Scargle periodogram
 
@@ -409,7 +409,7 @@ def scargle_ampl_single(times, signal, f):
     return ampl
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def scargle_ampl(times, signal, fs):
     """Amplitude at one or a set of frequencies from the Scargle periodogram
     
@@ -481,7 +481,7 @@ def scargle_ampl(times, signal, fs):
     return ampl
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def scargle_phase_single(times, signal, f):
     """Phase at one frequency from the Scargle periodogram
     
@@ -532,7 +532,7 @@ def scargle_phase_single(times, signal, f):
     return phi
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def scargle_phase(times, signal, fs):
     """Phase at one or a set of frequencies from the Scargle periodogram
     
@@ -649,7 +649,7 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     return f1, s1
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def calc_likelihood(residuals):
     """Natural logarithm of the likelihood function.
     
@@ -680,7 +680,7 @@ def calc_likelihood(residuals):
     return like
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def calc_bic(residuals, n_param):
     """Bayesian Information Criterion.
     
@@ -721,7 +721,7 @@ def calc_bic(residuals, n_param):
     return bic
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def linear_curve(times, const, slope, i_sectors):
     """Returns a piece-wise linear curve for the given time points
     with slopes and y-intercepts.
@@ -750,7 +750,7 @@ def linear_curve(times, const, slope, i_sectors):
     return curve
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def linear_slope(times, signal, i_sectors):
     """Calculate the slope(s) and y-intercept(s) of a linear trend with the MLE.
     
@@ -789,7 +789,7 @@ def linear_slope(times, signal, i_sectors):
     return y_inter, slope
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def linear_slope_two_points(x1, y1, x2, y2):
     """Calculate the slope(s) and y-intercept(s) of a linear curve defined by two points.
     
@@ -816,7 +816,7 @@ def linear_slope_two_points(x1, y1, x2, y2):
     return y_inter, slope
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def sum_sines(times, f_n, a_n, ph_n):
     """A sum of sine waves at times t, given the frequencies, amplitudes and phases.
     
@@ -845,7 +845,7 @@ def sum_sines(times, f_n, a_n, ph_n):
     return model_sines
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     """The derivative of a sum of sine waves at times t,
     given the frequencies, amplitudes and phases.
@@ -917,7 +917,7 @@ def sum_sines_damped(times, f_n, a_n, lifetimes, t_zeros):
     return model_sines
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def formal_uncertainties(times, residuals, a_n, i_sectors):
     """Calculates the corrected uncorrelated (formal) uncertainties for the extracted
     parameters (constant, slope, frequencies, amplitudes and phases).
@@ -997,7 +997,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     return sigma_const, sigma_slope, sigma_f, sigma_a, sigma_ph
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def formal_period_uncertainty(p_orb, f_n_err, harmonics, harmonic_n):
     """Calculates a formal error for the orbital period
     
@@ -1966,48 +1966,10 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
-    # initial eclipse model
+    # initial eclipse model and residuals
     model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
-    # extract residual harmonics
-    # f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
-    # make a list of not-present possible harmonics
-    # h_candidate = np.arange(1, p_orb * f_max, dtype=int)
-    # initial residuals
     resid_orig = ecl_signal - model_ellc
-    # resid_orig_mean = np.mean(resid_orig)  # mean difference between the ellc model and harmonics
-    # resid_orig = resid_orig - resid_orig_mean
-    # resid = np.copy(resid_orig)
-    # f_n_r, a_n_r, ph_n_r = np.array([[], [], []])
-    # n_param_orig = 8  # the eclipse parameters for ellc plus the mean of the residual and period
-    # bic_prev = calc_bic(resid, n_param_orig)
-    # # loop over candidates and try to extract
-    # n_accepted = 0
-    # for h_c in h_candidate:
-    #     f_c = h_c / p_orb
-    #     a_c = scargle_ampl_single(times, resid, f_c)
-    #     ph_c = scargle_phase_single(times, resid, f_c)
-    #     # make sure the phase stays within + and - pi
-    #     ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi
-    #     # add to temporary parameters
-    #     f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_r, f_c), np.append(a_n_r, a_c), np.append(ph_n_r, ph_c)
-    #     # determine new BIC and whether it improved
-    #     model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-    #     resid = resid_orig - model - np.mean(resid_orig - model)
-    #     n_param = n_param_orig + 2 * (n_accepted + 1)
-    #     bic = calc_bic(resid, n_param)
-    #     if (np.round(bic_prev - bic, 2) > 2):
-    #         # h_c is accepted, add it to the final list and continue
-    #         bic_prev = bic
-    #         f_n_r, a_n_r, ph_n_r = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
-    #         n_accepted += 1
-    #         if verbose:
-    #             print(f'Succesfully extracted harmonic {h_c}, BIC= {bic:1.2f}')
-    #     else:
-    #         # h_c is rejected, revert to previous residual
-    #         model = sum_sines(times, f_n_r, a_n_r, ph_n_r)  # the sinusoid part of the model
-    #         resid = resid_orig - model - np.mean(resid_orig - model)
-    # const_r = np.mean(resid_orig - model) + resid_orig_mean  # return constant for last model plus initial diff
-    # extract harmonics # todo: test
+    # extract harmonics
     output = extract_harmonics(times, resid_orig, p_orb, verbose=verbose)
     const_r, f_r, a_r, ph_r = output
     return const_r, f_r, a_r, ph_r

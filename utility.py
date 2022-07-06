@@ -460,7 +460,7 @@ def group_fequencies_for_fit(a_n, g_min=20, g_max=25):
     return groups
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def correct_for_crowdsap(signal, crowdsap, i_sectors):
     """Correct the signal for flux contribution of a third source
     
@@ -497,7 +497,7 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
     return cor_signal
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def model_crowdsap(signal, crowdsap, i_sectors):
     """Incorporate flux contribution of a third source into the signal
     

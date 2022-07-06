@@ -22,7 +22,7 @@ from . import timeseries_functions as tsf
 from . import utility as ut
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def f_within_rayleigh(i, f_n, rayleigh):
     """Selects a chain of frequencies within the Rayleigh criterion from each other
     around the chosen frequency.
@@ -71,7 +71,7 @@ def f_within_rayleigh(i, f_n, rayleigh):
     return i_close_unsorted
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def chains_within_rayleigh(f_n, rayleigh):
     """Find all chains of frequencies within each others Rayleigh criterion.
     
@@ -103,7 +103,7 @@ def chains_within_rayleigh(f_n, rayleigh):
     return groups
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1.):
     """Removes insufficiently significant frequencies in terms of error margins.
     
@@ -147,7 +147,7 @@ def remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1
     return remove
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def remove_insignificant_snr(a_n, noise_level, n_points):
     """Removes insufficiently significant frequencies in terms of S/N.
     
@@ -181,7 +181,7 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
     return remove
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def subtract_sines(a_n_1, ph_n_1, a_n_2, ph_n_2):
     """Analytically subtract a set of sine waves from another set
      with equal freguencies
@@ -220,7 +220,7 @@ def subtract_sines(a_n_1, ph_n_1, a_n_2, ph_n_2):
     return a_n_3, ph_n_3
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def subtract_harmonic_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
     """Analytically subtract a set of sine waves from another set
      both containing harmonics of p_orb
@@ -274,7 +274,7 @@ def subtract_harmonic_sines(p_orb, f_n_1, a_n_1, ph_n_1, f_n_2, a_n_2, ph_n_2):
     return f_n_3, a_n_3, ph_n_3
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def find_harmonics(f_n, f_n_err, p_orb, sigma=1.):
     """Find the orbital harmonics from a set of frequencies, given the orbital period.
     
@@ -317,7 +317,7 @@ def find_harmonics(f_n, f_n_err, p_orb, sigma=1.):
     return i_harmonic
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def construct_harmonic_range(f_0, domain):
     """create a range of harmonic frequencies given the base frequency.
     
@@ -344,7 +344,7 @@ def construct_harmonic_range(f_0, domain):
     return harmonics, n_range
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     """Get the indices of the frequencies matching closest to the harmonics.
     
@@ -387,7 +387,7 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     return sorter[i_nn[m_cn]], harmonic_n[m_cn]
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def find_harmonics_tolerance(f_n, p_orb, f_tol):
     """Get the indices of the frequencies matching within a tolerance to the harmonics.
     
@@ -655,7 +655,7 @@ def base_harmonic_search(f_n, f_n_err, a_n, f_tol=None):
     return p_best, gof, minimize
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
     """Test to find the base harmonic testing multiples of a test period
     
@@ -698,7 +698,7 @@ def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
     return p_best, p_test, optimise
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
     """Performs a weighted average of the harmonics found in a set of frequencies.
     
@@ -808,7 +808,7 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
     return cur_i
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2):
     """Measure the depths of the eclipses from the harmonic model given
     the timing measurements
@@ -1082,7 +1082,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def true_anomaly(theta, w):
     """True anomaly in terms of the phase angle and argument of periastron
     
@@ -1106,7 +1106,7 @@ def true_anomaly(theta, w):
     return nu
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def eccentric_anomaly(nu, e):
     """Eccentric anomaly in terms of true anomaly and eccentricity
     
@@ -1125,7 +1125,7 @@ def eccentric_anomaly(nu, e):
     return 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu/2), np.sqrt(1 + e) * np.cos(nu/2))
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def integral_kepler_2(nu_1, nu_2, e):
     """Integrated version of Keplers second law of areas
     
@@ -1161,7 +1161,7 @@ def integral_kepler_2(nu_1, nu_2, e):
     return integral
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def delta_deriv(theta, e, w, i):
     """Derivative of the projected normalised distance between the centres of the stars
     
@@ -1237,7 +1237,7 @@ def minima_phase_angles(e, w, i):
     return theta_1, theta_2
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def first_contact_angle_1(phi, e, w, i, phi_0):
     """Find the root of this function to obtain the phase angle between first contact
     and eclipse minimum for the primary eclipse
@@ -1266,7 +1266,7 @@ def first_contact_angle_1(phi, e, w, i, phi_0):
     return term_1 + term_2
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def last_contact_angle_1(phi, e, w, i, phi_0):
     """Find the root of this function to obtain the phase angle between last contact
     and eclipse minimum for the primary eclipse
@@ -1295,7 +1295,7 @@ def last_contact_angle_1(phi, e, w, i, phi_0):
     return term_1 + term_2
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def first_contact_angle_2(phi, e, w, i, phi_0):
     """Find the root of this function to obtain the phase angle between first contact
     and eclipse minimum for the secondary eclipse
@@ -1324,7 +1324,7 @@ def first_contact_angle_2(phi, e, w, i, phi_0):
     return term_1 + term_2
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def last_contact_angle_2(phi, e, w, i, phi_0):
     """Find the root of this function to obtain the phase angle between last contact
     and eclipse minimum for the secondary eclipse
@@ -1402,7 +1402,7 @@ def contact_phase_angles(e, w, i, phi_0):
     return phi_1_1, phi_1_2, phi_2_1, phi_2_2
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi_0):
     """Calculate the eccentricity and argument of periastron from the
     analytic formulae for small eccentricities (among other approximations).
@@ -1446,7 +1446,7 @@ def ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi
     return e, w
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def radius_sum_from_phi0(e, i, phi_0):
     """Formula for the sum of radii in units of the semi-major axis
     from the angle phi_0
@@ -1470,7 +1470,7 @@ def radius_sum_from_phi0(e, i, phi_0):
     return r_sum_sma
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def projected_separation(e, w, i, theta):
     """Projected separation between the centres of the two components
     at a given phase theta
@@ -1503,7 +1503,7 @@ def projected_separation(e, w, i, theta):
     return sep
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def covered_area(d, r_1, r_2):
     """Area covered for two overlapping circles separated by a certain distance
     
@@ -1540,7 +1540,7 @@ def covered_area(d, r_1, r_2):
     return area
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2):
     """Surface brightness ratio from the ratio of eclipse depths
     
@@ -1590,7 +1590,7 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2
     return sb_ratio
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     """Theoretical eclipse depth in the assumption of uniform brightness
     
@@ -1949,7 +1949,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     return e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, p_err, i_err,
                          t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err):
     """Calculates the uncorrelated (formal) uncertainties for the extracted
