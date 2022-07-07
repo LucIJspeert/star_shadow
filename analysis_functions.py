@@ -1899,7 +1899,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     return bic
 
 
-def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err):
+def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err, verbose=False):
     """Determine all eclipse parameters using a combination of approximate
     functions and fitting procedures
     
@@ -1983,6 +1983,9 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
         # update radii
         r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
         r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
+    elif verbose:
+        n_outside = np.sum([b1 > b2 for b1, b2 in bounds_ep])
+        print(f'{n_outside} parameter(s) outside bounds, skipping fit with objective_ecl_param')
     # value for sb_ratio from the depths ratio and the other parameters
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
@@ -2224,7 +2227,8 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
         bottom_dur_dist = np.array([normal_bot_1[k], normal_bot_2[k]])
-        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, bottom_dur_dist, timing_errs, depths_err)
+        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, bottom_dur_dist, timing_errs, depths_err,
+                                 verbose=verbose)
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]

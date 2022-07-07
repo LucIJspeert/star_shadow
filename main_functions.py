@@ -937,7 +937,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings_tau, depths, bottom_dur, p_
     else:
         if verbose:
             print('Determining eclipse parameters and error estimates.')
-        output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err)
+        output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err, verbose=verbose)
         e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = output
         # calculate the errors
         output_2 = af.error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero,
