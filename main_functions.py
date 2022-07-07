@@ -78,7 +78,8 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     return p_orb
 
 
-def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=None, overwrite=False, verbose=False):
+def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_dir, data_id=None, overwrite=False,
+                       verbose=False):
     """Recipe for analysis of EB light curves.
 
     Parameters
@@ -90,6 +91,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -180,13 +183,13 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         if verbose:
             print(f'Step 1: Starting initial frequency extraction')
         t1_a = time.time()
-        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = tsf.extract_all(times, signal, i_sectors, verbose=verbose)
+        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = tsf.extract_all(times, signal, signal_err, i_sectors, verbose=verbose)
         t1_b = time.time()
         # main function done, do the rest for this step
         model_1 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
         model_1 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
         n_param_1 = 2 * n_sectors + 3 * len(f_n_1)
-        bic_1 = tsf.calc_bic(signal - model_1, n_param_1)
+        bic_1 = tsf.calc_bic((signal - model_1)/signal_err, n_param_1)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48mInitial frequency extraction complete.\033[0m')
@@ -218,8 +221,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             print(f'Step 2: Starting multi-sine NL-LS fit.')
         t_2a = time.time()
         f_groups = ut.group_fequencies_for_fit(a_n_1, g_min=10, g_max=15)
-        out_2 = tsfit.multi_sine_NL_LS_fit_per_group(times, signal, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors,
-                                                     f_groups, verbose=verbose)
+        out_2 = tsfit.multi_sine_NL_LS_fit_per_group(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
+                                                     i_sectors, f_groups, verbose=verbose)
         t_2b = time.time()
         # main function done, do the rest for this step
         const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
@@ -229,7 +232,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         f_errors = tsf.formal_uncertainties(times, signal - model_2, a_n_2, i_sectors)
         c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = f_errors
         n_param_2 = 2 * n_sectors + 3 * len(f_n_2)
-        bic_2 = tsf.calc_bic(signal - model_2, n_param_2)
+        bic_2 = tsf.calc_bic((signal - model_2)/signal_err, n_param_2)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48mFit complete.\033[0m')
@@ -323,7 +326,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_3, p_orb_3)
         n_param_3 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_3) - len(harmonics))
-        bic_3 = tsf.calc_bic(signal - model_3, n_param_3)
+        bic_3 = tsf.calc_bic((signal - model_3)/signal_err, n_param_3)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48mOrbital harmonic frequencies coupled. Period: {p_orb_3:2.4}\033[0m')
@@ -354,8 +357,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         if verbose:
             print(f'Step 4: Looking for additional harmonics.')
         t_4a = time.time()
-        out_4 = tsf.extract_additional_harmonics(times, signal, p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3,
-                                                 i_sectors, verbose=verbose)
+        out_4 = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb_3, const_3, slope_3,
+                                                 f_n_3, a_n_3, ph_n_3, i_sectors, verbose=verbose)
         t_4b = time.time()
         # main function done, do the rest for this step
         const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4
@@ -363,7 +366,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3)
         n_param_4 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_4) - len(harmonics))
-        bic_4 = tsf.calc_bic(signal - model_4, n_param_4)
+        bic_4 = tsf.calc_bic((signal - model_4)/signal_err, n_param_4)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48m{len(f_n_4) - len(f_n_3)} additional harmonics added.\033[0m')
@@ -396,8 +399,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         if verbose:
             print(f'Step 5: Looking for additional frequencies.')
         t_5a = time.time()
-        out_5 = tsf.extract_additional_frequencies(times, signal, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4,
-                                                   i_sectors, verbose=verbose)
+        out_5 = tsf.extract_additional_frequencies(times, signal, signal_err, p_orb_3, const_4, slope_4,
+                                                   f_n_4, a_n_4, ph_n_4, i_sectors, verbose=verbose)
         t_5b = time.time()
         # main function done, do the rest for this step
         # const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_4
@@ -406,7 +409,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_3)
         n_param_5 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_5) - len(harmonics))
-        bic_5 = tsf.calc_bic(signal - model_5, n_param_5)
+        bic_5 = tsf.calc_bic((signal - model_5)/signal_err, n_param_5)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48m{len(f_n_5) - len(f_n_4)} additional frequencies added.\033[0m')
@@ -439,14 +442,14 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         if verbose:
             print(f'Step 6: Starting multi-sine NL-LS fit with harmonics.')
         t_6a = time.time()
-        out_6 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb_3, const_5, slope_5,
+        out_6 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb_3, const_5, slope_5,
                                                                f_n_5, a_n_5, ph_n_5, i_sectors, verbose=verbose)
         t_6b = time.time()
         # main function done, do the rest for this step
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = out_6
         model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
         model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
-        bic_6 = tsf.calc_bic(signal - model_6, n_param_5)
+        bic_6 = tsf.calc_bic((signal - model_6)/signal_err, n_param_5)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb_6:2.4}\033[0m')
@@ -479,8 +482,8 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         if verbose:
             print(f'Step 7: Attempting to reduce the number of frequencies.')
         t_7a = time.time()
-        out_7 = tsf.reduce_frequencies_harmonics(times, signal, p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6,
-                                                 i_sectors, verbose=verbose)
+        out_7 = tsf.reduce_frequencies_harmonics(times, signal, signal_err, p_orb_6, const_6, slope_6,
+                                                 f_n_6, a_n_6, ph_n_6, i_sectors, verbose=verbose)
         t_7b = time.time()
         # main function done, do the rest for this step
         const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
@@ -488,7 +491,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
         model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_7, p_orb_6)
         n_param_7 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_7) - len(harmonics))
-        bic_7 = tsf.calc_bic(signal - model_7, n_param_7)
+        bic_7 = tsf.calc_bic((signal - model_7)/signal_err, n_param_7)
         # now print some useful info and/or save the result
         if verbose:
             print(f'\033[1;32;48mReducing frequencies complete.\033[0m')
@@ -521,7 +524,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             if verbose:
                 print(f'Step 8: Starting second multi-sine NL-LS fit with harmonics.')
             t_8a = time.time()
-            out_8 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, p_orb_6, const_7, slope_7,
+            out_8 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb_6, const_7, slope_7,
                                                                    f_n_7, a_n_7, ph_n_7, i_sectors, verbose=verbose)
             t_8b = time.time()
             # main function done, do the rest for this step
@@ -530,7 +533,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
             harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
             n_param_8 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_8) - len(harmonics))
-            bic_8 = tsf.calc_bic(signal - model_8, n_param_8)
+            bic_8 = tsf.calc_bic((signal - model_8)/signal_err, n_param_8)
             # now print some useful info and/or save the result
             if verbose:
                 print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb_8:2.4}\033[0m')
@@ -540,7 +543,7 @@ def frequency_analysis(tic, times, signal, i_sectors, p_orb, save_dir, data_id=N
             p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6
             n_param_8 = n_param_5
             model_8 = np.copy(model_6)
-            bic_8 = tsf.calc_bic(signal - model_8, n_param_8)
+            bic_8 = tsf.calc_bic((signal - model_8)/signal_err, n_param_8)
             if verbose:
                 print(f'\033[1;32;48mNo frequencies removed, so no additional fit needed.\033[0m')
         if save_dir is not None:
@@ -732,7 +735,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     return t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err, ecl_indices
 
 
-def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
                           file_name=None, data_id=None, overwrite=False, verbose=False):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
@@ -742,6 +745,8 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -815,8 +820,8 @@ def eclipse_analysis_hsep(times, signal, p_orb, t_zero, timings, const, slope, f
         mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
         # todo: maybe instead of masking I could try to remove the eclipses with my own simple model
         if (np.sum(mask_ecl) / len(times) > 0.01):
-            output = tsf.extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                                               i_sectors, verbose=verbose)
+            output = tsf.extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                               f_n, a_n, ph_n, i_sectors, verbose=verbose)
             const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
             output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
                                                 ph_ho)
@@ -1153,9 +1158,9 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         return (None,) * 5
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    out_10 = eclipse_analysis_hsep(times, signal, p_orb_8, t_zero_9, timings_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                   i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
-                                   verbose=verbose)
+    out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_8, t_zero_9, timings_9, const_8, slope_8,
+                                   f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
+                                   overwrite=overwrite, verbose=verbose)
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
@@ -1264,7 +1269,7 @@ def pulsation_analysis_fselect(p_orb, f_n, a_n, ph_n, f_n_err, a_n_err, noise_le
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc,
+def pulsation_analysis_disentangle(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc,
                                    i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
@@ -1275,6 +1280,8 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1329,7 +1336,7 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
     else:
         if verbose:
             print(f'Disentangling eclipses from other harmonics')
-        output = tsf.extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
+        output = tsf.extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
                                                 par_ellc, i_sectors, verbose=verbose)
         const_r, f_n_r, a_n_r, ph_n_r = output
         if file_name is not None:
@@ -1345,8 +1352,8 @@ def pulsation_analysis_disentangle(times, signal, p_orb, t_zero, const, slope, f
     # resid of full sinusoid model and ellc + sinusoid model
     resid_sines = signal - model_line - model_nh - model_h
     resid_ellc = signal - model_line - model_nh - model_ellc - const_r - model_ellc_h
-    bic_sines = tsf.calc_bic(resid_sines, 2 * len(const) + 3 * len(non_harm) + 2 * len(harmonics))
-    bic_ellc = tsf.calc_bic(resid_ellc, 2 * len(const) + 3 * len(non_harm) + 7 + 2 * len(f_n_r))
+    bic_sines = tsf.calc_bic(resid_sines/signal_err, 2 * len(const) + 3 * len(non_harm) + 2 * len(harmonics))
+    bic_ellc = tsf.calc_bic(resid_ellc/signal_err, 2 * len(const) + 3 * len(non_harm) + 7 + 2 * len(f_n_r))
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mHarmonic model disentangled.\033[0m')
@@ -1429,7 +1436,8 @@ def pulsation_analysis_fselect_h(p_orb, f_n_r, a_n_r, ph_n_r, f_n_err, a_n_err, 
     return passed_h_sigma, passed_h_snr, passed_h_b
 
 
-def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, overwrite=False, verbose=False):
+def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, overwrite=False,
+                       verbose=False):
     """Part three of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis and eclipse_analysis
 
@@ -1442,6 +1450,8 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -1500,9 +1510,9 @@ def pulsation_analysis(tic, times, signal, i_sectors, save_dir, data_id=None, ov
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_14
     # --- [15] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
-    out_15 = pulsation_analysis_disentangle(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                            par_ellc, i_sectors, file_name=file_name, data_id=data_id,
-                                            overwrite=overwrite, verbose=verbose)
+    out_15 = pulsation_analysis_disentangle(times, signal, signal_err, p_orb_8, t_zero_11, const_8, slope_8,
+                                            f_n_8, a_n_8, ph_n_8, par_ellc, i_sectors, file_name=file_name,
+                                            data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r, f_n_r, a_n_r, ph_n_r = out_15
     # --- [16] --- Frequency selection f_n_r
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
@@ -1553,12 +1563,12 @@ def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False, verbose
     i_half_s = np.array([[0, len(times)]])  # no sector information
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = frequency_analysis(target_id, times, signal, i_half_s, p_orb=0, **kw_args)
+    out_a = frequency_analysis(target_id, times, signal, signal_err, i_half_s, p_orb=0, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
         out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s, **kw_args)
         if not np.all([item is None for item in out_b]):
-            out_c = pulsation_analysis(target_id, times, signal, i_half_s, **kw_args)
+            out_c = pulsation_analysis(target_id, times, signal, signal_err, i_half_s, **kw_args)
     return None
 
 
@@ -1596,12 +1606,12 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = frequency_analysis(tic, times, signal, i_half_s, p_orb=0, **kw_args)
+    out_a = frequency_analysis(tic, times, signal, signal_err, i_half_s, p_orb=0, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
         out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s, **kw_args)
         if not np.all([item is None for item in out_b]):
-            out_c = pulsation_analysis(tic, times, signal, i_half_s, **kw_args)
+            out_c = pulsation_analysis(tic, times, signal, signal_err, i_half_s, **kw_args)
     return None
 
 

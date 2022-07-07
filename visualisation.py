@@ -326,13 +326,17 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
-    h_adjust = 1 - np.mean(signal)
-    s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
+    h_top_1 = h_1 + offset
+    h_top_2 = h_2 + offset
+    h_bot_1 = h_1 - depths[0] + offset
+    h_bot_2 = h_2 - depths[1] + offset
+    s_minmax = np.array([np.min(signal), np.max(signal)])
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_extended, s_extended + h_adjust, marker='.', label='original folded signal')
-    ax.scatter(t_extended, ecl_signal, marker='.', c='tab:orange', label='signal minus non-harmonics and linear curve')
-    ax.plot(t_model, model_h, c='tab:green', label='harmonics')
+    ax.scatter(t_extended, s_extended, marker='.', label='original folded signal')
+    ax.scatter(t_extended, ecl_signal + offset, marker='.', c='tab:orange',
+               label='signal minus non-harmonics and linear curve')
+    ax.plot(t_model, model_h + offset, c='tab:green', label='harmonics')
     ax.plot([t_1, t_1], s_minmax, '--', c='tab:red', label='eclipse minimum')
     ax.plot([t_2, t_2], s_minmax, '--', c='tab:red')
     ax.plot([(t_1_1 + t_1_2)/2, (t_1_1 + t_1_2)/2], s_minmax, ':', c='tab:grey', label='eclipse midpoint')
@@ -341,10 +345,10 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
-    ax.plot([t_1_1, t_1_2], [h_1 - depths[0], h_1 - depths[0]], '--', c='tab:pink')
-    ax.plot([t_2_1, t_2_2], [h_2 - depths[1], h_2 - depths[1]], '--', c='tab:pink')
-    ax.plot([t_1_1, t_1_2], [h_1, h_1], '--', c='tab:pink')
-    ax.plot([t_2_1, t_2_2], [h_2, h_2], '--', c='tab:pink')
+    ax.plot([t_1_1, t_1_2], [h_bot_1, h_bot_1], '--', c='tab:pink')
+    ax.plot([t_2_1, t_2_2], [h_bot_2, h_bot_2], '--', c='tab:pink')
+    ax.plot([t_1_1, t_1_2], [h_top_1, h_top_1], '--', c='tab:pink')
+    ax.plot([t_2_1, t_2_2], [h_top_2, h_top_2], '--', c='tab:pink')
     # 1 sigma errors
     ax.fill_between([t_1 - t_1_err, t_1 + t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.3)
@@ -358,10 +362,10 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:purple', alpha=0.3)
     ax.fill_between([t_2_2 - tau_2_2_err, t_2_2 + tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_1_1, t_1_2], y1=[h_1 - depths[0] + depths_err[0], h_1 - depths[0] + depths_err[0]],
-                    y2=[h_1 - depths[0] - depths_err[0], h_1 - depths[0] - depths_err[0]], color='tab:pink', alpha=0.3)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_2 - depths[1] + depths_err[1], h_2 - depths[1] + depths_err[1]],
-                    y2=[h_2 - depths[1] - depths_err[1], h_2 - depths[1] - depths_err[1]], color='tab:pink', alpha=0.3)
+    ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + depths_err[0], h_bot_1 + depths_err[0]],
+                    y2=[h_bot_1 - depths_err[0], h_bot_1 - depths_err[0]], color='tab:pink', alpha=0.3)
+    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + depths_err[1], h_bot_2 + depths_err[1]],
+                    y2=[h_bot_2 - depths_err[1], h_bot_2 - depths_err[1]], color='tab:pink', alpha=0.3)
     # 3 sigma errors
     ax.fill_between([t_1 - 3*t_1_err, t_1 + 3*t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
@@ -375,11 +379,11 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:purple', alpha=0.2)
     ax.fill_between([t_2_2 - 3*tau_2_2_err, t_2_2 + 3*tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_1_1, t_1_2], y1=[h_1 - depths[0] + 3*depths_err[0], h_1 - depths[0] + 3*depths_err[0]],
-                    y2=[h_1 - depths[0] - 3*depths_err[0], h_1 - depths[0] - 3*depths_err[0]],
+    ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + 3*depths_err[0], h_bot_1 + 3*depths_err[0]],
+                    y2=[h_bot_1 - 3*depths_err[0], h_bot_1 - 3*depths_err[0]],
                     color='tab:pink', alpha=0.2)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_2 - depths[1] + 3*depths_err[1], h_2 - depths[1] + 3*depths_err[1]],
-                    y2=[h_2 - depths[1] - 3*depths_err[1], h_2 - depths[1] - 3*depths_err[1]],
+    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + 3*depths_err[1], h_bot_2 + 3*depths_err[1]],
+                    y2=[h_bot_2 - 3*depths_err[1], h_bot_2 - 3*depths_err[1]],
                     color='tab:pink', alpha=0.2)
     # flat bottom
     if (t_b_1_2 - t_b_1_1 != 0) | (t_b_2_1 - t_b_2_2 != 0):
@@ -518,9 +522,9 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')
     ax.scatter(t_extended, ecl_signal_2 + offset + h_adjust_2, marker='.', c='tab:orange',
                label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
-    ax.plot(t_model, model_he, c='tab:green', label='i.e.-harmonics')
-    ax.plot(t_model, model_h, '--', c='tab:red', label='harmonics')
-    ax.plot(t_model, model_ho, c='tab:purple', label='o.o.e.-harmonics')
+    ax.plot(t_model, model_he + offset, c='tab:green', label='i.e.-harmonics')
+    ax.plot(t_model, model_h + offset, '--', c='tab:red', label='harmonics')
+    ax.plot(t_model, model_ho + offset, c='tab:purple', label='o.o.e.-harmonics')
     # ax.plot(t_model, model_ho + model_he - 1, '--', c='tab:brown', label='o.o.e. + i.e. harmonics')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
@@ -1166,7 +1170,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.plot(times[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
+    ax.plot(freqs[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
             label=f'S/N threshold ({snr_threshold})')
     ax.plot(freqs, ampls, label='signal')
     for k in harmonics:
@@ -1282,7 +1286,7 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs, ampls, label='residual')
-    ax.plot(times[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
+    ax.plot(freqs[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
             label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
         if k in passed_hr_i:
@@ -1352,8 +1356,8 @@ def plot_lc_ellc_harmonics(times, signal, p_orb, t_zero, timings, const, slope, 
     return
 
 
-def refine_subset_visual(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sectors, iteration, save_dir,
-                         verbose=False):
+def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph_n, i_sectors, iteration,
+                         save_dir, verbose=False):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other
     and visualise the process.
     
@@ -1369,7 +1373,7 @@ def refine_subset_visual(times, signal, close_f, const, slope, f_n, a_n, ph_n, i
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = tsf.calc_bic(resid, n_param)
+    bic = tsf.calc_bic(resid/signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1405,7 +1409,7 @@ def refine_subset_visual(times, signal, close_f, const, slope, f_n, a_n, ph_n, i
         model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
-        bic = tsf.calc_bic(resid, n_param)
+        bic = tsf.calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1416,7 +1420,7 @@ def refine_subset_visual(times, signal, close_f, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
+def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=True):
     """Extract all the frequencies from a periodic signal and visualise the process.
 
     For a description of the algorithm, see timeseries_functions.extract_all()
@@ -1433,7 +1437,7 @@ def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
     n_param = 2 * n_sectors
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = tsf.calc_bic(resid, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
+    bic = tsf.calc_bic(resid/signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -1459,9 +1463,9 @@ def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
         if (i > 0) & (len(close_f) > 1):
-            const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_subset_visual(times, signal, close_f, const, slope,
-                                                                               f_n_temp, a_n_temp, ph_n_temp, i_sectors,
-                                                                               i, save_dir, verbose=verbose)
+            output = refine_subset_visual(times, signal, signal_err, close_f, const, slope,
+                                          f_n_temp, a_n_temp, ph_n_temp, i_sectors, i, save_dir, verbose=verbose)
+            const, slope, f_n_temp, a_n_temp, ph_n_temp = output
         # as a last model-refining step, redetermine the constant and slope
         model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
         const, slope = tsf.linear_slope(times, signal - model, i_sectors)
@@ -1469,7 +1473,7 @@ def extract_all_visual(times, signal, i_sectors, save_dir, verbose=True):
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
         n_param = 2 * n_sectors + 3 * len(f_n_temp)
-        bic = tsf.calc_bic(resid, n_param)
+        bic = tsf.calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1497,7 +1501,7 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
         file.create_dataset('i_sectors', data=i_sectors)
         file.create_dataset('i_half_s', data=i_half_s)
     # now do the extraction
-    out = extract_all_visual(times, signal, i_half_s, save_dir, verbose=verbose)
+    out = extract_all_visual(times, signal, signal_err, i_half_s, save_dir, verbose=verbose)
     
     freq_res = 1.5 / np.ptp(times)
     # make the images (step 1)

@@ -1259,7 +1259,7 @@ def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other.
     
     Parameters
@@ -1268,6 +1268,8 @@ def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sector
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     const: numpy.ndarray[float]
@@ -1319,7 +1321,7 @@ def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sector
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = calc_bic(resid, n_param)
+    bic = calc_bic(resid/signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1343,7 +1345,7 @@ def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sector
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1354,7 +1356,8 @@ def refine_subset(times, signal, close_f, const, slope, f_n, a_n, ph_n, i_sector
     return const, slope, f_n, a_n, ph_n
 
 
-def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                            verbose=False):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other.
     
     Parameters
@@ -1363,6 +1366,8 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     p_orb: float
@@ -1417,7 +1422,7 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = calc_bic(resid, n_param)
+    bic = calc_bic(resid/signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1439,7 +1444,7 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
                 # ph_j = scargle_phase_single(times, resid, f_j)
                 f_j = f_n_temp[j]
                 a_j = a_n_temp[j]
-                ph_j = ph_n_temp[j]
+                ph_j = ph_n_temp[j]  # todo: why is the other bit commented out?
             else:
                 f_j, a_j, ph_j = extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
                                                 verbose=verbose)
@@ -1450,7 +1455,7 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1461,7 +1466,7 @@ def refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n, a_
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_all(times, signal, i_sectors, verbose=True):
+def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     """Extract all the frequencies from a periodic signal.
     
     Parameters
@@ -1470,6 +1475,8 @@ def extract_all(times, signal, i_sectors, verbose=True):
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -1523,7 +1530,7 @@ def extract_all(times, signal, i_sectors, verbose=True):
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
     n_param = 2 * n_sectors
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = calc_bic(resid, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
+    bic = calc_bic(resid/signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -1538,8 +1545,8 @@ def extract_all(times, signal, i_sectors, verbose=True):
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
         if (i > 0) & (len(close_f) > 1):
-            refine_out = refine_subset(times, signal, close_f, const, slope, f_n_temp, a_n_temp, ph_n_temp, i_sectors,
-                                       verbose=verbose)
+            refine_out = refine_subset(times, signal, signal_err, close_f, const, slope, f_n_temp, a_n_temp, ph_n_temp,
+                                       i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
@@ -1548,7 +1555,7 @@ def extract_all(times, signal, i_sectors, verbose=True):
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
         n_param = 2 * n_sectors + 3 * len(f_n_temp)
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1559,7 +1566,8 @@ def extract_all(times, signal, i_sectors, verbose=True):
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                   verbose=True):
     """Extract additional frequencies starting from an existing set.
     
     Parameters
@@ -1568,6 +1576,8 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -1630,7 +1640,7 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 1 + 2 * n_harmonics + 3 * (len(f_n) - n_harmonics)
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = calc_bic(resid, n_param)  # current BIC
+    bic = calc_bic(resid/signal_err, n_param)  # current BIC
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -1645,8 +1655,8 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
         if (i > 0) & (len(close_f) > 1):
-            refine_out = refine_subset_harmonics(times, signal, close_f, p_orb, const, slope, f_n_temp, a_n_temp,
-                                                 ph_n_temp, i_sectors, verbose=verbose)
+            refine_out = refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, slope, f_n_temp,
+                                                 a_n_temp, ph_n_temp, i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
@@ -1655,7 +1665,7 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
         n_param = 2 * n_sectors + 1 + 2 * n_harmonics + 3 * (len(f_n_temp) - n_harmonics)
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1666,7 +1676,8 @@ def extract_additional_frequencies(times, signal, p_orb, const, slope, f_n, a_n,
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=False):
     """Tries to extract more harmonics from the signal
     
     Parameters
@@ -1675,6 +1686,8 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -1731,7 +1744,7 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
     resid = signal - model
     n_param_orig = 3 * len(f_n) + 2 - len(harmonics) + 1  # harmonics have 1 less free parameter
-    bic_prev = calc_bic(resid, n_param_orig)
+    bic_prev = calc_bic(resid/signal_err, n_param_orig)
     # loop over candidates and try to extract
     n_accepted = 0
     for h_c in h_candidate:
@@ -1750,7 +1763,7 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         model += sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
         resid = signal - model
         n_param = n_param_orig + 2 * (n_accepted + 1)
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         if (np.round(bic_prev - bic, 2) > 2):
             # h_c is accepted, add it to the final list and continue
             bic_prev = bic
@@ -1768,7 +1781,7 @@ def extract_additional_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_harmonics(times, signal, p_orb, verbose=False):
+def extract_harmonics(times, signal, signal_err, p_orb, verbose=False):
     """Tries to extract harmonics from the given signal
 
     Parameters
@@ -1777,6 +1790,8 @@ def extract_harmonics(times, signal, p_orb, verbose=False):
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     verbose: bool
@@ -1809,7 +1824,7 @@ def extract_harmonics(times, signal, p_orb, verbose=False):
     model = np.zeros(len(times))
     f_n_h, a_n_h, ph_n_h = np.array([[], [], []])
     n_param_orig = 2  # just the mean of the residual and orbital period
-    bic_prev = calc_bic(resid, n_param_orig)
+    bic_prev = calc_bic(resid, signal_err, n_param_orig)
     # loop over candidates and try to extract
     n_accepted = 0
     for h_c in h_candidate:
@@ -1824,7 +1839,7 @@ def extract_harmonics(times, signal, p_orb, verbose=False):
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
         resid = resid_orig - model - np.mean(resid_orig - model)
         n_param = n_param_orig + 2 * (n_accepted + 1)
-        bic = calc_bic(resid, n_param)
+        bic = calc_bic(resid/signal_err, n_param)
         if (np.round(bic_prev - bic, 2) > 2):
             # h_c is accepted, add it to the final list and continue
             bic_prev = bic
@@ -1840,7 +1855,7 @@ def extract_harmonics(times, signal, p_orb, verbose=False):
     return const_r, f_n_h, a_n_h, ph_n_h
 
 
-def extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
                           verbose=False):
     """Tries to extract harmonics from the signal after masking the eclipses
 
@@ -1850,6 +1865,8 @@ def extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1902,13 +1919,13 @@ def extract_ooe_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
     # extract harmonics
-    output = extract_harmonics(times[mask_ecl], ecl_signal[mask_ecl], p_orb, verbose=verbose)
+    output = extract_harmonics(times[mask_ecl], ecl_signal[mask_ecl], signal_err[mask_ecl], p_orb, verbose=verbose)
     const_ho, f_ho, a_ho, ph_ho = output
     return const_ho, f_ho, a_ho, ph_ho
 
 
-def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc, i_sectors,
-                               verbose=False):
+def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc,
+                               i_sectors, verbose=False):
     """Tries to extract harmonics from the signal after subtraction of
     an eclipse model
     
@@ -1918,6 +1935,8 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1970,12 +1989,12 @@ def extract_residual_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, 
     model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
     resid_orig = ecl_signal - model_ellc
     # extract harmonics
-    output = extract_harmonics(times, resid_orig, p_orb, verbose=verbose)
+    output = extract_harmonics(times, resid_orig, signal_err, p_orb, verbose=verbose)
     const_r, f_r, a_r, ph_r = output
     return const_r, f_r, a_r, ph_r
 
 
-def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Attempt to reduce the number of frequencies.
     
     Parameters
@@ -1984,6 +2003,8 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2029,7 +2050,7 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
     model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
     n_param = 2 * n_sectors + 3 * len(f_n)
-    bic_init = calc_bic(signal - model, n_param)
+    bic_init = calc_bic((signal - model)/signal_err, n_param)
     bic_prev = bic_init
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2047,7 +2068,7 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
                 const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
-                bic = calc_bic(signal - model, n_param)
+                bic = calc_bic((signal - model)/signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed freqs
                     remove_single = np.append(remove_single, [i])
@@ -2090,7 +2111,7 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
-                bic = calc_bic(signal - model, n_param)
+                bic = calc_bic((signal - model)/signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
@@ -2113,7 +2134,8 @@ def reduce_frequencies(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=False):
     """Attempt to reduce the number of frequencies taking into
     account harmonics.
     
@@ -2123,6 +2145,8 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -2173,7 +2197,7 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
     n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n) - n_harm)
-    bic_init = calc_bic(signal - model, n_param)
+    bic_init = calc_bic((signal - model)/signal_err, n_param)
     bic_prev = bic_init
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2191,7 +2215,7 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
                 const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm)
-                bic = calc_bic(signal - model, n_param)
+                bic = calc_bic((signal - model)/signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed freqs
                     remove_single = np.append(remove_single, [i])
@@ -2237,7 +2261,7 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm + 1)
-                bic = calc_bic(signal - model, n_param)
+                bic = calc_bic((signal - model)/signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
@@ -2290,7 +2314,7 @@ def reduce_frequencies_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) + len(f_i) - n_harm)
-                bic = calc_bic(signal - model, n_param)
+                bic = calc_bic((signal - model)/signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
