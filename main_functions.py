@@ -1165,7 +1165,6 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     p_orb_9, t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9 = out_9[:6]
     timing_errs_9, depths_err_9, ecl_indices_9 = out_9[6:]
-    # ecl_indices_9 = out_9[8]
     if np.any([item is None for item in out_9]):
         return (None,) * 5
     # --- [10] --- Separation of harmonics

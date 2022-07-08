@@ -966,45 +966,50 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
-    print(len(combinations), combinations)
     # make eclipses
     ecl_indices = np.zeros((0, 11), dtype=int)
     for comb in combinations:
         # eclipses can only be an eclipse if ingress and then egress
         condition = (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1)
-        print(condition)
         # restrict duration to half the orbital period
         if (peaks_2_n[comb[0]] > peaks_2_n[comb[1]]):  # be careful with wrap-around
             duration = t_model[zeros_1[comb[1]]] + (p_orb - t_model[zeros_1[comb[0]]])
         else:
             duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
         condition &= (duration < p_orb / 2)
-        print(condition)
         if condition:
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], 0, 0,
                    0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             if (ecl[2] > ecl[-3]):  # be careful with wrap-around
-                l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
-                                                               t_model[ecl[-3]] + p_orb, model_h[ecl[-3]])
-                t_model_wrapped = np.append(t_model[ecl[2]:], t_model[:ecl[-3] + 1])
-                model_h_wrapped = np.append(model_h[ecl[2]:], model_h[:ecl[-3] + 1])
-                line = tsf.linear_curve(t_model_wrapped, np.array([l_const]), np.array([l_slope]),
-                                        np.array([[0, len(t_model_wrapped)]]))
-                ineq = (model_h_wrapped <= line)  # everything has to be below the line (or equal to it)
+                # l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
+                #                                                t_model[ecl[-3]] + p_orb, model_h[ecl[-3]])
+                # t_model_wrapped = np.append(t_model[ecl[2]:], t_model[:ecl[-3] + 1])
+                # model_h_wrapped = np.append(model_h[ecl[2]:], model_h[:ecl[-3] + 1])
+                # line = tsf.linear_curve(t_model_wrapped, np.array([l_const]), np.array([l_slope]),
+                #                         np.array([[0, len(t_model_wrapped)]]))
+                # ineq = (model_h_wrapped <= line)  # everything has to be below the line (or equal to it)
                 # allclose takes into account floating point tolerance (np.all(ineq) does not)
-                if np.allclose(model_h_wrapped[np.invert(ineq)], line[np.invert(ineq)]):
+                # if np.allclose(model_h_wrapped[np.invert(ineq)], line[np.invert(ineq)]):
+                #     ecl_indices = np.vstack((ecl_indices, [ecl]))
+                line_check_1 = np.all(model_h[ecl[2]:] <= model_h[ecl[2]])
+                line_check_2 = np.all(model_h[:ecl[-3]] <= model_h[ecl[-3]])
+                if line_check_1 & line_check_2:
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
             else:
-                l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
-                                                               t_model[ecl[-3]], model_h[ecl[-3]])
-                line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
-                                        np.array([[0, ecl[-3] - ecl[2]]]))
-                ineq = (model_h[ecl[2]:ecl[-3]] <= line)  # everything has to be below the line (or equal to it)
+                # l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
+                #                                                t_model[ecl[-3]], model_h[ecl[-3]])
+                # line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
+                #                         np.array([[0, ecl[-3] - ecl[2]]]))
+                # ineq = (model_h[ecl[2]:ecl[-3]] <= line)  # everything has to be below the line (or equal to it)
                 # allclose takes into account floating point tolerance (np.all(ineq) does not)
-                if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
+                # if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
+                #     ecl_indices = np.vstack((ecl_indices, [ecl]))
+                i_mid_ecl = (ecl[2] + ecl[-3]) // 2
+                line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
+                line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
+                if line_check_1 & line_check_2:
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
-    print(ecl_indices)
     # determine the points of eclipse minima and flat bottoms
     indices_t = np.arange(len(t_model))
     for i, ecl in enumerate(ecl_indices):
@@ -1064,7 +1069,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_i_1_err = t_i_1_err[remove_shallow]
     t_i_2_err = t_i_2_err[remove_shallow]
     ecl_indices = ecl_indices[remove_shallow]
-    print(ecl_indices)
     # estimates of flat bottom
     t_b_i_1 = t_model[ecl_indices[:, 4]]
     t_b_i_2 = t_model[ecl_indices[:, -5]]
@@ -1076,7 +1080,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
     init_n_comb = len(combinations)
     # check overlap of the eclipses
-    print(p_orb, combinations)
     comb_remove = []
     for i, comb in enumerate(combinations):
         c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
@@ -1085,7 +1088,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     if (init_n_comb == 1) & (len(comb_remove) == 1):
         comb_remove = []
         p_orb = 2 * p_orb  # last chance at doubling the period in case of identical eclipses
-    print(p_orb)
     combinations = np.delete(combinations, comb_remove, axis=0)
     if (len(combinations) == 0):
         return (None,) * 8 + (ecl_indices,)
