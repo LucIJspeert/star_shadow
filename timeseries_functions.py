@@ -1824,7 +1824,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, verbose=False):
     model = np.zeros(len(times))
     f_n_h, a_n_h, ph_n_h = np.array([[], [], []])
     n_param_orig = 2  # just the mean of the residual and orbital period
-    bic_prev = calc_bic(resid, signal_err, n_param_orig)
+    bic_prev = calc_bic(resid/signal_err, n_param_orig)
     # loop over candidates and try to extract
     n_accepted = 0
     for h_c in h_candidate:

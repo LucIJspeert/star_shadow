@@ -786,12 +786,14 @@ def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
     return None
 
 
-def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
+def save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
                          data_id=None):
     """Save the results of the eclipse timings
     
     Parameters
     ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
@@ -824,10 +826,10 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
     t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
     d_1_err, d_2_err = depths_err
-    var_names = ['t_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
+    var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 't_1_err', 't_2_err',
                  't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err', 'd_1_err', 'd_2_err']
-    var_desc = ['time of primary minimum modulo the period',
+    var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -843,7 +845,7 @@ def save_results_timings(t_zero, timings, depths, t_bottoms, timing_errs, depths
                 'error in time of secondary first contact (t_2_1 or tau_2_1)',
                 'error in time of secondary last contact (t_2_2 or tau_2_2)',
                 'error in depth of primary minimum', 'error in depth of secondary minimum']
-    values = [str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
+    values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(depths[0]), str(depths[1]), str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2),
               str(t_1_err), str(t_2_err), str(tau_1_1_err), str(tau_1_2_err), str(tau_2_1_err), str(tau_2_2_err),
               str(d_1_err), str(d_2_err)]
@@ -887,6 +889,8 @@ def read_results_timings(file_name):
     
     Returns
     -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
@@ -908,8 +912,9 @@ def read_results_timings(file_name):
         as generated here (see function for details)
     """
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[:13]
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = values[13:]
+    p_orb, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2 = values[:10]
+    t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[10:14]
+    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = values[14:]
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
     t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
@@ -918,7 +923,7 @@ def read_results_timings(file_name):
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
     ecl_indices = read_results_ecl_indices(file_name)
-    return t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices
+    return p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices
 
 
 def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):

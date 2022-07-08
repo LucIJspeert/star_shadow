@@ -911,6 +911,9 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     
     Returns
     -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days.
+        Can only be doubled, otherwise does not change.
     t_zero: float, None
         Time of deepest minimum modulo p_orb
     t_1: float, None
@@ -963,17 +966,20 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
+    print(len(combinations), combinations)
     # make eclipses
     ecl_indices = np.zeros((0, 11), dtype=int)
     for comb in combinations:
         # eclipses can only be an eclipse if ingress and then egress
         condition = (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1)
+        print(condition)
         # restrict duration to half the orbital period
         if (peaks_2_n[comb[0]] > peaks_2_n[comb[1]]):  # be careful with wrap-around
             duration = t_model[zeros_1[comb[1]]] + (p_orb - t_model[zeros_1[comb[0]]])
         else:
             duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
         condition &= (duration < p_orb / 2)
+        print(condition)
         if condition:
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], 0, 0,
                    0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
@@ -998,9 +1004,11 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
                 # allclose takes into account floating point tolerance (np.all(ineq) does not)
                 if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
+    print(ecl_indices)
     # determine the points of eclipse minima and flat bottoms
     indices_t = np.arange(len(t_model))
     for i, ecl in enumerate(ecl_indices):
+        # eclipse minima
         if (ecl[2] > ecl[-3]):  # wrap-around
             i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3] + 1])))
             ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3] + 1])[i_min]
@@ -1056,6 +1064,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_i_1_err = t_i_1_err[remove_shallow]
     t_i_2_err = t_i_2_err[remove_shallow]
     ecl_indices = ecl_indices[remove_shallow]
+    print(ecl_indices)
     # estimates of flat bottom
     t_b_i_1 = t_model[ecl_indices[:, 4]]
     t_b_i_2 = t_model[ecl_indices[:, -5]]
@@ -1065,12 +1074,18 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # now pick out two consecutive, fully covered eclipses
     indices = np.arange(len(ecl_indices))
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
+    init_n_comb = len(combinations)
     # check overlap of the eclipses
+    print(p_orb, combinations)
     comb_remove = []
     for i, comb in enumerate(combinations):
         c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
         if (c_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
             comb_remove.append(i)
+    if (init_n_comb == 1) & (len(comb_remove) == 1):
+        comb_remove = []
+        p_orb = 2 * p_orb  # last chance at doubling the period in case of identical eclipses
+    print(p_orb)
     combinations = np.delete(combinations, comb_remove, axis=0)
     if (len(combinations) == 0):
         return (None,) * 8 + (ecl_indices,)
@@ -1119,7 +1134,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_int_tan = (t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2)
     # redetermine depths a tiny bit more precisely
     depths = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
-    return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
+    return p_orb, t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
 
 
 @nb.njit(cache=True)
@@ -1679,7 +1694,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     return light_lost
 
 
-def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2,
+def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bottom_1, bottom_2,
                           t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
@@ -1759,6 +1774,13 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     integral_tau_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + phi_2_2, e) / n
     dur_1 = integral_tau_1_1 + integral_tau_1_2
     dur_2 = integral_tau_2_1 + integral_tau_2_2
+    # psi angles are for internal tangency
+    integral_bottom_1_1 = integral_kepler_2(nu_conj_1 - psi_1_1, nu_conj_1, e) / n
+    integral_bottom_1_2 = integral_kepler_2(nu_conj_1, nu_conj_1 + psi_1_2, e) / n
+    integral_bottom_2_1 = integral_kepler_2(nu_conj_2 - psi_2_1, nu_conj_2, e) / n
+    integral_bottom_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + psi_2_2, e) / n
+    bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
+    bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
@@ -1772,10 +1794,15 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # sum of durations of the minima, linearly sensitive to phi_0 (and sensitive to e sin(w), i and phi_0)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
     # depths
-    r_depth_1 = (d_1 - depth_1) / np.sqrt(d_1_err**2)
-    r_depth_2 = (d_2 - depth_2) / np.sqrt(d_2_err**2)
+    r_depth_1 = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
+    r_depth_2 = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
+    # r_depth_1 = (d_1 - depth_1) / d_1_err
+    # r_depth_2 = (d_2 - depth_2) / d_2_err
+    # todo: test this and inclusion of bottoms
+    # durations of the (flat) bottoms of the minima
+    r_bottom_duration = ((bottom_1 + bottom_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
     # calculate the error-normalised residuals
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_1, r_depth_2])
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_1, r_depth_2, r_bottom_duration])
     bic = tsf.calc_bic(resid, 1)
     return bic
 
@@ -1887,14 +1914,12 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     # sum of durations of the minima, linearly sensitive to phi_0 (and sensitive to e sin(w), i and phi_0)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
     # depths
-    r_depth_1 = (d_1 - depth_1) / np.sqrt(d_1_err**2)
-    r_depth_2 = (d_2 - depth_2) / np.sqrt(d_2_err**2)
+    r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
+    r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_bottom_duration_1 = (bottom_1 - bottom_dur_1) / np.sqrt(tau_1_1_err**2 + tau_1_2_err**2)
-    r_bottom_duration_2 = (bottom_2 - bottom_dur_2) / np.sqrt(tau_2_1_err**2 + tau_2_2_err**2)
-    # calculate the error-normalised residuals
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_1, r_depth_2,
-                      r_bottom_duration_1, r_bottom_duration_2])
+    r_bottom_duration = ((bottom_1 + bottom_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    # calculate the error-normalised residuals - the most important ones are weighed more strongly
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_bottom_duration])
     bic = tsf.calc_bic(resid, 6)
     return bic
 
@@ -1945,7 +1970,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
     r_ratio = 1
-    args_i = (r_ratio, p_orb, *timings_tau, depths[0], depths[1], *timing_errs, *depths_err)
+    args_i = (r_ratio, p_orb, *timings_tau, depths[0], depths[1], *bottom_dur, *timing_errs, *depths_err)
     bounds_i = (np.pi/4, np.pi/2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
@@ -1970,22 +1995,16 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, phi_0, psi_0, 1)
     args_ep = (p_orb, *timings_tau, *depths, *bottom_dur, *timing_errs, *depths_err)
-    bounds_ep = ((max(ecosw - 0.1, -1), min(ecosw + 0.1, 1)), (max(esinw - 0.1, -1), min(esinw + 0.1, 1)),
-                 (i - 0.08, min(i + 0.08, np.pi/2)), (phi_0/1.1, min(2*phi_0, np.pi/2)),
-                 (psi_0/1.1, min(2*psi_0, np.pi/2)), rr_bounds)  # 0.08 rad ~ 4.5 deg
+    bounds_ep = ((-1, 1), (-1, 1), (np.pi/4, np.pi/2),
+                 (0, np.pi/2), (0, np.pi/2), rr_bounds)
     # the minimization will crash if bounds are reversed - prevent this.
-    if np.all([b1 < b2 for b1, b2 in bounds_ep]):
-        # now we can safely fit
-        res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
-        ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
-        e = np.sqrt(ecosw**2 + esinw**2)
-        w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-        # update radii
-        r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
-        r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
-    elif verbose:
-        n_outside = np.sum([b1 > b2 for b1, b2 in bounds_ep])
-        print(f'{n_outside} parameter(s) outside bounds, skipping fit with objective_ecl_param')
+    res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
+    ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
+    e = np.sqrt(ecosw**2 + esinw**2)
+    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
+    # update radii
+    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
+    r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
     # value for sb_ratio from the depths ratio and the other parameters
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
@@ -2108,7 +2127,7 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
 
 
 def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h,
-                        timings_tau, bottom_dur, timing_errs, depths_err, verbose=False):
+                        timings, bottom_dur, timing_errs, depths_err, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2141,9 +2160,9 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         The phases of a number of harmonic sine waves
     t_zero: float
         Time of deepest minimum modulo p_orb
-    timings_tau: numpy.ndarray[float]
-        Eclipse timings of minima and durations from/to first/last contact,
-        t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
     bottom_dur: numpy.ndarray[float]
         Durations of the possible flat bottom (internal tangency)
         t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
@@ -2180,31 +2199,64 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     The interval for w can consist of two disjunct intervals due to the
     degeneracy between angles around 90 degrees and 270 degrees.
     """
-    t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau
+    # t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     bottom_1, bottom_2 = bottom_dur[0], bottom_dur[1]
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
-    bot_1_err = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2)  # estimate from the tau errors
-    bot_2_err = np.sqrt(tau_2_1_err**2 + tau_2_2_err**2)  # estimate from the tau errors
+    # t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    bot_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)  # estimate from the tau errors
+    bot_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)  # estimate from the tau errors
     # generate input distributions
     rng = np.random.default_rng()
     n_gen = 10**4
-    normal_t_1 = rng.normal(t_1, t_1_err, n_gen)
-    normal_t_2 = rng.normal(t_2, t_2_err, n_gen)
-    # use truncated normals for the rest of the measurements
-    normal_tau_1_1 = sp.stats.truncnorm.rvs((0 - tau_1_1) / tau_1_1_err, 10, loc=tau_1_1, scale=tau_1_1_err, size=n_gen)
-    normal_tau_1_2 = sp.stats.truncnorm.rvs((0 - tau_1_2) / tau_1_2_err, 10, loc=tau_1_2, scale=tau_1_2_err, size=n_gen)
-    normal_tau_2_1 = sp.stats.truncnorm.rvs((0 - tau_2_1) / tau_2_1_err, 10, loc=tau_2_1, scale=tau_2_1_err, size=n_gen)
-    normal_tau_2_2 = sp.stats.truncnorm.rvs((0 - tau_2_2) / tau_2_2_err, 10, loc=tau_2_2, scale=tau_2_2_err, size=n_gen)
-    normal_bot_1 = sp.stats.truncnorm.rvs((0 - bottom_1) / bot_1_err, 10, loc=bottom_1, scale=bot_1_err, size=n_gen)
-    normal_bot_2 = sp.stats.truncnorm.rvs((0 - bottom_2) / bot_2_err, 10, loc=bottom_2, scale=bot_2_err, size=n_gen)
+    # the edges are measured first so choose them from regular normal distributions
+    normal_t_1_1 = rng.normal(t_1_1, t_1_1_err, n_gen)
+    normal_t_1_2 = rng.normal(t_1_2, t_1_2_err, n_gen)
+    normal_t_2_1 = rng.normal(t_2_1, t_2_1_err, n_gen)
+    normal_t_2_2 = rng.normal(t_2_2, t_2_2_err, n_gen)
+    # highly unlikely to overlap, but if they do, it's bad, so fix by swapping them
+    swapped_1 = (normal_t_1_1 > normal_t_1_2)
+    if np.any(swapped_1):
+        _swap = np.copy(normal_t_1_1[swapped_1])
+        normal_t_1_1[swapped_1] = normal_t_1_2[swapped_1]
+        normal_t_1_2[swapped_1] = _swap
+    swapped_2 = (normal_t_2_1 > normal_t_2_2)
+    if np.any(swapped_2):
+        _swap = np.copy(normal_t_2_1[swapped_2])
+        normal_t_2_1[swapped_2] = normal_t_2_2[swapped_2]
+        normal_t_2_2[swapped_2] = _swap
+    # the minima are then somewhere inbetween, so use truncated normal distributions
+    normal_t_1 = sp.stats.truncnorm.rvs((t_1_1 - t_1) / t_1_err, (t_1_2 - t_1) / t_1_err,
+                                        loc=t_1, scale=t_1_err, size=n_gen)
+    normal_t_2 = sp.stats.truncnorm.rvs((t_2_1 - t_2) / t_2_err, (t_2_2 - t_2) / t_2_err,
+                                        loc=t_2, scale=t_2_err, size=n_gen)
+    # calculate the tau
+    normal_tau_1_1 = normal_t_1 - normal_t_1_1
+    normal_tau_1_2 = normal_t_1_2 - normal_t_1
+    normal_tau_2_1 = normal_t_2 - normal_t_2_1
+    normal_tau_2_2 = normal_t_2_2 - normal_t_2
+    # the bottoms are clipped at zero (because a zero value may indeed be more likely than a non-zero one)
+    normal_bot_1 = rng.normal(bottom_1, bot_1_err, n_gen)
+    normal_bot_1 = np.clip(normal_bot_1, 0, None)
+    normal_bot_2 = rng.normal(bottom_2, bot_2_err, n_gen)
+    normal_bot_2 = np.clip(normal_bot_2, 0, None)
+    
+    
+    # normal_t_1 = rng.normal(t_1, t_1_err, n_gen)
+    # normal_t_2 = rng.normal(t_2, t_2_err, n_gen)
+    # # use truncated normals for the rest of the measurements
+    # normal_tau_1_1 = sp.stats.truncnorm.rvs((0 - tau_1_1) / tau_1_1_err, 10, loc=tau_1_1, scale=tau_1_1_err, size=n_gen)
+    # normal_tau_1_2 = sp.stats.truncnorm.rvs((0 - tau_1_2) / tau_1_2_err, 10, loc=tau_1_2, scale=tau_1_2_err, size=n_gen)
+    # normal_tau_2_1 = sp.stats.truncnorm.rvs((0 - tau_2_1) / tau_2_1_err, 10, loc=tau_2_1, scale=tau_2_1_err, size=n_gen)
+    # normal_tau_2_2 = sp.stats.truncnorm.rvs((0 - tau_2_2) / tau_2_2_err, 10, loc=tau_2_2, scale=tau_2_2_err, size=n_gen)
+    # normal_bot_1 = sp.stats.truncnorm.rvs((0 - bottom_1) / bot_1_err, 10, loc=bottom_1, scale=bot_1_err, size=n_gen)
+    # normal_bot_2 = sp.stats.truncnorm.rvs((0 - bottom_2) / bot_2_err, 10, loc=bottom_2, scale=bot_2_err, size=n_gen)
+    # depths are calculated from the above inputs
     normal_d_1 = np.zeros(n_gen)
     normal_d_2 = np.zeros(n_gen)
     for k in range(n_gen):
-        # depths are re-calculated from the above inputs
-        contacts = (normal_t_1[k] - normal_tau_1_1[k], normal_t_1[k] + normal_tau_1_2[k],
-                    normal_t_2[k] - normal_tau_2_1[k], normal_t_2[k] + normal_tau_2_2[k])
-        depths_k = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, normal_t_1[k], normal_t_2[k], contacts[0],
-                                           contacts[1], contacts[2], contacts[3])
+        depths_k = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, normal_t_1[k], normal_t_2[k], normal_t_1_1[k],
+                                           normal_t_1_2[k], normal_t_2_1[k], normal_t_2_2[k])
         normal_d_1[k] = depths_k[0]
         normal_d_2[k] = depths_k[1]
     # determine the output distributions

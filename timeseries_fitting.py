@@ -822,7 +822,7 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     result = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
                                options={'maxiter': 10000})
     if verbose:
-        print('Fit 1 complete')
+        print('Fit complete')
         print(f'fun: {result.fun}')
         print(f'message: {result.message}')
         print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
