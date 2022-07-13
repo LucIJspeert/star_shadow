@@ -982,29 +982,11 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
                    0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             if (ecl[2] > ecl[-3]):  # be careful with wrap-around
-                # l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
-                #                                                t_model[ecl[-3]] + p_orb, model_h[ecl[-3]])
-                # t_model_wrapped = np.append(t_model[ecl[2]:], t_model[:ecl[-3] + 1])
-                # model_h_wrapped = np.append(model_h[ecl[2]:], model_h[:ecl[-3] + 1])
-                # line = tsf.linear_curve(t_model_wrapped, np.array([l_const]), np.array([l_slope]),
-                #                         np.array([[0, len(t_model_wrapped)]]))
-                # ineq = (model_h_wrapped <= line)  # everything has to be below the line (or equal to it)
-                # allclose takes into account floating point tolerance (np.all(ineq) does not)
-                # if np.allclose(model_h_wrapped[np.invert(ineq)], line[np.invert(ineq)]):
-                #     ecl_indices = np.vstack((ecl_indices, [ecl]))
                 line_check_1 = np.all(model_h[ecl[2]:] <= model_h[ecl[2]])
                 line_check_2 = np.all(model_h[:ecl[-3]] <= model_h[ecl[-3]])
                 if line_check_1 & line_check_2:
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
             else:
-                # l_const, l_slope = tsf.linear_slope_two_points(t_model[ecl[2]], model_h[ecl[2]],
-                #                                                t_model[ecl[-3]], model_h[ecl[-3]])
-                # line = tsf.linear_curve(t_model[ecl[2]:ecl[-3]], np.array([l_const]), np.array([l_slope]),
-                #                         np.array([[0, ecl[-3] - ecl[2]]]))
-                # ineq = (model_h[ecl[2]:ecl[-3]] <= line)  # everything has to be below the line (or equal to it)
-                # allclose takes into account floating point tolerance (np.all(ineq) does not)
-                # if np.allclose(model_h[ecl[2]:ecl[-3]][np.invert(ineq)], line[np.invert(ineq)]):
-                #     ecl_indices = np.vstack((ecl_indices, [ecl]))
                 i_mid_ecl = (ecl[2] + ecl[-3]) // 2
                 line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
                 line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
@@ -1037,9 +1019,11 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # check that we have some eclipses
     if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
         return (None,) * 8 + (ecl_indices,)
-    # correct for not quite reaching the top of the peak in some cases
+    # correct for not quite reaching the top of the peak in some cases for peaks_2_p
     ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
     ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
+    # finally, put the eclipse minimum at or in the middle between the peaks_2_p
+    ecl_indices[i, 5] = (ecl_indices[:, 4] + ecl_indices[:, -5])//2
     # make the timing measurement - make sure to account for wrap around when an eclipse is divided up
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
     t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
@@ -1696,8 +1680,9 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     return light_lost
 
 
-def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bottom_1, bottom_2,
-                          t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
+def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
+                          tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
+                          tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
     Parameters
@@ -1721,6 +1706,14 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
         Duration of secondary first contact to mimimum
     tau_2_2: float
         Duration of secondary mimimum to last contact
+    tau_b_1_1: float
+        Time of primary first internal tangency to mimimum
+    tau_b_1_2: float
+        Time of primary minimum to second internal tangency
+    tau_b_2_1: float
+        Time of secondary first internal tangency to mimimum
+    tau_b_2_2: float
+        Time of secondary minimum to second internal tangency
     d_1: float
         Depth of primary minimum
     d_2: float
@@ -1752,6 +1745,8 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # obtain phi_0 and the approximate e and w
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     e, w = ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi_0)
+    # psi_0
+    psi_0 = np.pi * (tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) / (2 * p_orb)
     if (e >= 1):
         return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)
@@ -1761,6 +1756,7 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
         return 10**9
     # minimise for the contact angles
     phi_1_1, phi_1_2, phi_2_1, phi_2_2 = contact_phase_angles(e, w, i, phi_0)
+    psi_1_1, psi_1_2, psi_2_1, psi_2_2 = contact_phase_angles(e, w, i, psi_0)
     # calculate the true anomaly of minima
     nu_1 = true_anomaly(theta_1, w)
     nu_2 = true_anomaly(theta_2, w)
@@ -1800,18 +1796,18 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     r_depth_2 = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # r_depth_1 = (d_1 - depth_1) / d_1_err
     # r_depth_2 = (d_2 - depth_2) / d_2_err
-    # todo: test this and inclusion of bottoms
+    # todo: test this
     # durations of the (flat) bottoms of the minima
-    r_bottom_duration = ((bottom_1 + bottom_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    r_bottom_duration = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_1, r_depth_2, r_bottom_duration])
     bic = tsf.calc_bic(resid, 1)
     return bic
 
 
-def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bottom_1,
-                        bottom_2, t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err,
-                        d_1_err, d_2_err):
+def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
+                        tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
+                        tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
     Parameters
@@ -1835,14 +1831,18 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
         Duration of secondary first contact to mimimum
     tau_2_2: float
         Duration of secondary mimimum to last contact
+    tau_b_1_1: float
+        Time of primary first internal tangency to mimimum
+    tau_b_1_2: float
+        Time of primary minimum to second internal tangency
+    tau_b_2_1: float
+        Time of secondary first internal tangency to mimimum
+    tau_b_2_2: float
+        Time of secondary minimum to second internal tangency
     d_1: float
         Depth of primary minimum
     d_2: float
         Depth of secondary minimum
-    bottom_1: float
-        Duration of 'flat' bottom of primary minimum
-    bottom_2: float
-        Duration of 'flat' bottom of secondary minimum
     t_1_err: float
         Error in t_1 (the time of primary minimum)
     t_2_err: float
@@ -1919,14 +1919,14 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_bottom_duration = ((bottom_1 + bottom_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    r_bottom_duration = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
     # calculate the error-normalised residuals - the most important ones are weighed more strongly
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_bottom_duration])
     bic = tsf.calc_bic(resid, 6)
     return bic
 
 
-def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err, verbose=False):
+def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verbose=False):
     """Determine all eclipse parameters using a combination of approximate
     functions and fitting procedures
     
@@ -1935,13 +1935,12 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     p_orb: float
         The orbital period
     timings_tau: numpy.ndarray[float]
-        Eclipse timings of minima and durations from/to first/last contact,
-        t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
+        Eclipse timings of minima, durations from/to first/last contact,
+        and durations from/to first/last internal tangency:
+        t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
+        tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    bottom_dur: numpy.ndarray[float]
-        Durations of the possible flat bottom (internal tangency)
-        t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
     timing_errs: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
@@ -1972,14 +1971,14 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
     r_ratio = 1
-    args_i = (r_ratio, p_orb, *timings_tau, depths[0], depths[1], *bottom_dur, *timing_errs, *depths_err)
+    args_i = (r_ratio, p_orb, *timings_tau, depths[0], depths[1], *timing_errs, *depths_err)
     bounds_i = (np.pi/4, np.pi/2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
     # calculation phi_0, in durations: (duration_1 + duration_2)/4 = (2pi/P)(tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2)/4
     phi_0 = np.pi * (timings_tau[2] + timings_tau[3] + timings_tau[4] + timings_tau[5]) / (2 * p_orb)
     # psi_0 is like phi_0 but for the eclipse bottom
-    psi_0 = np.pi * (bottom_dur[0] + bottom_dur[1]) / (2 * p_orb)
+    psi_0 = np.pi * (timings_tau[6] + timings_tau[7] + timings_tau[8] + timings_tau[9]) / (2 * p_orb)
     # values of e and w by approximate formulae
     e, w = ecc_omega_approx(p_orb, *timings_tau, i, phi_0)
     # value for r_sum_sma from ecc, incl and phi_0
@@ -1996,7 +1995,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, dept
     # prepare for fit of: e, w, i, phi_0, psi_0 and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, phi_0, psi_0, 1)
-    args_ep = (p_orb, *timings_tau, *depths, *bottom_dur, *timing_errs, *depths_err)
+    args_ep = (p_orb, *timings_tau, *depths, *timing_errs, *depths_err)
     bounds_ep = ((-1, 1), (-1, 1), (np.pi/4, np.pi/2),
                  (0, np.pi/2), (0, np.pi/2), rr_bounds)
     # the minimization will crash if bounds are reversed - prevent this.

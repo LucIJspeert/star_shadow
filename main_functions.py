@@ -621,12 +621,9 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     timings: numpy.ndarray[float], None
         Eclipse timings of minima and first and last contact points,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-    timings_tau: numpy.ndarray[float], None
-        Eclipse timings of minima and durations from/to first/last contact,
-        t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     depths: numpy.ndarray[float], None
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    t_bottoms: numpy.ndarray[float], None
+    timings_b: numpy.ndarray[float], None
         Eclipse timings of the possible flat bottom (internal tangency)
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timing_errs: numpy.ndarray[float], None
@@ -647,7 +644,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_timings(file_name)
-        p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices = results
+        p_orb, t_zero, timings, depths, timings_b, timing_errs, depths_err, ecl_indices = results
     elif os.path.isfile(file_name_2) & (not overwrite):  # not enough eclipses found last time
         ecl_indices = ut.read_results_ecl_indices(file_name)  # read only the indices file
         if verbose:
@@ -662,7 +659,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
             print(f'Measuring eclipse time points and depths.')
         # deepest eclipse is put first in each measurement
         output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level)
-        p_orb, t_zero, t_1, t_2, t_contacts, depths, t_bottoms, t_i_1_err, t_i_2_err, ecl_indices = output
+        p_orb, t_zero, t_1, t_2, t_contacts, depths, timings_b, t_i_1_err, t_i_2_err, ecl_indices = output
         # account for not finding eclipses
         if np.all([item is None for item in output]):
             message = f'No eclipse signatures found above the noise level of {noise_level}'
@@ -690,16 +687,15 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
         # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
         depths_err = np.array([np.sqrt(3 / 2 * noise_level**2), np.sqrt(3 / 2 * noise_level**2)])
         if file_name is not None:
-            ut.save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices,
+            ut.save_results_timings(p_orb, t_zero, timings, depths, timings_b, timing_errs, depths_err, ecl_indices,
                                     file_name, data_id)
     # convert to durations
     tau_1_1 = timings[0] - timings[2]  # t_1 - t_1_1
     tau_1_2 = timings[3] - timings[0]  # t_1_2 - t_1
     tau_2_1 = timings[1] - timings[4]  # t_2 - t_2_1
     tau_2_2 = timings[5] - timings[1]  # t_2_2 - t_2
-    timings_tau = np.array([timings[0], timings[1], tau_1_1, tau_1_2, tau_2_1, tau_2_2])
     # t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
-    bottom_dur = np.array([t_bottoms[1] - t_bottoms[0], t_bottoms[3] - t_bottoms[2]])
+    bottom_dur = np.array([timings_b[1] - timings_b[0], timings_b[3] - timings_b[2]])
     bottom_dur_err = np.array([np.sqrt(timing_errs[2]**2 + timing_errs[3]**2),
                                np.sqrt(timing_errs[4]**2 + timing_errs[5]**2)])
     t_b = time.time()
@@ -735,7 +731,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
               f'bottom_dur_1: {bottom_dur[0]:.{rnd_bot_1}f}, (+-{bottom_dur_err[0]:.{rnd_bot_1}f}), \n'
               f'bottom_dur_2: {bottom_dur[1]:.{rnd_bot_2}f}, (+-{bottom_dur_err[1]:.{rnd_bot_2}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return p_orb, t_zero, timings, timings_tau, depths, t_bottoms, timing_errs, depths_err, ecl_indices
+    return p_orb, t_zero, timings, depths, timings_b, timing_errs, depths_err, ecl_indices
 
 
 def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
@@ -845,7 +841,7 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 
-def eclipse_analysis_elements(p_orb, t_zero, timings, depths, bottom_dur, p_err, timing_errs, depths_err, f_h, a_h,
+def eclipse_analysis_elements(p_orb, t_zero, timings, depths, timings_b, p_err, timing_errs, depths_err, f_h, a_h,
                               ph_h, file_name=None, data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclispe timings
 
@@ -860,9 +856,9 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, bottom_dur, p_err,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    bottom_dur: numpy.ndarray[float]
-        Durations of the possible flat bottom (internal tangency)
-        t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
+    timings_b: numpy.ndarray[float]
+        Timings of the possible flat bottom (internal tangency)
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     p_err: float
         Error in the orbital period
     timing_errs: numpy.ndarray[float]
@@ -946,8 +942,13 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, bottom_dur, p_err,
         tau_2_1 = timings[1] - timings[4]  # t_2 - t_2_1
         tau_2_2 = timings[5] - timings[1]  # t_2_2 - t_2
         timings_tau = np.array([timings[0], timings[1], tau_1_1, tau_1_2, tau_2_1, tau_2_2])
+        tau_b_1_1 = timings[0] - timings_b[0]  # t_1 - t_b_1_1
+        tau_b_1_2 = timings_b[1] - timings[0]  # t_b_1_2 - t_1
+        tau_b_2_1 = timings[1] - timings_b[2]  # t_2 - t_b_2_1
+        tau_b_2_2 = timings_b[3] - timings[1]  # t_b_2_2 - t_2
+        timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
         # minimisation procedure for parameters from formulae
-        output = af.eclipse_parameters(p_orb, timings_tau, depths, bottom_dur, timing_errs, depths_err, verbose=verbose)
+        output = af.eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verbose=verbose)
         e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = output
         # calculate the errors
         output_2 = af.error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero,
@@ -1163,8 +1164,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
     out_9 = eclipse_analysis_timings(p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    p_orb_9, t_zero_9, timings_9, timings_tau_9, depths_9, t_bottoms_9 = out_9[:6]
-    timing_errs_9, depths_err_9, ecl_indices_9 = out_9[6:]
+    p_orb_9, t_zero_9, timings_9, depths_9, timings_b_9, timing_errs_9, depths_err_9, ecl_indices_9 = out_9
     if np.any([item is None for item in out_9]):
         return (None,) * 5
     # --- [10] --- Separation of harmonics
@@ -1177,18 +1177,15 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_timings(p_orb_9, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8,
                                       file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    p_orb_11, t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11 = out_11[:6]
-    timing_errs_11, depths_err_11, ecl_indices_11 = out_11[6:]
+    p_orb_11, t_zero_11, timings_11, depths_11, timings_b_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_11
     if np.any([item is None for item in out_11]):
         if verbose:
             print(f'Not enough eclipses found. Now using low-harmonics result.\n')
         out_11 = None
-        p_orb_11, t_zero_11, timings_11, timings_tau_11, depths_11, t_bottoms_11 = out_9[:6]
-        timing_errs_11, depths_err_11, ecl_indices_11 = out_9[6:]
+        p_orb_11, t_zero_11, timings_11, depths_11, timings_b_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_9
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
-    bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
-    out_12 = eclipse_analysis_elements(p_orb_11, t_zero_11, timings_11, depths_11, bottom_dur, p_err_8,
+    out_12 = eclipse_analysis_elements(p_orb_11, t_zero_11, timings_11, depths_11, timings_b_11, p_err_8,
                                        timing_errs_11, depths_err_11, f_he_10, a_he_10, ph_he_10,
                                        file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12 = out_12[:9]

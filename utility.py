@@ -1609,8 +1609,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_9 = read_results_timings(file_name)
-        t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:6]
-        ecl_indices_9 = results_9[6]
+        p_orb_9, t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:7]
+        ecl_indices_9 = results_9[7]
         # get the low harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
@@ -1630,8 +1630,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_11 = read_results_timings(file_name)
-        t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:6]
-        ecl_indices_11 = results_11[6]
+        p_orb_11, t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
+        ecl_indices_11 = results_11[7]
         timings_tau_11 = np.array([timings_11[0], timings_11[1],
                                    timings_11[0] - timings_11[2], timings_11[3] - timings_11[0],
                                    timings_11[1] - timings_11[4], timings_11[5] - timings_11[1]])
