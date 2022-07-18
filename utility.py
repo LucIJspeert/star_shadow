@@ -786,7 +786,7 @@ def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
     return None
 
 
-def save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices, file_name,
+def save_results_timings(p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices, file_name,
                          data_id=None):
     """Save the results of the eclipse timings
     
@@ -798,16 +798,14 @@ def save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs,
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    t_bottoms: numpy.ndarray[float]
-        Eclipse timings of the possible flat bottom (internal tangency)
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timing_errs: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
-        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     ecl_indices: numpy.ndarray[int]
@@ -822,9 +820,8 @@ def save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs,
     -------
     None
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
-    t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = t_bottoms
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
     d_1_err, d_2_err = depths_err
     var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 't_1_err', 't_2_err',
@@ -840,14 +837,14 @@ def save_results_timings(p_orb, t_zero, timings, depths, t_bottoms, timing_errs,
                 'end of (flat) eclipse bottom right of secondary minimum',
                 'error in time of primary minimum (t_1)',
                 'error in time of secondary minimum (t_2)',
-                'error in time of primary first contact (t_1_1 or tau_1_1)',
-                'error in time of primary last contact (t_1_2 or tau_1_2)',
-                'error in time of secondary first contact (t_2_1 or tau_2_1)',
-                'error in time of secondary last contact (t_2_2 or tau_2_2)',
+                'error in time of primary first contact (t_1_1)',
+                'error in time of primary last contact (t_1_2)',
+                'error in time of secondary first contact (t_2_1)',
+                'error in time of secondary last contact (t_2_2)',
                 'error in depth of primary minimum', 'error in depth of secondary minimum']
     values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(depths[0]), str(depths[1]), str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2),
-              str(t_1_err), str(t_2_err), str(tau_1_1_err), str(tau_1_2_err), str(tau_2_1_err), str(tau_2_2_err),
+              str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
               str(d_1_err), str(d_2_err)]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
@@ -895,16 +892,14 @@ def read_results_timings(file_name):
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    t_bottoms: numpy.ndarray[float]
-        Eclipse timings of the possible flat bottom (internal tangency)
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timing_errs: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
-        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     ecl_indices: numpy.ndarray[int]
@@ -914,16 +909,15 @@ def read_results_timings(file_name):
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     p_orb, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2 = values[:10]
     t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[10:14]
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err = values[14:]
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = values[14:]
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
-    t_bottoms = np.array([t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
-    timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2])
-    timing_errs = np.array([t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err])
+    timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+    timing_errs = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
     ecl_indices = read_results_ecl_indices(file_name)
-    return p_orb, t_zero, timings, depths, t_bottoms, timing_errs, depths_err, ecl_indices
+    return p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
 def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):
@@ -1234,8 +1228,8 @@ def read_results_elements(file_name):
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
-    dists_in = all_dists[:10]
-    dists_out = all_dists[10:]
+    dists_in = all_dists[:12]
+    dists_out = all_dists[12:]
     return (e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, bounds, formal_errors,
             dists_in, dists_out)
 
@@ -1609,8 +1603,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_9 = read_results_timings(file_name)
-        p_orb_9, t_zero_9, timings_9, depths_9, t_bottoms_9, timing_errs_9, depths_err_9 = results_9[:7]
-        ecl_indices_9 = results_9[7]
+        p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = results_9
         # get the low harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
@@ -1630,12 +1623,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_11 = read_results_timings(file_name)
-        p_orb_11, t_zero_11, timings_11, depths_11, t_bottoms_11, timing_errs_11, depths_err_11 = results_11[:7]
-        ecl_indices_11 = results_11[7]
-        timings_tau_11 = np.array([timings_11[0], timings_11[1],
-                                   timings_11[0] - timings_11[2], timings_11[3] - timings_11[0],
-                                   timings_11[1] - timings_11[4], timings_11[5] - timings_11[1]])
-        bottom_dur = np.array([t_bottoms_11[1] - t_bottoms_11[0], t_bottoms_11[3] - t_bottoms_11[2]])
+        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_11
     elif os.path.isfile(file_name_2):
         ecl_indices_11 = read_results_ecl_indices(file_name)
     if os.path.isfile(file_name) | os.path.isfile(file_name_2):
@@ -1703,9 +1691,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, t_bottoms_9,
-                                           timing_errs_9, depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                           i_sectors, save_file=file_name, show=False)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
+                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
+                                           save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1722,9 +1710,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, t_bottoms_11,
-                                           timing_errs_11, depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                           i_sectors, save_file=file_name, show=False)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
+                                           save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1736,7 +1724,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
-            vis.plot_corner_eclipse_parameters(timings_tau_11, depths_11, bottom_dur, *dists_in_12, e_12, w_12, i_12,
+            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
                                                phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
                                                *dists_out_12, save_file=file_name, show=False)
         except NameError:
@@ -1758,9 +1746,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, t_bottoms_9,
-                                           timing_errs_9, depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                           i_sectors, save_file=None, show=True)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
+                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
+                                           save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1774,9 +1762,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, t_bottoms_11,
-                                           timing_errs_11, depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                           i_sectors, save_file=None, show=True)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
+                                           save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1790,7 +1778,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_eclipse_parameters(timings_tau_11, depths_11, bottom_dur, *dists_in_12, e_12, w_12, i_12,
+            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
                                                phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
                                                *dists_out_12, save_file=None, show=True)
         except NameError:

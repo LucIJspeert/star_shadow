@@ -296,17 +296,16 @@ def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_h
     return
 
 
-def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timings_b, timing_errs, depths_err,
-                               const, slope, f_n, a_n, ph_n, i_sectors, save_file=None, show=True):
+def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timing_errs, depths_err,
+                               const, slope, f_n, a_n, ph_n, i_sectors, low_h=False, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the first and
-    last contact points as well as minima and midpoints indicated.
+    last contact points as well as minima indicated.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
-    t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings_b
-    t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
     # plotting bounds
-    t_start = t_1_1 - 6 * tau_1_1_err
-    t_end = p_orb + t_1_2 + 6 * tau_1_2_err
+    t_start = t_1_1 - 6 * t_1_1_err
+    t_end = p_orb + t_1_2 + 6 * t_1_2_err
     # make the model times array, one full period plus the primary eclipse halves
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_start)
@@ -316,6 +315,8 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     t_model = np.arange(t_start, t_end, 0.001)
+    if low_h:
+        harmonics = harmonics[harmonic_n < 20]  # restrict harmonics to avoid interference of ooe signal
     model_h = 1 + tsf.sum_sines(t_zero + t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
@@ -339,8 +340,6 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.plot(t_model, model_h + offset, c='tab:green', label='harmonics')
     ax.plot([t_1, t_1], s_minmax, '--', c='tab:red', label='eclipse minimum')
     ax.plot([t_2, t_2], s_minmax, '--', c='tab:red')
-    ax.plot([(t_1_1 + t_1_2)/2, (t_1_1 + t_1_2)/2], s_minmax, ':', c='tab:grey', label='eclipse midpoint')
-    ax.plot([(t_2_1 + t_2_2)/2, (t_2_1 + t_2_2)/2], s_minmax, ':', c='tab:grey')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
@@ -354,13 +353,13 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:red', alpha=0.3)
     ax.fill_between([t_2 - t_2_err, t_2 + t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.3)
-    ax.fill_between([t_1_1 - tau_1_1_err, t_1_1 + tau_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_1 - t_1_1_err, t_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
-    ax.fill_between([t_1_2 - tau_1_2_err, t_1_2 + tau_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_2 - t_1_2_err, t_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_2_1 - tau_2_1_err, t_2_1 + tau_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_1 - t_2_1_err, t_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_2_2 - tau_2_2_err, t_2_2 + tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_2 - t_2_2_err, t_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
     ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + depths_err[0], h_bot_1 + depths_err[0]],
                     y2=[h_bot_1 - depths_err[0], h_bot_1 - depths_err[0]], color='tab:pink', alpha=0.3)
@@ -371,13 +370,13 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:red', alpha=0.2)
     ax.fill_between([t_2 - 3*t_2_err, t_2 + 3*t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
-    ax.fill_between([t_1_1 - 3*tau_1_1_err, t_1_1 + 3*tau_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_1 - 3*t_1_1_err, t_1_1 + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_1_2 - 3*tau_1_2_err, t_1_2 + 3*tau_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_2 - 3*t_1_2_err, t_1_2 + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_1 - 3*tau_2_1_err, t_2_1 + 3*tau_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_1 - 3*t_2_1_err, t_2_1 + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_2 - 3*tau_2_2_err, t_2_2 + 3*tau_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_2 - 3*t_2_2_err, t_2_2 + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
     ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + 3*depths_err[0], h_bot_1 + 3*depths_err[0]],
                     y2=[h_bot_1 - 3*depths_err[0], h_bot_1 - 3*depths_err[0]],
@@ -413,8 +412,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
     # analytic derivatives
     deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
     deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
-    deriv_3 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=3)
-    fig, ax = plt.subplots(nrows=4, sharex=True, figsize=(16, 9))
+    fig, ax = plt.subplots(nrows=3, sharex=True, figsize=(16, 9))
     ax[0].plot(t_model, model_h)
     ax[0].scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:blue', marker='o', label='peaks_1')
     ax[0].scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:blue', marker='o')
@@ -457,21 +455,6 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
     ax[2].scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:purple', marker='^')
     ax[2].scatter(t_model[ecl_indices[:, 5]], deriv_2[ecl_indices[:, 5]], c='tab:brown', marker='s')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$', fontsize=14)
-    ax[3].plot(t_model, deriv_3)
-    ax[3].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
-    ax[3].scatter(t_model[ecl_indices[:, 3]], deriv_3[ecl_indices[:, 3]], c='tab:blue', marker='o')
-    ax[3].scatter(t_model[ecl_indices[:, -4]], deriv_3[ecl_indices[:, -4]], c='tab:blue', marker='o')
-    ax[3].scatter(t_model[ecl_indices[:, 0]], deriv_3[ecl_indices[:, 0]], c='tab:orange', marker='>')
-    ax[3].scatter(t_model[ecl_indices[:, -1]], deriv_3[ecl_indices[:, -1]], c='tab:orange', marker='<')
-    ax[3].scatter(t_model[ecl_indices[:, 2]], deriv_3[ecl_indices[:, 2]], c='tab:green', marker='v')
-    ax[3].scatter(t_model[ecl_indices[:, -3]], deriv_3[ecl_indices[:, -3]], c='tab:green', marker='v')
-    ax[3].scatter(t_model[ecl_indices[:, 1]], deriv_3[ecl_indices[:, 1]], c='tab:red', marker='d')
-    ax[3].scatter(t_model[ecl_indices[:, -2]], deriv_3[ecl_indices[:, -2]], c='tab:red', marker='d')
-    ax[3].scatter(t_model[ecl_indices[:, 4]], deriv_3[ecl_indices[:, 4]], c='tab:purple', marker='^')
-    ax[3].scatter(t_model[ecl_indices[:, -5]], deriv_3[ecl_indices[:, -5]], c='tab:purple', marker='^')
-    ax[3].scatter(t_model[ecl_indices[:, 5]], deriv_3[ecl_indices[:, 5]], c='tab:brown', marker='s')
-    ax[3].set_xlabel('time (d)', fontsize=14)
-    ax[3].set_ylabel(r'$\frac{d^3\mathscr{l}}{dt^3}$', fontsize=14)
     plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
@@ -487,7 +470,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     """Shows the separation of the harmonics froming the eclipses and the ones
     forming the out-of-eclipse harmonic variability.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # plotting bounds
     t_start = t_1_1
     t_end = p_orb + t_1_2
@@ -548,7 +531,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using the eclipse timings and depths
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
@@ -884,18 +867,17 @@ def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  
     return
 
 
-def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals,
-                                   tau_2_1_vals, tau_2_2_vals, d_1_vals, d_2_vals, bot_1_vals, bot_2_vals, e, w, i,
-                                   phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, e_vals, w_vals, i_vals,
-                                   phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals,
-                                   save_file=None, show=True):
+def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals,
+                                   t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals,
+                                   d_1_vals, d_2_vals, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio,
+                                   e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals,
+                                   rratio_vals, sbratio_vals, save_file=None, show=True):
     """Shows the corner plots resulting from the input distributions
     
     Note: produces several plots
     """
-    t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
-    bot_1, bot_2 = bottom_dur[0], bottom_dur[1]
     cos_w = np.cos(w)
     sin_w = np.sin(w)
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
@@ -905,11 +887,11 @@ def plot_corner_eclipse_parameters(timings_tau, depths, bottom_dur, t_1_vals, t_
         mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
         w_vals_hist[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
     # input
-    value_names = np.array([r'$t_1$', r'$t_2$', r'$\tau_{1,1}$', r'$\tau_{1,2}$', r'$\tau_{2,1}$', r'$\tau_{2,2}$',
-                            r'$width_{b,1}$', r'$width_{b,2}$'])
-    values = np.array([t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, bot_1, bot_2])
-    dist_data = np.column_stack((t_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals,
-                                 bot_1_vals, bot_2_vals))
+    value_names = np.array([r'$t_1$', r'$t_2$', r'$\t_{1,1}$', r'$\t_{1,2}$', r'$\t_{2,1}$', r'$\t_{2,2}$',
+                            r'$\t_{b,1,1}$', r'$\t_{b,1,2}$', r'$\t_{b,2,1}$', r'$\t_{b,2,2}$'])
+    values = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+    dist_data = np.column_stack((t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
+                                 t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
@@ -1008,7 +990,7 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
@@ -1067,7 +1049,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over three consecutive fits.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
@@ -1313,7 +1295,7 @@ def plot_lc_ellc_harmonics(times, signal, p_orb, t_zero, timings, const, slope, 
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
     t_model = (times - t_zero) % p_orb
     ext_left = (t_model > p_orb + t_1_1)

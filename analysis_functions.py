@@ -809,7 +809,8 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
 
 
 @nb.njit(cache=True)
-def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2):
+def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+                            t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2):
     """Measure the depths of the eclipses from the harmonic model given
     the timing measurements
     
@@ -835,6 +836,14 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
         Time of secondary first contact
     t_2_2: float
         Time of secondary last contact
+    t_b_1_1: float
+        Time of primary first internal tangency
+    t_b_1_2: float
+        Time of primary last internal tangency
+    t_b_2_1: float
+        Time of secondary first internal tangency
+    t_b_2_2: float
+        Time of secondary last internal tangency
     
     Returns
     -------
@@ -882,6 +891,10 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
         Averaged flux level at primary first and last contact
     height_2: float
         Averaged flux level at secondary first and last contact
+    
+    Notes
+    -----
+    Can also be used for other time points like the internal tangency
     """
     # calculate the harmonic model at the eclipse time points
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
@@ -966,6 +979,10 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
+    
+    import matplotlib.pyplot as plt
+    plt.plot(t_model, deriv_2)
+    plt.scatter(t_model[peaks_2_n], deriv_2[peaks_2_n])
     # make eclipses
     ecl_indices = np.zeros((0, 11), dtype=int)
     for comb in combinations:
@@ -1020,10 +1037,14 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
         return (None,) * 8 + (ecl_indices,)
     # correct for not quite reaching the top of the peak in some cases for peaks_2_p
+    plt.scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:orange')
+    plt.scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:orange')
     ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
     ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
+    plt.scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:red')
+    plt.scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:red')
     # finally, put the eclipse minimum at or in the middle between the peaks_2_p
-    ecl_indices[i, 5] = (ecl_indices[:, 4] + ecl_indices[:, -5])//2
+    ecl_indices[:, 5] = (ecl_indices[:, 4] + ecl_indices[:, -5]) // 2
     # make the timing measurement - make sure to account for wrap around when an eclipse is divided up
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
     t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
@@ -1119,7 +1140,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
     t_int_tan = (t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2)
     # redetermine depths a tiny bit more precisely
-    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2)
+    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, *t_contacts, *t_int_tan)
     return p_orb, t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
 
 
@@ -1682,7 +1703,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
 
 def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
                           tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
-                          tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
+                          t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
     Parameters
@@ -1722,13 +1743,13 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
         Error in t_1 (the time of primary minimum)
     t_2_err: float
         Error in t_1 (the time of secondary minimum)
-    tau_1_1_err: float
+    t_1_1_err: float
         Error in tau_1_1 (or in the time of primary first contact)
-    tau_1_2_err: float
+    t_1_2_err: float
         Error in tau_1_2 (or in the time of primary last contact)
-    tau_2_1_err: float
+    t_2_1_err: float
         Error in tau_2_1 (or in the time of secondary first contact)
-    tau_2_2_err: float
+    t_2_2_err: float
         Error in tau_2_2 (or in the time of secondary last contact)
     d_1_err: float
         Error in the depth of primary minimum
@@ -1787,7 +1808,7 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
-    tau_err_tot = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + tau_2_1_err**2 + tau_2_2_err**2)
+    tau_err_tot = np.sqrt(t_1_1_err**2 + t_1_2_err**2 + t_2_1_err**2 + t_2_2_err**2)
     r_duration_dif = ((tau_1_1 + tau_1_2 - tau_2_1 - tau_2_2) - (dur_1 - dur_2)) / tau_err_tot
     # sum of durations of the minima, linearly sensitive to phi_0 (and sensitive to e sin(w), i and phi_0)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
@@ -1807,7 +1828,7 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
 
 def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
                         tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
-                        tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err, d_1_err, d_2_err):
+                        t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
     Parameters
@@ -1847,13 +1868,13 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
         Error in t_1 (the time of primary minimum)
     t_2_err: float
         Error in t_1 (the time of secondary minimum)
-    tau_1_1_err: float
+    t_1_1_err: float
         Error in tau_1_1 (or in the time of primary first contact)
-    tau_1_2_err: float
+    t_1_2_err: float
         Error in tau_1_2 (or in the time of primary last contact)
-    tau_2_1_err: float
+    t_2_1_err: float
         Error in tau_2_1 (or in the time of secondary first contact)
-    tau_2_2_err: float
+    t_2_2_err: float
         Error in tau_2_2 (or in the time of secondary last contact)
     d_1_err: float
         Error in the depth of primary minimum
@@ -1911,7 +1932,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
-    tau_err_tot = np.sqrt(tau_1_1_err**2 + tau_1_2_err**2 + tau_2_1_err**2 + tau_2_2_err**2)
+    tau_err_tot = np.sqrt(t_1_1_err**2 + t_1_2_err**2 + t_2_1_err**2 + t_2_2_err**2)
     r_duration_dif = ((tau_1_1 + tau_1_2 - tau_2_1 - tau_2_2) - (dur_1 - dur_2)) / tau_err_tot
     # sum of durations of the minima, linearly sensitive to phi_0 (and sensitive to e sin(w), i and phi_0)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
@@ -1943,8 +1964,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         Eclipse depth of the primary and secondary, depth_1, depth_2
     timing_errs: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
-        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     
@@ -1980,7 +2000,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
     # psi_0 is like phi_0 but for the eclipse bottom
     psi_0 = np.pi * (timings_tau[6] + timings_tau[7] + timings_tau[8] + timings_tau[9]) / (2 * p_orb)
     # values of e and w by approximate formulae
-    e, w = ecc_omega_approx(p_orb, *timings_tau, i, phi_0)
+    e, w = ecc_omega_approx(p_orb, *timings_tau[:6], i, phi_0)
     # value for r_sum_sma from ecc, incl and phi_0
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     # value for |r1 - r2|/a = r_dif_sma from ecc, incl and psi_0
@@ -2014,7 +2034,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
 
 @nb.njit(cache=True)
 def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, p_err, i_err,
-                         t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err):
+                         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err):
     """Calculates the uncorrelated (formal) uncertainties for the extracted
     parameters (e, w, phi_0, r_sum_sma).
     
@@ -2051,13 +2071,13 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
         Error in t_1 (the time of primary minimum)
     t_2_err: float
         Error in t_1 (the time of secondary minimum)
-    tau_1_1_err: float
+    t_1_1_err: float
         Error in tau_1_1 (or in the time of primary first contact)
-    tau_1_2_err: float
+    t_1_2_err: float
         Error in tau_1_2 (or in the time of primary last contact)
-    tau_2_1_err: float
+    t_2_1_err: float
         Error in tau_2_1 (or in the time of secondary first contact)
-    tau_2_2_err: float
+    t_2_2_err: float
         Error in tau_2_2 (or in the time of secondary last contact)
 
     Returns
@@ -2081,7 +2101,7 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
     """
     # often used errors
     p_err_2 = p_err**2
-    sum_tau_err_2 = tau_1_1_err**2 + tau_1_2_err**2 + tau_2_1_err**2 + tau_2_2_err**2
+    sum_t_err_2 = t_1_1_err**2 + t_1_2_err**2 + t_2_1_err**2 + t_2_2_err**2
     # often used sin, cos
     sin_i = np.sin(i)
     sin_i_2 = sin_i**2
@@ -2098,7 +2118,7 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
     term_2_i_phi0 = (1 - sin_i_2 * cos_phi0_2)  # another term with i and phi_0 in it
     # error in phi_0
     s_phi0_p = (np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb**2))**2 * p_err_2
-    s_phi0_tau = (np.pi / (2 * p_orb))**2 * sum_tau_err_2
+    s_phi0_tau = (np.pi / (2 * p_orb))**2 * sum_t_err_2
     sigma_phi_0 = np.sqrt(s_phi0_p + s_phi0_tau)
     # error in e*cos(w)
     s_ecosw_p = (np.pi * (t_2 - t_1) / p_orb**2 * sin_i_2 / term_i)**2 * p_err_2
@@ -2108,7 +2128,7 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
     # error in e*sin(w)
     s_esinw_p = (np.pi * (tau_1_1 + tau_1_2 - tau_2_1 - tau_2_2) / (2 * sin_phi0 * p_orb**2)
                  * sin_i_2 * cos_phi0_2 / term_1_i_phi0)**2 * p_err_2
-    s_esinw_tau = (np.pi / (2 * sin_phi0 * p_orb) * sin_i_2 * cos_phi0_2 / term_1_i_phi0)**2 * sum_tau_err_2
+    s_esinw_tau = (np.pi / (2 * sin_phi0 * p_orb) * sin_i_2 * cos_phi0_2 / term_1_i_phi0)**2 * sum_t_err_2
     s_esinw_i = (2 * sin_i * cos_i * cos_phi0_2 / term_1_i_phi0**2)**2 * i_err**2
     s_esinw_phi0 = (2 * sin_i_2 * (1 - sin_i_2) * sin_phi0 * np.cos(phi_0) / term_1_i_phi0**2)**2 * sigma_phi_0**2
     sigma_esinw = np.sqrt(s_esinw_p + s_esinw_tau + s_esinw_i + s_esinw_phi0)
@@ -2128,7 +2148,7 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
 
 
 def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h,
-                        timings, bottom_dur, timing_errs, depths_err, verbose=False):
+                        timings, timing_errs, depths_err, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2163,14 +2183,12 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
+        Timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-    bottom_dur: numpy.ndarray[float]
-        Durations of the possible flat bottom (internal tangency)
-        t_b_1_2 - t_b_1_1, t_b_2_2 - t_b_2_1
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timing_errs: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, or
-        t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     verbose: bool
@@ -2188,8 +2206,8 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         The (non-symmetric) errors for the same parameters as intervals.
         Derived from the intervals
     dists_in: tuple[numpy.ndarray[float]]
-        Full input distributions for: t_1, t_2,
-        tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bot_1, bot_2
+        Full input distributions for: t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
     
@@ -2200,10 +2218,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     The interval for w can consist of two disjunct intervals due to the
     degeneracy between angles around 90 degrees and 270 degrees.
     """
-    # t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
-    bottom_1, bottom_2 = bottom_dur[0], bottom_dur[1]
-    # t_1_err, t_2_err, tau_1_1_err, tau_1_2_err, tau_2_1_err, tau_2_2_err = timing_errs
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
     bot_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)  # estimate from the tau errors
     bot_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)  # estimate from the tau errors
@@ -2216,42 +2231,59 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     normal_t_2_1 = rng.normal(t_2_1, t_2_1_err, n_gen)
     normal_t_2_2 = rng.normal(t_2_2, t_2_2_err, n_gen)
     # highly unlikely to overlap, but if they do, it's bad, so fix by swapping them
-    swapped_1 = (normal_t_1_1 > normal_t_1_2)
-    if np.any(swapped_1):
-        _swap = np.copy(normal_t_1_1[swapped_1])
-        normal_t_1_1[swapped_1] = normal_t_1_2[swapped_1]
-        normal_t_1_2[swapped_1] = _swap
-    swapped_2 = (normal_t_2_1 > normal_t_2_2)
-    if np.any(swapped_2):
-        _swap = np.copy(normal_t_2_1[swapped_2])
-        normal_t_2_1[swapped_2] = normal_t_2_2[swapped_2]
-        normal_t_2_2[swapped_2] = _swap
-    # the minima are then somewhere inbetween, so use truncated normal distributions
-    normal_t_1 = sp.stats.truncnorm.rvs((t_1_1 - t_1) / t_1_err, (t_1_2 - t_1) / t_1_err,
-                                        loc=t_1, scale=t_1_err, size=n_gen)
-    normal_t_2 = sp.stats.truncnorm.rvs((t_2_1 - t_2) / t_2_err, (t_2_2 - t_2) / t_2_err,
-                                        loc=t_2, scale=t_2_err, size=n_gen)
+    overlap_1 = (normal_t_1_1 > normal_t_1_2)
+    if np.any(overlap_1):
+        _swap = np.copy(normal_t_1_1[overlap_1])
+        normal_t_1_1[overlap_1] = normal_t_1_2[overlap_1]
+        normal_t_1_2[overlap_1] = _swap
+    overlap_2 = (normal_t_2_1 > normal_t_2_2)
+    if np.any(overlap_2):
+        _swap = np.copy(normal_t_2_1[overlap_2])
+        normal_t_2_1[overlap_2] = normal_t_2_2[overlap_2]
+        normal_t_2_2[overlap_2] = _swap
+    # if we have wide eclipses, they possibly overlap as well, fix by putting them in the middle
+    overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
+    if np.any(overlap_1_2):
+        middle = (normal_t_1_2[overlap_1_2] + normal_t_2_1[overlap_1_2]) / 2
+        normal_t_1_2[overlap_1_2] = middle
+        normal_t_2_1[overlap_1_2] = middle
+    overlap_2_1 = (normal_t_2_2 > normal_t_1_1 + p_orb)
+    if np.any(overlap_2_1):
+        middle = (normal_t_1_1[overlap_2_1] + p_orb + normal_t_2_2[overlap_2_1]) / 2
+        normal_t_1_1[overlap_2_1] = middle - p_orb
+        normal_t_2_2[overlap_2_1] = middle
+    # the bottom points are truncated at the edge points
+    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, 10,
+                                            loc=t_b_1_1, scale=t_1_1_err, size=n_gen)
+    normal_t_b_1_2 = sp.stats.truncnorm.rvs(-10, (normal_t_1_2 - t_b_1_2) / t_1_2_err,
+                                            loc=t_b_1_2, scale=t_1_2_err, size=n_gen)
+    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_2_1_err, 10,
+                                            loc=t_b_2_1, scale=t_2_1_err, size=n_gen)
+    normal_t_b_2_2 = sp.stats.truncnorm.rvs(-10, (normal_t_2_2 - t_b_2_2) / t_2_2_err,
+                                            loc=t_b_2_2, scale=t_2_2_err, size=n_gen)
+    # likely to overlap, fixed by putting them in the middle
+    overlap_b_1 = (normal_t_b_1_1 > normal_t_b_1_2)
+    if np.any(overlap_b_1):
+        middle = (normal_t_b_1_1[overlap_b_1] + normal_t_b_1_2[overlap_b_1]) / 2
+        normal_t_b_1_1[overlap_b_1] = middle
+        normal_t_b_1_2[overlap_b_1] = middle
+    overlap_b_2 = (normal_t_b_2_1 > normal_t_b_2_2)
+    if np.any(overlap_b_2):
+        middle = (normal_t_b_2_1[overlap_b_2] + normal_t_b_2_2[overlap_b_2]) / 2
+        normal_t_b_2_1[overlap_b_2] = middle
+        normal_t_b_2_2[overlap_b_2] = middle
+    # the minima are then midway between the bottom points
+    normal_t_1 = (normal_t_b_1_1 + normal_t_b_1_2) / 2
+    normal_t_2 = (normal_t_b_2_1 + normal_t_b_2_2) / 2
     # calculate the tau
     normal_tau_1_1 = normal_t_1 - normal_t_1_1
     normal_tau_1_2 = normal_t_1_2 - normal_t_1
     normal_tau_2_1 = normal_t_2 - normal_t_2_1
     normal_tau_2_2 = normal_t_2_2 - normal_t_2
-    # the bottoms are clipped at zero (because a zero value may indeed be more likely than a non-zero one)
-    normal_bot_1 = rng.normal(bottom_1, bot_1_err, n_gen)
-    normal_bot_1 = np.clip(normal_bot_1, 0, None)
-    normal_bot_2 = rng.normal(bottom_2, bot_2_err, n_gen)
-    normal_bot_2 = np.clip(normal_bot_2, 0, None)
-    
-    
-    # normal_t_1 = rng.normal(t_1, t_1_err, n_gen)
-    # normal_t_2 = rng.normal(t_2, t_2_err, n_gen)
-    # # use truncated normals for the rest of the measurements
-    # normal_tau_1_1 = sp.stats.truncnorm.rvs((0 - tau_1_1) / tau_1_1_err, 10, loc=tau_1_1, scale=tau_1_1_err, size=n_gen)
-    # normal_tau_1_2 = sp.stats.truncnorm.rvs((0 - tau_1_2) / tau_1_2_err, 10, loc=tau_1_2, scale=tau_1_2_err, size=n_gen)
-    # normal_tau_2_1 = sp.stats.truncnorm.rvs((0 - tau_2_1) / tau_2_1_err, 10, loc=tau_2_1, scale=tau_2_1_err, size=n_gen)
-    # normal_tau_2_2 = sp.stats.truncnorm.rvs((0 - tau_2_2) / tau_2_2_err, 10, loc=tau_2_2, scale=tau_2_2_err, size=n_gen)
-    # normal_bot_1 = sp.stats.truncnorm.rvs((0 - bottom_1) / bot_1_err, 10, loc=bottom_1, scale=bot_1_err, size=n_gen)
-    # normal_bot_2 = sp.stats.truncnorm.rvs((0 - bottom_2) / bot_2_err, 10, loc=bottom_2, scale=bot_2_err, size=n_gen)
+    normal_tau_b_1_1 = normal_t_1 - normal_t_b_1_1
+    normal_tau_b_1_2 = normal_t_b_1_2 - normal_t_1
+    normal_tau_b_2_1 = normal_t_2 - normal_t_b_2_1
+    normal_tau_b_2_2 = normal_t_b_2_2 - normal_t_2
     # depths are calculated from the above inputs
     normal_d_1 = np.zeros(n_gen)
     normal_d_2 = np.zeros(n_gen)
@@ -2273,15 +2305,14 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     i_delete = []  # to be deleted due to out of bounds parameter
     for k in range(n_gen):
         timings_tau_dist = (normal_t_1[k], normal_t_2[k],
-                            normal_tau_1_1[k], normal_tau_1_2[k], normal_tau_2_1[k], normal_tau_2_2[k])
+                            normal_tau_1_1[k], normal_tau_1_2[k], normal_tau_2_1[k], normal_tau_2_2[k],
+                            normal_tau_b_1_1[k], normal_tau_b_1_2[k], normal_tau_b_2_1[k], normal_tau_b_2_2[k])
         # if sum of tau happens to be larger than p_orb, skip and delete
-        if (np.sum(timings_tau_dist[2:]) > p_orb):
+        if (np.sum(timings_tau_dist[2:6]) > p_orb):
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        bottom_dur_dist = np.array([normal_bot_1[k], normal_bot_2[k]])
-        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, bottom_dur_dist, timing_errs, depths_err,
-                                 verbose=verbose)
+        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timing_errs, depths_err, verbose=verbose)
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]
@@ -2296,14 +2327,16 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)
     normal_t_2 = np.delete(normal_t_2, i_delete)
-    normal_tau_1_1 = np.delete(normal_tau_1_1, i_delete)
-    normal_tau_1_2 = np.delete(normal_tau_1_2, i_delete)
-    normal_tau_2_1 = np.delete(normal_tau_2_1, i_delete)
-    normal_tau_2_2 = np.delete(normal_tau_2_2, i_delete)
+    normal_t_1_1 = np.delete(normal_t_1_1, i_delete)
+    normal_t_1_2 = np.delete(normal_t_1_2, i_delete)
+    normal_t_2_1 = np.delete(normal_t_2_1, i_delete)
+    normal_t_2_2 = np.delete(normal_t_2_2, i_delete)
+    normal_t_b_1_1 = np.delete(normal_t_b_1_1, i_delete)
+    normal_t_b_1_2 = np.delete(normal_t_b_1_2, i_delete)
+    normal_t_b_2_1 = np.delete(normal_t_b_2_1, i_delete)
+    normal_t_b_2_2 = np.delete(normal_t_b_2_2, i_delete)
     normal_d_1 = np.delete(normal_d_1, i_delete)
     normal_d_2 = np.delete(normal_d_2, i_delete)
-    normal_bot_1 = np.delete(normal_bot_1, i_delete)
-    normal_bot_2 = np.delete(normal_bot_2, i_delete)
     e_vals = np.delete(e_vals, i_delete)
     w_vals = np.delete(w_vals, i_delete)
     i_vals = np.delete(i_vals, i_delete)
@@ -2386,7 +2419,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
               sbratio_bounds, ecosw_bounds, esinw_bounds, f_c_bounds, f_s_bounds)
     errors = (e_errs, w_errs, i_errs, phi0_errs, psi0_errs, rsumsma_errs, rdifsma_errs, rratio_errs,
               sbratio_errs, ecosw_errs, esinw_errs, f_c_errs, f_s_errs)
-    dists_in = (normal_t_1, normal_t_2, normal_tau_1_1, normal_tau_1_2, normal_tau_2_1, normal_tau_2_2,
-                normal_d_1, normal_d_2, normal_bot_1, normal_bot_2)
+    dists_in = (normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
+                normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
     dists_out = (e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals)
     return intervals, bounds, errors, dists_in, dists_out
