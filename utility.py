@@ -1711,8 +1711,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
                                            save_file=file_name, show=False)
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_2.png')
+            vis.plot_lc_eclipse_timestamps_2(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                             f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, i_sectors,
+                                           save_file=file_name, show=False)
+            
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1747,7 +1753,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
-                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
+                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

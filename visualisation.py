@@ -385,10 +385,34 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     y2=[h_bot_2 - 3*depths_err[1], h_bot_2 - 3*depths_err[1]],
                     color='tab:pink', alpha=0.2)
     # flat bottom
+    if (t_b_1_2 - t_b_1_1 != 0):
+        ax.plot([t_b_1_1, t_b_1_1], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_1_2, t_b_1_2], s_minmax, '--', c='tab:brown')
+        # 1 sigma errors
+        ax.fill_between([t_b_1_1 - t_1_1_err, t_b_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3, label=r'1 and 3 $\sigma$ error')
+        ax.fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        # 3 sigma errors
+        ax.fill_between([t_b_1_1 - 3*t_1_1_err, t_b_1_1 + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_1_2 - 3*t_1_2_err, t_b_1_2 + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+    if (t_b_2_1 - t_b_2_2 != 0):
+        ax.plot([t_b_2_1, t_b_2_1], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_2_2, t_b_2_2], s_minmax, '--', c='tab:brown')
+        # 1 sigma errors
+        ax.fill_between([t_b_2_1 - t_2_1_err, t_b_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_2_2 - t_2_2_err, t_b_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        # 3 sigma errors
+        ax.fill_between([t_b_2_1 - 3*t_2_1_err, t_b_2_1 + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_2_2 - 3*t_2_2_err, t_b_2_2 + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
     if (t_b_1_2 - t_b_1_1 != 0) | (t_b_2_1 - t_b_2_2 != 0):
-        ax.fill_between([t_b_1_1, t_b_1_2], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3,
-                        label='flat bottom')
-        ax.fill_between([t_b_2_1, t_b_2_2], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
+        ax.plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax.set_xlabel(r'$(time - t_0)\ mod\ P_{orb}$ (d)', fontsize=14)
     ax.set_ylabel('normalised flux', fontsize=14)
     plt.legend(fontsize=12)

@@ -979,10 +979,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
-    
-    import matplotlib.pyplot as plt
-    plt.plot(t_model, deriv_2)
-    plt.scatter(t_model[peaks_2_n], deriv_2[peaks_2_n])
     # make eclipses
     ecl_indices = np.zeros((0, 11), dtype=int)
     for comb in combinations:
@@ -1037,12 +1033,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
         return (None,) * 8 + (ecl_indices,)
     # correct for not quite reaching the top of the peak in some cases for peaks_2_p
-    plt.scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:orange')
-    plt.scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:orange')
     ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
     ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
-    plt.scatter(t_model[ecl_indices[:, 4]], deriv_2[ecl_indices[:, 4]], c='tab:red')
-    plt.scatter(t_model[ecl_indices[:, -5]], deriv_2[ecl_indices[:, -5]], c='tab:red')
     # finally, put the eclipse minimum at or in the middle between the peaks_2_p
     ecl_indices[:, 5] = (ecl_indices[:, 4] + ecl_indices[:, -5]) // 2
     # make the timing measurement - make sure to account for wrap around when an eclipse is divided up
@@ -2224,7 +2216,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     bot_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)  # estimate from the tau errors
     # generate input distributions
     rng = np.random.default_rng()
-    n_gen = 10**4
+    n_gen = 10**3#10**4
     # the edges are measured first so choose them from regular normal distributions
     normal_t_1_1 = rng.normal(t_1_1, t_1_1_err, n_gen)
     normal_t_1_2 = rng.normal(t_1_2, t_1_2_err, n_gen)
@@ -2288,8 +2280,9 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     normal_d_1 = np.zeros(n_gen)
     normal_d_2 = np.zeros(n_gen)
     for k in range(n_gen):
-        depths_k = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, normal_t_1[k], normal_t_2[k], normal_t_1_1[k],
-                                           normal_t_1_2[k], normal_t_2_1[k], normal_t_2_2[k])
+        depths_k = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, normal_t_1[k], normal_t_2[k],
+                                           normal_t_1_1[k], normal_t_1_2[k], normal_t_2_1[k], normal_t_2_2[k],
+                                           normal_t_b_1_1[k], normal_t_b_1_2[k], normal_t_b_2_1[k], normal_t_b_2_2[k])
         normal_d_1[k] = depths_k[0]
         normal_d_2[k] = depths_k[1]
     # determine the output distributions

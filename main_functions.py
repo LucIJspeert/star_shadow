@@ -729,8 +729,8 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     return p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                          file_name=None, data_id=None, overwrite=False, verbose=False):
+def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                          i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -747,7 +747,9 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -809,10 +811,9 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
             print(f'Separating out-of-eclipse signal')
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
         # check if the eclipses cover the whole lc
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
         t_folded = (times - t_zero) % p_orb
         mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
-        # todo: maybe instead of masking I could try to remove the eclipses with my own simple model
         if (np.sum(mask_ecl) / len(times) > 0.01):
             output = tsf.extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                                f_n, a_n, ph_n, i_sectors, verbose=verbose)
@@ -820,6 +821,23 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
             output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
                                                 ph_ho)
             f_he, a_he, ph_he = output  # eclipse harmonics
+            
+            
+            output = tsfit.harmonic_separation_fit(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                                   f_n, a_n, ph_n, f_he, a_he, ph_he, f_ho, a_ho, ph_ho, i_sectors, verbose=verbose)
+            offset, f_h_all, a_he, a_ho, ph_he, ph_ho = output
+            f_he, f_ho = f_h_all, f_h_all
+            import matplotlib.pyplot as plt
+            model_e = tsf.sum_sines(times, f_h_all, a_he, ph_he)
+            model_o = tsf.sum_sines(times, f_h_all, a_ho, ph_ho)
+            non_harm = np.delete(np.arange(len(f_n)), harmonics)
+            model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+            model_line = tsf.linear_curve(times, const, slope, i_sectors)
+            ecl_signal = signal - model_nh - model_line
+            plt.scatter(t_folded, ecl_signal)
+            plt.scatter(t_folded, model_e)
+            plt.scatter(t_folded, model_o)
+            raise
         else:
             const_ho, f_ho, a_ho, ph_ho = 0, np.array([]), np.array([]), np.array([])
             f_he, a_he, ph_he = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
@@ -1160,7 +1178,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         return (None,) * 5
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, timings_9[:6], const_8, slope_8,
+    out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
                                    f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
                                    overwrite=overwrite, verbose=verbose)
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10

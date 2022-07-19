@@ -1855,8 +1855,66 @@ def extract_harmonics(times, signal, signal_err, p_orb, verbose=False):
     return const_r, f_n_h, a_n_h, ph_n_h
 
 
-def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                          verbose=False):
+def extract_all_harmonics(times, signal, signal_err, p_orb, verbose=False):
+    """Extracts harmonics from the given signal
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    const_r: numpy.ndarray[float]
+        Mean of the residual
+    f_n_h: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_h: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_h: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+
+    Notes
+    -----
+    Assumes the harmonics are fixed multiples of 1/p_orb.
+    """
+    # make a list of not-present possible harmonics
+    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
+    h_candidate = np.arange(1, p_orb * f_max, dtype=int)
+    # initial residuals
+    resid_orig_mean = np.mean(signal)  # mean difference between the ellc model and harmonics
+    resid_orig = signal - resid_orig_mean
+    resid = np.copy(resid_orig)
+    model = np.zeros(len(times))
+    f_n_h, a_n_h, ph_n_h = np.array([[], [], []])
+    # loop over candidates and extract
+    for h_c in h_candidate:
+        f_c = h_c / p_orb
+        a_c = scargle_ampl_single(times, resid, f_c)
+        ph_c = scargle_phase_single(times, resid, f_c)
+        # make sure the phase stays within + and - pi
+        ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi
+        # add to temporary parameters
+        f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_h, f_c), np.append(a_n_h, a_c), np.append(ph_n_h, ph_c)
+        # determine new BIC and whether it improved
+        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
+        resid = resid_orig - model - np.mean(resid_orig - model)
+        # add it to the final list
+        f_n_h, a_n_h, ph_n_h = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
+    const_r = np.mean(resid_orig - model) + resid_orig_mean  # return constant for last model plus initial diff
+    return const_r, f_n_h, a_n_h, ph_n_h
+
+
+def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                          i_sectors, verbose=False):
     """Tries to extract harmonics from the signal after masking the eclipses
 
     Parameters
@@ -1872,8 +1930,10 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, con
     t_zero: float
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1909,17 +1969,26 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, con
     Assumes the harmonics are fixed multiples of 1/p_orb.
     """
     # mask the eclipses
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_folded = (times - t_zero) % p_orb
+    # the mask assumes t_1 is at zero and thus t_1_1 is negative
     mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+    mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+    mask_b2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
+    mask_com = mask_ecl | mask_b1 | mask_b2
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
+    # adjust the height of flat bottoms
+    mean_ooe = np.mean(ecl_signal[mask_ecl])
+    ecl_signal[mask_b1] += mean_ooe - np.mean(ecl_signal[mask_b1])
+    ecl_signal[mask_b2] += mean_ooe - np.mean(ecl_signal[mask_b2])
     # extract harmonics
-    output = extract_harmonics(times[mask_ecl], ecl_signal[mask_ecl], signal_err[mask_ecl], p_orb, verbose=verbose)
+    # output = extract_harmonics(times[mask_com], ecl_signal[mask_com], signal_err[mask_com], p_orb, verbose=verbose)
+    output = extract_all_harmonics(times[mask_com], ecl_signal[mask_com], signal_err[mask_com], p_orb, verbose=verbose)
     const_ho, f_ho, a_ho, ph_ho = output
     return const_ho, f_ho, a_ho, ph_ho
 

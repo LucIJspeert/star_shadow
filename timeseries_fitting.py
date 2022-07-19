@@ -19,7 +19,7 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-@nb.njit
+@nb.njit(cache=True)
 def objective_sines(params, times, signal, signal_err, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves.
     
@@ -127,7 +127,7 @@ def multi_sine_NL_LS_fit(times, signal, signal_err, const, slope, f_n, a_n, ph_n
     params_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
     arguments = (times, signal, signal_err, i_sectors, verbose)
     result = sp.optimize.minimize(objective_sines, x0=params_init, args=arguments,
-                                  method='Nelder-Mead', options={'maxfev': 10**5 * len(params_init)})
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
     # separate results
     res_const = result.x[0:n_sect]
     res_slope = result.x[n_sect:2 * n_sect]
@@ -223,7 +223,7 @@ def multi_sine_NL_LS_fit_per_group(times, signal, signal_err, const, slope, f_n,
     return res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
-@nb.njit
+@nb.njit(cache=True)
 def objective_sines_harmonics(params, times, signal, signal_err, harmonic_n, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
@@ -347,26 +347,26 @@ def multi_sine_NL_LS_harmonics_fit(times, signal, signal_err, p_orb, const, slop
     n_f_tot = len(f_n)
     n_harm = len(harmonics)
     n_sin = n_f_tot - n_harm  # each independent sine has freq, ampl and phase
-    not_harmonics = np.delete(np.arange(n_f_tot), harmonics)
+    non_harm = np.delete(np.arange(n_f_tot), harmonics)
     # do the fit
     params_init = np.concatenate(([p_orb], np.atleast_1d(const), np.atleast_1d(slope), np.delete(f_n, harmonics),
                                   np.delete(a_n, harmonics), np.delete(ph_n, harmonics),
                                   a_n[harmonics], ph_n[harmonics]))
     result = sp.optimize.minimize(objective_sines_harmonics, x0=params_init,
-                                  args=(times, signal, harmonic_n, i_sectors, verbose), method='Nelder-Mead',
-                                  options={'maxfev': 10**5 * len(params_init)})
+                                  args=(times, signal, signal_err, harmonic_n, i_sectors, verbose),
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
     # separate results
     res_p_orb = result.x[0]
     res_const = result.x[1:1 + n_sect]
     res_slope = result.x[1 + n_sect:1 + 2 * n_sect]
     res_freqs = np.zeros(n_f_tot)
-    res_freqs[not_harmonics] = result.x[1 + 2 * n_sect:1 + 2 * n_sect + n_sin]
+    res_freqs[non_harm] = result.x[1 + 2 * n_sect:1 + 2 * n_sect + n_sin]
     res_freqs[harmonics] = harmonic_n / res_p_orb
     res_ampls = np.zeros(n_f_tot)
-    res_ampls[not_harmonics] = result.x[1 + 2 * n_sect + n_sin:1 + 2 * n_sect + 2 * n_sin]
+    res_ampls[non_harm] = result.x[1 + 2 * n_sect + n_sin:1 + 2 * n_sect + 2 * n_sin]
     res_ampls[harmonics] = result.x[1 + 2 * n_sect + 3 * n_sin:1 + 2 * n_sect + 3 * n_sin + n_harm]
     res_phases = np.zeros(n_f_tot)
-    res_phases[not_harmonics] = result.x[1 + 2 * n_sect + 2 * n_sin:1 + 2 * n_sect + 3 * n_sin]
+    res_phases[non_harm] = result.x[1 + 2 * n_sect + 2 * n_sin:1 + 2 * n_sect + 3 * n_sin]
     res_phases[harmonics] = result.x[1 + 2 * n_sect + 3 * n_sin + n_harm:1 + 2 * n_sect + 3 * n_sin + 2 * n_harm]
     if verbose:
         model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
@@ -454,7 +454,7 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb, c
     params_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
     output = sp.optimize.minimize(objective_sines_harmonics, x0=params_init,
                                   args=(times, resid, signal_err, harmonic_n, i_sectors, verbose),
-                                  method='Nelder-Mead', options={'maxfev': 10**5 * len(params_init)})
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
     # separate results
     res_p_orb = output.x[0]
     res_const = output.x[1:1 + n_sect]
@@ -489,7 +489,178 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb, c
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
-@nb.njit
+@nb.njit(cache=True)
+def objective_harmonic_sep(params, times, signal, signal_err, p_orb, t_zero, timings, n_harm, verbose=False):
+    """This is the objective function to give to scipy.optimize.minimize for a sum of
+    harmonic frequencies to be disentagled.
+
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        The parameters of two sets of harmonic sine waves.
+        Has to be a flat array and are ordered in the following way:
+        [offset, ampl_h1, ampl_h2, ..., phase_h1, phase_h2, ...,
+         ampl_h1, ampl_h2, ..., phase_h1, phase_h2, ...]
+        where _hi indicates harmonics.
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series, where non-harmonics
+        and linear curve are subtracted.
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    n_harm: int
+        Nomber of harmonics to consider. n_harm/p_orb gives max f_h.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
+
+    See Also
+    --------
+    sum_sines for the definition of the parameters.
+    """
+    # mask the eclipses
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_folded = (times - t_zero) % p_orb
+    # the mask assumes t_1 is at zero and thus t_1_1 is negative
+    mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+    # separate the parameters
+    harmonic_n = np.arange(1, n_harm + 1)
+    offset = params[0]
+    freqs = np.append(harmonic_n / p_orb, harmonic_n / p_orb)
+    ampls = np.zeros(2 * n_harm)
+    ampls[:n_harm] = params[1:1 + 1 * n_harm]
+    ampls[n_harm:] = params[1 + 2 * n_harm:1 + 3 * n_harm]
+    phases = np.zeros(2 * n_harm)
+    phases[:n_harm] = params[1 + 1 * n_harm:1 + 2 * n_harm]
+    phases[n_harm:] = params[1 + 3 * n_harm:1 + 4 * n_harm]
+    # make the models and calculate the likelihood
+    model_ecl = tsf.sum_sines(times, freqs[:n_harm], ampls[:n_harm], phases[:n_harm])
+    model_ooe = tsf.sum_sines(times, freqs[n_harm:], ampls[n_harm:], phases[n_harm:])
+    # want the ecl model to capture the eclipses and nothing outside
+    signal_ecl = signal - model_ooe
+    signal_ecl[mask_ecl] -= model_ecl[mask_ecl] - np.mean(model_ecl[mask_ecl])
+    # want the ooe model to capture all other variability
+    signal_ooe = signal - model_ecl
+    # append models for likelihood calculation
+    long_signal = np.append(signal_ecl, signal_ooe)
+    long_model = np.append(model_ecl, model_ooe)
+    residuals = (long_signal - long_model) / np.append(signal_err, signal_err)
+    ln_likelihood = tsf.calc_likelihood(residuals)  # need minus the likelihood for minimisation
+    # to keep track, sometimes print the value
+    if verbose:
+        if np.random.randint(10000) == 0:
+            print('log-likelihood:', ln_likelihood)
+            # print(f'log-likelihood: {ln_likelihood:1.3f}')  # pre-jit
+    return -ln_likelihood
+
+
+def harmonic_separation_fit(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                            f_he, a_he, ph_he, f_ho, a_ho, ph_ho, i_sectors,
+                            verbose=False):
+    """Disentangling of harmonics sinusoids between eclipse and out-of-eclipse signal.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    res_offset: float
+        Offset for the eclipse harmonics
+    res_freqs: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    res_ampls_1: numpy.ndarray[float]
+        Updated amplitudes of a number of harmonic sine waves
+    res_ampls_2: numpy.ndarray[float]
+        Updated amplitudes of a number of harmonic sine waves
+    res_phases_1: numpy.ndarray[float]
+        Updated phases of a number of harmonic sine waves
+    res_phases_2: numpy.ndarray[float]
+        Updated phases of a number of harmonic sine waves
+
+    Notes
+    -----
+    Strictly speaking it is doing a maximum log-likelihood fit, but that is
+    in essence identical (and numerically more stable due to the logarithm).
+    """
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    a_h = a_n[harmonics]
+    ph_h = ph_n[harmonics]
+    # find maximum number of harmonics
+    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
+    n_harm = int(np.floor(p_orb * f_max))
+    # n_harm = min(n_harm, np.max(harmonic_n))  # restrict to a sane number
+    # arange the initial harmonics
+    h_n_all = np.arange(1, n_harm + 1)
+    a_h_all = np.array([a_h[harmonic_n == n][0] if n in harmonic_n else 0 for n in h_n_all])
+    ph_h_all = np.array([ph_h[harmonic_n == n][0] if n in harmonic_n else 0 for n in h_n_all])
+    # prepare the signal
+    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_line
+    # do the fit
+    params_init = np.concatenate(([0], a_he, ph_he, a_ho, ph_ho))
+    result = sp.optimize.minimize(objective_harmonic_sep, x0=params_init,
+                                  args=(times, ecl_signal, signal_err, p_orb, t_zero, timings, n_harm, verbose),
+                                  method='Nelder-Mead', options={'maxfev': 2*10**4})
+    # separate results
+    res_offset = result.x[0]
+    res_freqs = harmonic_n / p_orb
+    res_ampls_1 = result.x[1:1 + 1 * n_harm]
+    res_ampls_2 = result.x[1 + 2 * n_harm:1 + 3 * n_harm]
+    res_phases_1 = result.x[1 + 1 * n_harm:1 + 2 * n_harm]
+    res_phases_2 = result.x[1 + 3 * n_harm:1 + 4 * n_harm]
+    if verbose:
+        print(f'Fit convergence: {result.success}. N_iter: {result.nit}.')
+    return res_offset, res_freqs, res_ampls_1, res_ampls_2, res_phases_1, res_phases_2
+
+
+@nb.njit(cache=True)
 def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, harmonic_n, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
@@ -622,7 +793,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     arguments = (times, signal, signal_err, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, verbose)
     # do the fit
     result = sp.optimize.minimize(objective_third_light, x0=params_init, args=arguments, method='Nelder-Mead',
-                                  bounds=param_bounds, options={'maxfev': 10**5 * len(params_init)})
+                                  bounds=param_bounds, options={'maxfev': 10**4 * len(params_init)})
     # separate results
     res_light_3 = result.x[:n_sect]
     res_stretch = result.x[-1]
