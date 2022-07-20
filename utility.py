@@ -1257,15 +1257,15 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
     None
     """
     var_names = ['e_0', 'w_0', 'i_0', 'r_sum_0', 'r_rat_0', 'sb_rat_0',
-                 'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1', 'offset']
+                 'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1']
     var_desc = ['initial eccentricity', 'initial argument of periastron', 'initial orbital inclination i (radians)',
                 'initial sum of fractional radii (r1+r2)/a', 'initial radius ratio r2/r1',
                 'initial surface brightness ratio sb2/sb1 or (Teff2/Teff1)^4',
                 'eccentricity after fit', 'argument of periastron after fit', 'i after fit (radians)',
-                '(r1+r2)/a after fit', 'r2/r1 after fit', 'sb2/sb1 after fit', 'ellc lc offset']
+                '(r1+r2)/a after fit', 'r2/r1 after fit', 'sb2/sb1 after fit']
     values = [str(par_init[0]), str(par_init[1]), str(par_init[2]), str(par_init[3]), str(par_init[4]),
               str(par_init[5]), str(par_fit[0]), str(par_fit[1]), str(par_fit[2]), str(par_fit[3]), str(par_fit[4]),
-              str(par_fit[5]), str(par_fit[6])]
+              str(par_fit[5])]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Fit for the light curve parameters. Fit uses the eclipses only.'
@@ -1319,10 +1319,8 @@ def read_results_fit_ellc(file_name):
         Optimised surface brightness ratio sb_2/sb_1
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    e, w, i, r_sum_sma, r_ratio, sb_ratio = results[:6]
-    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = results[6:]
-    return (e, w, i, r_sum_sma, r_ratio, sb_ratio, opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio,
-            offset)
+    e, w, i, r_sum_sma, r_ratio, sb_ratio, opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = results
+    return e, w, i, r_sum_sma, r_ratio, sb_ratio, opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio
 
 
 def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_name, data_id=None):
@@ -1692,8 +1690,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
-                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
-                                           save_file=file_name, show=False)
+                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
+                                           ph_hl_8, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1711,14 +1709,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           save_file=file_name, show=False)
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_2.png')
-            vis.plot_lc_eclipse_timestamps_2(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                             f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, i_sectors,
-                                           save_file=file_name, show=False)
-            
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
+                                           i_sectors, save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_sep.png')
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
+                                           ph_he_10, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1753,8 +1752,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
-                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, low_h=True,
-                                           save_file=None, show=True)
+                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
+                                           ph_hl_8, i_sectors, low_h=True, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1769,8 +1768,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           save_file=None, show=True)
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
+                                           i_sectors, save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
+                                           ph_he_10, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:

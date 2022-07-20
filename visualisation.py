@@ -296,8 +296,8 @@ def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_h
     return
 
 
-def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timing_errs, depths_err,
-                               const, slope, f_n, a_n, ph_n, i_sectors, low_h=False, save_file=None, show=True):
+def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timing_errs, depths_err, const, slope,
+                               f_n, a_n, ph_n, f_h, a_h, ph_h, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the first and
     last contact points as well as minima indicated.
     """
@@ -313,18 +313,14 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     t_model = np.arange(t_start, t_end, 0.001)
-    if low_h:
-        harmonics = harmonics[harmonic_n < 20]  # restrict harmonics to avoid interference of ooe signal
-    model_h = 1 + tsf.sum_sines(t_zero + t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_h = 1 + tsf.sum_sines(t_zero + t_model, f_h, a_h, ph_h)
+    model_nh = tsf.sum_sines(times, f_n, a_n, ph_n) - tsf.sum_sines(times, f_h, a_h, ph_h)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
     h_top_1 = h_1 + offset
@@ -1035,21 +1031,20 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
-    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, opt_offset = par_opt
+    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_opt
     opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
     # make the ellc models
     model = tsfit.ellc_lc_simple(t_extended, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     model1 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
-                                  opt_sb_ratio, opt_offset)
+                                  opt_sb_ratio, 0)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
     ax.plot(t_extended[sorter], model[sorter], c='tab:orange', label='initial values from formulae')
     ax.plot(t_extended[sorter], model1[sorter], c='tab:green',
             label='fit for f_c, f_s, i, r_sum, r_rat, sb_rat, offset')
-    if np.all(model1 == 1 + opt_offset):
-        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt_i:2.4} rad)',
-                    (0, 1 + opt_offset))
+    if np.all(model1 == 1):
+        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt_i:2.4} rad)', (0, 1))
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
@@ -1142,7 +1137,7 @@ def plot_corner_ellc_pars(parameters_1, parameters_2, distributions, save_file=N
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     i = i_rad / np.pi * 180
     parameters_1 = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
-    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, offset = parameters_2
+    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = parameters_2
     opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
     opt_i = opt_i_rad / np.pi * 180
     parameters_2 = [opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio]
@@ -1205,7 +1200,7 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
 def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, passed_nh,
                                t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
-    e, w, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make models
     model = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1218,7 +1213,7 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     model_pnh = tsf.sum_sines(times, f_n[passed_nh], a_n[passed_nh], ph_n[passed_nh])
     # ellc models
     model_ellc_h = tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
-    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
+    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     # plot the non-harmonics passing the criteria
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(times, signal, marker='.', c='tab:blue', label='signal')
@@ -1282,9 +1277,9 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
     # make the ellc model
-    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
+    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     resid_ellc = signal - model_nh - model_line - model_ellc - const_r
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, resid_ellc)
@@ -1334,9 +1329,9 @@ def plot_lc_ellc_harmonics(times, signal, p_orb, t_zero, timings, const, slope, 
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params_ellc
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
     # make the ellc model
-    model_ellc = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
+    model_ellc = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     model_ellc_h = tsf.sum_sines(t_model + t_zero, f_n_r, a_n_r, ph_n_r)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))

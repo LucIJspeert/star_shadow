@@ -490,7 +490,8 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb, c
 
 
 @nb.njit(cache=True)
-def objective_harmonic_sep(params, times, signal, signal_err, p_orb, t_zero, timings, n_harm, verbose=False):
+def objective_harmonic_sep(params, times, signal, signal_err, p_orb, t_zero, timings, f_h, a_h, ph_h, n_harm,
+                           verbose=False):
     """This is the objective function to give to scipy.optimize.minimize for a sum of
     harmonic frequencies to be disentagled.
 
@@ -537,29 +538,27 @@ def objective_harmonic_sep(params, times, signal, signal_err, p_orb, t_zero, tim
     t_folded = (times - t_zero) % p_orb
     # the mask assumes t_1 is at zero and thus t_1_1 is negative
     mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+    mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+    mask_b2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
+    mask_com = mask_ecl | mask_b1 | mask_b2
     # separate the parameters
     harmonic_n = np.arange(1, n_harm + 1)
     offset = params[0]
-    freqs = np.append(harmonic_n / p_orb, harmonic_n / p_orb)
-    ampls = np.zeros(2 * n_harm)
-    ampls[:n_harm] = params[1:1 + 1 * n_harm]
-    ampls[n_harm:] = params[1 + 2 * n_harm:1 + 3 * n_harm]
-    phases = np.zeros(2 * n_harm)
-    phases[:n_harm] = params[1 + 1 * n_harm:1 + 2 * n_harm]
-    phases[n_harm:] = params[1 + 3 * n_harm:1 + 4 * n_harm]
+    freqs = harmonic_n / p_orb
+    ampls = params[1:1 + n_harm]
+    phases = params[1 + n_harm:1 + 2 * n_harm]
+    # subtract eclipse model from the full harmonic model
+    f_ho, a_ho, ph_ho = af.subtract_harmonic_sines(p_orb, f_h, a_h, ph_h, freqs, ampls, phases)
     # make the models and calculate the likelihood
-    model_ecl = tsf.sum_sines(times, freqs[:n_harm], ampls[:n_harm], phases[:n_harm])
-    model_ooe = tsf.sum_sines(times, freqs[n_harm:], ampls[n_harm:], phases[n_harm:])
+    model_ecl = tsf.sum_sines(times, freqs, ampls, phases)
+    deriv_ecl = tsf.sum_sines_deriv(times, freqs, ampls, phases, deriv=2)
+    model_ooe = tsf.sum_sines(times, f_ho, a_ho, ph_ho)
     # want the ecl model to capture the eclipses and nothing outside
-    signal_ecl = signal - model_ooe
-    signal_ecl[mask_ecl] -= model_ecl[mask_ecl] - np.mean(model_ecl[mask_ecl])
-    # want the ooe model to capture all other variability
-    signal_ooe = signal - model_ecl
-    # append models for likelihood calculation
-    long_signal = np.append(signal_ecl, signal_ooe)
-    long_model = np.append(model_ecl, model_ooe)
-    residuals = (long_signal - long_model) / np.append(signal_err, signal_err)
+    signal_ecl = signal - model_ooe - offset
+    # signal_ecl[mask_ecl] -= model_ecl[mask_ecl] - np.mean(model_ecl[mask_ecl])
+    residuals = (signal_ecl - model_ecl) / signal_err
     ln_likelihood = tsf.calc_likelihood(residuals)  # need minus the likelihood for minimisation
+    ln_likelihood = ln_likelihood - 1000 * np.sum(deriv_ecl[mask_b1 | mask_b2] < 0)
     # to keep track, sometimes print the value
     if verbose:
         if np.random.randint(10000) == 0:
@@ -629,35 +628,36 @@ def harmonic_separation_fit(times, signal, signal_err, p_orb, t_zero, timings, c
     """
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    f_h = f_n[harmonics]
     a_h = a_n[harmonics]
     ph_h = ph_n[harmonics]
     # find maximum number of harmonics
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
     n_harm = int(np.floor(p_orb * f_max))
     # n_harm = min(n_harm, np.max(harmonic_n))  # restrict to a sane number
+    harmonic_n_e = np.round(f_he * p_orb).astype(int)
     # arange the initial harmonics
     h_n_all = np.arange(1, n_harm + 1)
-    a_h_all = np.array([a_h[harmonic_n == n][0] if n in harmonic_n else 0 for n in h_n_all])
-    ph_h_all = np.array([ph_h[harmonic_n == n][0] if n in harmonic_n else 0 for n in h_n_all])
+    a_h_all = np.array([a_he[harmonic_n_e == n][0] if n in harmonic_n_e else 0 for n in h_n_all])
+    ph_h_all = np.array([ph_he[harmonic_n_e == n][0] if n in harmonic_n_e else 0 for n in h_n_all])
     # prepare the signal
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
     # do the fit
-    params_init = np.concatenate(([0], a_he, ph_he, a_ho, ph_ho))
+    params_init = np.concatenate(([0], a_h_all, ph_h_all))
     result = sp.optimize.minimize(objective_harmonic_sep, x0=params_init,
-                                  args=(times, ecl_signal, signal_err, p_orb, t_zero, timings, n_harm, verbose),
+                                  args=(times, ecl_signal, signal_err, p_orb, t_zero, timings, f_h, a_h, ph_h,
+                                        n_harm, verbose),
                                   method='Nelder-Mead', options={'maxfev': 2*10**4})
     # separate results
     res_offset = result.x[0]
     res_freqs = harmonic_n / p_orb
-    res_ampls_1 = result.x[1:1 + 1 * n_harm]
-    res_ampls_2 = result.x[1 + 2 * n_harm:1 + 3 * n_harm]
-    res_phases_1 = result.x[1 + 1 * n_harm:1 + 2 * n_harm]
-    res_phases_2 = result.x[1 + 3 * n_harm:1 + 4 * n_harm]
+    res_ampls = result.x[1:1 + n_harm]
+    res_phases = result.x[1 + n_harm:1 + 2 * n_harm]
     if verbose:
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}.')
-    return res_offset, res_freqs, res_ampls_1, res_ampls_2, res_phases_1, res_phases_2
+    return res_offset, res_freqs, res_ampls, res_phases
 
 
 @nb.njit(cache=True)
@@ -888,9 +888,9 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
     --------
     ellc_lc_simple
     """
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset = params
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = params
     try:
-        model = ellc_lc_simple(times, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset)
+        model = ellc_lc_simple(times, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     except:
         # (try to) catch ellc errors
         return 10**9
@@ -978,7 +978,7 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # f_c, f_s, i, r_sum, r_rat, sb_rat
-    params_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    params_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
     # bounds = (f_c_bd, f_s_bd, i_bd, r_sum_sma_bd, r_ratio_bd, sb_ratio_bd, (-0.5, 0.5))
     # bounds = ((max(f_c - 2*(f_c - f_c_bd[0]), -1), min(f_c + 2*(f_c_bd[1] - f_c), 1)),
     #             (max(f_s - 2*(f_s - f_s_bd[0]), -1), min(f_s + 2*(f_s_bd[1] - f_s), 1)),
@@ -988,7 +988,7 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     #             (max(r_ratio - 2*(r_ratio - r_ratio_bd[0]), 0), min(r_ratio + 2*(r_ratio_bd[1] - r_ratio), 1)),
     #             (max(sb_ratio - 2*(sb_ratio - sb_ratio_bd[0]), 0), min(sb_ratio + 2*(sb_ratio_bd[1] - sb_ratio), 1)),
     #             (-0.5, 0.5))
-    bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100), (-0.5, 0.5))
+    bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100))
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
                                options={'maxiter': 10000})
