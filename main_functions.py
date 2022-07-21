@@ -647,11 +647,11 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
         ecl_indices = ut.read_results_ecl_indices(file_name)  # read only the indices file
         if verbose:
             print(f'Not enough eclipses found last time. Loaded indices file.')
-        return (None,) * 7 + (ecl_indices,)
+        return (None,) * 6 + (ecl_indices,)
     elif os.path.isfile(file_name_3) & (not overwrite):
         if verbose:
             print(f'Not enough eclipses found last time (see {os.path.splitext(os.path.basename(file_name_3))[0]})')
-        return (None,) * 8
+        return (None,) * 7
     else:
         if verbose:
             print(f'Measuring eclipse time points and depths.')
@@ -665,7 +665,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
                 np.savetxt(file_name.replace(fn_ext, '.txt'), [message], fmt='%s')
             if verbose:
                 print(message)
-            return (None,) * 8
+            return (None,) * 7
         elif np.any([item is None for item in output]):
             message = 'No two eclipses found passing the criteria'
             if file_name is not None:
@@ -673,7 +673,7 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
                 ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
             if verbose:
                 print(message)
-            return (None,) * 7 + (ecl_indices,)
+            return (None,) * 6 + (ecl_indices,)
         # minima and first/last contact and internal tangency
         timings = np.array([t_1, t_2, *t_contacts, *t_tangency])
         # define some errors
@@ -721,6 +721,10 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
               f't_2_2: {timings[5]:.{rnd_t_2_2}f} (+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
               f'duration_1: {dur_1:.{rnd_dur_1}f}, (+-{dur_1_err:.{rnd_dur_1}f}), \n'
               f'duration_2: {dur_2:.{rnd_dur_2}f}, (+-{dur_2_err:.{rnd_dur_2}f}). \n'
+              f't_b_1_1: {timings[6]:.{rnd_t_1_1}f} (+-{timing_errs[2]:.{rnd_t_1_1}f}), \n'
+              f't_b_1_2: {timings[7]:.{rnd_t_1_2}f} (+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
+              f't_b_2_1: {timings[8]:.{rnd_t_2_1}f} (+-{timing_errs[4]:.{rnd_t_2_1}f}), \n'
+              f't_b_2_2: {timings[9]:.{rnd_t_2_2}f} (+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
               f'bottom_dur_1: {dur_b_1:.{rnd_bot_1}f}, (+-{dur_1_err:.{rnd_bot_1}f}), \n'
               f'bottom_dur_2: {dur_b_2:.{rnd_bot_2}f}, (+-{dur_2_err:.{rnd_bot_2}f}). \n'
               f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
@@ -1059,7 +1063,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
 
     Notes
     -----
-    The fit parameters include f_c=sqrt(e)cos(w) and
+    The fit parameters for one of the fits include f_c=sqrt(e)cos(w) and
     f_s=sqrt(e)sin(w), instead of e and w themselves.
     """
     t_a = time.time()
@@ -1072,13 +1076,28 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
     else:
         if verbose:
             print('Fitting for the light curve parameters.')
+        # todo: add fit with simple model
+        e, w = par_init[:2]
+        e = min(e, 0.999)  # prevent unbound orbits
+        par_init_simple = (e * np.cos(w), e * np.sin(w), *par_init[2:])
+        # todo: test with ldc_1=0.5 and 1.0 on the synthetics
+        output = tsfit.fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                          f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
+        # todo: think of a way to get errors?
+        # get e and w from fitting parameters
+        opt_ecosw, opt_esinw, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = output.x
+        opt_e = np.sqrt(opt_ecosw**2 + opt_esinw**2)
+        opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
+        par_opt_simple = (opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio)
+        
+        
+
         e, w = par_init[:2]
         e = min(e, 0.999)  # prevent unbound orbits
         par_init_ellc = (e**0.5 * np.cos(w), e**0.5 * np.sin(w), *par_init[2:])
-        par_bounds = (None, None, None, None, None, None)  # not used atm
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
         output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                        f_n, a_n, ph_n, par_init_ellc, par_bounds, i_sectors, verbose=verbose)
+                                        f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
         # todo: think of a way to get errors?
         # get e and w from fitting parameters f_c and f_s
         opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = output.x

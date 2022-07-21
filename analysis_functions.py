@@ -852,12 +852,23 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     depth_2: float
         Depth of secondary minimum
     """
-    # calculate the harmonic model at the eclipse time points
-    t_model = np.array([t_1_1, t_1, t_1_2, t_2_1, t_2, t_2_2])
+    # measure heights at the bottom
+    if (t_b_1_2 - t_b_1_1 > 0):
+        t_model_b_1 = np.arange(t_b_1_1, t_b_1_2 + 0.00001, 0.00001)
+    else:
+        t_model_b_1 = t_1
+    if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
+        t_model_b_2 = np.arange(t_b_2_1, t_b_2_2 + 0.00001, 0.00001)
+    else:
+        t_model_b_2 = t_2
+    model_h_b_1 = tsf.sum_sines(t_model_b_1 + t_zero, f_h, a_h, ph_h)
+    model_h_b_2 = tsf.sum_sines(t_model_b_2 + t_zero, f_h, a_h, ph_h)
+    # calculate the harmonic model at the eclipse edges
+    t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
     model_h = tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h)
     # calculate depths based on the average level at contacts and the minima
-    depth_1 = (model_h[0] + model_h[2]) / 2 - model_h[1]
-    depth_2 = (model_h[3] + model_h[5]) / 2 - model_h[4]
+    depth_1 = (model_h[0] + model_h[1]) / 2 - np.mean(model_h_b_1)
+    depth_2 = (model_h[2] + model_h[3]) / 2 - np.mean(model_h_b_2)
     return depth_1, depth_2
 
 
@@ -965,7 +976,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
-        return (None,) * 9  # No eclipse signatures found above the noise level
+        return (None,) * 10  # No eclipse signatures found above the noise level
     ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
     peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
@@ -976,6 +987,13 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     peaks_2_n = np.array(peaks_2_n).astype(int)
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, slope_sign, mode='down')
+
+    # walk inward from peaks_1 to zero in deriv_1
+    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
+    # find the maxima in deriv_2 betweern peaks_1 and zeros_1
+    peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
+    peaks_2_p = np.array(peaks_2_p).astype(int)
+    
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
@@ -991,8 +1009,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
             duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
         condition &= (duration < p_orb / 2)
         if condition:
-            ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], 0, 0,
-                   0, peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
+            ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]], peaks_2_p[comb[0]], 0,
+                   peaks_2_p[comb[1]], peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             if (ecl[2] > ecl[-3]):  # be careful with wrap-around
                 line_check_1 = np.all(model_h[ecl[2]:] <= model_h[ecl[2]])
@@ -1006,35 +1024,35 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
                 if line_check_1 & line_check_2:
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
     # determine the points of eclipse minima and flat bottoms
-    indices_t = np.arange(len(t_model))
-    for i, ecl in enumerate(ecl_indices):
-        # eclipse minima
-        if (ecl[2] > ecl[-3]):  # wrap-around
-            i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3] + 1])))
-            ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3] + 1])[i_min]
-        else:
-            i_min = np.argmin(np.abs(deriv_1[ecl[2]:ecl[-3] + 1]))
-            ecl_indices[i, 5] = indices_t[ecl[2]:ecl[-3] + 1][i_min]
-        # left bottom turning point (peaks_2_p)
-        if (ecl_indices[i, 5] < ecl[1]):  # wrap-around
-            i_max = np.argmax(np.append(deriv_2[ecl[1]:], deriv_2[:ecl_indices[i, 5] + 1]))
-            ecl_indices[i, 4] = np.append(indices_t[ecl[1]:], indices_t[:ecl_indices[i, 5] + 1])[i_max]
-        else:
-            i_max = np.argmax(deriv_2[ecl[1]:ecl_indices[i, 5] + 1])
-            ecl_indices[i, 4] = indices_t[ecl[1]:ecl_indices[i, 5] + 1][i_max]
-        # right bottom turning point (peaks_2_p)
-        if (ecl_indices[i, 5] > ecl[-2]):  # wrap-around
-            i_max = np.argmax(np.append(deriv_2[ecl_indices[i, 5]:], deriv_2[:ecl[-2] + 1]))
-            ecl_indices[i, -5] = np.append(indices_t[ecl_indices[i, 5]:], indices_t[:ecl[-2] + 1])[i_max]
-        else:
-            i_max = np.argmax(deriv_2[ecl_indices[i, 5]:ecl[-2] + 1])
-            ecl_indices[i, -5] = indices_t[ecl_indices[i, 5]:ecl[-2] + 1][i_max]
+    # indices_t = np.arange(len(t_model))
+    # for i, ecl in enumerate(ecl_indices):
+    #     # eclipse minima
+    #     if (ecl[2] > ecl[-3]):  # wrap-around
+    #         i_min = np.argmin(np.abs(np.append(deriv_1[ecl[2]:], deriv_1[:ecl[-3] + 1])))
+    #         ecl_indices[i, 5] = np.append(indices_t[ecl[2]:], indices_t[:ecl[-3] + 1])[i_min]
+    #     else:
+    #         i_min = np.argmin(np.abs(deriv_1[ecl[2]:ecl[-3] + 1]))
+    #         ecl_indices[i, 5] = indices_t[ecl[2]:ecl[-3] + 1][i_min]
+    #     # left bottom turning point (peaks_2_p)
+    #     if (ecl_indices[i, 5] < ecl[1]):  # wrap-around
+    #         i_max = np.argmax(np.append(deriv_2[ecl[1]:], deriv_2[:ecl_indices[i, 5] + 1]))
+    #         ecl_indices[i, 4] = np.append(indices_t[ecl[1]:], indices_t[:ecl_indices[i, 5] + 1])[i_max]
+    #     else:
+    #         i_max = np.argmax(deriv_2[ecl[1]:ecl_indices[i, 5] + 1])
+    #         ecl_indices[i, 4] = indices_t[ecl[1]:ecl_indices[i, 5] + 1][i_max]
+    #     # right bottom turning point (peaks_2_p)
+    #     if (ecl_indices[i, 5] > ecl[-2]):  # wrap-around
+    #         i_max = np.argmax(np.append(deriv_2[ecl_indices[i, 5]:], deriv_2[:ecl[-2] + 1]))
+    #         ecl_indices[i, -5] = np.append(indices_t[ecl_indices[i, 5]:], indices_t[:ecl[-2] + 1])[i_max]
+    #     else:
+    #         i_max = np.argmax(deriv_2[ecl_indices[i, 5]:ecl[-2] + 1])
+    #         ecl_indices[i, -5] = indices_t[ecl_indices[i, 5]:ecl[-2] + 1][i_max]
     # check that we have some eclipses
     if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
-        return (None,) * 8 + (ecl_indices,)
+        return (None,) * 9 + (ecl_indices,)
     # correct for not quite reaching the top of the peak in some cases for peaks_2_p
-    ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
-    ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
+    # ecl_indices[:, 4] = curve_walker(deriv_2, ecl_indices[:, 4], -1, mode='up')
+    # ecl_indices[:, -5] = curve_walker(deriv_2, ecl_indices[:, -5], 1, mode='up')
     # finally, put the eclipse minimum at or in the middle between the peaks_2_p
     ecl_indices[:, 5] = (ecl_indices[:, 4] + ecl_indices[:, -5]) // 2
     # make the timing measurement - make sure to account for wrap around when an eclipse is divided up
@@ -1054,7 +1072,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
     # convert to midpoints and widths
     ecl_min = t_model[ecl_indices[:, 5]]
-    ecl_mid = (t_i_1 + t_i_2) / 2 * (t_i_2 > t_i_1) + (t_i_1 + t_i_2 - 2 * p_orb) / 2 * (t_i_2 < t_i_1)
+    ecl_mid = (t_i_1 + t_i_2) / 2 * (t_i_2 >= t_i_1) + (t_i_1 + t_i_2 - 2 * p_orb) / 2 * (t_i_2 < t_i_1)
     widths = (t_i_2 - t_i_1) * (t_i_2 > t_i_1) + (t_i_2 - t_i_1 + 2 * p_orb) * (t_i_2 < t_i_1)
     depths = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 5]]
     # remove too shallow eclipses
@@ -1069,7 +1087,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # estimates of flat bottom
     t_b_i_1 = t_model[ecl_indices[:, 4]]
     t_b_i_2 = t_model[ecl_indices[:, -5]]
-    ecl_mid_b = ((t_b_i_1 + t_b_i_2) / 2 * (t_b_i_2 > t_b_i_1)
+    ecl_mid_b = ((t_b_i_1 + t_b_i_2) / 2 * (t_b_i_2 >= t_b_i_1)
                  + (t_b_i_1 + t_b_i_2 - 2 * p_orb) / 2 * (t_b_i_2 < t_b_i_1))
     widths_b = (t_b_i_2 - t_b_i_1) * (t_b_i_2 > t_b_i_1) + (t_b_i_2 - t_b_i_1 + 2 * p_orb) * (t_b_i_2 < t_b_i_1)
     # now pick out two consecutive, fully covered eclipses
@@ -1087,7 +1105,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
         p_orb = 2 * p_orb  # last chance at doubling the period in case of identical eclipses
     combinations = np.delete(combinations, comb_remove, axis=0)
     if (len(combinations) == 0):
-        return (None,) * 8 + (ecl_indices,)
+        return (None,) * 9 + (ecl_indices,)
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
@@ -1805,15 +1823,14 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # sum of durations of the minima, linearly sensitive to phi_0 (and sensitive to e sin(w), i and phi_0)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
     # depths
-    r_depth_1 = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
-    r_depth_2 = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
-    # r_depth_1 = (d_1 - depth_1) / d_1_err
-    # r_depth_2 = (d_2 - depth_2) / d_2_err
-    # todo: test this
+    r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
+    r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_bottom_duration = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
-    # calculate the error-normalised residuals
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_1, r_depth_2, r_bottom_duration])
+    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_err_tot
+    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    # calculate the error-normalised residuals - the most important ones are weighed more strongly
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
+                      r_b_duration_sum])
     bic = tsf.calc_bic(resid, 1)
     return bic
 
@@ -1932,9 +1949,11 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_bottom_duration = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
+    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_err_tot
     # calculate the error-normalised residuals - the most important ones are weighed more strongly
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_bottom_duration])
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
+                      r_b_duration_sum])
     bic = tsf.calc_bic(resid, 6)
     return bic
 

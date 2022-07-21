@@ -1376,10 +1376,13 @@ def read_results_fselect(file_name):
         Non-harmonic frequencies that passed both checks
     """
     results = np.loadtxt(file_name, usecols=(4, 5, 6), delimiter=',', unpack=True)
-    passed_nh_sigma, passed_nh_snr, passed_nh_b = results
-    passed_nh_sigma = passed_nh_sigma.astype(int).astype(bool)  # stored as floats
-    passed_nh_snr = passed_nh_snr.astype(int).astype(bool)  # stored as floats
-    passed_nh_b = passed_nh_b.astype(int).astype(bool)  # stored as floats
+    if (len(np.shape(results)) == 2):
+        passed_nh_sigma, passed_nh_snr, passed_nh_b = results
+        passed_nh_sigma = passed_nh_sigma.astype(int).astype(bool)  # stored as floats
+        passed_nh_snr = passed_nh_snr.astype(int).astype(bool)  # stored as floats
+        passed_nh_b = passed_nh_b.astype(int).astype(bool)  # stored as floats
+    else:
+        passed_nh_sigma, passed_nh_snr, passed_nh_b = np.array([[], [], []])
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
@@ -1434,8 +1437,12 @@ def read_results_disentangle(file_name):
         Phases of a number of harmonic sine waves
     """
     results = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
-    const_r = results[1, 0]
-    f_n_r, a_n_r, ph_n_r = results[:, 1:]
+    if (len(np.shape(results)) == 2):
+        const_r = results[1, 0]
+        f_n_r, a_n_r, ph_n_r = results[:, 1:]
+    else:
+        const_r = 0
+        f_n_r, a_n_r, ph_n_r = np.array([[], [], []])
     return const_r, f_n_r, a_n_r, ph_n_r
 
 
@@ -1603,7 +1610,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_9 = read_results_timings(file_name)
         p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = results_9
         # get the low harmonics
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_9)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
         f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
     elif os.path.isfile(file_name_2):
@@ -1684,45 +1691,47 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives_lh.png')
-            vis.plot_lc_derivatives(p_orb_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9, save_file=file_name, show=False)
+            vis.plot_lc_derivatives(p_orb_9, f_h_8, a_h_8, ph_h_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9,
+                                    save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9,
                                            depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
                                            ph_hl_8, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices_11, save_file=file_name, show=False)
+            vis.plot_lc_derivatives(p_orb_11, f_h_8, a_h_8, ph_h_8, f_he_10, a_he_10, ph_he_10, ecl_indices_11,
+                                    save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8,
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8,
                                             a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
                                             f_he_10, a_he_10, ph_he_10, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
                                            i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_sep.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
                                            ph_he_10, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_simple_lc.png')
-            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                   f_n_8, a_n_8, ph_n_8, ecl_pars, i_sectors, save_file=file_name,
                                                   show=False)
         except NameError:
@@ -1736,7 +1745,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_fit.png')
-            vis.plot_lc_ellc_fit(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+            vis.plot_lc_ellc_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                  par_init_12, par_opt_13, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1747,39 +1756,41 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_lc_derivatives(p_orb_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9, save_file=None, show=True)
+            vis.plot_lc_derivatives(p_orb_9, f_h_8, a_h_8, ph_h_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9,
+                                    save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9,
                                            depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
                                            ph_hl_8, i_sectors, low_h=True, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, ecl_indices_11, save_file=None, show=True)
+            vis.plot_lc_derivatives(p_orb_11, f_h_8, a_h_8, ph_h_8, f_he_10, a_he_10, ph_he_10, ecl_indices_11,
+                                    save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8,
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8,
                                             a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
                                             f_he_10, a_he_10, ph_he_10, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
                                            i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
                                            ph_he_10, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                   f_n_8, a_n_8, ph_n_8, ecl_pars, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1795,7 +1806,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_ellc_fit(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+            vis.plot_lc_ellc_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                  par_init_12, par_opt_13, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1807,51 +1818,51 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_pd.png')
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, noise_level_8, passed_nh_b,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_11, f_n_8, a_n_8, noise_level_8, passed_nh_b,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
-            vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
+            vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
                                            passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_lc.png')
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_ellc_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                        f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_ellc,
                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+            vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                        noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_pd_pulsation_analysis(times, signal, p_orb_8, f_n_8, a_n_8, noise_level_8, passed_nh_b,
+            vis.plot_pd_pulsation_analysis(times, signal, p_orb_11, f_n_8, a_n_8, noise_level_8, passed_nh_b,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_pulsation_analysis(times, signal, p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
+            vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
                                            passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_ellc_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                        f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_ellc,
                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+            vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
                                        noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
                                        save_file=None, show=True)
         except NameError:

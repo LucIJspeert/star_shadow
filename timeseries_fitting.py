@@ -808,6 +808,207 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     return res_light_3, res_stretch, const, slope
 
 
+def eclipse_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset):
+    """Wrapper for a simple ELLC model with some fixed inputs
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    f_c: float
+        Combination of e and w: sqrt(e)cos(w)
+    f_s: float
+        Combination of e and w: sqrt(e)sin(w)
+    i: float
+        Inclination of the orbit (radians)
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    offset: float
+        Constant offset for the light level
+
+    Returns
+    -------
+    model: numpy.ndarray[float]
+        Eclipse light curve model for the given time points
+    """
+    # unpack and define parameters
+    e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
+    # determine phase angles of crucial points
+    theta_1, theta_2 = af.minima_phase_angles(e, w, i)
+    nu_1 = af.true_anomaly(theta_1, w)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = af.contact_phase_angles(e, w, i, phi_0)
+    # make the simple model
+    thetas_1 = np.arange(0-phi_1_1, 0+phi_1_2, 0.0001)
+    thetas_2 = np.arange(np.pi-phi_2_1, np.pi+phi_2_2, 0.0001)
+    model_ecl_1 = np.zeros(len(thetas_1))
+    model_ecl_2 = np.zeros(len(thetas_2))
+    for k in range(len(thetas_1)):
+        model_ecl_1[k] = 1 - af.eclipse_depth(e, w, i, thetas_1[k], r_sum_sma, r_ratio, sb_ratio)
+    for k in range(len(thetas_2)):
+        model_ecl_2[k] = 1 - af.eclipse_depth(e, w, i, thetas_2[k], r_sum_sma, r_ratio, sb_ratio)
+    t_model_1 = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas_1, w), e)
+    t_model_2 = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas_2, w), e)
+    # include out of eclipse
+    thetas = np.arange(0-2*phi_1_1, np.pi+2*phi_2_2, 0.001)
+    ecl_model = np.zeros(len(thetas))
+    for k in range(len(thetas)):
+        ecl_model[k] = 1 - af.eclipse_depth(e, w, i, thetas[k], r_sum_sma, r_ratio, sb_ratio)
+    t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas, w), e)
+    # todo: look into going from times to angles
+    
+    incl = i / np.pi * 180  # ellc likes degrees
+    r_1 = r_sum_sma / (1 + r_ratio)
+    r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
+    # try to prevent fatal crashes from RLOF cases (or from zero radius)
+    if (r_sum_sma > 0):
+        d_roche_1 = 2.44 * r_2 * (r_1 / r_2)  # * (q)**(1 / 3)  # 2.44*R_M*(rho_M/rho_m)**(1/3)
+        d_roche_2 = 2.44 * r_1 * (r_2 / r_1)  # * (1 / q)**(1 / 3)
+    else:
+        d_roche_1 = 1
+        d_roche_2 = 1
+    d_peri = (1 - f_c**2 - f_s**2)  # a*(1 - e), but a=1
+    if (max(d_roche_1, d_roche_2) > 0.98 * d_peri):
+        model = np.ones(len(times))  # Roche radius close to periastron distance
+    else:
+        model = ellc.lc(times, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
+                        light_3=0, q=1, shape_1='roche', shape_2='roche',
+                        ld_1='lin', ld_2='lin', ldc_1=0.5, ldc_2=0.5, gdc_1=0., gdc_2=0., heat_1=0., heat_2=0.)
+    # add constant offset for light level
+    model = model + offset
+    return model
+
+
+def objective_eclipse_lc(params, times, signal, signal_err, p_orb):
+    """Objective function for a set of eclipse parameters
+
+    Parameters
+    ----------
+    params: numpy.ndarray[float]
+        The parameters of a simple eclipse light curve model.
+        Has to be ordered in the following way:
+        [ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio, offset]
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the resuduals
+
+    See Also
+    --------
+    eclipse_lc_simple
+    """
+    ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = params
+    model = eclipse_lc_simple(times, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
+    # determine likelihood for the model
+    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
+    return -ln_likelihood
+
+
+def fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init,
+                       i_sectors, verbose=False):
+    """Perform least-squares fit for the orbital parameters that can be obtained
+    from the eclipses in the light curve.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    par_init: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    result: Object
+        Fit results object from the scipy optimizer
+
+    See Also
+    --------
+    ellc_lc_simple, objective_ellc_lc
+
+    Notes
+    -----
+    Strictly speaking it is doing a maximum log-likelihood fit, but that is
+    in essence identical (and numerically more stable due to the logarithm).
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
+    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
+    f_c_bd, f_s_bd, i_bd, r_sum_sma_bd, r_ratio_bd, sb_ratio_bd = par_bounds
+    # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
+    t_extended = (times - t_zero) % p_orb
+    ext_left = (t_extended > p_orb + t_1_1)
+    ext_right = (t_extended < t_1_2)
+    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    # make a mask for the eclipses, as only the eclipses will be fitted
+    mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_line + 1
+    ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
+    signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
+    # determine a lc offset to match the harmonic model at the edges
+    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
+    offset = 1 - (h_1 + h_2) / 2
+    # initial parameters and bounds
+    params_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
+    bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.01, 100), (0.01, 100))
+    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
+    result = sp.optimize.minimize(objective_eclipse_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
+                                  options={'maxiter': 10000})
+    if verbose:
+        print('Fit complete')
+        print(f'fun: {result.fun}')
+        print(f'message: {result.message}')
+        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
+    return result
+
+
 def ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset):
     """Wrapper for a simple ELLC model with some fixed inputs
     
@@ -900,7 +1101,7 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
 
 
 def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init,
-                     par_bounds, i_sectors, verbose=False):
+                     i_sectors, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
     
@@ -932,9 +1133,6 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     par_init: tuple[float], list[float], numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
-    par_bounds: tuple[tuple[float]], list[tuple[float]], numpy.ndarray[tuple[float]]
-        Bounds on the eclipse parameters (par_init)
-        (may also be different combinations of tuple/list/array)
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -977,17 +1175,8 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
-    # f_c, f_s, i, r_sum, r_rat, sb_rat
+    # initial parameters and bounds
     params_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
-    # bounds = (f_c_bd, f_s_bd, i_bd, r_sum_sma_bd, r_ratio_bd, sb_ratio_bd, (-0.5, 0.5))
-    # bounds = ((max(f_c - 2*(f_c - f_c_bd[0]), -1), min(f_c + 2*(f_c_bd[1] - f_c), 1)),
-    #             (max(f_s - 2*(f_s - f_s_bd[0]), -1), min(f_s + 2*(f_s_bd[1] - f_s), 1)),
-    #             (max(i - 2*(i - i_bd[0]), 0), min(i + 2*(i_bd[1] - i), np.pi/2)),
-    #             (max(r_sum_sma - 2*(r_sum_sma - r_sum_sma_bd[0]), 0),
-    #              min(r_sum_sma + 2*(r_sum_sma_bd[1] - r_sum_sma), 1)),
-    #             (max(r_ratio - 2*(r_ratio - r_ratio_bd[0]), 0), min(r_ratio + 2*(r_ratio_bd[1] - r_ratio), 1)),
-    #             (max(sb_ratio - 2*(sb_ratio - sb_ratio_bd[0]), 0), min(sb_ratio + 2*(sb_ratio_bd[1] - sb_ratio), 1)),
-    #             (-0.5, 0.5))
     bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100))
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
