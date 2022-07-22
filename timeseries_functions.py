@@ -1031,6 +1031,79 @@ def formal_period_uncertainty(p_orb, f_n_err, harmonics, harmonic_n):
     return p_orb_err
 
 
+# @nb.njit(cache=True)
+def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
+    """Estimate the error in the timing measurements based on the
+    noise level and the eclipse slopes.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+
+    Returns
+    -------
+    depth_1: float
+        Depth of primary minimum
+    depth_2: float
+        Depth of secondary minimum
+    depth_1_err: float
+        Error in the depth of primary minimum
+    depth_2_err: float
+        Error in the depth of secondary minimum
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_line
+    # use the eclipse model to find the derivative peaks
+    t_folded = (times - t_zero) % p_orb
+    mask_1_1 = (t_folded > t_1_1 + p_orb) & (t_folded < t_b_1_1 + p_orb)
+    mask_1_2 = (t_folded > t_b_1_2) & (t_folded < t_1_2)
+    mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
+    mask_2_2 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
+    # get timing error by dividing noise level by slopes
+    y_inter, slope = linear_slope(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
+    t_1_1_err = noise_level / slope[0]
+    y_inter, slope = linear_slope(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
+    t_1_2_err = noise_level / slope[0]
+    y_inter, slope = linear_slope(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
+    t_2_1_err = noise_level / slope[0]
+    y_inter, slope = linear_slope(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
+    t_2_2_err = noise_level / slope[0]
+    return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+
+
 @nb.njit(cache=True)
 def measure_eclipse_depths(times, signal, p_orb, t_zero, f_n, a_n, ph_n, timings, timing_errs, noise_level, i_sectors):
     """Measure the depths of the eclipses from the data given
@@ -1105,7 +1178,7 @@ def measure_eclipse_depths(times, signal, p_orb, t_zero, f_n, a_n, ph_n, timings
     height_b_2_err = np.std(ecl_signal[mask_b_2])
     # calculate the harmonic model at the eclipse edges
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = tsf.sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+    model_h = sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     # heights at the edges
     height_1_1 = model_h[0]
     height_1_1_err = noise_level
@@ -2274,10 +2347,16 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
             mask_b2 = np.zeros(len(t_folded), dtype=bool)
         mask_com = mask_ecl | mask_b1 | mask_b2
         # ooe level of eclipse model and eclipse bumps
-        mean_ooe = np.mean(model_e[mask_ecl])
         max_ecl = np.max(model_e[np.invert(mask_ecl)])
-        mean_bot = np.mean(model_e[mask_b1 | mask_b2])
         min_ecl = np.min(model_e[np.invert(mask_com)])
+        if np.any(mask_ecl):
+            mean_ooe = np.mean(model_e[mask_ecl])
+        else:
+            mean_bot = max_ecl
+        if np.any(mask_b1 | mask_b2):
+            mean_bot = np.mean(model_e[mask_b1 | mask_b2])
+        else:
+            mean_bot = min_ecl
         bumps = np.array([max_ecl - mean_ooe, mean_bot - min_ecl])
         # see if the model still changes
         model_change = np.sum((prev_model_e - model_e)**2) / len(model_e)

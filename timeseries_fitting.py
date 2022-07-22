@@ -976,7 +976,6 @@ def fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const,
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    f_c_bd, f_s_bd, i_bd, r_sum_sma_bd, r_ratio_bd, sb_ratio_bd = par_bounds
     # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
@@ -1156,7 +1155,6 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    f_c_bd, f_s_bd, i_bd, r_sum_sma_bd, r_ratio_bd, sb_ratio_bd = par_bounds
     # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)

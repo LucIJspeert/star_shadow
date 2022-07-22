@@ -1076,19 +1076,19 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
     else:
         if verbose:
             print('Fitting for the light curve parameters.')
-        # todo: add fit with simple model
-        e, w = par_init[:2]
-        e = min(e, 0.999)  # prevent unbound orbits
-        par_init_simple = (e * np.cos(w), e * np.sin(w), *par_init[2:])
-        # todo: test with ldc_1=0.5 and 1.0 on the synthetics
-        output = tsfit.fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                          f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
-        # todo: think of a way to get errors?
-        # get e and w from fitting parameters
-        opt_ecosw, opt_esinw, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = output.x
-        opt_e = np.sqrt(opt_ecosw**2 + opt_esinw**2)
-        opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
-        par_opt_simple = (opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio)
+        # # todo: add fit with simple model
+        # e, w = par_init[:2]
+        # e = min(e, 0.999)  # prevent unbound orbits
+        # par_init_simple = (e * np.cos(w), e * np.sin(w), *par_init[2:])
+        # # todo: test with ldc_1=0.5 and 1.0 on the synthetics
+        # output = tsfit.fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+        #                                   f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
+        # # todo: think of a way to get errors?
+        # # get e and w from fitting parameters
+        # opt_ecosw, opt_esinw, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = output.x
+        # opt_e = np.sqrt(opt_ecosw**2 + opt_esinw**2)
+        # opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
+        # par_opt_simple = (opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio)
         
         
 
@@ -1207,6 +1207,10 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                   slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
                                   overwrite=overwrite, verbose=verbose)
     # e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13, offset_13 = out_13
+    
+    # todo: integrate this error est.
+    tsf.measure_timing_error(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                             timings_11, timing_errs_11, noise_level_8, i_sectors)
     return out_9, out_10, out_11, out_12, out_13
 
 
