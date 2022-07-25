@@ -1020,6 +1020,100 @@ def read_results_hsep(file_name):
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 
+def save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id=None):
+    """Save the results of the eclipse timings
+
+    Parameters
+    ----------
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timing_errs: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
+    file_name: str, None
+        File name (including path) for saving the results.
+    data_id: int, str, None
+        Identification for the dataset used
+
+    Returns
+    -------
+    None
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    d_1, d_2 = depths
+    d_1_err, d_2_err = depths_err
+    var_names = ['t_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
+                 'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
+                 'd_1_err', 'd_2_err']
+    var_desc = ['time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
+                'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
+                'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
+                'start of (flat) eclipse bottom left of primary minimum',
+                'end of (flat) eclipse bottom right of primary minimum',
+                'start of (flat) eclipse bottom left of secondary minimum',
+                'end of (flat) eclipse bottom right of secondary minimum',
+                'depth of primary minimum', 'depth of secondary minimum',
+                'error in time of primary minimum (t_1)',
+                'error in time of secondary minimum (t_2)',
+                'error in time of primary first contact (t_1_1)',
+                'error in time of primary last contact (t_1_2)',
+                'error in time of secondary first contact (t_2_1)',
+                'error in time of secondary last contact (t_2_2)',
+                'error in depth of primary minimum', 'error in depth of secondary minimum']
+    values = [str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
+              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(depths[0]), str(depths[1]),
+              str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
+              str(d_1_err), str(d_2_err)]
+    table = np.column_stack((var_names, values, var_desc))
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = 'Eclipse timing errors and depths with errors.'
+    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
+    return None
+
+
+def read_results_t_errors(file_name):
+    """Read in the results of the eclipse timings
+
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+
+    Returns
+    -------
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timing_errs: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
+    """
+    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = values[:12]
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = values[12:]
+    # put these into some arrays
+    timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+    timing_errs = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
+    depths = np.array([depth_1, depth_2])
+    depths_err = np.array([d_1_err, d_2_err])
+    return timings, timing_errs, depths, depths_err
+
+
 def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
                           formal_errors, dists_in, dists_out, file_name, data_id=None):
     """Save the results of the determination of orbital elements
@@ -1234,7 +1328,7 @@ def read_results_elements(file_name):
             dists_in, dists_out)
 
 
-def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
+def save_results_lc_fit(par_init, par_fit_1, par_fit_2, file_name, data_id=None):
     """Save the results of the fit with ellc models
     
     Parameters
@@ -1242,7 +1336,12 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
     par_init: tuple[float], list[float], numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio
-    par_fit: tuple[float]
+    par_fit_1: tuple[float]
+        Optimised eclipse parameters , consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
+        The offset is a constant added to the model to match
+        the light level of the data
+    par_fit_2: tuple[float]
         Optimised eclipse parameters , consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
         The offset is a constant added to the model to match
@@ -1257,15 +1356,19 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
     None
     """
     var_names = ['e_0', 'w_0', 'i_0', 'r_sum_0', 'r_rat_0', 'sb_rat_0',
-                 'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1']
+                 'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1',
+                 'e_2', 'w_2', 'i_2', 'r_sum_2', 'r_rat_2', 'sb_rat_2']
     var_desc = ['initial eccentricity', 'initial argument of periastron', 'initial orbital inclination i (radians)',
                 'initial sum of fractional radii (r1+r2)/a', 'initial radius ratio r2/r1',
                 'initial surface brightness ratio sb2/sb1 or (Teff2/Teff1)^4',
-                'eccentricity after fit', 'argument of periastron after fit', 'i after fit (radians)',
-                '(r1+r2)/a after fit', 'r2/r1 after fit', 'sb2/sb1 after fit']
+                'eccentricity after fit 1', 'argument of periastron after fit 1', 'i after fit 1 (radians)',
+                '(r1+r2)/a after fit 1', 'r2/r1 after fit 1', 'sb2/sb1 after fit 1',
+                'eccentricity after fit 2', 'argument of periastron after fit 2', 'i after fit 2 (radians)',
+                '(r1+r2)/a after fit 2', 'r2/r1 after fit 2', 'sb2/sb1 after fit 2']
     values = [str(par_init[0]), str(par_init[1]), str(par_init[2]), str(par_init[3]), str(par_init[4]),
-              str(par_init[5]), str(par_fit[0]), str(par_fit[1]), str(par_fit[2]), str(par_fit[3]), str(par_fit[4]),
-              str(par_fit[5])]
+              str(par_init[5]), str(par_fit_1[0]), str(par_fit_1[1]), str(par_fit_1[2]), str(par_fit_1[3]),
+              str(par_fit_1[4]), str(par_fit_1[5]), str(par_fit_2[0]), str(par_fit_2[1]), str(par_fit_2[2]),
+              str(par_fit_2[3]), str(par_fit_2[4]), str(par_fit_2[5])]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Fit for the light curve parameters. Fit uses the eclipses only.'
@@ -1274,7 +1377,7 @@ def save_results_fit_ellc(par_init, par_fit, file_name, data_id=None):
     return None
 
 
-def read_results_fit_ellc(file_name):
+def read_results_lc_fit(file_name):
     """Read in the results of the fit with ellc models
     
     Parameters
@@ -1319,8 +1422,10 @@ def read_results_fit_ellc(file_name):
         Optimised surface brightness ratio sb_2/sb_1
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    e, w, i, r_sum_sma, r_ratio, sb_ratio, opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = results
-    return e, w, i, r_sum_sma, r_ratio, sb_ratio, opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio
+    param_init = results[:6]
+    param_opt1 = results[6:12]
+    param_opt2 = results[12:]
+    return param_init, param_opt1, param_opt2
 
 
 def save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_name, data_id=None):
@@ -1641,15 +1746,16 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12 = results_12[:9]
         errors_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = results_12[9:]
         # intervals_w #? for when the interval is disjoint
-        ecl_pars = (e_12, w_12, i_12, phi_0_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
     # open some more data - ellc fits and pulsation analysis
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
-        results_13 = read_results_fit_ellc(file_name)
-        par_init_12, par_opt_13 = results_13[:6], results_13[6:]
-        par_ellc = np.copy(par_opt_13)
-        par_ellc[0] = np.sqrt(par_opt_13[0]) * np.cos(par_opt_13[1])
-        par_ellc[1] = np.sqrt(par_opt_13[0]) * np.sin(par_opt_13[1])
+        par_init_12, par_opt1_13, par_opt2_13 = read_results_lc_fit(file_name)
+        par_simple = np.copy(par_opt1_13)
+        par_simple[0] = par_opt1_13[0] * np.cos(par_opt1_13[1])
+        par_simple[1] = par_opt1_13[0] * np.sin(par_opt1_13[1])
+        par_ellc = np.copy(par_opt2_13)
+        par_ellc[0] = np.sqrt(par_opt2_13[0]) * np.cos(par_opt2_13[1])
+        par_ellc[1] = np.sqrt(par_opt2_13[0]) * np.sin(par_opt2_13[1])
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     if os.path.isfile(file_name):
         results_14 = read_results_fselect(file_name)
@@ -1730,13 +1836,6 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_simple_lc.png')
-            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
-                                                  f_n_8, a_n_8, ph_n_8, ecl_pars, i_sectors, save_file=file_name,
-                                                  show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
             vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
                                                phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
@@ -1744,14 +1843,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_fit.png')
-            vis.plot_lc_ellc_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                 par_init_12, par_opt_13, i_sectors, save_file=file_name, show=False)
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_lc_fit.png')
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                        f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
+                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_corner.png')
-            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, dists_out_12, save_file=file_name, show=False)
+            vis.plot_corner_ellc_pars(par_init_12, par_opt2_13, dists_out_12, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
@@ -1790,11 +1890,6 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_parameters_simple(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
-                                                  f_n_8, a_n_8, ph_n_8, ecl_pars, i_sectors, save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
             vis.plot_dists_eclipse_parameters(e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12,
                                               r_ratio_12, sb_ratio_12, *dists_out_12)
         except NameError:
@@ -1806,12 +1901,13 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_ellc_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                 par_init_12, par_opt_13, i_sectors, save_file=None, show=True)
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                        f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
+                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_ellc_pars(par_init_12, par_opt_13, dists_out_12, save_file=None, show=True)
+            vis.plot_corner_ellc_pars(par_init_12, par_opt2_13, dists_out_12, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # pulsation_analysis
@@ -1825,7 +1921,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt2_13,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1839,7 +1935,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
+                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt2_13, i_sectors,
                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1851,7 +1947,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt_13,
+                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt2_13,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1863,7 +1959,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt_13, i_sectors,
+                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt2_13, i_sectors,
                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

@@ -1209,7 +1209,8 @@ def integral_kepler_2(nu_1, nu_2, e):
     def indefinite_integral(nu, e):
         term_1 = 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu/2), np.sqrt(1 + e) * np.cos(nu/2))
         term_2 = - e * np.sqrt(1 - e**2) * np.sin(nu) / (1 + e * np.cos(nu))
-        return term_1 + term_2
+        mod_term = 4 * np.pi * ((nu // (2 * np.pi) + 1) // 2)  # correction term for going over 2pi
+        return term_1 + term_2 + mod_term
     
     end_boundary = indefinite_integral(nu_2, e)
     start_boundary = indefinite_integral(nu_1, e)
@@ -1917,6 +1918,10 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     integral_bottom_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + psi_2_2, e) / n
     bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
+    # print(i, psi_0, psi_1_1, psi_1_2, psi_2_1, psi_2_2)
+    # print(integral_bottom_1_1, integral_bottom_1_2, integral_bottom_2_1, integral_bottom_2_2, bottom_dur_1 + bottom_dur_2, bottom_dur_1 - bottom_dur_2)
+    # print(tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, (tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2), (tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2))
+    # print('')
     # calculate the depths
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
@@ -1938,6 +1943,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum])
     bic = tsf.calc_bic(resid, 6)
     return bic
 

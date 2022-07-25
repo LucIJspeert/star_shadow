@@ -1018,11 +1018,10 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     return
 
 
-def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init, par_opt,
-                     i_sectors, save_file=None, show=True):
+def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init, par_opt1,
+                            par_opt2, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
-    of orbital parameters using both the eclipse timings and the ellc light curve
-    models over two consecutive fits.
+    of orbital parameters using both the eclipse timings, simple model and the ellc light curve models.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
@@ -1045,20 +1044,23 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
-    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_opt
-    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
+    ecosw, esinw = e * np.cos(w), e * np.sin(w)
+    opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
+    opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
+    opt_f_c, opt_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
     # make the ellc models
-    model = tsfit.ellc_lc_simple(t_extended, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
-    model1 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
-                                  opt_sb_ratio, 0)
-    # plot
+    model_simple_init = tsfit.eclipse_lc_simple(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_opt1 = tsfit.eclipse_lc_simple(t_extended, p_orb, 0, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio,
+                                         opt1_sb_ratio)
+    model_ellc_init = tsfit.ellc_lc_simple(t_extended, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    model_opt2 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
+                                      opt2_sb_ratio, 0)
+    # plot the simple model
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter], model[sorter], c='tab:orange', label='initial values from formulae')
-    ax.plot(t_extended[sorter], model1[sorter], c='tab:green',
-            label='fit for f_c, f_s, i, r_sum, r_rat, sb_rat, offset')
-    if np.all(model1 == 1):
-        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt_i:2.4} rad)', (0, 1))
+    ax.plot(t_extended[sorter], model_simple_init[sorter], c='tab:orange', label='initial values from formulae')
+    ax.plot(t_extended[sorter], model_opt1[sorter], c='tab:green',
+            label='simple model fit for ecosw, esinw, i, r_sum, r_rat, sb_rat')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
@@ -1068,7 +1070,37 @@ def plot_lc_ellc_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a
     plt.legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
-        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_1.png')
+        else:
+            fig_save_file = save_file + '_1.png'
+        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    # plot the ellc model
+    fig, ax = plt.subplots(figsize=(16, 9))
+    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
+    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial values from formulae')
+    ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:green',
+            label='ellc fit for f_c, f_s, i, r_sum, r_rat, sb_rat')
+    if np.all(model_opt2 == 1):
+        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt2_i:2.4} rad)', (0, 1))
+    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
+    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
+    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
+    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
+    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
+    ax.set_ylabel('normalised flux', fontsize=14)
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    if save_file is not None:
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_2.png')
+        else:
+            fig_save_file = save_file + '_2.png'
+        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:
