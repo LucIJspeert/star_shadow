@@ -587,7 +587,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     # determine phase angles of crucial points
     theta_1, theta_2 = af.minima_phase_angles(e, w, i)
     nu_1 = af.true_anomaly(theta_1, w)
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = af.contact_phase_angles(e, w, i, phi_0)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = af.root_contact_phase_angles(e, w, i, phi_0)
     # make the simple model
     thetas_1 = np.arange(0-phi_1_1, 0+phi_1_2, 0.0001)
     thetas_2 = np.arange(np.pi-phi_2_1, np.pi+phi_2_2, 0.0001)
@@ -628,8 +628,8 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     return
 
 
-def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  r_ratio, sb_ratio, e_vals, w_vals,
-                                  i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals):
+def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals, w_vals, i_vals, rsumsma_vals,
+                                  rratio_vals, sbratio_vals):
     """Shows the histograms resulting from the input distributions
     and the hdi_prob=0.683 and hdi_prob=0.997 bounds resulting from the HDI's
 
@@ -650,38 +650,6 @@ def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  
             label='hdi_prob=0.997')
     ax.plot([i_bounds[1]/np.pi*180, i_bounds[1]/np.pi*180], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
     ax.set_xlabel('inclination (deg)', fontsize=14)
-    ax.set_ylabel('N', fontsize=14)
-    ax.legend(fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    # phi_0
-    phi0_interval = arviz.hdi(phi0_vals, hdi_prob=0.683)
-    phi0_bounds = arviz.hdi(phi0_vals, hdi_prob=0.997)
-    fig, ax = plt.subplots(figsize=(16, 9))
-    hist = ax.hist(phi0_vals, bins=50, label='vary fit input')
-    ax.plot([phi_0, phi_0], [0, np.max(hist[0])], c='tab:green', label='best fit value')
-    ax.plot([phi0_interval[0], phi0_interval[0]], [0, np.max(hist[0])], c='tab:orange', label='hdi_prob=0.683')
-    ax.plot([phi0_interval[1], phi0_interval[1]], [0, np.max(hist[0])], c='tab:orange')
-    ax.plot([phi0_bounds[0], phi0_bounds[0]], [0, np.max(hist[0])], c='tab:grey', linestyle='--',
-            label='hdi_prob=0.997')
-    ax.plot([phi0_bounds[1], phi0_bounds[1]], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
-    ax.set_xlabel('phi_0', fontsize=14)
-    ax.set_ylabel('N', fontsize=14)
-    ax.legend(fontsize=12)
-    plt.tight_layout()
-    plt.show()
-    # psi_0
-    psi0_interval = arviz.hdi(psi0_vals, hdi_prob=0.683)
-    psi0_bounds = arviz.hdi(psi0_vals, hdi_prob=0.997)
-    fig, ax = plt.subplots(figsize=(16, 9))
-    hist = ax.hist(psi0_vals, bins=50, label='vary fit input')
-    ax.plot([psi_0, psi_0], [0, np.max(hist[0])], c='tab:green', label='best fit value')
-    ax.plot([psi0_interval[0], psi0_interval[0]], [0, np.max(hist[0])], c='tab:orange', label='hdi_prob=0.683')
-    ax.plot([psi0_interval[1], psi0_interval[1]], [0, np.max(hist[0])], c='tab:orange')
-    ax.plot([psi0_bounds[0], psi0_bounds[0]], [0, np.max(hist[0])], c='tab:grey', linestyle='--',
-            label='hdi_prob=0.997')
-    ax.plot([psi0_bounds[1], psi0_bounds[1]], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
-    ax.set_xlabel('psi_0', fontsize=14)
     ax.set_ylabel('N', fontsize=14)
     ax.legend(fontsize=12)
     plt.tight_layout()
@@ -811,23 +779,6 @@ def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  
     ax.legend(fontsize=12)
     plt.tight_layout()
     plt.show()
-    # r_dif_sma
-    rdifsma_interval = arviz.hdi(rdifsma_vals, hdi_prob=0.683)
-    rdifsma_bounds = arviz.hdi(rdifsma_vals, hdi_prob=0.997)
-    fig, ax = plt.subplots(figsize=(16, 9))
-    hist = ax.hist(rdifsma_vals, bins=50, label='vary fit input')
-    ax.plot([r_dif_sma, r_dif_sma], [0, np.max(hist[0])], c='tab:green', label='best fit value')
-    ax.plot([rdifsma_interval[0], rdifsma_interval[0]], [0, np.max(hist[0])], c='tab:orange',
-            label='hdi_prob=0.683')
-    ax.plot([rdifsma_interval[1], rdifsma_interval[1]], [0, np.max(hist[0])], c='tab:orange')
-    ax.plot([rdifsma_bounds[0], rdifsma_bounds[0]], [0, np.max(hist[0])], c='tab:grey', linestyle='--',
-            label='hdi_prob=0.997')
-    ax.plot([rdifsma_bounds[1], rdifsma_bounds[1]], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
-    ax.set_xlabel('|r1-r2|/a', fontsize=14)
-    ax.set_ylabel('N', fontsize=14)
-    ax.legend(fontsize=12)
-    plt.tight_layout()
-    plt.show()
     # r_ratio
     rratio_interval = arviz.hdi(rratio_vals, hdi_prob=0.683)
     rratio_bounds = arviz.hdi(rratio_vals, hdi_prob=0.997)
@@ -903,9 +854,8 @@ def plot_dists_eclipse_parameters(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma,  
 
 def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals,
                                    t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals,
-                                   d_1_vals, d_2_vals, e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio,
-                                   e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals,
-                                   rratio_vals, sbratio_vals, save_file=None, show=True):
+                                   d_1_vals, d_2_vals, e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals, w_vals, i_vals,
+                                   rsumsma_vals, rratio_vals, sbratio_vals, save_file=None, show=True):
     """Shows the corner plots resulting from the input distributions
     
     Note: produces several plots
@@ -921,11 +871,11 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
         w_vals_hist[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
     # input
-    value_names = np.array([r'$t_1$', r'$t_2$', r'$\t_{1,1}$', r'$\t_{1,2}$', r'$\t_{2,1}$', r'$\t_{2,2}$',
-                            r'$\t_{b,1,1}$', r'$\t_{b,1,2}$', r'$\t_{b,2,1}$', r'$\t_{b,2,2}$'])
-    values = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
+    value_names = np.array([r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
+                            r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
+    values = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
     dist_data = np.column_stack((t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
-                                 t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals))
+                                 t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
@@ -993,28 +943,6 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         plt.show()
     else:
         plt.close()
-    # other parameters
-    value_names = np.array([r'$depth_1$', r'$depth_2$', r'$phi_0$', r'$psi_0$', r'$\frac{|r_1-r_2|}{a}$'])
-    values = np.array([d_1, d_2, phi_0, psi_0, r_dif_sma])
-    dist_data = np.column_stack((d_1_vals, d_2_vals, phi0_vals, psi0_vals, rdifsma_vals))
-    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
-    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
-                        labels=value_names[nonzero_range], quiet=True)
-    if not np.all(nonzero_range):
-        fig.suptitle(f'Intermediate distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
-    else:
-        fig.suptitle('Intermediate distributions', fontsize=14)
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_other.png')
-        else:
-            fig_save_file = save_file + '_other.png'
-        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
     return
 
 
@@ -1046,14 +974,16 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
+    opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
     opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-    opt_f_c, opt_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
     # make the ellc models
     model_simple_init = tsfit.eclipse_lc_simple(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_opt1 = tsfit.eclipse_lc_simple(t_extended, p_orb, 0, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio,
                                          opt1_sb_ratio)
-    model_ellc_init = tsfit.ellc_lc_simple(t_extended, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
-    model_opt2 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
+    model_ellc_init = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
+                                           opt1_r_ratio, opt1_sb_ratio, 0)
+    model_opt2 = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
                                       opt2_sb_ratio, 0)
     # plot the simple model
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -1082,7 +1012,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     # plot the ellc model
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial values from formulae')
+    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial values from simple fit')
     ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:green',
             label='ellc fit for f_c, f_s, i, r_sum, r_rat, sb_rat')
     if np.all(model_opt2 == 1):
@@ -1173,31 +1103,39 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     return
 
 
-def plot_corner_ellc_pars(parameters_1, parameters_2, distributions, save_file=None, show=True):
+def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_file=None, show=True):
     """Corner plot of the distributions and the given 'truths' indicated
     using the parametrisation of ellc
     """
-    e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals = distributions
-    # transform some params
-    e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = parameters_1
+    e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals = distributions
+    # transform some params - initial
+    e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     i = i_rad / np.pi * 180
-    parameters_1 = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
-    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = parameters_2
-    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
-    opt_i = opt_i_rad / np.pi * 180
-    parameters_2 = [opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio]
+    par_init = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
+    # simple fit params
+    opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
+    opt_f_c, opt_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
+    opt_i = opt1_i_rad / np.pi * 180
+    par_opt1 = [opt_f_c, opt_f_s, opt_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
+    # ellc fit params
+    opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
+    opt_f_c, opt_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    opt_i = opt2_i_rad / np.pi * 180
+    par_opt2 = [opt_f_c, opt_f_s, opt_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
     f_c_vals = np.sqrt(e_vals) * np.cos(w_vals)
     f_s_vals = np.sqrt(e_vals) * np.sin(w_vals)
     # stack dists and plot
     dist_data = np.column_stack((f_c_vals, f_s_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
     fig = corner.corner(dist_data, labels=('f_c', 'f_s', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
                         r'$\frac{sb_2}{sb_1}$'), truth_color='tab:orange', quiet=True)
-    corner.overplot_lines(fig, parameters_1, color='tab:blue')
-    corner.overplot_points(fig, [parameters_1], marker='s', color='tab:blue')
-    corner.overplot_lines(fig, parameters_2, color='tab:orange')
-    corner.overplot_points(fig, [parameters_2], marker='s', color='tab:orange')
-    fig.suptitle('Output distributions and ELLC fit outcome', fontsize=14)
+    corner.overplot_lines(fig, par_init, color='tab:blue')
+    corner.overplot_points(fig, [par_init], marker='s', color='tab:blue')
+    corner.overplot_lines(fig, par_opt1, color='tab:orange')
+    corner.overplot_points(fig, [par_opt1], marker='s', color='tab:orange')
+    corner.overplot_lines(fig, par_opt2, color='tab:green')
+    corner.overplot_points(fig, [par_opt2], marker='s', color='tab:green')
+    fig.suptitle('Output distributions and lc fit outcome', fontsize=14)
     if save_file is not None:
         fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -1244,9 +1182,9 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
 
 
 def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, passed_nh,
-                               t_zero, const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True):
+                               t_zero, const_r, f_n_r, a_n_r, ph_n_r, param_lc, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
-    e, w, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make models
     model = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1310,8 +1248,9 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     return
 
 
-def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
-                           const_r, f_n_r, a_n_r, passed_hr, params_ellc, i_sectors, save_file=None, show=True):
+def plot_pd_disentangled_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
+                                   const_r, f_n_r, a_n_r, passed_hr, param_lc, i_sectors, model='simple',
+                                   save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1323,12 +1262,16 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
+    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make the ellc model
-    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
-    resid_ellc = signal - model_nh - model_line - model_ellc - const_r
+    if (model == 'ellc'):
+        ecl_model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    else:
+        ecl_model = tsfit.eclipse_lc_simple(t_model, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_resid = signal - model_nh - model_line - ecl_model - const_r
     # make periodograms
-    freqs, ampls = tsf.astropy_scargle(times, resid_ellc)
+    freqs, ampls = tsf.astropy_scargle(times, ecl_resid)
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -1354,8 +1297,8 @@ def plot_pd_ellc_harmonics(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     return
 
 
-def plot_lc_ellc_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                           const_r, f_n_r, a_n_r, ph_n_r, params_ellc, save_file=None, show=True):
+def plot_lc_disentangled_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+                                   const_r, f_n_r, a_n_r, ph_n_r, param_lc, model='simple', save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1375,17 +1318,21 @@ def plot_lc_ellc_harmonics(times, signal, p_orb, t_zero, timings, const, slope, 
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # unpack and define parameters
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = params_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
+    f_c, f_s = np.sqrt(e) * np.cos(w), np.sqrt(e) * np.sin(w)
     # make the ellc model
-    model_ellc = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
-    model_ellc_h = tsf.sum_sines(t_model + t_zero, f_n_r, a_n_r, ph_n_r)
+    if (model == 'ellc'):
+        ecl_model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    else:
+        ecl_model = tsfit.eclipse_lc_simple(t_model, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_r = tsf.sum_sines(t_model + t_zero, f_n_r, a_n_r, ph_n_r)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_model, ecl_signal, marker='.', label='signal - linear - non-harmonic model')
-    ax.scatter(t_model[sorter], ecl_signal[sorter] - model_ellc_h[sorter], marker='.',
+    ax.scatter(t_model[sorter], ecl_signal[sorter] - model_r[sorter], marker='.',
                label='signal - linear - non-harmonic - disentangled harmonic model')
-    ax.plot(t_model[sorter], model_ellc[sorter] + const_r, c='tab:green', label='ellc model + consant')
-    ax.plot(t_model[sorter], model_ellc_h[sorter], c='tab:red', label='disentangled harmonic model')
+    ax.plot(t_model[sorter], ecl_model[sorter] + const_r, c='tab:green', label='ellc model + consant')
+    ax.plot(t_model[sorter], model_r[sorter], c='tab:red', label='disentangled harmonic model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')

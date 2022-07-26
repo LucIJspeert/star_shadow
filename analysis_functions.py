@@ -1295,10 +1295,10 @@ def minima_phase_angles(e, w, i):
 
 
 @nb.njit(cache=True)
-def first_contact_angle_1(phi, e, w, i, phi_0):
-    """Find the root of this function to obtain the phase angle between first contact
-    and eclipse minimum for the primary eclipse
-    
+def contact_angles(phi, e, w, i, phi_0, ecl=1, contact=1):
+    """Find the root of this function to obtain the phase angle between first/last contact
+    and eclipse minimum for the primary/secondary eclipse
+
     Parameters
     ----------
     phi: float, numpy.ndarray[float]
@@ -1311,7 +1311,11 @@ def first_contact_angle_1(phi, e, w, i, phi_0):
         Inclination of the orbit
     phi_0: float
         Auxilary angle (see Kopal 1959)
-    
+    ecl: int
+        Primary or secondary eclipse (1 or 2)
+    contact: int
+        First or last contact (1 or 2)
+
     Returns
     -------
      : float, numpy.ndarray[float]
@@ -1319,15 +1323,25 @@ def first_contact_angle_1(phi, e, w, i, phi_0):
     """
     sin_i_2 = np.sin(i)**2
     term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
-    term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w + phi))
+    if (ecl == 1) & (contact == 1):
+        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w + phi))
+    elif (ecl == 1) & (contact == 2):
+        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w - phi))
+    elif (ecl == 2) & (contact == 1):
+        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w + phi))
+    elif (ecl == 2) & (contact == 2):
+        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w - phi))
+    else:
+        print(f'ecl={ecl} and contact={contact} are not valid choises.')
+        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2)
     return term_1 + term_2
 
 
 @nb.njit(cache=True)
-def last_contact_angle_1(phi, e, w, i, phi_0):
-    """Find the root of this function to obtain the phase angle between last contact
-    and eclipse minimum for the primary eclipse
-    
+def contact_angles_radii(phi, e, w, i, r_sum_sma, ecl=1, contact=1):
+    """Find the root of this function to obtain the phase angle between first/last contact
+    and eclipse minimum for the primary/secondary eclipse using the radii
+
     Parameters
     ----------
     phi: float, numpy.ndarray[float]
@@ -1338,9 +1352,14 @@ def last_contact_angle_1(phi, e, w, i, phi_0):
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+        (can also be r_dif_sma for internal tangency)
+    ecl: int
+        Primary or secondary eclipse (1 or 2)
+    contact: int
+        First or last contact (1 or 2)
+
     Returns
     -------
      : float, numpy.ndarray[float]
@@ -1348,69 +1367,22 @@ def last_contact_angle_1(phi, e, w, i, phi_0):
     """
     sin_i_2 = np.sin(i)**2
     term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
-    term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w - phi))
+    term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
+    if (ecl == 1) & (contact == 1):
+        term_2 = - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w + phi))
+    elif (ecl == 1) & (contact == 2):
+        term_2 = - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w - phi))
+    elif (ecl == 2) & (contact == 1):
+        term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w + phi))
+    elif (ecl == 2) & (contact == 2):
+        term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
+    else:
+        print(f'ecl={ecl} and contact={contact} are not valid choises.')
+        term_2 = - r_sum_sma / (1 - e**2)
     return term_1 + term_2
 
 
-@nb.njit(cache=True)
-def first_contact_angle_2(phi, e, w, i, phi_0):
-    """Find the root of this function to obtain the phase angle between first contact
-    and eclipse minimum for the secondary eclipse
-    
-    Parameters
-    ----------
-    phi: float, numpy.ndarray[float]
-        Angle between first contact and eclipse minimum
-    e: float
-        Eccentricity of the orbit
-    w: float
-        Argument of periastron
-    i: float
-        Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    
-    Returns
-    -------
-     : float, numpy.ndarray[float]
-        Numeric result of the function that should equal 0
-    """
-    sin_i_2 = np.sin(i)**2
-    term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
-    term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w + phi))
-    return term_1 + term_2
-
-
-@nb.njit(cache=True)
-def last_contact_angle_2(phi, e, w, i, phi_0):
-    """Find the root of this function to obtain the phase angle between last contact
-    and eclipse minimum for the secondary eclipse
-    
-    Parameters
-    ----------
-    phi: float, numpy.ndarray[float]
-        Angle between first contact and eclipse minimum
-    e: float
-        Eccentricity of the orbit
-    w: float
-        Argument of periastron
-    i: float
-        Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    
-    Returns
-    -------
-     : float, numpy.ndarray[float]
-        Numeric result of the function that should equal 0
-    """
-    sin_i_2 = np.sin(i)**2
-    term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
-    term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w - phi))
-    return term_1 + term_2
-
-
-def contact_phase_angles(e, w, i, phi_0):
+def root_contact_phase_angles(e, w, i, phi_0):
     """Determine the contact angles for given e, w, i, phi_0
     
     Parameters
@@ -1437,22 +1409,76 @@ def contact_phase_angles(e, w, i, phi_0):
     """
     q1 = (-10**-5, np.pi/2)
     try:
-        opt_3 = sp.optimize.root_scalar(first_contact_angle_1, args=(e, w, i, phi_0), method='brentq', bracket=q1)
+        opt_3 = sp.optimize.root_scalar(contact_angles, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = sp.optimize.root_scalar(last_contact_angle_1, args=(e, w, i, phi_0), method='brentq', bracket=q1)
+        opt_4 = sp.optimize.root_scalar(contact_angles, args=(e, w, i, phi_0, 1, 2), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = sp.optimize.root_scalar(first_contact_angle_2, args=(e, w, i, phi_0), method='brentq', bracket=q1)
+        opt_5 = sp.optimize.root_scalar(contact_angles, args=(e, w, i, phi_0, 2, 1), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = sp.optimize.root_scalar(last_contact_angle_2, args=(e, w, i, phi_0), method='brentq', bracket=q1)
+        opt_6 = sp.optimize.root_scalar(contact_angles, args=(e, w, i, phi_0, 2, 2), method='brentq', bracket=q1)
+        phi_2_2 = opt_6.root
+    except ValueError:
+        phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
+    return phi_1_1, phi_1_2, phi_2_1, phi_2_2
+
+
+def root_contact_phase_angles_radii(e, w, i, r_sum_sma):
+    """Determine the contact angles for given e, w, i, r_sum_sma
+
+    Parameters
+    ----------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+        (can also be r_dif_sma for internal tangency)
+
+    Returns
+    -------
+    phi_1_1: float
+        First contact angle of primary eclipse
+    phi_1_2: float
+        Last contact angle of primary eclipse
+    phi_2_1: float
+        First contact angle of secondary eclipse
+    phi_2_2: float
+        Last contact angle of secondary eclipse
+    """
+    q1 = (-10**-5, np.pi / 2)
+    try:
+        opt_3 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 1), method='brentq',
+                                        bracket=q1)
+        phi_1_1 = opt_3.root
+    except ValueError:
+        phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
+    try:
+        opt_4 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 2), method='brentq',
+                                        bracket=q1)
+        phi_1_2 = opt_4.root
+    except ValueError:
+        phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
+    try:
+        opt_5 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 1), method='brentq',
+                                        bracket=q1)
+        phi_2_1 = opt_5.root
+    except ValueError:
+        phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
+    try:
+        opt_6 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 2), method='brentq',
+                                        bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
@@ -1696,7 +1722,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     return light_lost
 
 
-def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
+def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
                           tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
                           t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
@@ -1705,8 +1731,6 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     ----------
     i: float
         Inclination of the orbit
-    r_ratio: float
-        Radius ratio r_2/r_1
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_1: float
@@ -1757,6 +1781,10 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
         Weighted sum of squared deviations of five outcomes of integrals
         of Kepler's second law for different time spans of the eclipses
         compared to the measured values.
+    
+    Notes
+    -----
+    r_ratio is set to 1 for this objective function
     """
     # obtain phi_0 and the approximate e and w
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
@@ -1771,8 +1799,7 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = contact_phase_angles(e, w, i, phi_0)
-    psi_1_1, psi_1_2, psi_2_1, psi_2_2 = contact_phase_angles(e, w, i, psi_0)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles(e, w, i, phi_0)
     # calculate the true anomaly of minima
     nu_1 = true_anomaly(theta_1, w)
     nu_2 = true_anomaly(theta_2, w)
@@ -1788,15 +1815,9 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     integral_tau_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + phi_2_2, e) / n
     dur_1 = integral_tau_1_1 + integral_tau_1_2
     dur_2 = integral_tau_2_1 + integral_tau_2_2
-    # psi angles are for internal tangency
-    integral_bottom_1_1 = integral_kepler_2(nu_conj_1 - psi_1_1, nu_conj_1, e) / n
-    integral_bottom_1_2 = integral_kepler_2(nu_conj_1, nu_conj_1 + psi_1_2, e) / n
-    integral_bottom_2_1 = integral_kepler_2(nu_conj_2 - psi_2_1, nu_conj_2, e) / n
-    integral_bottom_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + psi_2_2, e) / n
-    bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
-    bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
+    r_ratio = 1
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
     depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
@@ -1810,12 +1831,8 @@ def objective_inclination(i, r_ratio, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1
     # depths
     r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
-    # durations of the (flat) bottoms of the minima
-    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_err_tot
-    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
     # calculate the error-normalised residuals
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
-                      r_b_duration_sum])
+    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum])
     bic = tsf.calc_bic(resid, 1)
     return bic
 
@@ -1882,7 +1899,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
         of Kepler's second law for different time spans of the eclipses
         compared to the measured values.
     """
-    ecosw, esinw, i, phi_0, psi_0, r_ratio = params
+    ecosw, esinw, i, r_sum_sma, r_ratio = params
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     if (e >= 1):
@@ -1893,9 +1910,10 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = contact_phase_angles(e, w, i, phi_0)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum_sma)
     # minimise for the internal tangency angles
-    psi_1_1, psi_1_2, psi_2_1, psi_2_2 = contact_phase_angles(e, w, i, psi_0)
+    r_dif_sma = abs(r_sum_sma * (1 - r_ratio) / (1 + r_ratio))
+    psi_1_1, psi_1_2, psi_2_1, psi_2_2 = root_contact_phase_angles_radii(e, w, i, r_dif_sma)
     # calculate the true anomaly of minima
     nu_1 = true_anomaly(theta_1, w)
     nu_2 = true_anomaly(theta_2, w)
@@ -1918,12 +1936,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     integral_bottom_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + psi_2_2, e) / n
     bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
-    # print(i, psi_0, psi_1_1, psi_1_2, psi_2_1, psi_2_2)
-    # print(integral_bottom_1_1, integral_bottom_1_2, integral_bottom_2_1, integral_bottom_2_2, bottom_dur_1 + bottom_dur_2, bottom_dur_1 - bottom_dur_2)
-    # print(tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, (tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2), (tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2))
-    # print('')
     # calculate the depths
-    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
     depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
@@ -1943,8 +1956,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
-    resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum])
-    bic = tsf.calc_bic(resid, 6)
+    bic = tsf.calc_bic(resid, 5)
     return bic
 
 
@@ -1991,8 +2003,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         Surface brightness ratio sb_2/sb_1
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
-    r_ratio = 1
-    args_i = (r_ratio, p_orb, *timings_tau, depths[0], depths[1], *timing_errs, *depths_err)
+    args_i = (p_orb, *timings_tau, depths[0], depths[1], *timing_errs, *depths_err)
     bounds_i = (np.pi/4, np.pi/2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
@@ -2015,26 +2026,22 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         rr_bounds = (r_small/r_large/1.1, r_large/r_small*1.1)
     # prepare for fit of: e, w, i, phi_0, psi_0 and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
-    par_init = (ecosw, esinw, i, phi_0, psi_0, 1)
+    par_init = (ecosw, esinw, i, r_sum_sma, 1)
     args_ep = (p_orb, *timings_tau, *depths, *timing_errs, *depths_err)
-    bounds_ep = ((-1, 1), (-1, 1), (np.pi/4, np.pi/2),
-                 (0, np.pi/2), (0, np.pi/2), rr_bounds)
+    bounds_ep = ((-1, 1), (-1, 1), (np.pi/4, np.pi/2), (0, 1), rr_bounds)
     # the minimization will crash if bounds are reversed - prevent this.
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
-    ecosw, esinw, i, phi_0, psi_0, r_ratio = res.x
+    ecosw, esinw, i, r_sum_sma, r_ratio = res.x
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    # update radii
-    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
-    r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
     # value for sb_ratio from the depths ratio and the other parameters
     theta_1, theta_2 = minima_phase_angles(e, w, i)
     sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    return e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio
+    return e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
 @nb.njit(cache=True)
-def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, p_err, i_err,
+def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, p_err, i_err,
                          t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err):
     """Calculates the uncorrelated (formal) uncertainties for the extracted
     parameters (e, w, phi_0, r_sum_sma).
@@ -2047,8 +2054,6 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxilary angle, see Kopal 1959
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_1: float
@@ -2100,7 +2105,8 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
     sigma_f_s: float
         Formal error in sqrt(e)*sin(w)
     """
-    # often used errors
+    # often used errors/parameter
+    phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     p_err_2 = p_err**2
     sum_t_err_2 = t_1_1_err**2 + t_1_2_err**2 + t_2_1_err**2 + t_2_2_err**2
     # often used sin, cos
@@ -2148,8 +2154,8 @@ def formal_uncertainties(e, w, i, phi_0, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_
     return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s
 
 
-def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h,
-                        timings, timing_errs, depths_err, verbose=False):
+def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h, timings,
+                        timing_errs, depths_err, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2160,14 +2166,8 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    psi_0: float
-        Auxilary angle like phi_0 but for the eclipse bottoms
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
-    r_dif_sma: float
-        Absolute difference of radii in units of the semi-major axis
     r_ratio: float
         Radius ratio r_2/r_1
     sb_ratio: float
@@ -2199,8 +2199,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     -------
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio,
-        sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w), f_c, f_s
     bounds: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     errors: tuple[numpy.ndarray[float]]
@@ -2298,10 +2297,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     e_vals = np.zeros(n_gen)
     w_vals = np.zeros(n_gen)
     i_vals = np.zeros(n_gen)
-    phi0_vals = np.zeros(n_gen)
-    psi0_vals = np.zeros(n_gen)
     rsumsma_vals = np.zeros(n_gen)
-    rdifsma_vals = np.zeros(n_gen)
     rratio_vals = np.zeros(n_gen)
     sbratio_vals = np.zeros(n_gen)
     i_delete = []  # to be deleted due to out of bounds parameter
@@ -2318,12 +2314,9 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]
-        phi0_vals[k] = out[3]
-        psi0_vals[k] = out[4]
-        rsumsma_vals[k] = out[5]
-        rdifsma_vals[k] = out[6]
-        rratio_vals[k] = out[7]
-        sbratio_vals[k] = out[8]
+        rsumsma_vals[k] = out[3]
+        rratio_vals[k] = out[4]
+        sbratio_vals[k] = out[5]
         if verbose & (k % 200 == 0):
             print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
@@ -2342,10 +2335,7 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     e_vals = np.delete(e_vals, i_delete)
     w_vals = np.delete(w_vals, i_delete)
     i_vals = np.delete(i_vals, i_delete)
-    phi0_vals = np.delete(phi0_vals, i_delete)
-    psi0_vals = np.delete(psi0_vals, i_delete)
     rsumsma_vals = np.delete(rsumsma_vals, i_delete)
-    rdifsma_vals = np.delete(rdifsma_vals, i_delete)
     rratio_vals = np.delete(rratio_vals, i_delete)
     sbratio_vals = np.delete(sbratio_vals, i_delete)
     # Calculate the highest density interval (HDI) for a given probability.
@@ -2355,14 +2345,6 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     i_interval = arviz.hdi(i_vals, hdi_prob=0.683)
     i_bounds = arviz.hdi(i_vals, hdi_prob=0.997)
     i_errs = np.array([i - i_interval[0], i_interval[1] - i])
-    # phi_0
-    phi0_interval = arviz.hdi(phi0_vals, hdi_prob=0.683)
-    phi0_bounds = arviz.hdi(phi0_vals, hdi_prob=0.997)
-    phi0_errs = np.array([phi_0 - phi0_interval[0], phi0_interval[1] - phi_0])
-    # psi_0
-    psi0_interval = arviz.hdi(psi0_vals, hdi_prob=0.683)
-    psi0_bounds = arviz.hdi(psi0_vals, hdi_prob=0.997)
-    psi0_errs = np.array([psi_0 - psi0_interval[0], psi0_interval[1] - psi_0])
     # eccentricity
     e_interval = arviz.hdi(e_vals, hdi_prob=0.683)
     e_bounds = arviz.hdi(e_vals, hdi_prob=0.997)
@@ -2402,10 +2384,6 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
     rsumsma_bounds = arviz.hdi(rsumsma_vals, hdi_prob=0.997)
     rsumsma_errs = np.array([r_sum_sma - rsumsma_interval[0], rsumsma_interval[1] - r_sum_sma])
-    # r_dif_sma
-    rdifsma_interval = arviz.hdi(rdifsma_vals, hdi_prob=0.683)
-    rdifsma_bounds = arviz.hdi(rdifsma_vals, hdi_prob=0.997)
-    rdifsma_errs = np.array([r_dif_sma - rdifsma_interval[0], rdifsma_interval[1] - r_dif_sma])
     # r_ratio
     rratio_interval = arviz.hdi(rratio_vals, hdi_prob=0.683)
     rratio_bounds = arviz.hdi(rratio_vals, hdi_prob=0.997)
@@ -2415,13 +2393,13 @@ def error_estimates_hdi(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb
     sbratio_bounds = arviz.hdi(sbratio_vals, hdi_prob=0.997)
     sbratio_errs = np.array([sb_ratio - sbratio_interval[0], sbratio_interval[1] - sb_ratio])
     # collect
-    intervals = (e_interval, w_interval, i_interval, phi0_interval, psi0_interval, rsumsma_interval, rdifsma_interval,
-                 rratio_interval, sbratio_interval, ecosw_interval, esinw_interval, f_c_interval, f_s_interval)
-    bounds = (e_bounds, w_bounds, i_bounds, phi0_bounds, psi0_bounds, rsumsma_bounds, rdifsma_bounds, rratio_bounds,
-              sbratio_bounds, ecosw_bounds, esinw_bounds, f_c_bounds, f_s_bounds)
-    errors = (e_errs, w_errs, i_errs, phi0_errs, psi0_errs, rsumsma_errs, rdifsma_errs, rratio_errs,
-              sbratio_errs, ecosw_errs, esinw_errs, f_c_errs, f_s_errs)
+    intervals = (e_interval, w_interval, i_interval, rsumsma_interval, rratio_interval, sbratio_interval,
+                 ecosw_interval, esinw_interval, f_c_interval, f_s_interval)
+    bounds = (e_bounds, w_bounds, i_bounds, rsumsma_bounds, rratio_bounds, sbratio_bounds,
+              ecosw_bounds, esinw_bounds, f_c_bounds, f_s_bounds)
+    errors = (e_errs, w_errs, i_errs, rsumsma_errs, rratio_errs, sbratio_errs,
+              ecosw_errs, esinw_errs, f_c_errs, f_s_errs)
     dists_in = (normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
                 normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
-    dists_out = (e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals)
+    dists_out = (e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals)
     return intervals, bounds, errors, dists_in, dists_out

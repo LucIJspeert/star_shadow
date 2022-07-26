@@ -2198,8 +2198,8 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, tim
     return const_ho, f_ho, a_ho, ph_ho
 
 
-def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, par_ellc,
-                               i_sectors, verbose=False):
+def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, param_lc,
+                               i_sectors, model='simple', verbose=False):
     """Tries to extract harmonics from the signal after subtraction of
     an eclipse model
     
@@ -2225,13 +2225,15 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    par_ellc: numpy.ndarray[float]
-        Parameters of the best ellc model, consisting of:
-        [sqrt(e)cos(w), sqrt(e)sin(w), i, (r1+r2)/a, r2/r1, sb2/sb1]
+    param_lc: numpy.ndarray[float]
+        Parameters of the best lc model, consisting of:
+        [e, w, i, (r1+r2)/a, r2/r1, sb2/sb1]
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    model: str
+        Use the 'simple' eclipse model or the 'ellc' model
     verbose: bool
         If set to True, this function will print some information
     
@@ -2252,7 +2254,7 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
     decreases the BIC sufficiently (by more than 2).
     Assumes the harmonics are fixed multiples of 1/p_orb.
     """
-    f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_ellc
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -2260,8 +2262,13 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
     # initial eclipse model and residuals
-    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
-    resid_orig = ecl_signal - model_ellc
+    if (model == 'ellc'):
+        f_c = np.sqrt(e) * np.cos(w)
+        f_s = np.sqrt(e) * np.sin(w)
+        ecl_model = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    else:
+        ecl_model = tsfit.eclipse_lc_simple(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    resid_orig = ecl_signal - ecl_model
     # extract harmonics
     output = extract_harmonics(times, resid_orig, signal_err, p_orb, verbose=verbose)
     const_r, f_r, a_r, ph_r = output

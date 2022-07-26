@@ -1114,8 +1114,8 @@ def read_results_t_errors(file_name):
     return timings, timing_errs, depths, depths_err
 
 
-def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, intervals, bounds,
-                          formal_errors, dists_in, dists_out, file_name, data_id=None):
+def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
+                          dists_in, dists_out, file_name, data_id=None):
     """Save the results of the determination of orbital elements
     
     Parameters
@@ -1126,14 +1126,8 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    psi_0: float
-        Auxilary angle like phi_0 but for the eclipse bottoms
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
-    r_dif_sma: float
-        Absolute difference of radii in units of the semi-major axis
     r_ratio: float
         Radius ratio r_2/r_1
     sb_ratio: float
@@ -1164,37 +1158,28 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     -------
     None
     """
-    e_err, w_err, i_err, phi_0_err, psi_0_err, r_sum_sma_err, r_dif_sma_err, r_ratio_err, sb_ratio_err = errors[:9]
-    ecosw_err, esinw_err, f_c_err, f_s_err = errors[9:]
-    e_bds, w_bds, i_bds, phi_0_bds, psi_0_bds, r_sum_sma_bds, r_dif_sma_bds, r_ratio_bds, sb_ratio_bds = bounds[:9]
-    ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds[9:]
+    e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
+    e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi interval
     w_bds, w_bds_2 = bounds_multiplicity_check(w_bds, w)
-    var_names = ['e', 'w', 'i', 'phi_0', 'psi_0', 'r_sum_sma', 'r_dif_sma', 'r_ratio', 'sb_ratio',
-                 'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower', 'phi_0_upper', 'phi_0_lower',
-                 'psi_0_upper', 'psi_0_lower', 'r_sum_sma_upper', 'r_sum_sma_lower',
-                 'r_dif_sma_upper', 'r_dif_sma_lower', 'r_ratio_upper', 'r_ratio_lower', 'sb_ratio_upper',
+    var_names = ['e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio',
+                 'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower',
+                 'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower', 'sb_ratio_upper',
                  'sb_ratio_lower', 'ecosw_upper', 'ecosw_lower', 'esinw_upper', 'esinw_lower',
                  'f_c_upper', 'f_c_lower', 'f_s_upper', 'f_s_lower',
-                 'e_ubnd', 'e_lbnd', 'w_ubnd', 'w_lbnd', 'i_ubnd', 'i_lbnd', 'phi_0_ubnd', 'phi_0_lbnd',
-                 'psi_0_ubnd', 'psi_0_lbnd', 'r_sum_sma_ubnd', 'r_sum_sma_lbnd', 'r_dif_sma_ubnd', 'r_dif_sma_lbnd',
+                 'e_ubnd', 'e_lbnd', 'w_ubnd', 'w_lbnd', 'i_ubnd', 'i_lbnd', 'r_sum_sma_ubnd', 'r_sum_sma_lbnd',
                  'r_ratio_ubnd', 'r_ratio_lbnd', 'sb_ratio_ubnd', 'sb_ratio_lbnd', 'ecosw_ubnd', 'ecosw_lbnd',
                  'esinw_ubnd', 'esinw_lbnd', 'f_c_ubnd', 'f_c_lbnd', 'f_s_ubnd', 'f_s_lbnd',
                  'sigma_e', 'sigma_w', 'sigma_phi_0', 'sigma_r_sum_sma', 'sigma_ecosw', 'sigma_esinw',
                  'sigma_f_c', 'sigma_f_s']
     var_desc = ['eccentricity', 'argument of periastron (radians)', 'inclination (radians)',
-                'auxiliary angle phi_0 (see Kopal 1959) (radians)', 'auxiliary angle psi_0 (radians)',
                 'sum of radii divided by the semi-major axis of the relative orbit',
-                'limit on difference of radii divided by the semi-major axis of the relative orbit',
                 'radius ratio r2/r1', 'surface brightness ratio sb2/sb1',
                 'upper error estimate in e', 'lower error estimate in e',
                 'upper error estimate in w', 'lower error estimate in w',
                 'upper error estimate in i', 'lower error estimate in i',
-                'upper error estimate in phi_0', 'lower error estimate in phi_0',
-                'upper error estimate in psi_0', 'lower error estimate in psi_0',
                 'upper error estimate in r_sum_sma', 'lower error estimate in r_sum_sma',
-                'upper error estimate in r_dif_sma', 'lower error estimate in r_dif_sma',
                 'upper error estimate in r_ratio', 'lower error estimate in r_ratio',
                 'upper error estimate in sb_ratio', 'lower error estimate in sb_ratio',
                 'upper error estimate in ecos(w)', 'lower error estimate in ecos(w)',
@@ -1204,10 +1189,7 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
                 'upper bound in e (hdi_prob=997)', 'lower bound in e (hdi_prob=997)',
                 'upper bound in w (hdi_prob=997)', 'lower bound in w (hdi_prob=997)',
                 'upper bound in i (hdi_prob=997)', 'lower bound in i (hdi_prob=997)',
-                'upper bound in phi_0 (hdi_prob=997)', 'lower bound in phi_0 (hdi_prob=997)',
-                'upper bound in psi_0 (hdi_prob=997)', 'lower bound in psi_0 (hdi_prob=997)',
                 'upper bound in r_sum_sma (hdi_prob=997)', 'lower bound in r_sum_sma (hdi_prob=997)',
-                'upper bound in r_dif_sma (hdi_prob=997)', 'lower bound in r_dif_sma (hdi_prob=997)',
                 'upper bound in r_ratio (hdi_prob=997)', 'lower bound in r_ratio (hdi_prob=997)',
                 'upper bound in sb_ratio (hdi_prob=997)', 'lower bound in sb_ratio (hdi_prob=997)',
                 'upper bound in ecos(w) (hdi_prob=997)', 'lower bound in ecos(w) (hdi_prob=997)',
@@ -1218,19 +1200,15 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
                 'formal uncorrelated error in phi_0', 'formal uncorrelated error in r_sum_sma',
                 'formal uncorrelated error in ecos(w)', 'formal uncorrelated error in esin(w)',
                 'formal uncorrelated error in f_c', 'formal uncorrelated error in f_s']
-    values = [str(e), str(w), str(i), str(phi_0), str(psi_0), str(r_sum_sma), str(r_dif_sma), str(r_ratio),
-              str(sb_ratio), str(e_err[1]), str(e_err[0]), str(w_err[1]), str(w_err[0]), str(i_err[1]), str(i_err[0]),
-              str(psi_0_err[1]), str(psi_0_err[0]), str(phi_0_err[1]), str(phi_0_err[0]),
-              str(r_sum_sma_err[1]), str(r_sum_sma_err[0]), str(r_dif_sma_err[1]), str(r_dif_sma_err[0]),
-              str(r_ratio_err[1]), str(r_ratio_err[0]), str(sb_ratio_err[1]), str(sb_ratio_err[0]),
-              str(ecosw_err[1]), str(ecosw_err[0]), str(esinw_err[1]), str(esinw_err[0]),
-              str(f_c_err[1]), str(f_c_err[0]), str(f_s_err[1]), str(f_s_err[0]),
+    values = [str(e), str(w), str(i), str(r_sum_sma), str(r_ratio), str(sb_ratio),
+              str(e_err[1]), str(e_err[0]), str(w_err[1]), str(w_err[0]), str(i_err[1]), str(i_err[0]),
+              str(r_sum_sma_err[1]), str(r_sum_sma_err[0]), str(r_ratio_err[1]), str(r_ratio_err[0]),
+              str(sb_ratio_err[1]), str(sb_ratio_err[0]), str(ecosw_err[1]), str(ecosw_err[0]),
+              str(esinw_err[1]), str(esinw_err[0]), str(f_c_err[1]), str(f_c_err[0]), str(f_s_err[1]), str(f_s_err[0]),
               str(e_bds[1]), str(e_bds[0]), str(w_bds[1]), str(w_bds[0]), str(i_bds[1]), str(i_bds[0]),
-              str(phi_0_bds[1]), str(phi_0_bds[0]), str(psi_0_bds[1]), str(psi_0_bds[0]),
-              str(r_sum_sma_bds[1]), str(r_sum_sma_bds[0]), str(r_dif_sma_bds[1]), str(r_dif_sma_bds[0]),
-              str(r_ratio_bds[1]), str(r_ratio_bds[0]), str(sb_ratio_bds[1]), str(sb_ratio_bds[0]),
-              str(ecosw_bds[1]), str(ecosw_bds[0]), str(esinw_bds[1]), str(esinw_bds[0]),
-              str(f_c_bds[1]), str(f_c_bds[0]), str(f_s_bds[1]), str(f_s_bds[0]),
+              str(r_sum_sma_bds[1]), str(r_sum_sma_bds[0]), str(r_ratio_bds[1]), str(r_ratio_bds[0]),
+              str(sb_ratio_bds[1]), str(sb_ratio_bds[0]), str(ecosw_bds[1]), str(ecosw_bds[0]),
+              str(esinw_bds[1]), str(esinw_bds[0]), str(f_c_bds[1]), str(f_c_bds[0]), str(f_s_bds[1]), str(f_s_bds[0]),
               str(sigma_e), str(sigma_w), str(sigma_phi_0), str(sigma_r_sum_sma), str(sigma_ecosw), str(sigma_esinw),
               str(sigma_f_c), str(sigma_f_s)]
     table = np.column_stack((var_names, values, var_desc))
@@ -1260,9 +1238,9 @@ def save_results_elements(e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, 
     file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
     description = 'Prior and posterior distributions (not MCMC).'
     hdr = (f'{file_id}, {data_id}, {description}\n'
-           + 't_1_vals, t_2_vals, tau_1_1_vals, tau_1_2_vals, tau_2_1_vals, tau_2_2_vals, '
-           + 'd_1_vals, d_2_vals, bot_1_vals, bot_2_vals, '
-           + 'e_vals, w_vals, i_vals, phi0_vals, psi0_vals, rsumsma_vals, rdifsma_vals, rratio_vals, sbratio_vals')
+           't_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, '
+           't_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
+           'e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals')
     np.savetxt(file_name_2, data, delimiter=',', header=hdr)
     return None
 
@@ -1314,18 +1292,17 @@ def read_results_elements(file_name):
         Full output distributions for the same parameters as intervals
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio = results[:9]
-    errors = results[9:35].reshape((13, 2))
-    bounds = results[35:61].reshape((13, 2))
-    formal_errors = results[61:69]
+    e, w, i, r_sum_sma, r_ratio, sb_ratio = results[:6]
+    errors = results[6:26].reshape((10, 2))
+    bounds = results[26:46].reshape((10, 2))
+    formal_errors = results[46:54]
     # intervals_w  # ? for when the interval is disjoint
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
     dists_in = all_dists[:12]
     dists_out = all_dists[12:]
-    return (e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio, sb_ratio, errors, bounds, formal_errors,
-            dists_in, dists_out)
+    return e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out
 
 
 def save_results_lc_fit(par_init, par_fit_1, par_fit_2, file_name, data_id=None):
@@ -1491,18 +1468,27 @@ def read_results_fselect(file_name):
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=None):
+def save_results_disentangle(const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2, file_name,
+                             data_id=None):
     """Save the results of disentangling the harmonics from the eclipse model
     
     Parameters
     ----------
-    const_r: numpy.ndarray[float]
+    const_r1: numpy.ndarray[float]
         Mean of the residual
-    f_n_r: numpy.ndarray[float]
+    f_n_r1: numpy.ndarray[float]
         Frequencies of a number of harmonic sine waves
-    a_n_r: numpy.ndarray[float]
+    a_n_r1: numpy.ndarray[float]
         Amplitudes of a number of harmonic sine waves
-    ph_n_r: numpy.ndarray[float]
+    ph_n_r1: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    const_r2: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r2: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r2: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r2: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
     file_name: str, None
         File name (including path) for saving the results.
@@ -1513,12 +1499,21 @@ def save_results_disentangle(const_r, f_n_r, a_n_r, ph_n_r, file_name, data_id=N
     -------
     None
     """
-    table = np.column_stack((np.arange(len(f_n_r)+1), np.append([0], f_n_r), np.append([const_r], a_n_r),
-                             np.append([0], ph_n_r)))
+    # save the first model
+    table = np.column_stack((np.arange(len(f_n_r1)+1), np.append([0], f_n_r1), np.append([const_r1], a_n_r1),
+                             np.append([0], ph_n_r1)))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
-    description = f'Disentangelment of harmonics using ellc lc model'
+    description = f'Disentangelment of harmonics using simple lc model'
     hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
+    # save the second model
+    table = np.column_stack((np.arange(len(f_n_r2)+1), np.append([0], f_n_r2), np.append([const_r2], a_n_r2),
+                             np.append([0], ph_n_r2)))
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ellc' + fn_ext)
+    description = f'Disentangelment of harmonics using ellc lc model'
+    hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
+    np.savetxt(file_name_2, table, delimiter=',', header=hdr)
     return None
 
 
@@ -1532,23 +1527,41 @@ def read_results_disentangle(file_name):
     
     Returns
     -------
-    const_r: numpy.ndarray[float]
+    const_r1: numpy.ndarray[float]
         Mean of the residual
-    f_n_r: numpy.ndarray[float]
+    f_n_r1: numpy.ndarray[float]
         Frequencies of a number of harmonic sine waves
-    a_n_r: numpy.ndarray[float]
+    a_n_r1: numpy.ndarray[float]
         Amplitudes of a number of harmonic sine waves
-    ph_n_r: numpy.ndarray[float]
+    ph_n_r1: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    const_r2: numpy.ndarray[float]
+        Mean of the residual
+    f_n_r2: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_n_r2: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_n_r2: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
     """
     results = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
     if (len(np.shape(results)) == 2):
-        const_r = results[1, 0]
-        f_n_r, a_n_r, ph_n_r = results[:, 1:]
+        const_r1 = results[1, 0]
+        f_n_r1, a_n_r1, ph_n_r1 = results[:, 1:]
     else:
-        const_r = 0
-        f_n_r, a_n_r, ph_n_r = np.array([[], [], []])
-    return const_r, f_n_r, a_n_r, ph_n_r
+        const_r1 = 0
+        f_n_r1, a_n_r1, ph_n_r1 = np.array([[], [], []])
+    # read in the second model
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_ellc' + fn_ext)
+    results = np.loadtxt(file_name_2, usecols=(1, 2, 3), delimiter=',', unpack=True)
+    if (len(np.shape(results)) == 2):
+        const_r2 = results[1, 0]
+        f_n_r2, a_n_r2, ph_n_r2 = results[:, 1:]
+    else:
+        const_r2 = 0
+        f_n_r2, a_n_r2, ph_n_r2 = np.array([[], [], []])
+    return const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2
 
 
 def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, show=False):
@@ -1743,8 +1756,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
-        e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12 = results_12[:9]
-        errors_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = results_12[9:]
+        e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12 = results_12[:6]
+        errors_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = results_12[6:]
         # intervals_w #? for when the interval is disjoint
     # open some more data - ellc fits and pulsation analysis
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
@@ -1763,11 +1776,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     if os.path.isfile(file_name):
         results_15 = read_results_disentangle(file_name)
-        const_r, f_n_r, a_n_r, ph_n_r = results_15
+        const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2 = results_15
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
     if os.path.isfile(file_name):
         results_16 = read_results_fselect(file_name)
         pass_hr_sigma, pass_hr_snr, passed_hr_b = results_16
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
+    if os.path.isfile(file_name):
+        results_16b = read_results_fselect(file_name)
+        pass_hr_sigma_2, pass_hr_snr_2, passed_hr_b_2 = results_16b
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1838,8 +1855,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
             vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
-                                               phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
-                                               *dists_out_12, save_file=file_name, show=False)
+                                               r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
+                                               save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1851,7 +1868,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_corner.png')
-            vis.plot_corner_ellc_pars(par_init_12, par_opt2_13, dists_out_12, save_file=file_name, show=False)
+            vis.plot_corner_lc_fit_pars(par_init_12, par_opt1_13, par_opt2_13, dists_out_12,
+                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
@@ -1890,14 +1908,13 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_dists_eclipse_parameters(e_12, w_12, i_12, phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12,
-                                              r_ratio_12, sb_ratio_12, *dists_out_12)
+            vis.plot_dists_eclipse_parameters(e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
-                                               phi_0_12, psi_0_12, r_sum_sma_12, r_dif_sma_12, r_ratio_12, sb_ratio_12,
-                                               *dists_out_12, save_file=None, show=True)
+                                               r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
+                                               save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1907,7 +1924,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_ellc_pars(par_init_12, par_opt2_13, dists_out_12, save_file=None, show=True)
+            vis.plot_corner_lc_fit_pars(par_init_12, par_opt1_13, par_opt2_13, dists_out_12, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # pulsation_analysis
@@ -1921,22 +1938,36 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt2_13,
+                                           passed_nh_b, t_zero_11, const_r2, f_n_r2, a_n_r2, ph_n_r2, par_opt2_13,
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_simple_lc.png')
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                               f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                               par_opt1_13, model='simple', save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_lc.png')
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
-                                       f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_ellc,
-                                       save_file=file_name, show=False)
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                               f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                               par_opt2_13, model='ellc', save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_simple_ecl_pd.png')
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                               noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b, par_opt1_13, i_sectors,
+                                               model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt2_13, i_sectors,
-                                       save_file=file_name, show=False)
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                               noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2, par_opt2_13, i_sectors,
+                                               model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
@@ -1947,20 +1978,32 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r, f_n_r, a_n_r, ph_n_r, par_opt2_13,
+                                           passed_nh_b, t_zero_11, const_r2, f_n_r2, a_n_r2, ph_n_r2, par_opt2_13,
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_ellc_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
-                                       f_n_8, a_n_8, ph_n_8, i_sectors, const_r, f_n_r, a_n_r, ph_n_r, par_ellc,
-                                       save_file=None, show=True)
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                               f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                               par_opt1_13, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_ellc_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       noise_level_8, const_r, f_n_r, a_n_r, passed_hr_b, par_opt2_13, i_sectors,
-                                       save_file=None, show=True)
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
+                                               f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                               par_opt2_13, model='ellc', save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                               noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b, par_opt1_13, i_sectors,
+                                               model='simple', save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                               noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2, par_opt2_13, i_sectors,
+                                               model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     return None
