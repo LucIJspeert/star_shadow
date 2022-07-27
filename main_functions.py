@@ -1816,7 +1816,7 @@ def analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count
         raise NotImplementedError('keyword p_orb found in kwargs: this functionality is not yet implemented')
     t1 = time.time()
     with mp.Pool(processes=n_threads) as pool:
-        pool.map(fct.partial(eval(function), **kwargs), target_list)
+        pool.map(fct.partial(eval(function), **kwargs), target_list, chunksize=1)
     t2 = time.time()
     print(f'Finished analysing set in: {(t2 - t1):1.2} s ({(t2 - t1) / 3600:1.2} h) for {len(target_list)} targets,\n'
           f'using {n_threads} threads ({(t2 - t1) * n_threads / len(target_list):1.2} s '
