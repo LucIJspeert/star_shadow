@@ -1297,7 +1297,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     out_13 = eclipse_analysis_fit(times, signal, signal_err, par_init_12, p_orb_11, t_zero_11, timings_11[:6], const_8,
                                   slope_8, f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
                                   overwrite=overwrite, verbose=verbose)
-    # e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13, offset_13 = out_13
+    # par_opt_simple, par_opt_ellc = out_13
     return out_9, out_10, out_11, out_12, out_13
 
 
@@ -1603,7 +1603,7 @@ def pulsation_analysis_fselect_h(times, signal, p_orb, t_zero, const, slope, f_n
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mHarmonic frequencies selected.\033[0m')
-        print(f'\033[0;32;48mNumber of harmonic frequencies passed: {len(passed_h_b)}, '
+        print(f'\033[0;32;48mNumber of harmonic frequencies passed: {np.sum(passed_h_b)} of {len(f_n_r)}, '
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_h_sigma, passed_h_snr, passed_h_b
 

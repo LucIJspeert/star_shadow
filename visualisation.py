@@ -428,8 +428,66 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     """Shows the light curve and three time derivatives with the significant
     points on the curves used to identify the eclipses
     """
+    # 0.864 second steps if we work in days and per day units, as with the measure_eclipses_dt function
+    t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)
+    # get the right time points
+    peaks_1_l = t_model[ecl_indices[:, 3]]
+    zeros_1_l = t_model[ecl_indices[:, 0]]
+    peaks_2_n_l = t_model[ecl_indices[:, 2]]
+    minimum_1_l = t_model[ecl_indices[:, 1]]
+    peaks_2_p_l = t_model[ecl_indices[:, 4]]
+    zeros_1_in_l = t_model[ecl_indices[:, 5]]
+    minimum_0 = t_model[ecl_indices[:, 6]]
+    zeros_1_in_r = t_model[ecl_indices[:, -6]]
+    peaks_2_p_r = t_model[ecl_indices[:, -5]]
+    minimum_1_r = t_model[ecl_indices[:, -2]]
+    peaks_2_n_r = t_model[ecl_indices[:, -3]]
+    zeros_1_r = t_model[ecl_indices[:, -1]]
+    peaks_1_r = t_model[ecl_indices[:, -4]]
+    # get the corresponding heights
+    he_peaks_1_l = tsf.sum_sines(peaks_1_l, f_he, a_he, ph_he)
+    he_zeros_1_l = tsf.sum_sines(zeros_1_l, f_he, a_he, ph_he)
+    he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_he, a_he, ph_he)
+    he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_he, a_he, ph_he)
+    he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_he, a_he, ph_he)
+    he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_he, a_he, ph_he)
+    he_minimum_0 = tsf.sum_sines(minimum_0, f_he, a_he, ph_he)
+    he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_he, a_he, ph_he)
+    he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_he, a_he, ph_he)
+    he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_he, a_he, ph_he)
+    he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_he, a_he, ph_he)
+    he_zeros_1_r = tsf.sum_sines(zeros_1_r, f_he, a_he, ph_he)
+    he_peaks_1_r = tsf.sum_sines(peaks_1_r, f_he, a_he, ph_he)
+    # deriv 1
+    h1e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=1)
+    h1e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=1)
+    h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=1)
+    h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=1)
+    h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=1)
+    h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=1)
+    h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=1)
+    h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=1)
+    h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=1)
+    h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=1)
+    h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=1)
+    h1e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=1)
+    h1e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=1)
+    # deriv 2
+    h2e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=2)
+    h2e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=2)
+    h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=2)
+    h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=2)
+    h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=2)
+    h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=2)
+    h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=2)
+    h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=2)
+    h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=2)
+    h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=2)
+    h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=2)
+    h2e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=2)
+    h2e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=2)
     # make a timeframe from 0 to two P to catch both eclipses in full if present
-    t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
+    t_model = np.arange(0, 2 * p_orb + 0.0001, 0.0001)  # this is 10x fewer points, thus much faster
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     model_he = tsf.sum_sines(t_model, f_he, a_he, ph_he)
     # analytic derivatives
@@ -440,54 +498,54 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     fig, ax = plt.subplots(nrows=3, sharex=True, figsize=(16, 9))
     ax[0].plot(t_model, model_he)
     ax[0].plot(t_model, model_h, c='grey', alpha=0.4)
-    ax[0].scatter(t_model[ecl_indices[:, 3]], model_he[ecl_indices[:, 3]], c='tab:blue', marker='o', label='peaks_1')
-    ax[0].scatter(t_model[ecl_indices[:, -4]], model_he[ecl_indices[:, -4]], c='tab:blue', marker='o')
-    ax[0].scatter(t_model[ecl_indices[:, 0]], model_he[ecl_indices[:, 0]], c='tab:orange', marker='>', label='zeros_1')
-    ax[0].scatter(t_model[ecl_indices[:, -1]], model_he[ecl_indices[:, -1]], c='tab:orange', marker='<')
-    ax[0].scatter(t_model[ecl_indices[:, 2]], model_he[ecl_indices[:, 2]], c='tab:green', marker='v', label='peaks_2_n')
-    ax[0].scatter(t_model[ecl_indices[:, -3]], model_he[ecl_indices[:, -3]], c='tab:green', marker='v')
-    ax[0].scatter(t_model[ecl_indices[:, 1]], model_he[ecl_indices[:, 1]], c='tab:red', marker='d', label='minimum_1')
-    ax[0].scatter(t_model[ecl_indices[:, -2]], model_he[ecl_indices[:, -2]], c='tab:red', marker='d')
-    ax[0].scatter(t_model[ecl_indices[:, 4]], model_he[ecl_indices[:, 4]], c='tab:purple', marker='^', label='peaks_2_p')
-    ax[0].scatter(t_model[ecl_indices[:, -5]], model_he[ecl_indices[:, -5]], c='tab:purple', marker='^')
-    ax[0].scatter(t_model[ecl_indices[:, 5]], model_he[ecl_indices[:, 5]], c='tab:pink', marker='<', label='zeros_1_in')
-    ax[0].scatter(t_model[ecl_indices[:, -6]], model_he[ecl_indices[:, -6]], c='tab:pink', marker='>')
-    ax[0].scatter(t_model[ecl_indices[:, 5]], model_he[ecl_indices[:, 6]], c='tab:brown', marker='|', label='minimum_0')
+    ax[0].scatter(peaks_1_l, he_peaks_1_l, c='tab:blue', marker='o', label='peaks_1')
+    ax[0].scatter(peaks_1_r, he_peaks_1_r, c='tab:blue', marker='o')
+    ax[0].scatter(zeros_1_l, he_zeros_1_l, c='tab:orange', marker='>', label='zeros_1')
+    ax[0].scatter(zeros_1_r, he_zeros_1_r, c='tab:orange', marker='<')
+    ax[0].scatter(peaks_2_n_l, he_peaks_2_n_l, c='tab:green', marker='v', label='peaks_2_n')
+    ax[0].scatter(peaks_2_n_r, he_peaks_2_n_r, c='tab:green', marker='v')
+    ax[0].scatter(minimum_1_l, he_minimum_1_l, c='tab:red', marker='d', label='minimum_1')
+    ax[0].scatter(minimum_1_r, he_minimum_1_r, c='tab:red', marker='d')
+    ax[0].scatter(peaks_2_p_l, he_peaks_2_p_l, c='tab:purple', marker='^', label='peaks_2_p')
+    ax[0].scatter(peaks_2_p_r, he_peaks_2_p_r, c='tab:purple', marker='^')
+    ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
+    ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
+    ax[0].scatter(minimum_0, he_minimum_0, c='tab:brown', marker='|', label='minimum_0')
     ax[0].set_ylabel(r'$\mathscr{l}$', fontsize=14)
     ax[0].legend()
     ax[1].plot(t_model, deriv_1e)
     ax[1].plot(t_model, deriv_1, c='grey', alpha=0.4)
     ax[1].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
-    ax[1].scatter(t_model[ecl_indices[:, 3]], deriv_1e[ecl_indices[:, 3]], c='tab:blue', marker='o')
-    ax[1].scatter(t_model[ecl_indices[:, -4]], deriv_1e[ecl_indices[:, -4]], c='tab:blue', marker='o')
-    ax[1].scatter(t_model[ecl_indices[:, 0]], deriv_1e[ecl_indices[:, 0]], c='tab:orange', marker='>')
-    ax[1].scatter(t_model[ecl_indices[:, -1]], deriv_1e[ecl_indices[:, -1]], c='tab:orange', marker='<')
-    ax[1].scatter(t_model[ecl_indices[:, 2]], deriv_1e[ecl_indices[:, 2]], c='tab:green', marker='v')
-    ax[1].scatter(t_model[ecl_indices[:, -3]], deriv_1e[ecl_indices[:, -3]], c='tab:green', marker='v')
-    ax[1].scatter(t_model[ecl_indices[:, 1]], deriv_1e[ecl_indices[:, 1]], c='tab:red', marker='d')
-    ax[1].scatter(t_model[ecl_indices[:, -2]], deriv_1e[ecl_indices[:, -2]], c='tab:red', marker='d')
-    ax[1].scatter(t_model[ecl_indices[:, 4]], deriv_1e[ecl_indices[:, 4]], c='tab:purple', marker='^')
-    ax[1].scatter(t_model[ecl_indices[:, -5]], deriv_1e[ecl_indices[:, -5]], c='tab:purple', marker='^')
-    ax[1].scatter(t_model[ecl_indices[:, 5]], deriv_1e[ecl_indices[:, 5]], c='tab:pink', marker='<')
-    ax[1].scatter(t_model[ecl_indices[:, -6]], deriv_1e[ecl_indices[:, -6]], c='tab:pink', marker='>')
-    ax[1].scatter(t_model[ecl_indices[:, 5]], deriv_1e[ecl_indices[:, 6]], c='tab:brown', marker='|')
+    ax[1].scatter(peaks_1_l, h1e_peaks_1_l, c='tab:blue', marker='o')
+    ax[1].scatter(peaks_1_r, h1e_peaks_1_r, c='tab:blue', marker='o')
+    ax[1].scatter(zeros_1_l, h1e_zeros_1_l, c='tab:orange', marker='>')
+    ax[1].scatter(zeros_1_r, h1e_zeros_1_r, c='tab:orange', marker='<')
+    ax[1].scatter(peaks_2_n_l, h1e_peaks_2_n_l, c='tab:green', marker='v')
+    ax[1].scatter(peaks_2_n_r, h1e_peaks_2_n_r, c='tab:green', marker='v')
+    ax[1].scatter(minimum_1_l, h1e_minimum_1_l, c='tab:red', marker='d')
+    ax[1].scatter(minimum_1_r, h1e_minimum_1_r, c='tab:red', marker='d')
+    ax[1].scatter(peaks_2_p_l, h1e_peaks_2_p_l, c='tab:purple', marker='^')
+    ax[1].scatter(peaks_2_p_r, h1e_peaks_2_p_r, c='tab:purple', marker='^')
+    ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
+    ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
+    ax[1].scatter(minimum_0, h1e_minimum_0, c='tab:brown', marker='|')
     ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$', fontsize=14)
     ax[2].plot(t_model, deriv_2e)
     ax[2].plot(t_model, deriv_2,  c='grey', alpha=0.4)
     ax[2].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
-    ax[2].scatter(t_model[ecl_indices[:, 3]], deriv_2e[ecl_indices[:, 3]], c='tab:blue', marker='o')
-    ax[2].scatter(t_model[ecl_indices[:, -4]], deriv_2e[ecl_indices[:, -4]], c='tab:blue', marker='o')
-    ax[2].scatter(t_model[ecl_indices[:, 0]], deriv_2e[ecl_indices[:, 0]], c='tab:orange', marker='>')
-    ax[2].scatter(t_model[ecl_indices[:, -1]], deriv_2e[ecl_indices[:, -1]], c='tab:orange', marker='<')
-    ax[2].scatter(t_model[ecl_indices[:, 2]], deriv_2e[ecl_indices[:, 2]], c='tab:green', marker='v')
-    ax[2].scatter(t_model[ecl_indices[:, -3]], deriv_2e[ecl_indices[:, -3]], c='tab:green', marker='v')
-    ax[2].scatter(t_model[ecl_indices[:, 1]], deriv_2e[ecl_indices[:, 1]], c='tab:red', marker='d')
-    ax[2].scatter(t_model[ecl_indices[:, -2]], deriv_2e[ecl_indices[:, -2]], c='tab:red', marker='d')
-    ax[2].scatter(t_model[ecl_indices[:, 4]], deriv_2e[ecl_indices[:, 4]], c='tab:purple', marker='^')
-    ax[2].scatter(t_model[ecl_indices[:, -5]], deriv_2e[ecl_indices[:, -5]], c='tab:purple', marker='^')
-    ax[2].scatter(t_model[ecl_indices[:, 5]], deriv_2e[ecl_indices[:, 5]], c='tab:pink', marker='<')
-    ax[2].scatter(t_model[ecl_indices[:, -6]], deriv_2e[ecl_indices[:, -6]], c='tab:pink', marker='>')
-    ax[2].scatter(t_model[ecl_indices[:, 5]], deriv_2e[ecl_indices[:, 6]], c='tab:brown', marker='|')
+    ax[2].scatter(peaks_1_l, h2e_peaks_1_l, c='tab:blue', marker='o')
+    ax[2].scatter(peaks_1_r, h2e_peaks_1_r, c='tab:blue', marker='o')
+    ax[2].scatter(zeros_1_l, h2e_zeros_1_l, c='tab:orange', marker='>')
+    ax[2].scatter(zeros_1_r, h2e_zeros_1_r, c='tab:orange', marker='<')
+    ax[2].scatter(peaks_2_n_l, h2e_peaks_2_n_l, c='tab:green', marker='v')
+    ax[2].scatter(peaks_2_n_r, h2e_peaks_2_n_r, c='tab:green', marker='v')
+    ax[2].scatter(minimum_1_l, h2e_minimum_1_l, c='tab:red', marker='d')
+    ax[2].scatter(minimum_1_r, h2e_minimum_1_r, c='tab:red', marker='d')
+    ax[2].scatter(peaks_2_p_l, h2e_peaks_2_p_l, c='tab:purple', marker='^')
+    ax[2].scatter(peaks_2_p_r, h2e_peaks_2_p_r, c='tab:purple', marker='^')
+    ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
+    ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
+    ax[2].scatter(minimum_0, h2e_minimum_0, c='tab:brown', marker='|')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$', fontsize=14)
     plt.tight_layout()
     if save_file is not None:
@@ -1039,7 +1097,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
 
 
 def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                        params, par_i, par_bounds, save_file=None, show=True):
+                        par_ellc, par_i, par_bounds, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over three consecutive fits.
@@ -1063,18 +1121,16 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
-    opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio, opt_offset = params
+    opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_ellc
     # make the ellc models
     model = tsfit.ellc_lc_simple(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum_sma, opt_r_ratio,
-                                 opt_sb_ratio, opt_offset)
-    par_p = np.copy(params)
-    par_n = np.copy(params)
+                                 opt_sb_ratio, 0)
+    par_p = np.copy(par_ellc)
+    par_n = np.copy(par_ellc)
     par_p[par_i] = par_bounds[1]
     par_n[par_i] = par_bounds[0]
-    model_p = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_p[0], par_p[1], par_p[2], par_p[3], par_p[4], par_p[5],
-                                   opt_offset)
-    model_m = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_n[0], par_n[1], par_n[2], par_n[3], par_n[4], par_n[5],
-                                   opt_offset)
+    model_p = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_p[0], par_p[1], par_p[2], par_p[3], par_p[4], par_p[5], 0)
+    model_m = tsfit.ellc_lc_simple(t_extended, p_orb, 0, par_n[0], par_n[1], par_n[2], par_n[3], par_n[4], par_n[5], 0)
     par_names = ['f_c', 'f_s', 'i', 'r_sum', 'r_ratio', 'sb_ratio']
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -1090,7 +1146,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
     ax.set_ylabel('normalised flux', fontsize=14)
-    ax.set_title(f'{par_names[par_i]} = {params[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})',
+    ax.set_title(f'{par_names[par_i]} = {par_ellc[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})',
                  fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
@@ -1182,10 +1238,8 @@ def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, pass
 
 
 def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, passed_nh,
-                               t_zero, const_r, f_n_r, a_n_r, ph_n_r, param_lc, save_file=None, show=True):
+                               save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
-    e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
-    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make models
     model = tsf.linear_curve(times, const, slope, i_sectors)
     model += tsf.sum_sines(times, f_n, a_n, ph_n)
@@ -1195,52 +1249,20 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_pnh = tsf.sum_sines(times, f_n[passed_nh], a_n[passed_nh], ph_n[passed_nh])
-    # ellc models
-    model_ellc_h = tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
-    model_ellc = tsfit.ellc_lc_simple(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     # plot the non-harmonics passing the criteria
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(times, signal, marker='.', c='tab:blue', label='signal')
     ax[0].plot(times, model_line + model_h, marker='.', c='tab:orange', label='linear + harmonic model')
+    ax[0].set_ylabel('normalised flux/model', fontsize=14)
+    ax[0].legend(fontsize=12)
     ax[1].scatter(times, signal - model_h, marker='.', c='tab:blue', label='signal - harmonic model')
     ax[1].plot(times, model_line + model_pnh, marker='.', c='tab:orange', label='linear + passed non-harmonic model')
-    ax[0].set_ylabel('residual/model', fontsize=14)
-    ax[0].legend(fontsize=12)
     ax[1].set_ylabel('residual/model', fontsize=14)
     ax[1].set_xlabel('time (d)', fontsize=14)
     ax[1].legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_1.png')
-        else:
-            fig_save_file = save_file + '_1.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
-    # plot the disentangled harmonics and ellc model
-    fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
-    ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonic model')
-    ax[0].plot(times, model_line + model_ellc + const_r, marker='.', c='tab:orange',
-               label='linear + ellc model + constant')
-    ax[1].scatter(times, signal - model_nh - model_ellc, marker='.', c='tab:blue',
-                  label='signal - non-harmonic - ellc model')
-    ax[1].plot(times, model_line + model_ellc_h + const_r, marker='.', c='tab:orange',
-               label='linear + disentangled harmonics + constant')
-    ax[0].set_ylabel('residual/model', fontsize=14)
-    ax[0].legend(fontsize=12)
-    ax[1].set_ylabel('residual/model', fontsize=14)
-    ax[1].set_xlabel('time (d)', fontsize=14)
-    ax[1].legend(fontsize=12)
-    plt.tight_layout()
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_2.png')
-        else:
-            fig_save_file = save_file + '_2.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:
@@ -1266,9 +1288,9 @@ def plot_pd_disentangled_harmonics(times, signal, p_orb, t_zero, const, slope, f
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make the ellc model
     if (model == 'ellc'):
-        ecl_model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+        ecl_model = tsfit.ellc_lc_simple(times - t_zero, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.eclipse_lc_simple(t_model, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        ecl_model = tsfit.eclipse_lc_simple(times - t_zero, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     ecl_resid = signal - model_nh - model_line - ecl_model - const_r
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, ecl_resid)
@@ -1283,7 +1305,8 @@ def plot_pd_disentangled_harmonics(times, signal, p_orb, t_zero, const, slope, f
             ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:green')
         else:
             ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:orange')
-    ax.plot([], [], linestyle='--', c='tab:orange', label='disentangled harmonics')
+    ax.plot([], [], linestyle='--', c='tab:orange', label='disentangled harmonics, failed criteria')
+    ax.plot([], [], linestyle='--', c='tab:green', label='disentangled harmonics, passed criteria')
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
     plt.legend(fontsize=12)
@@ -1298,23 +1321,24 @@ def plot_pd_disentangled_harmonics(times, signal, p_orb, t_zero, const, slope, f
 
 
 def plot_lc_disentangled_harmonics(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   const_r, f_n_r, a_n_r, ph_n_r, param_lc, model='simple', save_file=None, show=True):
+                                   const_r, f_n_r, a_n_r, ph_n_r, passed_hr, param_lc, model='simple',
+                                   save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_model = (times - t_zero) % p_orb
-    ext_left = (t_model > p_orb + t_1_1)
-    ext_right = (t_model < t_1_2)
-    t_model = np.concatenate((t_model[ext_left] - p_orb, t_model, t_model[ext_right] + p_orb))
-    sorter = np.argsort(t_model)
+    t_folded = (times - t_zero) % p_orb
+    ext_left = (t_folded > p_orb + t_1_1)
+    ext_right = (t_folded < t_1_2)
+    t_folded = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
+    sorter = np.argsort(t_folded)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line
+    ecl_signal = signal - model_nh - model_line - const_r
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # unpack and define parameters
@@ -1322,24 +1346,35 @@ def plot_lc_disentangled_harmonics(times, signal, p_orb, t_zero, timings, const,
     f_c, f_s = np.sqrt(e) * np.cos(w), np.sqrt(e) * np.sin(w)
     # make the ellc model
     if (model == 'ellc'):
-        ecl_model = tsfit.ellc_lc_simple(t_model, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+        ecl_model = tsfit.ellc_lc_simple(t_folded, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.eclipse_lc_simple(t_model, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_r = tsf.sum_sines(t_model + t_zero, f_n_r, a_n_r, ph_n_r)
+        ecl_model = tsfit.eclipse_lc_simple(t_folded, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    # make model of passed harmonics and all harmonics
+    model_r = tsf.sum_sines(t_folded + t_zero, f_n_r, a_n_r, ph_n_r)
+    model_r_p = tsf.sum_sines(t_folded + t_zero, f_n_r[passed_hr], a_n_r[passed_hr], ph_n_r[passed_hr])
+    s_minmax_r = [np.min(ecl_signal[sorter] - ecl_model[sorter]), np.max(ecl_signal[sorter] - ecl_model[sorter])]
     # plot
-    fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_model, ecl_signal, marker='.', label='signal - linear - non-harmonic model')
-    ax.scatter(t_model[sorter], ecl_signal[sorter] - model_r[sorter], marker='.',
-               label='signal - linear - non-harmonic - disentangled harmonic model')
-    ax.plot(t_model[sorter], ecl_model[sorter] + const_r, c='tab:green', label='ellc model + consant')
-    ax.plot(t_model[sorter], model_r[sorter], c='tab:red', label='disentangled harmonic model')
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
-    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
-    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
-    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
-    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
-    ax.set_ylabel('normalised flux', fontsize=14)
-    plt.legend(fontsize=12)
+    fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
+    ax[0].scatter(t_folded, ecl_signal, marker='.', label='signal - linear - non-harmonic model')
+    ax[0].plot(t_folded[sorter], ecl_model[sorter], c='tab:orange', label='eclipse model')
+    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
+    ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
+    ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
+    ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
+    ax[0].set_ylabel('normalised flux/model', fontsize=14)
+    ax[0].legend(fontsize=12)
+    ax[1].scatter(t_folded[sorter], ecl_signal[sorter] - ecl_model[sorter], marker='.',
+               label='signal - linear - non-harmonic - eclipse model')
+    ax[1].plot(t_folded[sorter], model_r[sorter], c='tab:orange', label='disentangled harmonic model')
+    ax[1].plot(t_folded[sorter], model_r_p[sorter], c='tab:green',
+               label='disentangled harmonic model, passed criteria')
+    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='eclipse edges')
+    ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='grey')
+    ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='grey')
+    ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='grey')
+    ax[1].set_ylabel('residual/model', fontsize=14)
+    ax[1].set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
+    ax[1].legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p

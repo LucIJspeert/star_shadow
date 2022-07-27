@@ -1938,36 +1938,41 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_lc.png')
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r2, f_n_r2, a_n_r2, ph_n_r2, par_opt2_13,
-                                           save_file=file_name, show=False)
+                                           passed_nh_b, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_simple_lc.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model.png')
             vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                               par_opt1_13, model='simple', save_file=file_name, show=False)
+                                               passed_hr_b, par_opt1_13, model='simple',
+                                               save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_lc.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model.png')
             vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                               par_opt2_13, model='ellc', save_file=file_name, show=False)
+                                               passed_hr_b_2, par_opt2_13, model='ellc',
+                                               save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_simple_ecl_pd.png')
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                               noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b, par_opt1_13, i_sectors,
-                                               model='simple', save_file=file_name, show=False)
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_pd_disentangled_simple_model.png')
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                               ph_n_8, noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b,
+                                               par_opt1_13, i_sectors, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_pulsation_analysis_ellc_pd.png')
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                               noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2, par_opt2_13, i_sectors,
-                                               model='ellc', save_file=file_name, show=False)
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_pd_disentangled_ellc_model.png')
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                               ph_n_8, noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2,
+                                               par_opt2_13, i_sectors, model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
@@ -1978,32 +1983,31 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_pulsation_analysis(times, signal, p_orb_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, i_sectors,
-                                           passed_nh_b, t_zero_11, const_r2, f_n_r2, a_n_r2, ph_n_r2, par_opt2_13,
-                                           save_file=None, show=True)
+                                           passed_nh_b, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                               par_opt1_13, model='simple', save_file=None, show=True)
+                                               passed_hr_b, par_opt1_13, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                               par_opt2_13, model='ellc', save_file=None, show=True)
+                                               passed_hr_b_2, par_opt2_13, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                               noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b, par_opt1_13, i_sectors,
-                                               model='simple', save_file=None, show=True)
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                               ph_n_8, noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b,
+                                               par_opt1_13, i_sectors, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                               noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2, par_opt2_13, i_sectors,
-                                               model='ellc', save_file=None, show=True)
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_11, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+                                               ph_n_8, noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2,
+                                               par_opt2_13, i_sectors, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     return None
