@@ -164,6 +164,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
     t_0a = time.time()
     n_sectors = len(i_sectors)
     freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
+    signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     # for saving, make a folder if not there yet
     if save_dir is not None:
         if not os.path.isdir(os.path.join(save_dir, f'tic_{tic}_analysis')):
@@ -254,6 +255,19 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             data = np.column_stack((const_2, c_err_2, slope_2, sl_err_2, i_sectors[:, 0], i_sectors[:, 1]))
             hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
             np.savetxt(file_name, data, delimiter=',', header=hdr)
+    if (len(f_n_2) == 0):
+        if verbose:
+            print(f'No frequencies found.')
+        if save_dir is not None:
+            fn_ext = os.path.splitext(os.path.basename(file_name_2))[1]
+            np.savetxt(file_name_2.replace(fn_ext, '.txt'), ['No frequencies found'], fmt='%s')
+        p_orb_i = [0, 0]
+        const_i = [const_1, const_2]
+        slope_i = [slope_1, slope_2]
+        f_n_i = [f_n_1, f_n_2]
+        a_n_i = [a_n_1, a_n_2]
+        ph_n_i = [ph_n_1, ph_n_2]
+        return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
     # -------------------------------------------------------------------------------
     # [3] --- measure the orbital period with pdm and couple the harmonic frequencies
     # -------------------------------------------------------------------------------
@@ -1242,6 +1256,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     out_13: tuple
         output of eclipse_analysis_fit
     """
+    signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
     results, errors, stats = ut.read_results(file_name, verbose=verbose)
@@ -1650,6 +1665,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     out_16: tuple
         output of pulsation_analysis_fselect_h
     """
+    signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
     results, errors, stats = ut.read_results(file_name, verbose=verbose)

@@ -1792,7 +1792,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
                                     show=False)
             if np.any(np.nonzero(p_orb_i)):
-                plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1]
+                plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
@@ -1804,7 +1804,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
             if np.any(np.nonzero(p_orb_i)):
-                plot_nr = np.arange(len(p_orb_i))[np.nonzero(p_orb_i)][-1]
+                plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)

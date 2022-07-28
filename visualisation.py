@@ -1171,14 +1171,14 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     par_init = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
     # simple fit params
     opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
-    opt_f_c, opt_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
-    opt_i = opt1_i_rad / np.pi * 180
-    par_opt1 = [opt_f_c, opt_f_s, opt_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
+    opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
+    opt1_i = opt1_i_rad / np.pi * 180
+    par_opt1 = [opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
     # ellc fit params
     opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-    opt_f_c, opt_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
-    opt_i = opt2_i_rad / np.pi * 180
-    par_opt2 = [opt_f_c, opt_f_s, opt_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
+    opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    opt2_i = opt2_i_rad / np.pi * 180
+    par_opt2 = [opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
     f_c_vals = np.sqrt(e_vals) * np.cos(w_vals)
     f_s_vals = np.sqrt(e_vals) * np.sin(w_vals)
     # stack dists and plot

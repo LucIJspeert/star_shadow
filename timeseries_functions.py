@@ -1620,12 +1620,9 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
             resid = signal - model
             # if f is a harmonic, don't shift the frequency
             if j in harmonics:
-                # f_j = f_n_temp[j]
-                # a_j = scargle_ampl_single(times, resid, f_j)
-                # ph_j = scargle_phase_single(times, resid, f_j)
                 f_j = f_n_temp[j]
-                a_j = a_n_temp[j]
-                ph_j = ph_n_temp[j]  # todo: why is the other bit commented out?
+                a_j = scargle_ampl_single(times, resid, f_j)
+                ph_j = scargle_phase_single(times, resid, f_j)
             else:
                 f_j, a_j, ph_j = extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
                                                 verbose=verbose)
