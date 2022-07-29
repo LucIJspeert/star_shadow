@@ -48,6 +48,14 @@ Currently, there are a total of 16 analysis steps. Normal operation can terminat
 
 In normal operation, the eight first steps produce .hdf5 files with all the model parameters at that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of the eight prewhitening steps for easy access. All following steps produce one or more .csv files with the results.
 
+### Diagnostic plots
+
+There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
+
+    >>> sts.ut.sequential_plotting(tic, times, signal, i_sectors,  load_dir, save_dir=None, show=False)
+
+saves and/or shows all these plots for one target. Unfortunately matplotlib plotting only works in the main thread, so when processing a whole set of light curves in parallel, this function will have to be run sequentially on the results afterwards (hence the name).
+
 ## Bugs and Issues
 
 Despite all the testing, I am certain that there are still bugs in this code, or will be created in future versions. 
