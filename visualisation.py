@@ -183,18 +183,11 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     return
 
 
-def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
+def plot_lc_full_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
     model = tsf.linear_curve(times, const, slope, i_half_s)
     model += tsf.sum_sines(times, f_n, a_n, ph_n)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
-    model_line = tsf.linear_curve(times, const, slope, i_half_s)
-    model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
-    model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
-                             np.delete(ph_n, harmonics))
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
-    p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
     # plot the full model light curve
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(times, signal, label='signal')
@@ -206,15 +199,26 @@ def plot_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_h
     ax[1].set_xlabel('time (d)', fontsize=14)
     plt.tight_layout()
     if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_1.png')
-        else:
-            fig_save_file = save_file + '_1.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:
         plt.close()
+    return
+
+
+
+def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
+    """Shows the separated harmonics in several ways"""
+    # make models
+    model_line = tsf.linear_curve(times, const, slope, i_half_s)
+    model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
+    model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
+                             np.delete(ph_n, harmonics))
+    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
+    p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
     # plot the harmonic model and non-harmonic model
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonics')
@@ -1241,11 +1245,10 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
                                save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
-    model = tsf.linear_curve(times, const, slope, i_sectors)
-    model += tsf.sum_sines(times, f_n, a_n, ph_n)
+    model_line = tsf.linear_curve(times, const, slope, i_sectors)
+    model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_pnh = tsf.sum_sines(times, f_n[passed_nh], a_n[passed_nh], ph_n[passed_nh])

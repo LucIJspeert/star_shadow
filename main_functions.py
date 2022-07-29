@@ -58,10 +58,8 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     sorter = np.argsort(psi_measure)[::-1]  # descending order
     for i in sorter:
         base_p = periods[i]
-        # do a first test for once or twice the period
-        p_best, p_test, opt = af.base_harmonic_check(f_n, base_p, t_tot, f_tol=freq_res/2)
         # then refine by using a dense sampling
-        f_refine = np.arange(0.99 / p_best, 1.01 / p_best, 0.0001 / p_best)
+        f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
         p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
         p_orb = p_refine[np.argmin(phase_disp_refine)]
         # try to find out whether we need to double the period
@@ -1066,6 +1064,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timing_errs
         e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
         # determine decimals to print for two significant figures
         rnd_e = max(ut.decimal_figures(min(e_err), 2), ut.decimal_figures(e, 2))
+        print(w_err)
         rnd_w = max(ut.decimal_figures(min(w_err) / np.pi * 180, 2), ut.decimal_figures(w / np.pi * 180, 2))
         rnd_i = max(ut.decimal_figures(min(i_err) / np.pi * 180, 2), ut.decimal_figures(i / np.pi * 180, 2))
         rnd_rsumsma = max(ut.decimal_figures(min(r_sum_sma_err), 2), ut.decimal_figures(r_sum_sma, 2))

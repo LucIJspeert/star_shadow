@@ -1094,13 +1094,13 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
     mask_2_2 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # get timing error by dividing noise level by slopes
     y_inter, slope = linear_slope(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
-    t_1_1_err = noise_level / -slope[0]
+    t_1_1_err = abs(noise_level / slope[0])
     y_inter, slope = linear_slope(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
-    t_1_2_err = noise_level / slope[0]
+    t_1_2_err = abs(noise_level / slope[0])
     y_inter, slope = linear_slope(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
-    t_2_1_err = noise_level / -slope[0]
+    t_2_1_err = abs(noise_level / slope[0])
     y_inter, slope = linear_slope(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
-    t_2_2_err = noise_level / slope[0]
+    t_2_2_err = abs(noise_level / slope[0])
     return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
 
 

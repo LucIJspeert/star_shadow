@@ -1163,6 +1163,8 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
     # multi interval
     w_bds, w_bds_2 = bounds_multiplicity_check(w_bds, w)
+    w_inter = intervals[1]
+    w_inter, w_inter_2 = bounds_multiplicity_check(w_inter, w)
     var_names = ['e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio',
                  'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower',
                  'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower', 'sb_ratio_upper',
@@ -1186,16 +1188,16 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
                 'upper error estimate in esin(w)', 'lower error estimate in esin(w)',
                 'upper error estimate in f_c', 'lower error estimate in f_c',
                 'upper error estimate in f_s', 'lower error estimate in f_s',
-                'upper bound in e (hdi_prob=997)', 'lower bound in e (hdi_prob=997)',
-                'upper bound in w (hdi_prob=997)', 'lower bound in w (hdi_prob=997)',
-                'upper bound in i (hdi_prob=997)', 'lower bound in i (hdi_prob=997)',
-                'upper bound in r_sum_sma (hdi_prob=997)', 'lower bound in r_sum_sma (hdi_prob=997)',
-                'upper bound in r_ratio (hdi_prob=997)', 'lower bound in r_ratio (hdi_prob=997)',
-                'upper bound in sb_ratio (hdi_prob=997)', 'lower bound in sb_ratio (hdi_prob=997)',
-                'upper bound in ecos(w) (hdi_prob=997)', 'lower bound in ecos(w) (hdi_prob=997)',
-                'upper bound in esin(w) (hdi_prob=997)', 'lower bound in esin(w) (hdi_prob=997)',
-                'upper bound in f_c (hdi_prob=997)', 'lower bound in f_c (hdi_prob=997)',
-                'upper bound in f_s (hdi_prob=997)', 'lower bound in f_s (hdi_prob=997)',
+                'upper bound in e (hdi_prob=.997)', 'lower bound in e (hdi_prob=.997)',
+                'upper bound in w (hdi_prob=.997)', 'lower bound in w (hdi_prob=.997)',
+                'upper bound in i (hdi_prob=.997)', 'lower bound in i (hdi_prob=.997)',
+                'upper bound in r_sum_sma (hdi_prob=.997)', 'lower bound in r_sum_sma (hdi_prob=.997)',
+                'upper bound in r_ratio (hdi_prob=.997)', 'lower bound in r_ratio (hdi_prob=.997)',
+                'upper bound in sb_ratio (hdi_prob=.997)', 'lower bound in sb_ratio (hdi_prob=.997)',
+                'upper bound in ecos(w) (hdi_prob=.997)', 'lower bound in ecos(w) (hdi_prob=.997)',
+                'upper bound in esin(w) (hdi_prob=.997)', 'lower bound in esin(w) (hdi_prob=.997)',
+                'upper bound in f_c (hdi_prob=.997)', 'lower bound in f_c (hdi_prob=.997)',
+                'upper bound in f_s (hdi_prob=.997)', 'lower bound in f_s (hdi_prob=.997)',
                 'formal uncorrelated error in e', 'formal uncorrelated error in w',
                 'formal uncorrelated error in phi_0', 'formal uncorrelated error in r_sum_sma',
                 'formal uncorrelated error in ecos(w)', 'formal uncorrelated error in esin(w)',
@@ -1212,21 +1214,20 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
               str(sigma_e), str(sigma_w), str(sigma_phi_0), str(sigma_r_sum_sma), str(sigma_ecosw), str(sigma_esinw),
               str(sigma_f_c), str(sigma_f_s)]
     table = np.column_stack((var_names, values, var_desc))
-    if hasattr(intervals[1][0], '__len__'):
-        if (len(intervals[1]) > 1):
-            # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
-            var_names_ext = ['w_interval_1_low', 'w_interval_1_high', 'w_interval_2_low', 'w_interval_2_high']
-            var_desc_ext = ['lower bound of the first w interval', 'upper bound of the first w interval',
-                            'lower bound of the second w interval', 'upper bound of the second w interval']
-            values_ext = [str(intervals[1][0, 0]), str(intervals[1][0, 1]),
-                          str(intervals[1][1, 0]), str(intervals[1][1, 1])]
-            table = np.vstack((table, np.column_stack((var_names_ext, var_desc_ext, values_ext))))
+    if w_inter_2 is not None:
+        # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
+        var_names_ext = ['w_interval_1_upper', 'w_interval_1_lower', 'w_interval_2_upper', 'w_interval_2_lower']
+        var_desc_ext = ['upper interval in w (hdi_prob=.683)', 'lower interval in w (hdi_prob=.683)',
+                        'second upper interval in w (hdi_prob=.683)', 'second lower interval in w (hdi_prob=.683)']
+        values_ext = [str(w_inter[1]), str(w_inter[0]),
+                      str(w_inter_2[1]), str(w_inter_2[0])]
+        table = np.vstack((table, np.column_stack((var_names_ext, values_ext, var_desc_ext))))
     if w_bds_2 is not None:
         # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
         var_names_ext = ['w_ubnd_2', 'w_lbnd_2']
-        var_desc_ext = ['second upper bound in w (hdi_prob=997)', 'second lower bound in w (hdi_prob=997)']
+        var_desc_ext = ['second upper bound in w (hdi_prob=.997)', 'second lower bound in w (hdi_prob=.997)']
         values_ext = [str(w_bds_2[1]), str(w_bds_2[0])]
-        table = np.vstack((table, np.column_stack((var_names_ext, var_desc_ext, values_ext))))
+        table = np.vstack((table, np.column_stack((var_names_ext, values_ext, var_desc_ext))))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = 'Determination of orbital elements.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
@@ -1791,18 +1792,31 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_full_pd.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
                                     show=False)
+            if np.any([len(fs) != 0 for fs in f_n_i]):
+                plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
+                plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
+                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                         f'tic_{tic}_frequency_analysis_output_{plot_nr}.png')
+                vis.plot_lc_full_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                         f'tic_{tic}_frequency_analysis_models_{plot_nr}.png')
+                                         f'tic_{tic}_frequency_analysis_harmonics_{plot_nr}.png')
                 vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
+
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
+            if np.any([len(fs) != 0 for fs in f_n_i]):
+                plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
+                plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
+                vis.plot_lc_full_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),

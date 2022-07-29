@@ -767,7 +767,7 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
     max_i = len(signal) - 1
     
     def check_edges(indices):
-        return (indices > 0) & (indices < max_i)
+        return (indices >= 0) & (indices <= max_i)
     
     def check_condition(prev_signal, cur_signal):
         if 'up' in mode:
@@ -854,11 +854,11 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     """
     # measure heights at the bottom
     if (t_b_1_2 - t_b_1_1 > 0):
-        t_model_b_1 = np.arange(t_b_1_1, t_b_1_2 + 0.00001, 0.00001)
+        t_model_b_1 = np.linspace(t_b_1_1, t_b_1_2, 1000)
     else:
         t_model_b_1 = np.array([t_1])
     if (t_b_2_2 - t_b_2_1 > 0):
-        t_model_b_2 = np.arange(t_b_2_1, t_b_2_2 + 0.00001, 0.00001)
+        t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000)
     else:
         t_model_b_2 = np.array([t_2])
     model_h_b_1 = tsf.sum_sines(t_model_b_1 + t_zero, f_h, a_h, ph_h)
@@ -985,6 +985,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # find the minima in deriv_2 betweern peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
+    # adjust slightly to account for any misalignment with peaks_1
+    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, slope_sign, mode='down')
     # walk inward from peaks_1 to zero in deriv_1
@@ -992,10 +994,10 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # find the maxima in deriv_2 betweern peaks_1 and zeros_1
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
-    # determine whether the peaks are prominent enough
-    prom_2_p, base_l, base_r = sp.signal.peak_prominences(deriv_2, peaks_2_p)
-    prom_2_n, base_l, base_r = sp.signal.peak_prominences(-deriv_2, peaks_2_n)
-    prom_check = (prom_2_p > 0.1 * prom_2_n)
+    # adjust slightly to account for any misalignment with peaks_1
+    peaks_2_p = curve_walker(deriv_2, peaks_2_p, slope_sign, mode='up')
+    # determine prominences for peaks_2_n (peaks_2_p handeled separately)
+    prom_2_n = deriv_2[peaks_2_p] - deriv_2[peaks_2_n]
     # make all the consecutive combinations of peaks (as many as there are peaks)
     indices = np.arange(len(peaks_1))
     combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
@@ -1006,13 +1008,20 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
         condition = (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1)
         # restrict duration to half the orbital period
         if (peaks_2_n[comb[0]] > peaks_2_n[comb[1]]):  # be careful with wrap-around
-            duration = t_model[zeros_1[comb[1]]] + (p_orb - t_model[zeros_1[comb[0]]])
+            duration = t_model[zeros_1[comb[1]]] + 2 * p_orb - t_model[zeros_1[comb[0]]]
         else:
             duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
         condition &= (duration < p_orb / 2)
         if condition:
             # check for prominent eclipse bottom
-            if (prom_check[comb[0]] & prom_check[comb[1]]):
+            if (peaks_2_p[comb[0]] > peaks_2_p[comb[1]]):
+                min_d2_p = np.min(np.append(deriv_2[peaks_2_p[comb[0]]:], deriv_2[:peaks_2_p[comb[1]] + 1]))
+            elif (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
+                min_d2_p = np.max(deriv_2[peaks_2_p[comb]])
+            else:
+                min_d2_p = np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1])
+            prom_2_p = np.max(deriv_2[peaks_2_p[comb]]) - min_d2_p  # maximum peaks_2_p minus minimum between
+            if (prom_2_p > 0.1 * np.max(prom_2_n[comb])):
                 p_2_p_1 = peaks_2_p[comb[0]]
                 p_2_p_2 = peaks_2_p[comb[1]]
             else:
@@ -2253,13 +2262,13 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
     # the bottom points are truncated at the edge points
-    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, 10,
+    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, (normal_t_1_2 - t_b_1_1) / t_1_1_err,
                                             loc=t_b_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_b_1_2 = sp.stats.truncnorm.rvs(-10, (normal_t_1_2 - t_b_1_2) / t_1_2_err,
+    normal_t_b_1_2 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_1_2_err, (normal_t_1_2 - t_b_1_2) / t_1_2_err,
                                             loc=t_b_1_2, scale=t_1_2_err, size=n_gen)
-    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_2_1_err, 10,
+    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_2_1_err, (normal_t_2_2 - t_b_2_1) / t_2_1_err,
                                             loc=t_b_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_b_2_2 = sp.stats.truncnorm.rvs(-10, (normal_t_2_2 - t_b_2_2) / t_2_2_err,
+    normal_t_b_2_2 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_2_2_err, (normal_t_2_2 - t_b_2_2) / t_2_2_err,
                                             loc=t_b_2_2, scale=t_2_2_err, size=n_gen)
     # likely to overlap, fixed by putting them in the middle
     overlap_b_1 = (normal_t_b_1_1 > normal_t_b_1_2)
@@ -2306,7 +2315,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
                             normal_tau_1_1[k], normal_tau_1_2[k], normal_tau_2_1[k], normal_tau_2_2[k],
                             normal_tau_b_1_1[k], normal_tau_b_1_2[k], normal_tau_b_2_1[k], normal_tau_b_2_2[k])
         # if sum of tau happens to be larger than p_orb, skip and delete
-        if (np.sum(timings_tau_dist[2:6]) > p_orb):
+        if (np.sum(timings_tau_dist[2:6]) > p_orb) | (normal_d_1[k] < 0) | (normal_d_2[k] < 0):
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
@@ -2317,7 +2326,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         rsumsma_vals[k] = out[3]
         rratio_vals[k] = out[4]
         sbratio_vals[k] = out[5]
-        if verbose & (k % 200 == 0):
+        if verbose & ((k % 200) + 1 == 0):
             print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)
@@ -2369,12 +2378,22 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
-        if (len(w_interval) > 1):
+        if (len(w_interval) == 1):
+            w_interval = w_interval[0]
+            w_errs = np.array([w - w_interval[0], w_interval[1] - w])
+        else:
+            interval_size = w_interval[:, 1] - w_interval[:, 0]
+            sorter = np.argsort(interval_size)
+            w_interval = w_interval[sorter[-2:]]  # pick onyly the largest two intervals
             # sign of (w - w_interval) only changes if w is in the interval
             w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
-            w_errs = np.array([w - w_interval[w_in_interval, 0], w_interval[w_in_interval, 1] - w])
+            w_errs = np.array([w - w_interval[w_in_interval][0, 0], w_interval[w_in_interval][0, 1] - w])
+        if (len(w_bounds) == 1):
+            w_bounds = w_bounds[0]
         else:
-            w_errs = np.array([w - w_interval[0, 0], w_interval[0, 1] - w])
+            bounds_size = w_bounds[:, 1] - w_bounds[:, 0]
+            sorter = np.argsort(bounds_size)
+            w_bounds = w_bounds[sorter[-2:]]  # pick onyly the largest two intervals
     else:
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
