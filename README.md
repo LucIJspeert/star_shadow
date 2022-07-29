@@ -42,9 +42,19 @@ Either function can be used for a set of light curves by using:
 
 ### Explanation of output
 
+Results are saved in a combination of hdf5, csv and sometimes txt files. Always read the messages saved in txt files as these contain important information about the operation of the algorithm.
+
 Currently, there are a total of 16 analysis steps. Normal operation can terminate at several stages: 3, 9 and 16. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. A text file is saved if this is the case, specifying what happened. If stage 9 is reached, but nothing further, this means that the algorithm wasn't able to detect two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis. A text file specifying what happened is saved in this case.
 
 In normal operation, the eight first steps produce .hdf5 files with all the model parameters at that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of the eight prewhitening steps for easy access. All following steps produce one or more .csv files with the results.
+
+### Diagnostic plots
+
+There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
+
+    >>> sts.ut.sequential_plotting(tic, times, signal, i_sectors,  load_dir, save_dir=None, show=False)
+
+saves and/or shows all these plots for one target. Unfortunately matplotlib plotting only works in the main thread, so when processing a whole set of light curves in parallel, this function will have to be run sequentially on the results afterwards (hence the name).
 
 ## Bugs and Issues
 
