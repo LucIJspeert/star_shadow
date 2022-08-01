@@ -968,7 +968,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     Timings are shifted by t_zero so that deepest minimum occurs at 0.
     """
     # make a timeframe from 0 to two P to catch both eclipses in full if present
-    t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)  # 0.864 second steps if we work in days and per day units
+    t_model = np.linspace(0, 2 * p_orb, 10**6)
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     # the following code utilises a similar idea to find the eclipses as ECLIPSR (except waaay simpler)
     deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
@@ -1088,6 +1088,16 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
     init_n_comb = len(combinations)
     # check overlap of the eclipses
+    
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot(t_model, deriv_1)
+    ax.scatter(t_model[ecl_indices], deriv_1[ecl_indices])
+    ax.scatter(t_model[ecl_indices[:, 1]], deriv_1[ecl_indices[:, 1]])
+    ax.scatter(t_model[ecl_indices[:, -2]], deriv_1[ecl_indices[:, -2]])
+    plt.tight_layout()
+    plt.show()
+    
     comb_remove = []
     for i, comb in enumerate(combinations):
         c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)

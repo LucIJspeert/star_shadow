@@ -1805,7 +1805,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                          f'tic_{tic}_frequency_analysis_harmonics_{plot_nr}.png')
-                vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
+                vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1821,7 +1821,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-                vis.plot_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
+                vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     # eclipse_analysis

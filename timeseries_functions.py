@@ -795,25 +795,57 @@ def linear_slope_two_points(x1, y1, x2, y2):
     
     Parameters
     ----------
-    x1: numpy.ndarray[float]
+    x1: float, numpy.ndarray[float]
         The x-coordinate of the left point(s)
-    y1: numpy.ndarray[float]
+    y1: float, numpy.ndarray[float]
         The y-coordinate of the left point(s)
-    x2: numpy.ndarray[float]
+    x2: float, numpy.ndarray[float]
         The x-coordinate of the right point(s)
-    y2: numpy.ndarray[float]
-        The y-coordinate of the left point(s)
+    y2: float, numpy.ndarray[float]
+        The y-coordinate of the right point(s)
     
     Returns
     -------
-    y_inter: numpy.ndarray[float]
+    y_inter: float, numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
-    slope: numpy.ndarray[float]
+    slope: float, numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
     """
     slope = (y2 - y1) / (x2 - x1)
     y_inter = y1 - slope * x1  # take point 1 to calculate y intercept
     return y_inter, slope
+
+
+@nb.njit(cache=True)
+def parabola_two_points(x1, y1, x2, y2):
+    """Calculate the parameters of a parabola defined by the top (1) and one
+    random point (2), y = a*x**2 + b*x + c
+
+    Parameters
+    ----------
+    x1: float, numpy.ndarray[float]
+        The x-coordinate of the top point(s)
+    y1: float, numpy.ndarray[float]
+        The y-coordinate of the top point(s)
+    x2: float, numpy.ndarray[float]
+        The x-coordinate of the other point(s)
+    y2: float, numpy.ndarray[float]
+        The y-coordinate of the other point(s)
+
+    Returns
+    -------
+    a: float, numpy.ndarray[float]
+        The curvature parameter(s)
+    b: float, numpy.ndarray[float]
+        The slope parameter(s)
+    c: float, numpy.ndarray[float]
+        The constant parameter(s)
+    """
+    sqr_dif = (x1 - x2)**2
+    a = -y1 / sqr_dif
+    b = 2 * x1 * y1 / sqr_dif
+    c = y1 * (1 - x1**2 / sqr_dif)
+    return a, b, c
 
 
 @nb.njit(cache=True)
@@ -2330,14 +2362,16 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
     # start with only low f harmonics as eclipse signal
     low_h = (harmonic_n < 20)
     f_he, a_he, ph_he = f_n[harmonics][low_h], a_n[harmonics][low_h], ph_n[harmonics][low_h]
-    # iterate until we don't have bumps anymore or the signal doesn't change
+    # iterate until we don't have bumps anymore or the signal doesn't change, or the period doubles
     bumps = np.array([2 * noise_level, 2 * noise_level])
     model_change = 1
+    p_orb_b = p_orb
     prev_model_e = sum_sines(times, f_he, a_he, ph_he)
-    while np.any(bumps > noise_level) & (model_change > 10**-9):
+    while np.any(bumps > noise_level) & (model_change > 10**-9) & (p_orb_b == p_orb):
+        print(bumps > noise_level, model_change, p_orb_b)
         # measure eclipse timings
         output = af.measure_eclipses_dt(p_orb, f_he, a_he, ph_he, noise_level)
-        p_orb, t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
+        p_orb_b, t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
         timings = np.concatenate(([t_1, t_2], t_contacts, t_tangency))
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
         # define some errors

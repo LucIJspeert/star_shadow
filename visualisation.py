@@ -433,7 +433,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     points on the curves used to identify the eclipses
     """
     # 0.864 second steps if we work in days and per day units, as with the measure_eclipses_dt function
-    t_model = np.arange(0, 2 * p_orb + 0.00001, 0.00001)
+    t_model = np.linspace(0, 2 * p_orb, 10**6)
     # get the right time points
     peaks_1_l = t_model[ecl_indices[:, 3]]
     zeros_1_l = t_model[ecl_indices[:, 0]]
