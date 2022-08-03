@@ -1437,7 +1437,7 @@ def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, 
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
         model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = tsf.linear_slope(times, signal - model, i_sectors)
+        const, slope = tsf.linear_pars(times, signal - model, i_sectors)
         model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1448,7 +1448,7 @@ def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, 
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration of changes
     resid = signal - tsf.sum_sines(times, f_n, a_n, ph_n)
-    const, slope = tsf.linear_slope(times, resid, i_sectors)
+    const, slope = tsf.linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1463,7 +1463,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     # constant term (or y-intercept) and slope
-    const, slope = tsf.linear_slope(times, signal, i_sectors)
+    const, slope = tsf.linear_pars(times, signal, i_sectors)
     resid = signal - tsf.linear_curve(times, const, slope, i_sectors)
     f_n_temp, a_n_temp, ph_n_temp = np.array([[], [], []])
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
@@ -1500,7 +1500,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
             const, slope, f_n_temp, a_n_temp, ph_n_temp = output
         # as a last model-refining step, redetermine the constant and slope
         model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = tsf.linear_slope(times, signal - model, i_sectors)
+        const, slope = tsf.linear_pars(times, signal - model, i_sectors)
         model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1512,7 +1512,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration frequencies
     resid = signal - tsf.sum_sines(times, f_n, a_n, ph_n)
-    const, slope = tsf.linear_slope(times, resid, i_sectors)
+    const, slope = tsf.linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 

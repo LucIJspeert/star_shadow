@@ -751,7 +751,7 @@ def linear_curve(times, const, slope, i_sectors):
 
 
 @nb.njit(cache=True)
-def linear_slope(times, signal, i_sectors):
+def linear_pars(times, signal, i_sectors):
     """Calculate the slope(s) and y-intercept(s) of a linear trend with the MLE.
     
     Parameters
@@ -779,18 +779,22 @@ def linear_slope(times, signal, i_sectors):
     y_inter = np.zeros(len(i_sectors))
     slope = np.zeros(len(i_sectors))
     for i, s in enumerate(i_sectors):
-        t_avg = np.mean(times[s[0]:s[1]])
-        s_avg = np.mean(signal[s[0]:s[1]])
-        times_m_avg = (times[s[0]:s[1]] - t_avg)
-        num = np.sum(times_m_avg * (signal[s[0]:s[1]] - s_avg))
-        denom = np.sum(times_m_avg**2)
-        slope[i] = num / denom
-        y_inter[i] = s_avg - slope[i] * t_avg
+        # mean and mean subtracted quantities
+        x_m = np.mean(times[s[0]:s[1]])
+        x_ms = (times[s[0]:s[1]] - x_m)
+        y_m = np.mean(signal[s[0]:s[1]])
+        y_ms = (signal[s[0]:s[1]] - y_m)
+        # sums
+        s_xx = np.sum(x_ms**2)
+        s_xy = np.sum(x_ms * y_ms)
+        # parameters
+        slope[i] = s_xy / s_xx
+        y_inter[i] = y_m - slope[i] * x_m
     return y_inter, slope
 
 
 @nb.njit(cache=True)
-def linear_slope_two_points(x1, y1, x2, y2):
+def linear_pars_two_points(x1, y1, x2, y2):
     """Calculate the slope(s) and y-intercept(s) of a linear curve defined by two points.
     
     Parameters
@@ -817,7 +821,71 @@ def linear_slope_two_points(x1, y1, x2, y2):
 
 
 @nb.njit(cache=True)
-def parabola_two_points(x1, y1, x2, y2):
+def quadratic_curve(times, a, b, c):
+    """Returns a parabolic curve for the given time points and parameters.
+
+    Parameters
+    ----------
+    times: float, numpy.ndarray[float]
+        Timestamps of the time-series
+    a: float
+        The quadratic coefficient
+    b: float
+        The linear coefficient
+    c: float
+        The constant coefficient
+
+    Returns
+    -------
+    curve: numpy.ndarray[float]
+        The model time-series of a (set of) straight line(s)
+    """
+    curve = a * times**2 + b * times + c
+    return curve
+
+
+@nb.njit(cache=True)
+def quadratic_pars(times, signal):
+    """Returns a parabolic curve for the given time points and parameters.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+
+    Returns
+    -------
+    a: float
+        The quadratic coefficient
+    b: float
+        The linear coefficient
+    c: float
+        The constant coefficient
+    """
+    # mean and mean subtracted quantities
+    x_m = np.mean(times)
+    x2_m = np.mean(times**2)
+    x_ms = (times - x_m)
+    x2_ms = (times**2 - x2_m)
+    y_m = np.mean(signal)
+    y_ms = (signal - y_m)
+    # sums
+    s_xx = np.sum(x_ms**2)
+    s_x2x = np.sum(x2_ms * x_ms)
+    s_x2x2 = np.sum(x2_ms**2)
+    s_xy = np.sum(x_ms * y_ms)
+    s_x2y = np.sum(x2_ms * y_ms)
+    # parameters
+    a = (s_x2y * s_xx - s_xy * s_x2x) / (s_x2x2 * s_xx - s_x2x**2)
+    b = (s_xy - a * s_x2x) / s_xx
+    c = y_m - a * x2_m - b * x_m
+    return a, b, c
+
+
+@nb.njit(cache=True)
+def quadratic_pars_two_points(x1, y1, x2, y2):
     """Calculate the parameters of a parabola defined by the top (1) and one
     random point (2), y = a*x**2 + b*x + c
 
@@ -835,17 +903,127 @@ def parabola_two_points(x1, y1, x2, y2):
     Returns
     -------
     a: float, numpy.ndarray[float]
-        The curvature parameter(s)
+        The quadratic coefficient(s)
     b: float, numpy.ndarray[float]
-        The slope parameter(s)
+        The linear coefficient(s)
     c: float, numpy.ndarray[float]
-        The constant parameter(s)
+        The constant coefficient(s)
     """
     sqr_dif = (x1 - x2)**2
     a = -y1 / sqr_dif
     b = 2 * x1 * y1 / sqr_dif
     c = y1 * (1 - x1**2 / sqr_dif)
     return a, b, c
+
+
+@nb.njit(cache=True)
+def cubic_curve(times, a, b, c, d):
+    """Returns a parabolic curve for the given time points and parameters.
+
+    Parameters
+    ----------
+    times: float, numpy.ndarray[float]
+        Timestamps of the time-series
+    a: float
+        The cubic coefficient
+    b: float
+        The quadratic coefficient
+    c: float
+        The linear coefficient
+    d: float
+        The constant coefficient
+
+    Returns
+    -------
+    curve: numpy.ndarray[float]
+        The model time-series of a (set of) straight line(s)
+    """
+    curve = a * times**3 + b * times**2 + c * times + d
+    return curve
+
+
+@nb.njit(cache=True)
+def cubic_pars(times, signal):
+    """Returns a parabolic curve for the given time points and parameters.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+
+    Returns
+    -------
+    a: float
+        The cubic coefficient
+    b: float
+        The quadratic coefficient
+    c: float
+        The linear coefficient
+    d: float
+        The constant coefficient
+    """
+    # mean and mean subtracted quantities
+    x_m = np.mean(times)
+    x2_m = np.mean(times**2)
+    x3_m = np.mean(times**3)
+    x_ms = (times - x_m)
+    x2_ms = (times**2 - x2_m)
+    x3_ms = (times**3 - x3_m)
+    y_m = np.mean(signal)
+    y_ms = (signal - y_m)
+    # sums
+    s_xx = np.sum(x_ms**2)
+    s_x2x = np.sum(x2_ms * x_ms)
+    s_x2x2 = np.sum(x2_ms**2)
+    s_x3x = np.sum(x3_ms * x_ms)
+    s_x3x2 = np.sum(x3_ms * x2_ms)
+    s_x3x3 = np.sum(x3_ms**2)
+    s_xy = np.sum(x_ms * y_ms)
+    s_x2y = np.sum(x2_ms * y_ms)
+    s_x3y = np.sum(x3_ms * y_ms)
+    # parameters
+    a = (s_x3y * (s_x2x2 * s_xx - s_x2x**2) - s_x2y * (s_x3x2 * s_xx - s_x3x * s_x2x)
+         + s_xy * (s_x3x2 * s_x2x - s_x3x * s_x2x2))
+    a = a / (s_x3x3 * (s_x2x2 * s_xx - s_x2x**2) - s_x3x2 * (s_x3x2 * s_xx - 2 * s_x3x * s_x2x) - s_x3x**2 * s_x2x2)
+    b = (s_x2y * s_xx - s_xy * s_x2x - a * (s_x3x2 * s_xx - s_x3x * s_x2x)) / (s_x2x2 * s_xx - s_x2x**2)
+    c = (s_xy - a * s_x3x - b * s_x2x) / s_xx
+    d = y_m - a * x3_m - b * x2_m - c * x_m
+    return a, b, c, d
+
+
+@nb.njit(cache=True)
+def cubic_pars_from_quadratic(x1, a_q, b_q, c_q):
+    """Returns a parabolic curve for the given time points and parameters.
+
+    Parameters
+    ----------
+    x1: float, numpy.ndarray[float]
+        The x-coordinate of one zero point in the quadratic
+    a_q: float, numpy.ndarray[float]
+        The quadratic coefficient(s)
+    b_q: float, numpy.ndarray[float]
+        The linear coefficient(s)
+    c_q: float, numpy.ndarray[float]
+        The constant coefficient(s)
+
+    Returns
+    -------
+    a: float, numpy.ndarray[float]
+        The cubic coefficient(s)
+    b: float, numpy.ndarray[float]
+        The quadratic coefficient(s)
+    c: float, numpy.ndarray[float]
+        The linear coefficient(s)
+    d: float, numpy.ndarray[float]
+        The constant coefficient(s)
+    """
+    a = a_q / 3
+    b = b_q / 2
+    c = c_q
+    d = -(a_q / 3 * x1**3 + b_q / 2 * x1**2 + c_q * x1)
+    return a, b, c, d
 
 
 @nb.njit(cache=True)
@@ -1125,13 +1303,13 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
     mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
     mask_2_2 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # get timing error by dividing noise level by slopes
-    y_inter, slope = linear_slope(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
+    y_inter, slope = linear_pars(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
     t_1_1_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_slope(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
+    y_inter, slope = linear_pars(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
     t_1_2_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_slope(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
+    y_inter, slope = linear_pars(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
     t_2_1_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_slope(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
+    y_inter, slope = linear_pars(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
     t_2_2_err = abs(noise_level / slope[0])
     return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
 
@@ -1202,8 +1380,10 @@ def measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     t_folded = (times - t_zero) % p_orb
     if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
         mask_b_1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+        mask_b_1 = mask_b_1 | ((t_folded > p_orb + t_b_1_1) & (t_folded < p_orb + t_b_1_2))
     else:
         mask_b_1 = ((t_folded > t_1 - t_1_1_err) & (t_folded < t_1 + t_1_2_err))
+        mask_b_1 = mask_b_1 | ((t_folded > p_orb + t_1 - t_1_1_err) & (t_folded < p_orb + t_1 + t_1_2_err))
     if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
         mask_b_2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
     else:
@@ -1308,7 +1488,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         ph_n[-1] = np.mod(ph_n[-1] + np.pi, 2 * np.pi) - np.pi
         # as a last model-refining step, redetermine the constant
         resid = signal - sum_sines(times, f_n, a_n, ph_n)
-        const, slope = linear_slope(times, resid, i_sectors)
+        const, slope = linear_pars(times, resid, i_sectors)
     # re-extract the non-harmonics
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -1322,7 +1502,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi
         # as a last model-refining step, redetermine the constant
         resid = signal - sum_sines(times, f_n, a_n, ph_n)
-        const, slope = linear_slope(times, resid, i_sectors)
+        const, slope = linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1554,7 +1734,7 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_slope(times, signal - model, i_sectors)
+        const, slope = linear_pars(times, signal - model, i_sectors)
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1565,7 +1745,7 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration of changes
     resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_slope(times, resid, i_sectors)
+    const, slope = linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1661,7 +1841,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_slope(times, signal - model, i_sectors)
+        const, slope = linear_pars(times, signal - model, i_sectors)
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1672,7 +1852,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration of changes
     resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_slope(times, resid, i_sectors)
+    const, slope = linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1734,7 +1914,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     # constant term (or y-intercept) and slope
-    const, slope = linear_slope(times, signal, i_sectors)
+    const, slope = linear_pars(times, signal, i_sectors)
     resid = signal - linear_curve(times, const, slope, i_sectors)
     f_n_temp, a_n_temp, ph_n_temp = np.array([[], [], []])
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
@@ -1760,7 +1940,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_slope(times, signal - model, i_sectors)
+        const, slope = linear_pars(times, signal - model, i_sectors)
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1772,7 +1952,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration frequencies
     resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_slope(times, resid, i_sectors)
+    const, slope = linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1870,7 +2050,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_slope(times, signal - model, i_sectors)
+        const, slope = linear_pars(times, signal - model, i_sectors)
         model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
@@ -1882,7 +2062,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration frequencies
     resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_slope(times, resid, i_sectors)
+    const, slope = linear_pars(times, resid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1967,7 +2147,7 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
         f_n_temp, a_n_temp, ph_n_temp = np.append(f_n, f_c), np.append(a_n, a_c), np.append(ph_n, ph_c)
         # redetermine the constant and slope
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
-        const, slope = linear_slope(times, signal - model, i_sectors)
+        const, slope = linear_pars(times, signal - model, i_sectors)
         # determine new BIC and whether it improved
         model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         model += sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
@@ -1984,7 +2164,7 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
         else:
             # h_c is rejected, revert to previous residual
             resid = signal - sum_sines(times, f_n, a_n, ph_n)
-            const, slope = linear_slope(times, resid, i_sectors)
+            const, slope = linear_pars(times, resid, i_sectors)
             model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
             model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
             resid = signal - model
@@ -2200,7 +2380,8 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, tim
     # the mask assumes t_1 is at zero and thus t_1_1 is negative
     mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
     if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
-        mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+        mask_b_1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+        mask_b_1 = mask_b_1 | ((t_folded > p_orb + t_b_1_1) & (t_folded < p_orb + t_b_1_2))
     else:
         mask_b1 = np.zeros(len(t_folded), dtype=bool)
     if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
@@ -2304,6 +2485,256 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
     return const_r, f_r, a_r, ph_r
 
 
+def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, noise_level,
+                       i_sectors, verbose=False):
+    """Separates the out-of-eclipse harmonic signal from the other harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    const_ho: numpy.ndarray[float]
+        Mean of the residual
+    f_ho: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_ho: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_ho: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    f_he: numpy.ndarray[float]
+        Frequencies of a number of harmonic sine waves
+    a_he: numpy.ndarray[float]
+        Amplitudes of a number of harmonic sine waves
+    ph_he: numpy.ndarray[float]
+        Phases of a number of harmonic sine waves
+    """
+    # make timing masks
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_folded = (times - t_zero) % p_orb
+    t_folded_adj = np.copy(t_folded)
+    t_folded_adj[t_folded > p_orb + t_1_1] -= p_orb  # stick eclipse 1 back together
+    mask_1 = (t_folded_adj > t_1_1) & (t_folded_adj < t_b_1_1)
+    mask_2 = (t_folded_adj > t_b_1_2) & (t_folded_adj < t_1_2)
+    mask_3 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
+    mask_4 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
+    # make the eclipse signal (remove other stuff)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_line = linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_line
+    # get the cubic polynomials
+    par_c1 = cubic_pars(t_folded_adj[mask_1], ecl_signal[mask_1])
+    par_c2 = cubic_pars(t_folded_adj[mask_2], ecl_signal[mask_2])
+    par_c3 = cubic_pars(t_folded[mask_3], ecl_signal[mask_3])
+    par_c4 = cubic_pars(t_folded[mask_4], ecl_signal[mask_4])
+    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1)
+    cubic_2 = cubic_curve(t_folded_adj[mask_2], *par_c2)
+    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3)
+    cubic_4 = cubic_curve(t_folded[mask_4], *par_c4)
+    # find the tops and bottoms
+    max_1, min_1 = np.max(cubic_1), np.min(cubic_1)
+    max_2, min_2 = np.max(cubic_2), np.min(cubic_2)
+    max_3, min_3 = np.max(cubic_3), np.min(cubic_3)
+    max_4, min_4 = np.max(cubic_4), np.min(cubic_4)
+    t_max_1, t_min_1 = t_folded_adj[mask_1][cubic_1 == max_1][0], t_folded_adj[mask_1][cubic_1 == min_1][0]
+    t_max_2, t_min_2 = t_folded_adj[mask_2][cubic_2 == max_2][0], t_folded_adj[mask_2][cubic_2 == min_2][0]
+    t_max_3, t_min_3 = t_folded[mask_3][cubic_3 == max_3][0], t_folded[mask_3][cubic_3 == min_3][0]
+    t_max_4, t_min_4 = t_folded[mask_4][cubic_4 == max_4][0], t_folded[mask_4][cubic_4 == min_4][0]
+    # the previous inner edges
+    t_min_1_old = np.max(t_folded_adj[mask_1])
+    t_min_2_old = np.min(t_folded_adj[mask_2])
+    t_min_3_old = np.max(t_folded[mask_3])
+    t_min_4_old = np.min(t_folded[mask_4])
+    # if one has different time at eclipse bottom and the other not, cut the latter off
+    if (t_min_1_old > t_min_1) & (t_min_2_old == t_min_2) & np.any(cubic_2 < min_1):
+        t_min_2 = np.min(t_folded_adj[mask_2][cubic_2 > min_1])
+    if (t_min_1_old == t_min_1) & (t_min_2_old < t_min_2) & np.any(cubic_1 < min_2):
+        t_min_1 = np.max(t_folded_adj[mask_1][cubic_1 > min_2])
+    if (t_min_3_old > t_min_3) & (t_min_4_old == t_min_4) & np.any(cubic_4 < min_3):
+        t_min_4 = np.min(t_folded[mask_4][cubic_4 > min_3])
+    if (t_min_3_old == t_min_3) & (t_min_4_old < t_min_4) & np.any(cubic_3 < min_4):
+        t_min_3 = np.max(t_folded[mask_3][cubic_3 > min_4])
+    # adjust the masks to cut off at the tops and bottoms
+    mask_1 = (t_folded_adj >= t_max_1) & (t_folded_adj <= t_min_1)
+    mask_2 = (t_folded_adj >= t_min_2) & (t_folded_adj <= t_max_2)
+    mask_3 = (t_folded >= t_max_3) & (t_folded <= t_min_3)
+    mask_4 = (t_folded >= t_min_4) & (t_folded <= t_max_4)
+    # make connecting lines
+    par_l1 = linear_pars_two_points(t_min_1, cubic_curve(t_min_1, *par_c1), t_min_2, cubic_curve(t_min_2, *par_c2))
+    l1_c, l1_s = np.array([par_l1[0]]), np.array([par_l1[1]])
+    par_l2 = linear_pars_two_points(t_min_3, cubic_curve(t_min_3, *par_c3), t_min_4, cubic_curve(t_min_4, *par_c4))
+    l2_c, l2_s = np.array([par_l2[0]]), np.array([par_l2[1]])
+    mask_b_1 = (t_folded_adj > t_min_1) & (t_folded_adj < t_min_2)
+    mask_b_2 = (t_folded > t_min_3) & (t_folded < t_min_4)
+    if np.any(mask_b_1):
+        line_1 = linear_curve(t_folded_adj[mask_b_1], l1_c, l1_s, np.array([[0, len(t_folded[mask_b_1])]]))
+    else:
+        line_1 = np.array([])
+    if np.any(mask_b_2):
+        line_2 = linear_curve(t_folded[mask_b_2], l2_c, l2_s, np.array([[0, len(t_folded[mask_b_2])]]))
+    else:
+        line_2 = np.array([])
+    
+    par_l3 = linear_pars_two_points(t_max_2, cubic_curve(t_max_2, *par_c2), t_max_3, cubic_curve(t_max_3, *par_c3))
+    l3_c, l3_s = np.array([par_l3[0]]), np.array([par_l3[1]])
+    par_l4 = linear_pars_two_points(t_max_4, cubic_curve(t_max_4, *par_c4), t_max_1 + p_orb, cubic_curve(t_max_1, *par_c1))
+    l4_c, l4_s = np.array([par_l4[0]]), np.array([par_l4[1]])
+    mask_t_3 = (t_folded > t_max_2) & (t_folded < t_max_3)
+    mask_t_4 = (t_folded > t_max_4) & (t_folded < t_max_1 + p_orb)
+    if np.any(mask_t_3):
+        line_3 = linear_curve(t_folded_adj[mask_t_3], l3_c, l3_s, np.array([[0, len(t_folded[mask_t_3])]]))
+    else:
+        line_3 = np.array([])
+    if np.any(mask_t_4):
+        line_4 = linear_curve(t_folded[mask_t_4], l4_c, l4_s, np.array([[0, len(t_folded[mask_t_4])]]))
+    else:
+        line_4 = np.array([])
+    # stick together the eclipse model
+    
+    a, b, c, d = par_c3
+    print(par_c3)
+    print(t_max_3, (-b - np.sqrt(b**2 - 3*a*c)) / (3 * a))
+    print(t_max_3, (-b + np.sqrt(b**2 - 3*a*c)) / (3 * a))
+    print((2 * b**3 - 9*a*b*c + 2 * (b**2 - 3*a*c) * np.sqrt(b**2 - 3*a*c)) / (27 * a**2) + d)
+    print((2 * b**3 - 9*a*b*c - 2 * (b**2 - 3*a*c) * np.sqrt(b**2 - 3*a*c)) / (27 * a**2) + d)
+    print(a * t_max_3**3 + b * t_max_3**2 + c * t_max_3 + d)
+    print(cubic_curve(t_max_3, *par_c3))
+    
+    import matplotlib.pyplot as plt
+    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1)
+    cubic_2 = cubic_curve(t_folded_adj[mask_2], *par_c2)
+    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3)
+    cubic_4 = cubic_curve(t_folded[mask_4], *par_c4)
+    # plt.scatter(t_folded_adj, ecl_signal)
+    # plt.scatter(t_folded_adj[mask_1], cubic_1)
+    # plt.scatter(t_folded_adj[mask_2], cubic_2)
+    # plt.scatter(t_folded[mask_3], cubic_3)
+    # plt.scatter(t_folded[mask_4], cubic_4)
+    # plt.scatter(t_folded_adj[mask_b_1], line_1)
+    # plt.scatter(t_folded[mask_b_2], line_2)
+    plt.scatter(t_folded_adj, ecl_signal)
+    plt.scatter(t_folded, ecl_signal, c='tab:blue')
+    plt.scatter(t_folded_adj[mask_1], cubic_1)
+    plt.scatter(t_folded_adj[mask_2], cubic_2)
+    plt.scatter(t_folded[mask_3], cubic_3)
+    plt.scatter(t_folded[mask_4], cubic_4)
+    plt.scatter(t_folded_adj[mask_b_1], line_1)
+    plt.scatter(t_folded[mask_b_2], line_2)
+    plt.scatter(t_folded[mask_t_3], line_3)
+    plt.scatter(t_folded[mask_t_4], line_4)
+    par_l5 = linear_pars(t_folded[mask_t_3], ecl_signal[mask_t_3], np.array([[0, len(t_folded[mask_t_3])]]))
+    par_l6 = linear_pars(t_folded[mask_t_4], ecl_signal[mask_t_4], np.array([[0, len(t_folded[mask_t_4])]]))
+    line_5 = linear_curve(t_folded[mask_t_3], *par_l5, np.array([[0, len(t_folded[mask_t_3])]]))
+    line_6 = linear_curve(t_folded[mask_t_4], *par_l6, np.array([[0, len(t_folded[mask_t_4])]]))
+    # plt.scatter(t_folded[mask_t_3], np.mean(ecl_signal[mask_t_3]) * np.ones(len(ecl_signal[mask_t_3])))
+    # plt.scatter(t_folded[mask_t_4], np.mean(ecl_signal[mask_t_4]) * np.ones(len(ecl_signal[mask_t_4])))
+    plt.scatter(t_folded[mask_t_3], line_5)
+    plt.scatter(t_folded[mask_t_4], line_6)
+    
+    raise
+    
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    # start with only low f harmonics as eclipse signal
+    low_h = (harmonic_n < 20)
+    f_he, a_he, ph_he = f_n[harmonics][low_h], a_n[harmonics][low_h], ph_n[harmonics][low_h]
+    # iterate until we don't have bumps anymore or the signal doesn't change, or the period doubles
+    bumps = np.array([2 * noise_level, 2 * noise_level])
+    model_change = 1
+    p_orb_b = p_orb
+    prev_model_e = sum_sines(times, f_he, a_he, ph_he)
+    while np.any(bumps > noise_level) & (model_change > 10**-9) & (p_orb_b == p_orb):
+        # measure eclipse timings
+        output = af.measure_eclipses_dt(p_orb, f_he, a_he, ph_he, noise_level)
+        p_orb_b, t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
+        timings = np.concatenate(([t_1, t_2], t_contacts, t_tangency))
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+        # define some errors
+        t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2) / 2  # this is an estimate
+        t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2) / 2  # this is an estimate
+        timing_errs = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]])
+        dur_b_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2)
+        dur_b_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2)
+        # check if the eclipses cover the whole lc (not enough ooe signal to work with)
+        if ((t_1_2 - t_1_1) + (t_2_2 - t_2_1) > 0.98 * p_orb):
+            const_ho, f_ho, a_ho, ph_ho = 0, np.array([]), np.array([]), np.array([])
+            f_he, a_he, ph_he = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
+        else:
+            # separate eclipse signal from ooe signal
+            output = extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, timing_errs, const, slope,
+                                               f_n, a_n, ph_n, i_sectors, verbose=verbose)
+            const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
+            output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
+                                                ph_ho)
+            f_he, a_he, ph_he = output  # eclipse harmonics
+        model_e = sum_sines(times, f_he, a_he, ph_he)
+        model_o = sum_sines(times, f_ho, a_ho, ph_ho)
+        # make sure the eclipse model doesn't have large bumps upward
+        t_folded = (times - t_zero) % p_orb
+        mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
+        if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
+            mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+        else:
+            mask_b1 = np.zeros(len(t_folded), dtype=bool)
+        if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
+            mask_b2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
+        else:
+            mask_b2 = np.zeros(len(t_folded), dtype=bool)
+        mask_com = mask_ecl | mask_b1 | mask_b2
+        # ooe level of eclipse model and eclipse bumps
+        max_ecl = np.max(model_e[np.invert(mask_ecl)])
+        min_ecl = np.min(model_e[np.invert(mask_com)])
+        if np.any(mask_ecl):
+            mean_ooe = np.mean(model_e[mask_ecl])
+        else:
+            mean_ooe = max_ecl
+        if np.any(mask_b1 | mask_b2):
+            mean_bot = np.mean(model_e[mask_b1 | mask_b2])
+        else:
+            mean_bot = min_ecl
+        bumps = np.array([max_ecl - mean_ooe, mean_bot - min_ecl])
+        # see if the model still changes
+        model_change = np.sum((prev_model_e - model_e)**2) / len(model_e)
+        prev_model_e = np.copy(model_e)
+    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
+
+
 def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
                                i_sectors, verbose=False):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
@@ -2368,7 +2799,6 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
     p_orb_b = p_orb
     prev_model_e = sum_sines(times, f_he, a_he, ph_he)
     while np.any(bumps > noise_level) & (model_change > 10**-9) & (p_orb_b == p_orb):
-        print(bumps > noise_level, model_change, p_orb_b)
         # measure eclipse timings
         output = af.measure_eclipses_dt(p_orb, f_he, a_he, ph_he, noise_level)
         p_orb_b, t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
@@ -2399,6 +2829,7 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
         mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
         if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
             mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
+            mask_b1 = mask_b_1 | ((t_folded > p_orb + t_b_1_1) & (t_folded < p_orb + t_b_1_2))
         else:
             mask_b1 = np.zeros(len(t_folded), dtype=bool)
         if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
@@ -2412,7 +2843,7 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
         if np.any(mask_ecl):
             mean_ooe = np.mean(model_e[mask_ecl])
         else:
-            mean_bot = max_ecl
+            mean_ooe = max_ecl
         if np.any(mask_b1 | mask_b2):
             mean_bot = np.mean(model_e[mask_b1 | mask_b2])
         else:
@@ -2495,7 +2926,7 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 ph_n_temp = np.delete(ph_n, remove)
                 # make a model not including the freq of this iteration
                 model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
                 bic = calc_bic((signal - model)/signal_err, n_param)
@@ -2529,7 +2960,7 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
                 model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # extract a single freq to try replacing the pair (set)
                 edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
@@ -2537,7 +2968,7 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 # make a model including the new freq
                 model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
                                   np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
@@ -2560,7 +2991,7 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
               f'BIC= {bic_prev:1.2f}')
     # lastly re-determine slope and const
     model = sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    const, slope = linear_slope(times, signal - model, i_sectors)
+    const, slope = linear_pars(times, signal - model, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -2642,7 +3073,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 ph_n_temp = np.delete(ph_n, remove)
                 # make a model not including the freq of this iteration
                 model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm)
                 bic = calc_bic((signal - model)/signal_err, n_param)
@@ -2679,7 +3110,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
                 model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # extract a single freq to try replacing the pair (set)
                 edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
@@ -2687,7 +3118,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 # make a model including the new freq
                 model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
                                   np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm + 1)
@@ -2730,7 +3161,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
                 model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # extract the amplitude and phase of the harmonic(s)
                 harm_i = [h for h in set_i if h in harmonics]
@@ -2740,7 +3171,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 # make a model including the new freq
                 model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
                                   np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_slope(times, signal - model, i_sectors)  # redetermine const and slope
+                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
                 model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) + len(f_i) - n_harm)
@@ -2763,5 +3194,5 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
               f'BIC= {bic_prev:1.2f}')
     # lastly re-determine slope and const
     model = sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    const, slope = linear_slope(times, signal - model, i_sectors)
+    const, slope = linear_pars(times, signal - model, i_sectors)
     return const, slope, f_n, a_n, ph_n

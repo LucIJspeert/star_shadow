@@ -1112,6 +1112,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
+    ecl_indices = ecl_indices[best_comb]
     ecl_min = ecl_min[best_comb]
     ecl_mid = ecl_mid[best_comb]
     widths = widths[best_comb]
@@ -1121,11 +1122,11 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     t_i_1_err = t_i_1_err[best_comb]
     t_i_2_err = t_i_2_err[best_comb]
     # put the primary (deepest) in front
-    sorter = np.argsort(depths)[::-1]
+    sorter = np.argsort(depths)[::-1]  # depths no longer used from this point
+    ecl_indices = ecl_indices[sorter]
     ecl_min = ecl_min[sorter]
     ecl_mid = ecl_mid[sorter]
     widths = widths[sorter]
-    # depths = depths[sorter]  # no longer used from this point
     ecl_mid_b = ecl_mid_b[sorter]
     widths_b = widths_b[sorter]
     t_i_1_err = t_i_1_err[sorter]

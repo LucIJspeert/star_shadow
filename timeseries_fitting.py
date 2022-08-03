@@ -710,7 +710,7 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
     # finally, make the model and calculate the likelihood
     model = tsf.sum_sines(times, freqs, a_h * stretch, ph_h)  # the sinusoid part of the model
     # stretching the harmonic model is equivalent to multiplying the amplitudes (to get the right eclipse depth)
-    const, slope = tsf.linear_slope(times, signal - model, i_sectors)
+    const, slope = tsf.linear_pars(times, signal - model, i_sectors)
     model = model + tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model = ut.model_crowdsap(model, 1 - light_3, i_sectors)  # incorporate third light
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
@@ -799,7 +799,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     res_stretch = result.x[-1]
     model = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics] * res_stretch, ph_n[harmonics])
     model += tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    const, slope = tsf.linear_slope(times, signal - model, i_sectors)
+    const, slope = tsf.linear_pars(times, signal - model, i_sectors)
     if verbose:
         model += tsf.linear_curve(times, const, slope, i_sectors)
         model = ut.model_crowdsap(model, 1 - res_light_3, i_sectors)

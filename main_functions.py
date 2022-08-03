@@ -745,8 +745,8 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     return p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
-                          noise_level, i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
+def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, noise_level,
+                          i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -761,6 +761,11 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, const, slope
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -822,9 +827,14 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, const, slope
     else:
         if verbose:
             print(f'Separating out-of-eclipse signal')
-        output = tsf.iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, slope,
-                                                f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
+        output = tsf.eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                        f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
         const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
+        
+        
+        # output = tsf.iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, slope,
+        #                                         f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
+        # const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
         if file_name is not None:
             ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=data_id)
     t_b = time.time()
@@ -1275,7 +1285,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         return (None,) * 5
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, const_8, slope_8,
+    out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
                                    f_n_8, a_n_8, ph_n_8, noise_level_8, i_sectors, file_name=file_name,
                                    data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
