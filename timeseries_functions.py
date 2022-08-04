@@ -944,7 +944,7 @@ def cubic_curve(times, a, b, c, d):
 
 @nb.njit(cache=True)
 def cubic_pars(times, signal):
-    """Returns a parabolic curve for the given time points and parameters.
+    """Returns a cubic curve for the given time points and parameters.
 
     Parameters
     ----------
@@ -995,7 +995,7 @@ def cubic_pars(times, signal):
 
 @nb.njit(cache=True)
 def cubic_pars_from_quadratic(x1, a_q, b_q, c_q):
-    """Returns a parabolic curve for the given time points and parameters.
+    """Returns a cubic curve corresponding to an integrated quadratic.
 
     Parameters
     ----------
@@ -2555,183 +2555,91 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     mask_4 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # make the eclipse signal (remove other stuff)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    low_h = (harmonic_n <= 20)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_h_low = sum_sines(times, f_n[harmonics[low_h]], a_n[harmonics[low_h]], ph_n[harmonics[low_h]])
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
-    # get the cubic polynomials
-    par_c1 = cubic_pars(t_folded_adj[mask_1], ecl_signal[mask_1])
-    par_c2 = cubic_pars(t_folded_adj[mask_2], ecl_signal[mask_2])
-    par_c3 = cubic_pars(t_folded[mask_3], ecl_signal[mask_3])
-    par_c4 = cubic_pars(t_folded[mask_4], ecl_signal[mask_4])
-    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1)
-    cubic_2 = cubic_curve(t_folded_adj[mask_2], *par_c2)
-    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3)
-    cubic_4 = cubic_curve(t_folded[mask_4], *par_c4)
+    # get the cubic polynomials from the low harmonic model
+    par_c1 = cubic_pars(t_folded_adj[mask_1], model_h_low[mask_1])
+    par_c2 = cubic_pars(t_folded_adj[mask_2], model_h_low[mask_2])
+    par_c3 = cubic_pars(t_folded[mask_3], model_h_low[mask_3])
+    par_c4 = cubic_pars(t_folded[mask_4], model_h_low[mask_4])
+    # find the inflection points of the initial cubics
+    c1_a, c1_b, c1_c, c1_d = par_c1
+    c2_a, c2_b, c2_c, c2_d = par_c2
+    c3_a, c3_b, c3_c, c3_d = par_c3
+    c4_a, c4_b, c4_c, c4_d = par_c4
+    infl_c1, infl_c2 = -c1_b / (3 * c1_a), -c2_b / (3 * c2_a)
+    mid_c12 = (infl_c1 + infl_c2) / 2
+    infl_c3, infl_c4 = -c3_b / (3 * c3_a), -c4_b / (3 * c4_a)
+    mid_c34 = (infl_c3 + infl_c4) / 2
+    # mirror the sides around the midpoint between the inflection points
+    mir_mask_1 = (t_folded_adj > t_1_1) & (t_folded_adj < mid_c12)
+    mir_mask_2 = (t_folded_adj > mid_c12) & (t_folded_adj < t_1_2)
+    mir_mask_3 = (t_folded > t_2_1) & (t_folded < mid_c34)
+    mir_mask_4 = (t_folded > mid_c34) & (t_folded < t_2_2)
+    t_mir_2 = 2 * mid_c12 - t_folded_adj[mir_mask_2]
+    t_mir_4 = 2 * mid_c34 - t_folded[mir_mask_4]
+    t_mir_ecl1 = np.append(t_folded_adj[mir_mask_1], t_mir_2)
+    t_mir_ecl2 = np.append(t_folded_adj[mir_mask_3], t_mir_4)
+    s_mir_ecl1 = np.append(ecl_signal[mir_mask_1], ecl_signal[mir_mask_2])
+    s_mir_ecl2 = np.append(ecl_signal[mir_mask_3], ecl_signal[mir_mask_4])
+    # get a combined fit to the eclipse edges (to make it symmetric)
+    par_c1_sym = cubic_pars(t_mir_ecl1, s_mir_ecl1)
+    par_c3_sym = cubic_pars(t_mir_ecl2, s_mir_ecl2)
+    cubic_1 = cubic_curve(t_folded_adj[mir_mask_1], *par_c1_sym)
+    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mir_mask_2], *par_c1_sym)
+    cubic_3 = cubic_curve(t_folded[mir_mask_3], *par_c3_sym)
+    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mir_mask_4], *par_c3_sym)
     # find the tops and bottoms
     max_1, min_1 = np.max(cubic_1), np.min(cubic_1)
     max_2, min_2 = np.max(cubic_2), np.min(cubic_2)
     max_3, min_3 = np.max(cubic_3), np.min(cubic_3)
     max_4, min_4 = np.max(cubic_4), np.min(cubic_4)
-    t_max_1, t_min_1 = t_folded_adj[mask_1][cubic_1 == max_1][0], t_folded_adj[mask_1][cubic_1 == min_1][0]
-    t_max_2, t_min_2 = t_folded_adj[mask_2][cubic_2 == max_2][0], t_folded_adj[mask_2][cubic_2 == min_2][0]
-    t_max_3, t_min_3 = t_folded[mask_3][cubic_3 == max_3][0], t_folded[mask_3][cubic_3 == min_3][0]
-    t_max_4, t_min_4 = t_folded[mask_4][cubic_4 == max_4][0], t_folded[mask_4][cubic_4 == min_4][0]
-    # the previous inner edges
-    t_min_1_old = np.max(t_folded_adj[mask_1])
-    t_min_2_old = np.min(t_folded_adj[mask_2])
-    t_min_3_old = np.max(t_folded[mask_3])
-    t_min_4_old = np.min(t_folded[mask_4])
-    # if one has different time at eclipse bottom and the other not, cut the latter off
-    if (t_min_1_old > t_min_1) & (t_min_2_old == t_min_2) & np.any(cubic_2 < min_1):
-        t_min_2 = np.min(t_folded_adj[mask_2][cubic_2 > min_1])
-    if (t_min_1_old == t_min_1) & (t_min_2_old < t_min_2) & np.any(cubic_1 < min_2):
-        t_min_1 = np.max(t_folded_adj[mask_1][cubic_1 > min_2])
-    if (t_min_3_old > t_min_3) & (t_min_4_old == t_min_4) & np.any(cubic_4 < min_3):
-        t_min_4 = np.min(t_folded[mask_4][cubic_4 > min_3])
-    if (t_min_3_old == t_min_3) & (t_min_4_old < t_min_4) & np.any(cubic_3 < min_4):
-        t_min_3 = np.max(t_folded[mask_3][cubic_3 > min_4])
+    t_max_1 = t_folded_adj[mir_mask_1][cubic_1 == max_1][0]
+    t_min_1 = t_folded_adj[mir_mask_1][cubic_1 == min_1][0]
+    t_max_2 = t_folded_adj[mir_mask_2][cubic_2 == max_2][0]
+    t_min_2 = t_folded_adj[mir_mask_2][cubic_2 == min_2][0]
+    t_max_3 = t_folded[mir_mask_3][cubic_3 == max_3][0]
+    t_min_3 = t_folded[mir_mask_3][cubic_3 == min_3][0]
+    t_max_4 = t_folded[mir_mask_4][cubic_4 == max_4][0]
+    t_min_4 = t_folded[mir_mask_4][cubic_4 == min_4][0]
     # adjust the masks to cut off at the tops and bottoms
     mask_1 = (t_folded_adj >= t_max_1) & (t_folded_adj <= t_min_1)
     mask_2 = (t_folded_adj >= t_min_2) & (t_folded_adj <= t_max_2)
     mask_3 = (t_folded >= t_max_3) & (t_folded <= t_min_3)
     mask_4 = (t_folded >= t_min_4) & (t_folded <= t_max_4)
+    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1_sym)
+    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mask_2], *par_c1_sym)
+    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3_sym)
+    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mask_4], *par_c3_sym)
     # make connecting lines
-    par_l1 = linear_pars_two_points(t_min_1, cubic_curve(t_min_1, *par_c1), t_min_2, cubic_curve(t_min_2, *par_c2))
-    l1_c, l1_s = np.array([par_l1[0]]), np.array([par_l1[1]])
-    par_l2 = linear_pars_two_points(t_min_3, cubic_curve(t_min_3, *par_c3), t_min_4, cubic_curve(t_min_4, *par_c4))
-    l2_c, l2_s = np.array([par_l2[0]]), np.array([par_l2[1]])
+    mask_12 = (t_folded > t_max_2) & (t_folded < t_max_3)  # from 1 to 2
+    mask_21 = (t_folded > t_max_4) & (t_folded < t_max_1 + p_orb)  # from 2 to 1
+    line_12 = np.zeros(len(t_folded[mask_12]))
+    line_21 = np.zeros(len(t_folded[mask_21]))
     mask_b_1 = (t_folded_adj > t_min_1) & (t_folded_adj < t_min_2)
     mask_b_2 = (t_folded > t_min_3) & (t_folded < t_min_4)
-    if np.any(mask_b_1):
-        line_1 = linear_curve(t_folded_adj[mask_b_1], l1_c, l1_s, np.array([[0, len(t_folded[mask_b_1])]]))
-    else:
-        line_1 = np.array([])
-    if np.any(mask_b_2):
-        line_2 = linear_curve(t_folded[mask_b_2], l2_c, l2_s, np.array([[0, len(t_folded[mask_b_2])]]))
-    else:
-        line_2 = np.array([])
-    
-    par_l3 = linear_pars_two_points(t_max_2, cubic_curve(t_max_2, *par_c2), t_max_3, cubic_curve(t_max_3, *par_c3))
-    l3_c, l3_s = np.array([par_l3[0]]), np.array([par_l3[1]])
-    par_l4 = linear_pars_two_points(t_max_4, cubic_curve(t_max_4, *par_c4), t_max_1 + p_orb, cubic_curve(t_max_1, *par_c1))
-    l4_c, l4_s = np.array([par_l4[0]]), np.array([par_l4[1]])
-    mask_t_3 = (t_folded > t_max_2) & (t_folded < t_max_3)
-    mask_t_4 = (t_folded > t_max_4) & (t_folded < t_max_1 + p_orb)
-    if np.any(mask_t_3):
-        line_3 = linear_curve(t_folded_adj[mask_t_3], l3_c, l3_s, np.array([[0, len(t_folded[mask_t_3])]]))
-    else:
-        line_3 = np.array([])
-    if np.any(mask_t_4):
-        line_4 = linear_curve(t_folded[mask_t_4], l4_c, l4_s, np.array([[0, len(t_folded[mask_t_4])]]))
-    else:
-        line_4 = np.array([])
-    # stick together the eclipse model
-    
-    a, b, c, d = par_c3
-    print(par_c3)
-    print(t_max_3, (-b - np.sqrt(b**2 - 3*a*c)) / (3 * a))
-    print(t_max_3, (-b + np.sqrt(b**2 - 3*a*c)) / (3 * a))
-    print((2 * b**3 - 9*a*b*c + 2 * (b**2 - 3*a*c) * np.sqrt(b**2 - 3*a*c)) / (27 * a**2) + d)
-    print((2 * b**3 - 9*a*b*c - 2 * (b**2 - 3*a*c) * np.sqrt(b**2 - 3*a*c)) / (27 * a**2) + d)
-    print(a * t_max_3**3 + b * t_max_3**2 + c * t_max_3 + d)
-    print(cubic_curve(t_max_3, *par_c3))
-    
-    import matplotlib.pyplot as plt
-    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1)
-    cubic_2 = cubic_curve(t_folded_adj[mask_2], *par_c2)
-    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3)
-    cubic_4 = cubic_curve(t_folded[mask_4], *par_c4)
-    # plt.scatter(t_folded_adj, ecl_signal)
-    # plt.scatter(t_folded_adj[mask_1], cubic_1)
-    # plt.scatter(t_folded_adj[mask_2], cubic_2)
-    # plt.scatter(t_folded[mask_3], cubic_3)
-    # plt.scatter(t_folded[mask_4], cubic_4)
-    # plt.scatter(t_folded_adj[mask_b_1], line_1)
-    # plt.scatter(t_folded[mask_b_2], line_2)
-    plt.scatter(t_folded_adj, ecl_signal)
-    plt.scatter(t_folded, ecl_signal, c='tab:blue')
-    plt.scatter(t_folded_adj[mask_1], cubic_1)
-    plt.scatter(t_folded_adj[mask_2], cubic_2)
-    plt.scatter(t_folded[mask_3], cubic_3)
-    plt.scatter(t_folded[mask_4], cubic_4)
-    plt.scatter(t_folded_adj[mask_b_1], line_1)
-    plt.scatter(t_folded[mask_b_2], line_2)
-    plt.scatter(t_folded[mask_t_3], line_3)
-    plt.scatter(t_folded[mask_t_4], line_4)
-    par_l5 = linear_pars(t_folded[mask_t_3], ecl_signal[mask_t_3], np.array([[0, len(t_folded[mask_t_3])]]))
-    par_l6 = linear_pars(t_folded[mask_t_4], ecl_signal[mask_t_4], np.array([[0, len(t_folded[mask_t_4])]]))
-    line_5 = linear_curve(t_folded[mask_t_3], *par_l5, np.array([[0, len(t_folded[mask_t_3])]]))
-    line_6 = linear_curve(t_folded[mask_t_4], *par_l6, np.array([[0, len(t_folded[mask_t_4])]]))
-    # plt.scatter(t_folded[mask_t_3], np.mean(ecl_signal[mask_t_3]) * np.ones(len(ecl_signal[mask_t_3])))
-    # plt.scatter(t_folded[mask_t_4], np.mean(ecl_signal[mask_t_4]) * np.ones(len(ecl_signal[mask_t_4])))
-    plt.scatter(t_folded[mask_t_3], line_5)
-    plt.scatter(t_folded[mask_t_4], line_6)
-    
-    raise
-    
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
-    # start with only low f harmonics as eclipse signal
-    low_h = (harmonic_n < 20)
-    f_he, a_he, ph_he = f_n[harmonics][low_h], a_n[harmonics][low_h], ph_n[harmonics][low_h]
-    # iterate until we don't have bumps anymore or the signal doesn't change, or the period doubles
-    bumps = np.array([2 * noise_level, 2 * noise_level])
-    model_change = 1
-    p_orb_b = p_orb
-    prev_model_e = sum_sines(times, f_he, a_he, ph_he)
-    while np.any(bumps > noise_level) & (model_change > 10**-9) & (p_orb_b == p_orb):
-        # measure eclipse timings
-        output = af.measure_eclipses_dt(p_orb, f_he, a_he, ph_he, noise_level)
-        p_orb_b, t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
-        timings = np.concatenate(([t_1, t_2], t_contacts, t_tangency))
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-        # define some errors
-        t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2) / 2  # this is an estimate
-        t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2) / 2  # this is an estimate
-        timing_errs = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]])
-        dur_b_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2)
-        dur_b_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2)
-        # check if the eclipses cover the whole lc (not enough ooe signal to work with)
-        if ((t_1_2 - t_1_1) + (t_2_2 - t_2_1) > 0.98 * p_orb):
-            const_ho, f_ho, a_ho, ph_ho = 0, np.array([]), np.array([]), np.array([])
-            f_he, a_he, ph_he = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
-        else:
-            # separate eclipse signal from ooe signal
-            output = extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, timing_errs, const, slope,
-                                               f_n, a_n, ph_n, i_sectors, verbose=verbose)
-            const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
-            output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
-                                                ph_ho)
-            f_he, a_he, ph_he = output  # eclipse harmonics
-        model_e = sum_sines(times, f_he, a_he, ph_he)
-        model_o = sum_sines(times, f_ho, a_ho, ph_ho)
-        # make sure the eclipse model doesn't have large bumps upward
-        t_folded = (times - t_zero) % p_orb
-        mask_ecl = ((t_folded > t_1_2) & (t_folded < t_2_1)) | ((t_folded > t_2_2) & (t_folded < t_1_1 + p_orb))
-        if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
-            mask_b1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
-        else:
-            mask_b1 = np.zeros(len(t_folded), dtype=bool)
-        if (t_b_2_2 - t_b_2_1 > dur_b_2_err):
-            mask_b2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
-        else:
-            mask_b2 = np.zeros(len(t_folded), dtype=bool)
-        mask_com = mask_ecl | mask_b1 | mask_b2
-        # ooe level of eclipse model and eclipse bumps
-        max_ecl = np.max(model_e[np.invert(mask_ecl)])
-        min_ecl = np.min(model_e[np.invert(mask_com)])
-        if np.any(mask_ecl):
-            mean_ooe = np.mean(model_e[mask_ecl])
-        else:
-            mean_ooe = max_ecl
-        if np.any(mask_b1 | mask_b2):
-            mean_bot = np.mean(model_e[mask_b1 | mask_b2])
-        else:
-            mean_bot = min_ecl
-        bumps = np.array([max_ecl - mean_ooe, mean_bot - min_ecl])
-        # see if the model still changes
-        model_change = np.sum((prev_model_e - model_e)**2) / len(model_e)
-        prev_model_e = np.copy(model_e)
+    line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * min_1 - max_1
+    line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * min_3 - max_3
+    # stick together the eclipse model (for t_folded_adj)
+    model_ecl = np.zeros(len(t_folded))
+    model_ecl[mask_1] = cubic_1 - max_1
+    model_ecl[mask_2] = cubic_2 - max_2
+    model_ecl[mask_3] = cubic_3 - max_3
+    model_ecl[mask_4] = cubic_4 - max_4
+    model_ecl[mask_b_1] = line_b_1
+    model_ecl[mask_b_2] = line_b_2
+    model_ecl[mask_12] = line_12
+    model_ecl[mask_21] = line_21
+    # remove from the signal and extract harmonics
+    residuals = ecl_signal - model_ecl
+    output = extract_all_harmonics(times, residuals, signal_err, p_orb, f_max=np.max(f_n[harmonics]), verbose=verbose)
+    const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
+    output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
+    f_he, a_he, ph_he = output  # eclipse harmonics
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 

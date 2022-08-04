@@ -830,11 +830,6 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
         output = tsf.eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                         f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
         const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
-        
-        
-        # output = tsf.iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, slope,
-        #                                         f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
-        # const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
         if file_name is not None:
             ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=data_id)
     t_b = time.time()
@@ -1288,6 +1283,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
                                    f_n_8, a_n_8, ph_n_8, noise_level_8, i_sectors, file_name=file_name,
                                    data_id=data_id, overwrite=overwrite, verbose=verbose)
+    # todo: test and remove iterate_eclipse_separation and extract_ooe_harmonics
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')

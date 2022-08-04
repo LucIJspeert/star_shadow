@@ -1088,16 +1088,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
     init_n_comb = len(combinations)
     # check overlap of the eclipses
-    
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.plot(t_model, deriv_1)
-    ax.scatter(t_model[ecl_indices], deriv_1[ecl_indices])
-    ax.scatter(t_model[ecl_indices[:, 1]], deriv_1[ecl_indices[:, 1]])
-    ax.scatter(t_model[ecl_indices[:, -2]], deriv_1[ecl_indices[:, -2]])
-    plt.tight_layout()
-    plt.show()
-    
     comb_remove = []
     for i, comb in enumerate(combinations):
         c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
