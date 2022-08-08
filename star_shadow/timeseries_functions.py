@@ -14,8 +14,8 @@ import scipy.stats
 import numba as nb
 import astropy.timeseries as apyt
 
-from . import timeseries_fitting as tsfit
-from . import analysis_functions as af
+from star_shadow import timeseries_fitting as tsfit
+from star_shadow import analysis_functions as af
 
 
 @nb.njit(cache=True)
@@ -1303,13 +1303,33 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
     mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
     mask_2_2 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # get timing error by dividing noise level by slopes
-    y_inter, slope = linear_pars(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
+    if (np.sum(mask_1_1) > 2):
+        y_inter, slope = linear_pars(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
+    else:
+        t_model = np.linspace(t_1_1, t_b_1_1, 1000)
+        deriv_1 = sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
+        slope = np.array([np.min(deriv_1)])
     t_1_1_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_pars(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
+    if (np.sum(mask_1_2) > 2):
+        y_inter, slope = linear_pars(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
+    else:
+        t_model = np.linspace(t_b_1_2, t_1_2, 1000)
+        deriv_1 = sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
+        slope = np.array([np.max(deriv_1)])
     t_1_2_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_pars(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
+    if (np.sum(mask_2_1) > 2):
+        y_inter, slope = linear_pars(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
+    else:
+        t_model = np.linspace(t_2_1, t_b_2_1, 1000)
+        deriv_1 = sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
+        slope = np.array([np.min(deriv_1)])
     t_2_1_err = abs(noise_level / slope[0])
-    y_inter, slope = linear_pars(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
+    if (np.sum(mask_2_2) > 2):
+        y_inter, slope = linear_pars(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
+    else:
+        t_model = np.linspace(t_b_2_2, t_2_2, 1000)
+        deriv_1 = sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
+        slope = np.array([np.max(deriv_1)])
     t_2_2_err = abs(noise_level / slope[0])
     return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
 
@@ -2297,9 +2317,9 @@ def extract_all_harmonics(times, signal, signal_err, p_orb, f_max=None, verbose=
         model = sum_sines(times, f_n_h, a_n_h, ph_n_h)
         resid = signal - model - np.mean(signal - model)
     # loop again to refine
-    for h_c in h_candidate:
+    for i, h_c in enumerate(h_candidate):
         # take away current h
-        model = sum_sines(times, np.delete(f_n_h, h_c - 1), np.delete(a_n_h, h_c - 1), np.delete(ph_n_h, h_c - 1))
+        model = sum_sines(times, np.delete(f_n_h, i), np.delete(a_n_h, i), np.delete(ph_n_h, i))
         resid = signal - model - np.mean(signal - model)
         # re-extract
         f_c = h_c / p_orb
@@ -2308,7 +2328,7 @@ def extract_all_harmonics(times, signal, signal_err, p_orb, f_max=None, verbose=
         # make sure the phase stays within + and - pi
         ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi
         # update final parameters
-        f_n_h[h_c - 1], a_n_h[h_c - 1], ph_n_h[h_c - 1] = f_c, a_c, ph_c
+        a_n_h[i], ph_n_h[i] = a_c, ph_c
     const_r = np.mean(signal - model)  # return constant for last model
     return const_r, f_n_h, a_n_h, ph_n_h
 
@@ -2636,10 +2656,26 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_ecl[mask_21] = line_21
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
-    output = extract_all_harmonics(times, residuals, signal_err, p_orb, f_max=np.max(f_n[harmonics]), verbose=verbose)
+    output = extract_all_harmonics(times, residuals, signal_err, p_orb, f_max=None, verbose=verbose)
     const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
+    # check for gaps in the folded signal - these will mess up the harmonic subtraction
+    # todo: use gap finding algorithm and do something to exclude the gap
+    
     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
     f_he, a_he, ph_he = output  # eclipse harmonics
+    
+    
+    import matplotlib.pyplot as plt
+    t_model = np.linspace(0, p_orb, 100000)
+    plt.plot([t_1_1, t_1_1], [np.min(ecl_signal), np.max(ecl_signal)])
+    plt.plot([t_1_2, t_1_2], [np.min(ecl_signal), np.max(ecl_signal)])
+    plt.plot([t_2_1, t_2_1], [np.min(ecl_signal), np.max(ecl_signal)])
+    plt.plot([t_2_2, t_2_2], [np.min(ecl_signal), np.max(ecl_signal)])
+    # plt.scatter(t_folded, residuals)
+    # plt.scatter(t_folded, model_ecl)
+    plt.scatter(t_folded, ecl_signal)
+    plt.scatter(t_model, sum_sines(t_model + t_zero, f_he, a_he, ph_he))
+    plt.scatter(t_model, sum_sines(t_model + t_zero, f_ho, a_ho, ph_ho) + const_ho)
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 

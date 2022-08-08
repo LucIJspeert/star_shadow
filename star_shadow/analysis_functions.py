@@ -18,8 +18,8 @@ import itertools as itt
 
 import arviz
 
-from . import timeseries_functions as tsf
-from . import utility as ut
+from star_shadow import timeseries_functions as tsf
+from star_shadow import utility as ut
 
 
 @nb.njit(cache=True)
@@ -2038,7 +2038,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, r_sum_sma, 1)
     args_ep = (p_orb, *timings_tau, *depths, *timing_errs, *depths_err)
-    bounds_ep = ((-1, 1), (-1, 1), (np.pi/4, np.pi/2), (0, 1), rr_bounds)
+    bounds_ep = ((-1, 1), (-1, 1), (np.pi/8, np.pi/2), (0, 1), rr_bounds)
     # the minimization will crash if bounds are reversed - prevent this.
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, r_sum_sma, r_ratio = res.x
@@ -2240,17 +2240,6 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     normal_t_1_2 = rng.normal(t_1_2, t_1_2_err, n_gen)
     normal_t_2_1 = rng.normal(t_2_1, t_2_1_err, n_gen)
     normal_t_2_2 = rng.normal(t_2_2, t_2_2_err, n_gen)
-    # highly unlikely to overlap, but if they do, it's bad, so fix by swapping them
-    overlap_1 = (normal_t_1_1 > normal_t_1_2)
-    if np.any(overlap_1):
-        _swap = np.copy(normal_t_1_1[overlap_1])
-        normal_t_1_1[overlap_1] = normal_t_1_2[overlap_1]
-        normal_t_1_2[overlap_1] = _swap
-    overlap_2 = (normal_t_2_1 > normal_t_2_2)
-    if np.any(overlap_2):
-        _swap = np.copy(normal_t_2_1[overlap_2])
-        normal_t_2_1[overlap_2] = normal_t_2_2[overlap_2]
-        normal_t_2_2[overlap_2] = _swap
     # if we have wide eclipses, they possibly overlap as well, fix by putting them in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
@@ -2262,6 +2251,17 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         middle = (normal_t_1_1[overlap_2_1] + p_orb + normal_t_2_2[overlap_2_1]) / 2
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
+    # unlikely to overlap, but if they do, it's bad, so fix by swapping them
+    overlap_1 = (normal_t_1_1 > normal_t_1_2)
+    if np.any(overlap_1):
+        _swap = np.copy(normal_t_1_1[overlap_1])
+        normal_t_1_1[overlap_1] = normal_t_1_2[overlap_1]
+        normal_t_1_2[overlap_1] = _swap
+    overlap_2 = (normal_t_2_1 > normal_t_2_2)
+    if np.any(overlap_2):
+        _swap = np.copy(normal_t_2_1[overlap_2])
+        normal_t_2_1[overlap_2] = normal_t_2_2[overlap_2]
+        normal_t_2_2[overlap_2] = _swap
     # the bottom points are truncated at the edge points
     normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, (normal_t_1_2 - t_b_1_1) / t_1_1_err,
                                             loc=t_b_1_1, scale=t_1_1_err, size=n_gen)

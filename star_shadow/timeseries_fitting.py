@@ -14,9 +14,9 @@ import scipy as sp
 import scipy.optimize
 import ellc
 
-from . import timeseries_functions as tsf
-from . import analysis_functions as af
-from . import utility as ut
+from star_shadow import timeseries_functions as tsf
+from star_shadow import analysis_functions as af
+from star_shadow import utility as ut
 
 
 @nb.njit(cache=True)

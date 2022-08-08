@@ -15,10 +15,10 @@ import scipy.signal
 import functools as fct
 import multiprocessing as mp
 
-from . import timeseries_functions as tsf
-from . import timeseries_fitting as tsfit
-from . import analysis_functions as af
-from . import utility as ut
+from star_shadow import timeseries_functions as tsf
+from star_shadow import timeseries_fitting as tsfit
+from star_shadow import analysis_functions as af
+from star_shadow import utility as ut
 
 
 def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
@@ -915,7 +915,7 @@ def eclipse_analysis_timing_err(times, signal, signal_err, p_orb, t_zero, timing
         timings, timing_errs, depths, depths_err = results
     else:
         if verbose:
-            print('Improving errors and depths measuremeents.')
+            print('Improving errors and depths measurements.')
         out_a = tsf.measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
                                          timings, noise_level, i_sectors)
         t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = out_a
@@ -1068,15 +1068,14 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timing_errs
         e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
         e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
         # determine decimals to print for two significant figures
-        rnd_e = max(ut.decimal_figures(min(e_err), 2), ut.decimal_figures(e, 2))
-        print(w_err)
-        rnd_w = max(ut.decimal_figures(min(w_err) / np.pi * 180, 2), ut.decimal_figures(w / np.pi * 180, 2))
-        rnd_i = max(ut.decimal_figures(min(i_err) / np.pi * 180, 2), ut.decimal_figures(i / np.pi * 180, 2))
-        rnd_rsumsma = max(ut.decimal_figures(min(r_sum_sma_err), 2), ut.decimal_figures(r_sum_sma, 2))
-        rnd_rratio = max(ut.decimal_figures(min(r_ratio_err), 2), ut.decimal_figures(r_ratio, 2))
-        rnd_sbratio = max(ut.decimal_figures(min(sb_ratio_err), 2), ut.decimal_figures(sb_ratio, 2))
-        rnd_ecosw = max(ut.decimal_figures(min(ecosw_err), 2), ut.decimal_figures(e * np.cos(w), 2))
-        rnd_esinw = max(ut.decimal_figures(min(esinw_err), 2), ut.decimal_figures(e * np.sin(w), 2))
+        rnd_e = max(ut.decimal_figures(min(e_err), 2), ut.decimal_figures(e, 2), 0)
+        rnd_w = max(ut.decimal_figures(min(w_err) / np.pi * 180, 2), ut.decimal_figures(w / np.pi * 180, 2), 0)
+        rnd_i = max(ut.decimal_figures(min(i_err) / np.pi * 180, 2), ut.decimal_figures(i / np.pi * 180, 2), 0)
+        rnd_rsumsma = max(ut.decimal_figures(min(r_sum_sma_err), 2), ut.decimal_figures(r_sum_sma, 2), 0)
+        rnd_rratio = max(ut.decimal_figures(min(r_ratio_err), 2), ut.decimal_figures(r_ratio, 2), 0)
+        rnd_sbratio = max(ut.decimal_figures(min(sb_ratio_err), 2), ut.decimal_figures(sb_ratio, 2), 0)
+        rnd_ecosw = max(ut.decimal_figures(min(ecosw_err), 2), ut.decimal_figures(e * np.cos(w), 2), 0)
+        rnd_esinw = max(ut.decimal_figures(min(esinw_err), 2), ut.decimal_figures(e * np.sin(w), 2), 0)
         # multi interval
         w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bds, w)
         print(f'\033[1;32;48mMeasurements and initial optimisation of the eclipse parameters complete.\033[0m')
