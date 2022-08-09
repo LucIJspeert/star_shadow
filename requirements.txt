@@ -1,0 +1,9 @@
+numpy
+scipy
+numba
+astropy
+ellc
+arviz
+h5py
+matplotlib
+corner
