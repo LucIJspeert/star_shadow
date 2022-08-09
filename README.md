@@ -14,7 +14,11 @@ The aim is to determine the orbital eccentricity automatically from the light cu
 
 ## Getting started
 
-As of the current version, the way to get this code is to either download it or make a fork on GitHub. It is recommended to download the latest release from the GitHub page. To use it, simply import the folder containing STAR SHADOW into your own script.
+As of version 0.1.0 (August 2022), it is possible to install STAR SHADOW with pip using:
+
+    pip install git+https://github.com/LucIJspeert/star_shadow@v0.1.0
+
+Or install the master branch by leaving out the version number. One can then import the package from the python environment it was installed in. Of course one can always still manually download it or make a fork on GitHub. It is recommended to get the latest release from the GitHub page. To use it, simply import the folder containing STAR SHADOW into your own script.
 
 **STAR SHADOW has only been tested in Python 3.8**. Using older versions could result in unexpected errors, although any Python version >3.6 is expected to work.
 
@@ -25,11 +29,11 @@ As of the current version, the way to get this code is to either download it or 
 
 Since the main feature of STAR SHADOW is its fully automated operation, taking advantage of its functionality is as simple as running one or two functions:
 
-    >>> import star_shadow as sts
-    >>> # to analyse any light curve from a file: 
-    >>> sts.analyse_from_file(file, p_orb=0, data_id=None, overwrite=False, verbose=True)
-    >>> # or to analyse from a set of TESS data product .fits files:
-    >>> sts.analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overwrite=False, verbose=True)
+    import star_shadow as sts
+    # to analyse any light curve from a file: 
+    sts.analyse_from_file(file, p_orb=0, data_id=None, overwrite=False, verbose=True)
+    # or to analyse from a set of TESS data product .fits files:
+    sts.analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overwrite=False, verbose=True)
 
 The light curve file is expected to contain a time column, flux measurements (median normalised and non-negative), and flux measurement errors. The normalisation for TESS data products is handled automatically on a per-sector basis. 
 
@@ -37,7 +41,7 @@ If a save_dir is given, the outputs are saved in a folder with either the TIC nu
 
 Either function can be used for a set of light curves by using:
 
-    >>> sts.analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count() - 2, **kwargs):
+    sts.analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count() - 2, **kwargs):
 
 
 ### Explanation of output
@@ -52,7 +56,7 @@ In normal operation, the eight first steps produce .hdf5 files with all the mode
 
 There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
 
-    >>> sts.ut.sequential_plotting(tic, times, signal, i_sectors,  load_dir, save_dir=None, show=False)
+    sts.ut.sequential_plotting(tic, times, signal, i_sectors,  load_dir, save_dir=None, show=False)
 
 saves and/or shows all these plots for one target. Unfortunately matplotlib plotting only works in the main thread, so when processing a whole set of light curves in parallel, this function will have to be run sequentially on the results afterwards (hence the name).
 
