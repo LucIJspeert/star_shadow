@@ -18,8 +18,8 @@ import itertools as itt
 
 import arviz
 
-from star_shadow import timeseries_functions as tsf
-from star_shadow import utility as ut
+from . import timeseries_functions as tsf
+from . import utility as ut
 
 
 @nb.njit(cache=True)

@@ -15,10 +15,10 @@ import scipy.signal
 import functools as fct
 import multiprocessing as mp
 
-from star_shadow import timeseries_functions as tsf
-from star_shadow import timeseries_fitting as tsfit
-from star_shadow import analysis_functions as af
-from star_shadow import utility as ut
+from . import timeseries_functions as tsf
+from . import timeseries_fitting as tsfit
+from . import analysis_functions as af
+from . import utility as ut
 
 
 def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
@@ -828,7 +828,7 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
         if verbose:
             print(f'Separating out-of-eclipse signal')
         output = tsf.eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                        f_n, a_n, ph_n, noise_level, i_sectors, verbose=verbose)
+                                        f_n, a_n, ph_n, noise_level, i_sectors)
         const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
         if file_name is not None:
             ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=data_id)

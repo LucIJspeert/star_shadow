@@ -15,9 +15,9 @@ import numpy as np
 import numba as nb
 import astropy.io.fits as fits
 
-from star_shadow import timeseries_functions as tsf
-from star_shadow import analysis_functions as af
-from star_shadow import visualisation as vis
+from . import timeseries_functions as tsf
+from . import analysis_functions as af
+from . import visualisation as vis
 
 
 @nb.njit(cache=True)
@@ -186,7 +186,8 @@ def get_tess_sectors(times, bjd_ref=2457000.0):
     """
     # the 0.5 offset comes from test results, and the fact that no exact JD were found (just calendar days)
     script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
-    jd_sectors = np.loadtxt(os.path.join(script_dir, 'tess_sectors.dat'), usecols=(2, 3)) - bjd_ref
+    data_dir = script_dir.replace('star_shadow/star_shadow', 'star_shadow/data')
+    jd_sectors = np.loadtxt(os.path.join(data_dir, 'tess_sectors.dat'), usecols=(2, 3)) - bjd_ref
     # use a quick searchsorted to get the positions of the sector transitions
     i_start = np.searchsorted(times, jd_sectors[:, 0])
     i_end = np.searchsorted(times, jd_sectors[:, 1])

@@ -14,8 +14,8 @@ import scipy.stats
 import numba as nb
 import astropy.timeseries as apyt
 
-from star_shadow import timeseries_fitting as tsfit
-from star_shadow import analysis_functions as af
+from . import timeseries_fitting as tsfit
+from . import analysis_functions as af
 
 
 @nb.njit(cache=True)
@@ -77,6 +77,52 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     if midpoints:
         bins = (bins[1:] + bins[:-1]) / 2
     return bins, binned
+
+
+@nb.njit(cache=True)
+def mark_folded_gaps(times, width):
+    """Mark gaps in a folded series of time points.
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    width: float
+        Minimum width for a gap (in time units)
+    
+    Returns
+    -------
+    gaps: numpy.ndarray[float]
+        Gap timestamps in pairs
+    """
+    t_sorted = np.sort(times)
+    t_diff = t_sorted[1:] - t_sorted[:-1]  # np.diff(a)
+    gaps = (t_diff > width)
+    # get the timestamps
+    t_left = t_sorted[:-1][gaps]
+    t_right = t_sorted[1:][gaps]
+    gaps = np.column_stack((t_left, t_right))
+    return gaps
+
+
+@nb.njit(cache=True)
+def mask_timestamps(times, stamps):
+    """Mask out everything except the parts between the given timestamps
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+
+    Returns
+    -------
+    mask: numpy.ndarray[bool]
+        Boolean mask that is True between the stamps
+    """
+    mask = np.zeros(len(times), dtype=np.bool_)
+    for t_points in stamps:
+        mask = mask | ((times >= t_points[0]) & (times <= t_points[-1]))
+    return mask
 
 
 @nb.njit(cache=True)
@@ -2264,7 +2310,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, verbose=False):
     return const_r, f_n_h, a_n_h, ph_n_h
 
 
-def extract_all_harmonics(times, signal, signal_err, p_orb, f_max=None, verbose=False):
+def extract_all_harmonics(times, signal, p_orb, f_max=None):
     """Extracts harmonics from the given signal
 
     Parameters
@@ -2273,14 +2319,10 @@ def extract_all_harmonics(times, signal, signal_err, p_orb, f_max=None, verbose=
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_max: float
         The extraction stops at this frequency
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -2334,7 +2376,7 @@ def extract_all_harmonics(times, signal, signal_err, p_orb, f_max=None, verbose=
 
 
 def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, timing_errs, const, slope, f_n, a_n, ph_n,
-                          i_sectors, verbose=False):
+                          i_sectors):
     """Tries to extract harmonics from the signal after masking the eclipses
 
     Parameters
@@ -2371,8 +2413,6 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, tim
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -2422,8 +2462,7 @@ def extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, tim
     if np.any(mask_b2):
         ecl_signal[mask_b2] += mean_ooe - np.mean(ecl_signal[mask_b2])
     # extract harmonics
-    output = extract_all_harmonics(times[mask_com], ecl_signal[mask_com], signal_err[mask_com], p_orb,
-                                   f_max=np.max(f_n[harmonics]), verbose=verbose)
+    output = extract_all_harmonics(times[mask_com], ecl_signal[mask_com], p_orb, f_max=np.max(f_n[harmonics]))
     const_ho, f_ho, a_ho, ph_ho = output
     return const_ho, f_ho, a_ho, ph_ho
 
@@ -2656,17 +2695,38 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_ecl[mask_21] = line_21
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
-    output = extract_all_harmonics(times, residuals, signal_err, p_orb, f_max=None, verbose=verbose)
+    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))
+    output = extract_all_harmonics(times, residuals, p_orb, f_max=f_max)
     const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
-    # check for gaps in the folded signal - these will mess up the harmonic subtraction
-    # todo: use gap finding algorithm and do something to exclude the gap
-    
+    # subtract the ooe harmonics from all the harmonics
     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
     f_he, a_he, ph_he = output  # eclipse harmonics
-    
-    
+
+    residuals = ecl_signal - sum_sines(times, f_ho, a_ho, ph_ho) - const_ho
+    output = extract_all_harmonics(times, residuals, p_orb, f_max=f_max)
+    const_he, f_he, a_he, ph_he = output  # out-of-eclipse harmonics
+    # check for gaps in the folded signal - these will mess up the harmonic subtraction
+    t_gaps = mark_folded_gaps(t_folded, p_orb / 100)
+    # if (len(t_gaps) > 0):
+    #     min_diff = np.min(times[1:] - times[:-1])/10
+    #     t_model = np.arange(times[0], times[-1], min_diff)  # create a roughly similar set of model times
+    #     t_model_folded = (t_model - t_zero) % p_orb
+    #     gap_mask = mask_timestamps(t_model_folded, t_gaps)
+    #     # combine the ooe model with the eclipse model in the gap and extract the sines
+    #     model_he_gap = sum_sines(t_model, f_ho, a_ho, ph_ho) + const_ho
+    #     model_he_gap[gap_mask] = sum_sines(t_model[gap_mask], f_he, a_he, ph_he)
+    #     output = extract_all_harmonics(t_model, model_he_gap, p_orb, f_max=f_max)
+    #     const_ho, f_ho, a_ho, ph_ho = output  # gap residual harmonics
+    #     # subtract the new ooe harmonics from all the harmonics
+    #     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
+    #     f_he, a_he, ph_he = output  # eclipse harmonics
+    # apply smoothing with an averaging kernel
+    slope_cubic = min(c2_c - (2 * c2_b)**2 / (4 * 3 * c2_a), c4_c - (2 * c4_b)**2 / (4 * 3 * c4_a))
+    slope_h = 2 * np.pi * f_he * a_he
+    low_pass = (slope_h < slope_cubic/2)
+    # todo: find a solution
     import matplotlib.pyplot as plt
-    t_model = np.linspace(0, p_orb, 100000)
+    t_model_p = np.linspace(0, p_orb, 100000)
     plt.plot([t_1_1, t_1_1], [np.min(ecl_signal), np.max(ecl_signal)])
     plt.plot([t_1_2, t_1_2], [np.min(ecl_signal), np.max(ecl_signal)])
     plt.plot([t_2_1, t_2_1], [np.min(ecl_signal), np.max(ecl_signal)])
@@ -2674,13 +2734,17 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     # plt.scatter(t_folded, residuals)
     # plt.scatter(t_folded, model_ecl)
     plt.scatter(t_folded, ecl_signal)
-    plt.scatter(t_model, sum_sines(t_model + t_zero, f_he, a_he, ph_he))
-    plt.scatter(t_model, sum_sines(t_model + t_zero, f_ho, a_ho, ph_ho) + const_ho)
+    plt.scatter(t_model_p, sum_sines(t_model_p + t_zero, f_he, a_he, ph_he) + const_he)
+    plt.scatter(t_model_p, sum_sines(t_model_p + t_zero, f_ho, a_ho, ph_ho) + const_ho)
+    for gap in t_gaps:
+        plt.plot([gap[0], gap[0]], [np.min(ecl_signal), np.max(ecl_signal)], c='tab:pink')
+        plt.plot([gap[1], gap[1]], [np.min(ecl_signal), np.max(ecl_signal)], c='tab:pink')
+    # raise
     return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 
 def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n, ph_n, noise_level,
-                               i_sectors, verbose=False):
+                               i_sectors):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -2713,8 +2777,6 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -2761,7 +2823,7 @@ def iterate_eclipse_separation(times, signal, signal_err, p_orb, t_zero, const, 
         else:
             # separate eclipse signal from ooe signal
             output = extract_ooe_harmonics(times, signal, signal_err, p_orb, t_zero, timings, timing_errs, const, slope,
-                                               f_n, a_n, ph_n, i_sectors, verbose=verbose)
+                                               f_n, a_n, ph_n, i_sectors)
             const_ho, f_ho, a_ho, ph_ho = output  # out-of-eclipse harmonics
             output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho,
                                                 ph_ho)
