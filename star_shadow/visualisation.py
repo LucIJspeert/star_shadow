@@ -562,11 +562,13 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
 
 
 def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, const_ho, f_ho,
-                                a_ho, ph_ho, f_he, a_he, ph_he, i_sectors, save_file=None, show=True):
+                                a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3, i_sectors,
+                                save_file=None, show=True):
     """Shows the separation of the harmonics froming the eclipses and the ones
     forming the out-of-eclipse harmonic variability.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_em, t_2_em, t_1_1_em, t_1_2_em, t_2_1_em, t_2_2_em, t_b_1_1_em, t_b_1_2_em, t_b_2_1_em, t_b_2_2_em = timings_em
     # plotting bounds
     t_start = t_1_1
     t_end = p_orb + t_1_2
@@ -605,16 +607,77 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     ax.plot(t_model, model_h + offset, '--', c='tab:red', label='harmonics')
     ax.plot(t_model, model_ho + offset, c='tab:purple', label='o.o.e.-harmonics')
     # ax.plot(t_model, model_ho + model_he - 1, '--', c='tab:brown', label='o.o.e. + i.e. harmonics')
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges')
+    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:grey')
     ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:grey')
+    ax.plot([t_1_1_em, t_1_1_em], s_minmax, '--', c='tab:pink', label=r'eclipse edges (cubics)')
+    ax.plot([t_1_2_em, t_1_2_em], s_minmax, '--', c='tab:pink')
+    ax.plot([t_2_1_em, t_2_1_em], s_minmax, '--', c='tab:pink')
+    ax.plot([t_2_2_em, t_2_2_em], s_minmax, '--', c='tab:pink')
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
     ax.set_ylabel('normalised flux', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    # cubic model and timings
+    mask_1 = (t_model > t_1_1_em) & (t_model < t_b_1_1_em)
+    mask_2 = (t_model > t_b_1_2_em) & (t_model < t_1_2_em)
+    mask_3 = (t_model > t_2_1_em) & (t_model < t_b_2_1_em)
+    mask_4 = (t_model > t_b_2_2_em) & (t_model < t_2_2_em)
+    cubic_1 = tsf.cubic_curve(t_model[mask_1], *par_c1)
+    cubic_2 = tsf.cubic_curve(2 * t_1_em - t_model[mask_2], *par_c1)
+    cubic_3 = tsf.cubic_curve(t_model[mask_3], *par_c3)
+    cubic_4 = tsf.cubic_curve(2 * t_2_em - t_model[mask_4], *par_c3)
+    # connect with lines
+    mask_b_1 = (t_model > t_b_1_1_em) & (t_model < t_b_1_2_em)
+    mask_b_2 = (t_model > t_b_2_1_em) & (t_model < t_b_2_2_em)
+    mask_12 = (t_model > t_1_2_em) & (t_model < t_2_1_em)  # from 1 to 2
+    mask_21 = (t_model > t_2_2_em) & (t_model < t_1_1_em + p_orb)  # from 2 to 1
+    line_b_1 = np.ones(len(t_model[mask_b_1])) * np.min(cubic_1)
+    line_b_2 = np.ones(len(t_model[mask_b_2])) * np.min(cubic_3)
+    line_12 = np.zeros(len(t_model[mask_12])) + np.max(cubic_1)
+    line_21 = np.zeros(len(t_model[mask_21])) + np.max(cubic_1)
+    # stick em together
+    model_ecl = np.zeros(len(t_model))
+    model_ecl[mask_1] = cubic_1
+    model_ecl[mask_2] = cubic_2
+    model_ecl[mask_3] = cubic_3
+    model_ecl[mask_4] = cubic_4
+    model_ecl[mask_b_1] = line_b_1
+    model_ecl[mask_b_2] = line_b_2
+    model_ecl[mask_12] = line_12
+    model_ecl[mask_21] = line_21
+    model_ecl[t_model > p_orb + t_1_1_em] = np.nan
+    # second plot
+    fig, ax = plt.subplots(figsize=(16, 9))
+    ax.scatter(t_extended, ecl_signal_1, marker='.', label='signal minus non-harmonics and linear curve')
+    ax.scatter(t_extended, ecl_signal_2 + h_adjust_2, marker='.', c='tab:orange',
+               label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
+    ax.plot(t_model, model_ecl + 1, c='tab:red', label='simple empirical eclipse model')
+    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
+    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
+    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:grey')
+    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:grey')
+    ax.plot([t_1_1_em, t_1_1_em], s_minmax, '-', c='tab:purple', label=r'eclipse edges (cubics)')
+    ax.plot([t_1_2_em, t_1_2_em], s_minmax, '-', c='tab:purple')
+    ax.plot([t_2_1_em, t_2_1_em], s_minmax, '-', c='tab:purple')
+    ax.plot([t_2_2_em, t_2_2_em], s_minmax, '-', c='tab:purple')
+    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
+    ax.set_ylabel('normalised flux', fontsize=14)
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    if save_file is not None:
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_em.png')
+        else:
+            fig_save_file = save_file + '_em.png'
+        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:

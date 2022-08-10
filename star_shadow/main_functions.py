@@ -812,6 +812,16 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
         Amplitudes of a number of harmonic sine waves
     ph_he: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
+    timings_em: numpy.ndarray[float]
+        Eclipse timings from the empirical model.
+        Timings of minima and first and last contact points,
+        timings of the possible flat bottom (internal tangency).
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    par_c1: tuple[float]
+        Cubic curve parameters of eclipse 1
+    par_c3: tuple[float]
+        Cubic curve parameters of eclipse 2
 
     Notes
     -----
@@ -820,18 +830,22 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
     the full harmonics minus the 'o' harmonics).
     """
     t_a = time.time()
-    if os.path.isfile(file_name) & (not overwrite):
+    # opens two files so both need to exist
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_timings' + fn_ext)
+    if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
-        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = ut.read_results_hsep(file_name)
+        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3 = ut.read_results_hsep(file_name)
     else:
         if verbose:
             print(f'Separating out-of-eclipse signal')
         output = tsf.eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                         f_n, a_n, ph_n, noise_level, i_sectors)
-        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output
+        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3 = output
         if file_name is not None:
-            ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=data_id)
+            ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_zero, timings_em,
+                                 par_c1, par_c3, file_name, data_id=data_id)
     t_b = time.time()
     if verbose:
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
@@ -840,7 +854,7 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
               f'{len(f_ho)} harmonics capturing the out-of-eclipse signal\n'
               f'and {len(f_he)} harmonics capturing the eclipse signal. '
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
+    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3
 
 
 def eclipse_analysis_timing_err(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, p_err,
@@ -1276,24 +1290,36 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = out_9
     if np.any([item is None for item in out_9]):
-        return (None,) * 5
+        return (None,) * 5  # couldn't find eclipses for some reason
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
                                    f_n_8, a_n_8, ph_n_8, noise_level_8, i_sectors, file_name=file_name,
                                    data_id=data_id, overwrite=overwrite, verbose=verbose)
-    # todo: test and remove iterate_eclipse_separation and extract_ooe_harmonics
-    const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = out_10
+    const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_timings(p_orb_9, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8,
                                       file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_11
+    # some logic to catch bad results and fall back to previous results
     if np.any([item is None for item in out_11]):
         if verbose:
             print(f'Not enough eclipses found. Now using low-harmonics result.\n')
         out_11 = None
         p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_9
+    elif (np.all(timings_11[[2, 3]] + t_zero_11 < timings_10[2] + t_zero_9)
+          | np.all(timings_11[[2, 3]] + t_zero_11 > timings_10[3] + t_zero_9)
+          | np.all(timings_11[[4, 5]] + t_zero_11 < timings_10[4] + t_zero_9)
+          | np.all(timings_11[[4, 5]] + t_zero_11 > timings_10[5] + t_zero_9)):
+        if verbose:
+            print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
+        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_9
+        timings_11 = timings_10
+    # save the possibly new 11 results
+    if file_name is not None:
+        ut.save_results_timings(p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11,
+                                file_name, data_id)
     # --- [11b] --- Error estimates
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11b.csv')
     out_11b = eclipse_analysis_timing_err(times, signal, signal_err, p_orb_11, t_zero_11, timings_11, const_8, slope_8,

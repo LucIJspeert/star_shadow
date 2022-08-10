@@ -921,7 +921,8 @@ def read_results_timings(file_name):
     return p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name, data_id=None):
+def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_zero, timings, par_c1, par_c3,
+                      file_name, data_id=None):
     """Save the results of the harmonic separation
     
     Parameters
@@ -940,6 +941,20 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name,
         Amplitudes of a number of harmonic sine waves
     ph_he: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings from the empirical model.
+        Timings of minima and first and last contact points,
+        timings of the possible flat bottom (internal tangency).
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    par_c1: tuple[float]
+        Cubic curve parameters of eclipse 1
+    par_c3: tuple[float]
+        Cubic curve parameters of eclipse 2
     file_name: str, None
         File name (including path) for saving the results.
     data_id: int, str, None
@@ -973,10 +988,35 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, file_name,
     values.extend([str(a_he[i]) for i in range(len_he)])
     values.extend([str(ph_he[i]) for i in range(len_he)])
     table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    split_name = os.path.splitext(os.path.basename(file_name))
+    file_id = split_name[0]  # the file name without extension
     description = 'Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
+    # save the timings and parameters separately
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2',
+                 't_b_2_1', 't_b_2_2', 'c1_a', 'c1_b', 'c1_c', 'c1_d', 'c3_a', 'c3_b', 'c3_c', 'c3_d']
+    var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
+                'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
+                'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
+                'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
+                'start of (flat) eclipse bottom left of primary minimum',
+                'end of (flat) eclipse bottom right of primary minimum',
+                'start of (flat) eclipse bottom left of secondary minimum',
+                'end of (flat) eclipse bottom right of secondary minimum',
+                'cubic parameter a of eclipse 1', 'cubic parameter b of eclipse 1', 'cubic parameter c of eclipse 1',
+                'cubic parameter d of eclipse 1', 'cubic parameter a of eclipse 2', 'cubic parameter b of eclipse 2',
+                'cubic parameter c of eclipse 2', 'cubic parameter d of eclipse 2']
+    values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
+              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(par_c1[0]), str(par_c1[1]),
+              str(par_c1[2]), str(par_c1[3]), str(par_c3[0]), str(par_c3[1]), str(par_c3[2]), str(par_c3[3])]
+    table = np.column_stack((var_names, values, var_desc))
+    fn_ext = split_name[1]
+    file_name_2 = file_name.replace(fn_ext, '_timings' + fn_ext)
+    description = 'Eclipse timings and depths.'
+    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    np.savetxt(file_name_2, table, delimiter=',', fmt='%s', header=hdr)
     return None
 
 
@@ -1004,6 +1044,16 @@ def read_results_hsep(file_name):
         Amplitudes of a number of harmonic sine waves
     ph_he: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
+    timings: numpy.ndarray[float]
+        Eclipse timings from the empirical model.
+        Timings of minima and first and last contact points,
+        timings of the possible flat bottom (internal tangency).
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    par_c1: tuple[float]
+        Cubic curve parameters of eclipse 1
+    par_c3: tuple[float]
+        Cubic curve parameters of eclipse 2
     """
     var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', dtype=str, unpack=True)
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
@@ -1018,7 +1068,14 @@ def read_results_hsep(file_name):
     f_he = values[1 + 3 * len_ho:1 + 3 * len_ho + len_he]
     a_he = values[1 + 3 * len_ho + len_he:1 + 3 * len_ho + 2 * len_he]
     ph_he = values[1 + 3 * len_ho + 2 * len_he:1 + 3 * len_ho + 3 * len_he]
-    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
+    # read second file
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_timings' + fn_ext)
+    values = np.loadtxt(file_name_2, usecols=(1,), delimiter=',', unpack=True)
+    timings = values[2:12]  # first two are p_orb and t_zero
+    par_c1 = values[12:16]
+    par_c3 = values[16:20]
+    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings, par_c1, par_c3
 
 
 def save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id=None):
@@ -1742,7 +1799,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_hsep(file_name)
-        const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10 = results_10
+        const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3 = results_10
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
@@ -1848,9 +1905,10 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8,
-                                            a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
-                                            f_he_10, a_he_10, ph_he_10, i_sectors, save_file=file_name, show=False)
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
+                                            f_n_8, a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
+                                            f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3, i_sectors,
+                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1905,9 +1963,10 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_11, t_zero_11, timings_11, const_8, slope_8, f_n_8,
-                                            a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
-                                            f_he_10, a_he_10, ph_he_10, i_sectors, save_file=None, show=True)
+            vis.plot_lc_harmonic_separation(times, signal, p_orb_9, t_zero_9, timings_9, const_8, slope_8,
+                                            f_n_8, a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
+                                            f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3, i_sectors,
+                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:

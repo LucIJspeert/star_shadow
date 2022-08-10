@@ -409,8 +409,8 @@ def find_harmonics_tolerance(f_n, p_orb, f_tol):
     
     Notes
     -----
-    A frequency is only axcepted as harmonic if it is within a 5% relative error.
-    This can now be user defined for more flexibility.
+    A frequency is only axcepted as harmonic if it is within some relative error.
+    This can be user defined for flexibility.
     """
     harmonic_n = np.zeros(len(f_n))
     harmonic_n = np.round(f_n * p_orb, 0, harmonic_n)  # closest harmonic (out argument needed in numba atm)
