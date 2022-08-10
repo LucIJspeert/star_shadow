@@ -647,8 +647,8 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     model_ecl = np.zeros(len(t_model))
     model_ecl[mask_1] = cubic_1
     model_ecl[mask_2] = cubic_2
-    model_ecl[mask_3] = cubic_3
-    model_ecl[mask_4] = cubic_4
+    model_ecl[mask_3] = cubic_3 - np.max(cubic_3) + np.max(cubic_1)
+    model_ecl[mask_4] = cubic_4 - np.max(cubic_3) + np.max(cubic_1)
     model_ecl[mask_b_1] = line_b_1
     model_ecl[mask_b_2] = line_b_2
     model_ecl[mask_12] = line_12

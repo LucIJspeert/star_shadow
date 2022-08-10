@@ -1464,7 +1464,7 @@ def measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     else:
         height_b_1 = model_h[0]
         height_b_1_err = noise_level
-    if (np.sum(mask_b_1) > 2):
+    if (np.sum(mask_b_2) > 2):
         height_b_2 = np.mean(ecl_signal[mask_b_2])
         height_b_2_err = np.std(ecl_signal[mask_b_2])
     else:
@@ -2623,6 +2623,9 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     # subtract the ooe harmonics from all the harmonics
     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
     f_he, a_he, ph_he = output  # eclipse harmonics
+
+    ecl_signal
+    
     # check for gaps in the folded signal - these will mess up the harmonic subtraction
     t_gaps = mark_folded_gaps(t_folded, p_orb / 100)
     if (len(t_gaps) > 0):

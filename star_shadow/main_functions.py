@@ -71,7 +71,7 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
             p_orb = 2 * p_orb
         # if we have too few harmonics, try the next period, else stop
         harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
-        if (len(harmonics) > 1):
+        if (len(harmonics) > 2):
             break
     return p_orb
 
