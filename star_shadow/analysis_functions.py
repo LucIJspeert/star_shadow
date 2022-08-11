@@ -596,106 +596,32 @@ def find_unknown_harmonics(f_n, f_n_err, sigma=1., n_max=5, f_tol=None):
     return candidate_h
 
 
-def base_harmonic_search(f_n, f_n_err, a_n, f_tol=None):
-    """Test to find the base harmonic of a harmonic series within a set of frequencies
+def harmonic_series_length(f_test, f_n, freq_res):
+    """Find the number of harmonics that a set of frequencies has
     
     Parameters
     ----------
-    f_n: list[float], numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    f_n_err: numpy.ndarray[float]
-        Formal errors in the frequencies
-    a_n: list[float], numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    f_tol: None, float
-        Tolerance in the frequency for accepting harmonics
-        If None, use sigma matching instead of pattern matching
-    
-    Returns
-    -------
-    p_best: float
-        Best fitting base period
-    gof: dict[dict[float]]
-        Goodness of fit metrics for all harmonic series investigated
-        (sum of squared distances, sum of amplitudes, completeness of pattern)
-    minimize: numpy.ndarray[float]
-        Combined goodness-of-fit metric
-    """
-    # get the candidate harmonic series
-    candidate_h = find_unknown_harmonics(f_n, f_n_err, sigma=3., n_max=4, f_tol=f_tol)
-    # determine the best one (based on some goodness of fit parameters)
-    max_aa = 0
-    tot_sets = 0
-    gof = {}
-    for k in candidate_h.keys():
-        gof[k] = {}
-        for n in candidate_h[k].keys():
-            harm_len = len(candidate_h[k][n])
-            # calculate the frequency divided by the base harmonic to get to the harmonic number n
-            harm_base = f_n[candidate_h[k][n]] / (f_n[k] / n)
-            harm_n = np.round(harm_base)
-            # determine three gof measures
-            distance_measure = np.sum((harm_base - harm_n)**2) / harm_len
-            completeness = harm_len / np.max(harm_n)
-            gof[k][n] = [distance_measure, np.sum(a_n[candidate_h[k][n]]), completeness]
-            # take the maximum the amplitudes to later normalise
-            max_aa = max(max_aa, np.max(a_n[candidate_h[k][n]]))
-            tot_sets += 1
-    # calculate final qtt to be minimized
-    minimize = np.zeros(tot_sets)
-    base_freqs = np.zeros(tot_sets)
-    i = 0
-    for k in candidate_h.keys():
-        for n in candidate_h[k].keys():
-            minimize[i] = gof[k][n][1] / max_aa * gof[k][n][2]
-            base_freqs[i] = f_n[k] / n
-            i += 1
-    # select the best set of harmonics and its base period
-    p_best = 1 / base_freqs[np.argmax(minimize)]
-    return p_best, gof, minimize
-
-
-@nb.njit(cache=True)
-def base_harmonic_check(f_n, p_orb, t_tot, f_tol=None):
-    """Test to find the base harmonic testing multiples of a test period
-    
-    Parameters
-    ----------
+    f_test: numpy.ndarray[float]
+        Frequencies to test at
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    p_orb: float
-        Test period of the eclipsing binary in days
-    t_tot: float
-        Total time duration of time-series
-    f_tol: None, float
-        Tolerance in the frequency for accepting harmonics
-        If None, use sigma matching instead of pattern matching
+    freq_res: float
+        Frequency resolution
     
     Returns
     -------
-    p_best: float
-        Best fitting base period
-    p_test: numpy.ndarray[float]
-        Base periods tested
-    optimise: numpy.ndarray[float]
-        Optimised quantity, the square root of number of matching harmonics
-        times the completeness of the found harmonic series
+    n_harm: numpy.ndarray[float]
+        Number of harmonics per pattern
+    completeness: numpy.ndarray[float]
+        Completeness factor of each pattern
     """
-    p_test = np.append(p_orb / np.arange(3, 1, -1), p_orb * np.arange(1, 4))
-    p_test = p_test[p_test < t_tot]  # keep p below maximum
-    p_test = p_test[p_test > 1 / np.max(f_n)]  # and above minimum (use max f_n in absence of times)
-    # determine the best one (based on some goodness of fit parameters)
-    optimise = np.zeros(len(p_test))
-    for i, p in enumerate(p_test):
-        harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p, f_tol=min(f_tol, 1 / (2 * p)))
-        if (len(harmonics) > 0):
-            optimise[i] = len(harmonics)**1.5 / np.max(harmonic_n)
-    # select the best set of harmonics and its base period
-    if (len(p_test) != 0):
-        p_best = p_test[np.argmax(optimise)]
-    else:
-        p_best = p_orb
-    return p_best, p_test, optimise
+    n_harm = np.zeros(len(f_test))
+    completeness = np.zeros(len(f_test))
+    for i, f in enumerate(f_test):
+        harmonics, harmonic_n = find_harmonics_from_pattern(f_n, 1/f, f_tol=freq_res/2)
+        n_harm[i] = len(harmonics)
+        completeness[i] = n_harm[i] / np.max(harmonic_n)
+    return n_harm, completeness
 
 
 @nb.njit(cache=True)
@@ -1674,10 +1600,12 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     area_1 = covered_area(sep_1, r_1, r_2)
     area_2 = covered_area(sep_2, r_1, r_2)
-    if (area_2 > 0):
+    if (area_2 > 0) & (area_1 > 0):
         sb_ratio = d_ratio * area_1 / area_2
     elif (area_1 > 0):
         sb_ratio = 1000  # we get into territory where the secondary is not visible
+    elif (area_2 > 0):
+        sb_ratio = 0.001  # we get into territory where the primary is not visible
     else:
         sb_ratio = 1  # we get into territory where neither eclipse is visible
     return sb_ratio
@@ -2034,12 +1962,11 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         rr_bounds = (0.001, 1000)
     else:
         rr_bounds = (r_small/r_large/1.1, r_large/r_small*1.1)
-    # prepare for fit of: e, w, i, phi_0, psi_0 and r_ratio
+    # prepare for fit of: ecosw, esinw, i, r_sum_sma and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, r_sum_sma, 1)
     args_ep = (p_orb, *timings_tau, *depths, *timing_errs, *depths_err)
     bounds_ep = ((-1, 1), (-1, 1), (np.pi/8, np.pi/2), (0, 1), rr_bounds)
-    # the minimization will crash if bounds are reversed - prevent this.
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, r_sum_sma, r_ratio = res.x
     e = np.sqrt(ecosw**2 + esinw**2)

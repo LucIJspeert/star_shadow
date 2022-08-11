@@ -54,6 +54,13 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n, local=False)
     ampls = tsf.scargle_ampl(times, signal - np.mean(signal), 1/periods)
     psi_measure = ampls / phase_disp
+    
+    n_harm, completeness = af.harmonic_series_length(1/periods, f_n, freq_res)
+    
+    import matplotlib.pyplot as plt
+    plt.scatter(1/periods, psi_measure)
+    plt.scatter(1/periods, psi_measure * n_harm * completeness / 10)
+    raise
     # go from best to worst period, skipping those with only 1 harmonic
     sorter = np.argsort(psi_measure)[::-1]  # descending order
     for i in sorter:
@@ -63,14 +70,14 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
         p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
         p_orb = p_refine[np.argmin(phase_disp_refine)]
         # try to find out whether we need to double the period
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
         sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
         peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
         if (len(peaks) == 1):
             p_orb = 2 * p_orb
         # if we have too few harmonics, try the next period, else stop
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
         if (len(harmonics) > 2):
             break
     return p_orb
@@ -298,7 +305,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n_2, p_orb_3, f_tol=freq_res/2)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
         # if time-series too short, or no harmonics found, warn and cut off the analysis
         if (np.ptp(times) / p_orb_3 < 2):
             if verbose:
@@ -336,7 +343,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
         model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
         model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_3, p_orb_3)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_3, p_orb_3, f_tol=1e-9)
         n_param_3 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_3) - len(harmonics))
         bic_3 = tsf.calc_bic((signal - model_3)/signal_err, n_param_3)
         # now print some useful info and/or save the result
@@ -376,7 +383,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4
         model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
         model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3, f_tol=1e-9)
         n_param_4 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_4) - len(harmonics))
         bic_4 = tsf.calc_bic((signal - model_4)/signal_err, n_param_4)
         # now print some useful info and/or save the result
@@ -387,7 +394,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         if save_dir is not None:
             results = (p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4)
             f_errors = tsf.formal_uncertainties(times, signal - model_4, a_n_4, i_sectors)
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3)
+            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3, f_tol=1e-9)
             c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = f_errors
             p_err_4 = tsf.formal_period_uncertainty(p_orb_3, f_n_err_4, harmonics, harmonic_n)
             errors = (p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4)
@@ -419,7 +426,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
         model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
         model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_3)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_3, f_tol=1e-9)
         n_param_5 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_5) - len(harmonics))
         bic_5 = tsf.calc_bic((signal - model_5)/signal_err, n_param_5)
         # now print some useful info and/or save the result
@@ -430,7 +437,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         if save_dir is not None:
             results = (p_orb_3, const_5, slope_5, f_n_5, a_n_5, ph_n_5)
             f_errors = tsf.formal_uncertainties(times, signal - model_5, a_n_5, i_sectors)
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_3)
+            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_3, f_tol=1e-9)
             c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = f_errors
             p_err_5 = tsf.formal_period_uncertainty(p_orb_3, f_n_err_5, harmonics, harmonic_n)
             errors = (p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5)
@@ -471,7 +478,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             results = (p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6)
             f_errors = tsf.formal_uncertainties(times, signal - model_6, a_n_6, i_sectors)
             c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = f_errors
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_6)
+            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_6, f_tol=1e-9)
             p_err_6 = tsf.formal_period_uncertainty(p_orb_6, f_n_err_6, harmonics, harmonic_n)
             errors = (p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6)
             stats = (n_param_5, bic_6, np.std(signal - model_6))
@@ -481,7 +488,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
     # ----------------------------------------------------------------------
     # [7] --- try to reduce the number of frequencies after the fit was done
     # ----------------------------------------------------------------------
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_6)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_6, f_tol=1e-9)
     file_name_7 = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
     if os.path.isfile(file_name_7) & (not overwrite) & (save_dir is not None):
         results, errors, stats = ut.read_results(file_name_7, verbose=verbose)
@@ -501,7 +508,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
         model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
         model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_7, p_orb_6)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_7, p_orb_6, f_tol=1e-9)
         n_param_7 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_7) - len(harmonics))
         bic_7 = tsf.calc_bic((signal - model_7)/signal_err, n_param_7)
         # now print some useful info and/or save the result
@@ -543,7 +550,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = out_8
             model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
             model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
             n_param_8 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_8) - len(harmonics))
             bic_8 = tsf.calc_bic((signal - model_8)/signal_err, n_param_8)
             # now print some useful info and/or save the result
@@ -562,7 +569,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             results = (p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8)
             f_errors = tsf.formal_uncertainties(times, signal - model_8, a_n_8, i_sectors)
             c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = f_errors
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
             p_err_8 = tsf.formal_period_uncertainty(p_orb_8, f_n_err_8, harmonics, harmonic_n)
             errors = (p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8)
             stats = (n_param_8, bic_8, np.std(signal - model_8))
@@ -848,7 +855,7 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
                                  par_c1, par_c3, file_name, data_id=data_id)
     t_b = time.time()
     if verbose:
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         print(f'\033[1;32;48mSeparated harmonic output:\033[0m')
         print(f'\033[0;32;48mStarting from {len(harmonics)}, separated into '
               f'{len(f_ho)} harmonics capturing the out-of-eclipse signal\n'
@@ -1283,7 +1290,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     n_param_8, bic_8, noise_level_8 = stats
     # --- [9] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
     low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
     f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
     out_9 = eclipse_analysis_timings(p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
@@ -1395,12 +1402,12 @@ def pulsation_analysis_fselect(p_orb, f_n, a_n, ph_n, f_n_err, a_n_err, noise_le
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         passed_nh_sigma, passed_nh_snr, passed_nh_b = ut.read_results_fselect(file_name)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         non_harm = np.delete(np.arange(len(f_n)), harmonics)
     else:
         if verbose:
             print(f'Selecting credible frequencies')
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         non_harm = np.delete(np.arange(len(f_n)), harmonics)
         remove_sigma = af.remove_insignificant_sigma(f_n[non_harm], f_n_err[non_harm],
                                                      a_n[non_harm], a_n_err[non_harm], sigma_a=3., sigma_f=1.)
@@ -1513,7 +1520,7 @@ def pulsation_analysis_disentangle(times, signal, signal_err, p_orb, t_zero, con
             ut.save_results_disentangle(const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2,
                                         file_name, data_id)
     # make the models
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
@@ -1618,7 +1625,7 @@ def pulsation_analysis_fselect_h(times, signal, p_orb, t_zero, const, slope, f_n
         if verbose:
             print(f'Selecting credible frequencies')
         # make the models
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         non_harm = np.delete(np.arange(len(f_n)), harmonics)
         model_line = tsf.linear_curve(times, const, slope, i_sectors)
         model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])

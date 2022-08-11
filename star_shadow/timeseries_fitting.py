@@ -342,7 +342,7 @@ def multi_sine_NL_LS_harmonics_fit(times, signal, signal_err, p_orb, const, slop
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_f_tot = len(f_n)
     n_harm = len(harmonics)
@@ -433,7 +433,7 @@ def multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb, c
     The orbital harmonics are always the first group.
     """
     # get harmonics and group the remaining frequencies
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     indices = np.arange(len(f_n))
     i_non_harm = np.delete(indices, harmonics)
     f_groups = ut.group_fequencies_for_fit(a_n[i_non_harm], g_min=20, g_max=25)
@@ -626,7 +626,7 @@ def harmonic_separation_fit(times, signal, signal_err, p_orb, t_zero, timings, c
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     f_h = f_n[harmonics]
     a_h = a_n[harmonics]
@@ -778,7 +778,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     (and at least a hand full of sectors).
     The given third light values are fractional values of a median-normalised light curve.
     """
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_f_tot = len(f_n)
@@ -952,7 +952,7 @@ def fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const,
     # make a mask for the eclipses, as only the eclipses will be fitted
     mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1131,7 +1131,7 @@ def fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, s
     # make a mask for the eclipses, as only the eclipses will be fitted
     mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)

@@ -1522,6 +1522,8 @@ def read_results_fselect(file_name):
         passed_nh_sigma = passed_nh_sigma.astype(int).astype(bool)  # stored as floats
         passed_nh_snr = passed_nh_snr.astype(int).astype(bool)  # stored as floats
         passed_nh_b = passed_nh_b.astype(int).astype(bool)  # stored as floats
+    elif (len(np.shape(results)) == 1):
+        passed_nh_sigma, passed_nh_snr, passed_nh_b = results.astype(int).astype(bool).reshape(3, 1)
     else:
         passed_nh_sigma, passed_nh_snr, passed_nh_b = np.array([[], [], []])
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
@@ -1766,7 +1768,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         n_param_8, bic_8, noise_level_8 = stats
         model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
         model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
         f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
     else:
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], [], []])
@@ -1787,7 +1789,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_9 = read_results_timings(file_name)
         p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = results_9
         # get the low harmonics
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_9)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_9, f_tol=1e-9)
         low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
         f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
     elif os.path.isfile(file_name_2):

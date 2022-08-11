@@ -140,7 +140,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     if (len(f_n_i[7]) > 0):
         ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual with harmonics')
     if (p_orb_i[7] > 0):
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7])
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7], f_tol=1e-9)
         p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
         ax.errorbar([1/p_orb_i[7], 1/p_orb_i[7]], [0, np.max(ampls)],
                     xerr=[0, p_err/p_orb_i[7]**2], yerr=[0, p_err/p_orb_i[7]**2],
@@ -213,7 +213,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     # make models
     model_line = tsf.linear_curve(times, const, slope, i_half_s)
     model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
                              np.delete(ph_n, harmonics))
@@ -579,7 +579,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     t_model = np.arange(t_start, t_end, 0.001)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_h = 1 + tsf.sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
@@ -637,27 +637,22 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     # connect with lines
     mask_b_1 = (t_model > t_b_1_1_em) & (t_model < t_b_1_2_em)
     mask_b_2 = (t_model > t_b_2_1_em) & (t_model < t_b_2_2_em)
-    mask_12 = (t_model > t_1_2_em) & (t_model < t_2_1_em)  # from 1 to 2
-    mask_21 = (t_model > t_2_2_em) & (t_model < t_1_1_em + p_orb)  # from 2 to 1
-    line_b_1 = np.ones(len(t_model[mask_b_1])) * np.min(cubic_1)
-    line_b_2 = np.ones(len(t_model[mask_b_2])) * np.min(cubic_3)
-    line_12 = np.zeros(len(t_model[mask_12])) + np.max(cubic_1)
-    line_21 = np.zeros(len(t_model[mask_21])) + np.max(cubic_1)
+    line_b_1 = np.ones(len(t_model[mask_b_1])) * np.min(cubic_1) - np.max(cubic_1)
+    line_b_2 = np.ones(len(t_model[mask_b_2])) * np.min(cubic_3) - np.max(cubic_3)
     # stick em together
     model_ecl = np.zeros(len(t_model))
-    model_ecl[mask_1] = cubic_1
-    model_ecl[mask_2] = cubic_2
-    model_ecl[mask_3] = cubic_3 - np.max(cubic_3) + np.max(cubic_1)
-    model_ecl[mask_4] = cubic_4 - np.max(cubic_3) + np.max(cubic_1)
+    model_ecl[mask_1] = cubic_1 - np.max(cubic_1)
+    model_ecl[mask_2] = cubic_2 - np.max(cubic_2)
+    model_ecl[mask_3] = cubic_3 - np.max(cubic_3)
+    model_ecl[mask_4] = cubic_4 - np.max(cubic_4)
     model_ecl[mask_b_1] = line_b_1
     model_ecl[mask_b_2] = line_b_2
-    model_ecl[mask_12] = line_12
-    model_ecl[mask_21] = line_21
+    model_ecl -= h_adjust_2
     model_ecl[t_model > p_orb + t_1_1_em] = np.nan
     # second plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_extended, ecl_signal_1, marker='.', label='signal minus non-harmonics and linear curve')
-    ax.scatter(t_extended, ecl_signal_2 + h_adjust_2, marker='.', c='tab:orange',
+    ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')
+    ax.scatter(t_extended, ecl_signal_2 + offset + h_adjust_2, marker='.', c='tab:orange',
                label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
     ax.plot(t_model, model_ecl + 1, c='tab:red', label='simple empirical eclipse model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
@@ -697,7 +692,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     ext_right = (t_extended < t_1_2)
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1084,7 +1079,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     sorter = np.argsort(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1177,7 +1172,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
     sorter = np.argsort(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1270,7 +1265,7 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
 
 def plot_pd_pulsation_analysis(times, signal, p_orb, f_n, a_n, noise_level, passed_nh, save_file=None, show=True):
     """Plot the periodogram with the output of the pulsation analysis."""
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     passed_nh_i = np.arange(len(f_n))[passed_nh]
     # make periodograms
@@ -1310,7 +1305,7 @@ def plot_lc_pulsation_analysis(times, signal, p_orb, const, slope, f_n, a_n, ph_
     # make models
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
@@ -1345,7 +1340,7 @@ def plot_pd_disentangled_harmonics(times, signal, p_orb, t_zero, const, slope, f
     """
     # make the model times array, one full period plus the primary eclipse halves
     passed_hr_i = np.arange(len(f_n_r))[passed_hr]
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1400,7 +1395,7 @@ def plot_lc_disentangled_harmonics(times, signal, p_orb, t_zero, timings, const,
     ext_right = (t_folded < t_1_2)
     t_folded = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
     sorter = np.argsort(t_folded)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)

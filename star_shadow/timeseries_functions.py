@@ -1337,7 +1337,7 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
@@ -1437,7 +1437,7 @@ def measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
@@ -1532,13 +1532,12 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     """
     # extract the harmonics using the period and determine some numbers
     freq_res = 1.5 / np.ptp(times)
-    f_tolerance = min(freq_res / 2, 1 / (2 * p_orb))
-    harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
+    harmonics, harmonic_n_init = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
     if (len(harmonics) == 0):
         raise ValueError('No harmonic frequencies found')
-    # go through the harmonics by harmonic number
-    for n in np.unique(harmonic_n):
-        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=f_tolerance)
+    # go through the harmonics by harmonic number and re-extract them (removing all duplicate n's in the process)
+    for n in np.unique(harmonic_n_init):
+        harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res/2)
         remove = np.arange(len(f_n))[harmonics][harmonic_n == n]
         f_n = np.delete(f_n, remove)
         a_n = np.delete(a_n, remove)
@@ -1556,7 +1555,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         resid = signal - sum_sines(times, f_n, a_n, ph_n)
         const, slope = linear_pars(times, resid, i_sectors)
     # re-extract the non-harmonics
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     for i in non_harm:
         model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
@@ -1873,7 +1872,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     n_f = len(f_n)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     # determine initial bic
     model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
@@ -2086,7 +2085,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     """
     times -= times[0]  # shift reference time to times[0]
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     n_sectors = len(i_sectors)
     n_harmonics = len(harmonics)
     # constant term (or y-intercept) and slope
@@ -2189,7 +2188,7 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     """
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
     # extract the harmonics using the period
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     if (len(harmonics) == 0):
         raise ValueError('No harmonic frequencies found')
     # make a list of not-present possible harmonics
@@ -2433,7 +2432,7 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
     """
     e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
@@ -2531,7 +2530,7 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     mask_3 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
     mask_4 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # make the eclipse signal (remove other stuff)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     low_h = (harmonic_n <= 20)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_h_low = sum_sines(times, f_n[harmonics[low_h]], a_n[harmonics[low_h]], ph_n[harmonics[low_h]])
@@ -2837,7 +2836,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     Harmonics are not removed (amplitude/phase can be updated).
     """
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     n_sectors = len(i_sectors)
     n_harm = len(harmonics)
@@ -2876,7 +2875,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     if verbose:
         print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f}')
     # Now go on to trying to replace sets of frequencies that are close together (first without harmonics)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     # make an array of sets of frequencies to be investigated for replacement
     close_f_groups = af.chains_within_rayleigh(f_n[non_harm], freq_res)
@@ -2929,7 +2928,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
         print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_f_removed} frequencies). '
               f'BIC= {bic_prev:1.2f}')
     # make an array of sets of frequencies to be investigated (now with harmonics)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     close_f_groups = af.chains_within_rayleigh(f_n, freq_res)
     f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))
               if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
