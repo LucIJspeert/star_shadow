@@ -54,15 +54,11 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n, local=False)
     ampls = tsf.scargle_ampl(times, signal - np.mean(signal), 1/periods)
     psi_measure = ampls / phase_disp
-    
+    # also check the number of harmonics at each period and include into best f
     n_harm, completeness = af.harmonic_series_length(1/periods, f_n, freq_res)
-    
-    import matplotlib.pyplot as plt
-    plt.scatter(1/periods, psi_measure)
-    plt.scatter(1/periods, psi_measure * n_harm * completeness / 10)
-    raise
+    psi_h_measure = psi_measure * n_harm * completeness
     # go from best to worst period, skipping those with only 1 harmonic
-    sorter = np.argsort(psi_measure)[::-1]  # descending order
+    sorter = np.argsort(psi_h_measure)[::-1]  # descending order
     for i in sorter:
         base_p = periods[i]
         # then refine by using a dense sampling
