@@ -55,7 +55,7 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     ampls = tsf.scargle_ampl(times, signal - np.mean(signal), 1/periods)
     psi_measure = ampls / phase_disp
     # also check the number of harmonics at each period and include into best f
-    n_harm, completeness = af.harmonic_series_length(1/periods, f_n, freq_res)
+    n_harm, completeness, distance = af.harmonic_series_length(1/periods, f_n, freq_res)
     psi_h_measure = psi_measure * n_harm * completeness
     # go from best to worst period, skipping those with only 1 harmonic
     sorter = np.argsort(psi_h_measure)[::-1]  # descending order
@@ -63,8 +63,12 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
         base_p = periods[i]
         # then refine by using a dense sampling
         f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
-        p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
-        p_orb = p_refine[np.argmin(phase_disp_refine)]
+        n_harm, completeness, distance = af.harmonic_series_length(f_refine, f_n, freq_res)
+        h_measure = n_harm * completeness
+        mask_peak = (h_measure == np.max(h_measure))
+        p_orb = 1 / f_refine[mask_peak][np.argmin(distance[mask_peak])]
+        # p_refine, phase_disp_refine = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
+        # p_orb = p_refine[np.argmin(phase_disp_refine)]
         # try to find out whether we need to double the period
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
@@ -357,6 +361,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
             desc = '[3] Harmonic frequencies coupled.'
             ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+    f_errors = tsf.formal_uncertainties(times, signal - model_2, a_n_2, i_sectors)
+    c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = f_errors
     # ----------------------------------------------------------------------
     # [4] --- attempt to extract more harmonics knowing where they should be
     # ----------------------------------------------------------------------
@@ -1319,10 +1325,6 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
             print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
         p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_9
         timings_11 = timings_10
-    # save the possibly new 11 results
-    if file_name is not None:
-        ut.save_results_timings(p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11,
-                                file_name, data_id)
     # --- [11b] --- Error estimates
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11b.csv')
     out_11b = eclipse_analysis_timing_err(times, signal, signal_err, p_orb_11, t_zero_11, timings_11, const_8, slope_8,

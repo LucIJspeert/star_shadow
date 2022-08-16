@@ -781,8 +781,8 @@ def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
     fn_ext = split_name[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     description = 'Eclipse indices (see function measure_eclipses_dt).'
-    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, peaks_2_p, minimum_0, '
-           f'peaks_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
+    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p, zeros_1_in, '
+           f'minimum_0, zeros_1_in, p_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
     np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
     return None
 
@@ -1846,6 +1846,19 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if os.path.isfile(file_name):
         results_16b = read_results_fselect(file_name)
         pass_hr_sigma_2, pass_hr_snr_2, passed_hr_b_2 = results_16b
+    # use the same logic as in the main functions to decide between timings
+    if np.any([item is None for item in results_11]):
+        if show:
+            print(f'Not enough eclipses found. Now using low-harmonics result.\n')
+        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
+    elif (np.all(timings_11[[2, 3]] + t_zero_11 < timings_10[2] + t_zero_9)
+          | np.all(timings_11[[2, 3]] + t_zero_11 > timings_10[3] + t_zero_9)
+          | np.all(timings_11[[4, 5]] + t_zero_11 < timings_10[4] + t_zero_9)
+          | np.all(timings_11[[4, 5]] + t_zero_11 > timings_10[5] + t_zero_9)):
+        if show:
+            print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
+        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
+        timings_11 = timings_10
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1956,7 +1969,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_9, timings_9, depths_9, timing_errs_9,
                                            depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
-                                           ph_hl_8, i_sectors, low_h=True, save_file=None, show=True)
+                                           ph_hl_8, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:

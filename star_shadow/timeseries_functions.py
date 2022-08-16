@@ -2610,9 +2610,11 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_ecl[mask_b_2] = line_b_2
     model_ecl[mask_12] = line_12
     model_ecl[mask_21] = line_21
-    # new timings based on simple empirical model
+    # new timings based on simple empirical model (making sure t_b is within edges)
     t_mid_1 = (t_max_1 + t_max_2) / 2
     t_mid_2 = (t_max_3 + t_max_4) / 2
+    t_min_1, t_min_2 = max(t_min_1, t_max_1), min(t_min_2, t_max_2)
+    t_min_3, t_min_4 = max(t_min_3, t_max_3), min(t_min_4, t_max_4)
     timings_em = np.array([t_mid_1, t_mid_2, t_max_1, t_max_2, t_max_3, t_max_4, t_min_1, t_min_2, t_min_3, t_min_4])
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
@@ -2622,9 +2624,6 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     # subtract the ooe harmonics from all the harmonics
     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
     f_he, a_he, ph_he = output  # eclipse harmonics
-
-    ecl_signal
-    
     # check for gaps in the folded signal - these will mess up the harmonic subtraction
     t_gaps = mark_folded_gaps(t_folded, p_orb / 100)
     if (len(t_gaps) > 0):

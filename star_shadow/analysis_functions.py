@@ -596,6 +596,7 @@ def find_unknown_harmonics(f_n, f_n_err, sigma=1., n_max=5, f_tol=None):
     return candidate_h
 
 
+@nb.njit(cache=True)
 def harmonic_series_length(f_test, f_n, freq_res):
     """Find the number of harmonics that a set of frequencies has
     
@@ -614,14 +615,22 @@ def harmonic_series_length(f_test, f_n, freq_res):
         Number of harmonics per pattern
     completeness: numpy.ndarray[float]
         Completeness factor of each pattern
+    distance: numpy.ndarray[float]
+        Sum of squared distances between harmonics
     """
     n_harm = np.zeros(len(f_test))
     completeness = np.zeros(len(f_test))
+    distance = np.zeros(len(f_test))
     for i, f in enumerate(f_test):
         harmonics, harmonic_n = find_harmonics_from_pattern(f_n, 1/f, f_tol=freq_res/2)
         n_harm[i] = len(harmonics)
-        completeness[i] = n_harm[i] / np.max(harmonic_n)
-    return n_harm, completeness
+        if (n_harm[i] == 0):
+            completeness[i] = 1
+            distance[i] = 0
+        else:
+            completeness[i] = n_harm[i] / np.max(harmonic_n)
+            distance[i] = np.sum((f_n[harmonics] - harmonic_n * f)**2)
+    return n_harm, completeness, distance
 
 
 @nb.njit(cache=True)

@@ -142,8 +142,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     if (p_orb_i[7] > 0):
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7], f_tol=1e-9)
         p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
-        ax.errorbar([1/p_orb_i[7], 1/p_orb_i[7]], [0, np.max(ampls)],
-                    xerr=[0, p_err/p_orb_i[7]**2], yerr=[0, p_err/p_orb_i[7]**2],
+        ax.errorbar([1/p_orb_i[7], 1/p_orb_i[7]], [0, np.max(ampls)], xerr=[0, p_err/p_orb_i[7]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
     for i in range(len(f_n_i[0])):
         ax.errorbar([f_n_i[0][i], f_n_i[0][i]], [0, a_n_i[0][i]], xerr=[0, err_1[2][i]], yerr=[0, err_1[3][i]],
@@ -248,10 +247,10 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs_nh, ampls_nh, label='residuals after harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.plot([1/p_orb, 1/p_orb], [0, np.max(ampls_nh)], linestyle='--', c='grey', alpha=0.5,
+    ax.plot([1/p_orb, 1/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5,
             label=f'orbital frequency (p={p_orb:1.4f}d)')
-    for i in range(2, np.max(harmonic_n)):
-        ax.plot([i/p_orb, i/p_orb], [0, np.max(ampls_nh)], linestyle='--', c='grey', alpha=0.5)
+    for i in range(2, np.max(harmonic_n) + 1):
+        ax.plot([i/p_orb, i/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
     for i in range(len(f_n[non_harm])):
         ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]],
                     xerr=[0, errors[2][non_harm][i]], yerr=[0, errors[3][non_harm][i]],
@@ -276,8 +275,10 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs_h, ampls_h, label='residuals after non-harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.errorbar([1/p_orb, 1/p_orb], [0, np.max(ampls)], xerr=[0, p_err/p_orb**2], yerr=[0, p_err/p_orb**2],
+    ax.errorbar([1/p_orb, 1/p_orb], [0, np.max(a_n)], xerr=[0, p_err/p_orb**2],
                 linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
+    for i in range(2, np.max(harmonic_n) + 1):
+        ax.plot([i/p_orb, i/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
     for i in range(len(f_n[harmonics])):
         ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]],
                     xerr=[0, errors[2][harmonics][i]], yerr=[0, errors[3][harmonics][i]],
@@ -634,17 +635,34 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     cubic_2 = tsf.cubic_curve(2 * t_1_em - t_model[mask_2], *par_c1)
     cubic_3 = tsf.cubic_curve(t_model[mask_3], *par_c3)
     cubic_4 = tsf.cubic_curve(2 * t_2_em - t_model[mask_4], *par_c3)
+    # define some flux levels
+    if np.any(mask_1):
+        min_c_1, max_c_1 = np.min(cubic_1), np.max(cubic_1)
+    else:
+        min_c_1, max_c_1 = 1, 1
+    if np.any(mask_2):
+        max_c_2 = np.max(cubic_2)
+    else:
+        max_c_2 = 1
+    if np.any(mask_3):
+        min_c_3, max_c_3 = np.min(cubic_3), np.max(cubic_3)
+    else:
+        min_c_3, max_c_3 = 1, 1
+    if np.any(mask_4):
+        max_c_4 = np.max(cubic_4)
+    else:
+        max_c_4 = 1
     # connect with lines
     mask_b_1 = (t_model > t_b_1_1_em) & (t_model < t_b_1_2_em)
     mask_b_2 = (t_model > t_b_2_1_em) & (t_model < t_b_2_2_em)
-    line_b_1 = np.ones(len(t_model[mask_b_1])) * np.min(cubic_1) - np.max(cubic_1)
-    line_b_2 = np.ones(len(t_model[mask_b_2])) * np.min(cubic_3) - np.max(cubic_3)
+    line_b_1 = np.ones(len(t_model[mask_b_1])) * min_c_1 - max_c_1
+    line_b_2 = np.ones(len(t_model[mask_b_2])) * min_c_3 - max_c_3
     # stick em together
     model_ecl = np.zeros(len(t_model))
-    model_ecl[mask_1] = cubic_1 - np.max(cubic_1)
-    model_ecl[mask_2] = cubic_2 - np.max(cubic_2)
-    model_ecl[mask_3] = cubic_3 - np.max(cubic_3)
-    model_ecl[mask_4] = cubic_4 - np.max(cubic_4)
+    model_ecl[mask_1] = cubic_1 - max_c_1
+    model_ecl[mask_2] = cubic_2 - max_c_2
+    model_ecl[mask_3] = cubic_3 - max_c_3
+    model_ecl[mask_4] = cubic_4 - max_c_4
     model_ecl[mask_b_1] = line_b_1
     model_ecl[mask_b_2] = line_b_2
     model_ecl -= h_adjust_2
@@ -823,17 +841,32 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
     ax.legend(fontsize=12)
     plt.tight_layout()
     plt.show()
-    # omega
+    # omega (use same logic as in error_estimates_hdi)
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
-        w_vals_hist = np.copy(w_vals)
         w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
+        if (len(w_interval) == 1):
+            w_interval = w_interval[0]
+            w_errs = np.array([w - w_interval[0], w_interval[1] - w])
+        else:
+            interval_size = w_interval[:, 1] - w_interval[:, 0]
+            sorter = np.argsort(interval_size)
+            w_interval = w_interval[sorter[-2:]]  # pick onyly the largest two intervals
+            # sign of (w - w_interval) only changes if w is in the interval
+            w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
+            w_errs = np.array([w - w_interval[w_in_interval][0, 0], w_interval[w_in_interval][0, 1] - w])
+        if (len(w_bounds) == 1):
+            w_bounds = w_bounds[0]
+        else:
+            bounds_size = w_bounds[:, 1] - w_bounds[:, 0]
+            sorter = np.argsort(bounds_size)
+            w_bounds = w_bounds[sorter[-2:]]  # pick onyly the largest two intervals
     else:
-        w_vals_hist = np.copy(w_vals)
-        mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
-        w_vals_hist[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
+        w_errs = np.array([min(abs(w - w_interval[0]), abs(2*np.pi + w - w_interval[0])),
+                           min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
+    # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     hist = ax.hist(w_vals_hist/np.pi*180, bins=50, label='vary fit input')
     ax.plot([w/np.pi*180, w/np.pi*180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
