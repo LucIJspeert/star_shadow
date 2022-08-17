@@ -2569,31 +2569,40 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mir_mask_2], *par_c1_sym)
     cubic_3 = cubic_curve(t_folded[mir_mask_3], *par_c3_sym)
     cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mir_mask_4], *par_c3_sym)
-    # find the tops and bottoms
-    max_1, min_1 = np.max(cubic_1), np.min(cubic_1)
-    max_2, min_2 = np.max(cubic_2), np.min(cubic_2)
-    max_3, min_3 = np.max(cubic_3), np.min(cubic_3)
-    max_4, min_4 = np.max(cubic_4), np.min(cubic_4)
-    t_max_1 = t_folded_adj[mir_mask_1][cubic_1 == max_1][0]
+    # find the bottoms (the global minima)
+    min_1 = np.min(cubic_1)
+    min_2 = np.min(cubic_2)
+    min_3 = np.min(cubic_3)
+    min_4 = np.min(cubic_4)
     t_min_1 = t_folded_adj[mir_mask_1][cubic_1 == min_1][0]
-    t_max_2 = t_folded_adj[mir_mask_2][cubic_2 == max_2][0]
     t_min_2 = t_folded_adj[mir_mask_2][cubic_2 == min_2][0]
-    t_max_3 = t_folded[mir_mask_3][cubic_3 == max_3][0]
     t_min_3 = t_folded[mir_mask_3][cubic_3 == min_3][0]
-    t_max_4 = t_folded[mir_mask_4][cubic_4 == max_4][0]
     t_min_4 = t_folded[mir_mask_4][cubic_4 == min_4][0]
+    # find the tops from formulae (the local maxima)
+    infl_c1_slope = c1_c - (c1_b**2 / (3 * c1_a))
+    c1_top = -c1_b / (3 * c1_a) + np.sign(infl_c1_slope) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c) / 3
+    max_1 = cubic_curve(c1_top, *par_c1_sym)
+    infl_c2_slope = c2_c - (c2_b**2 / (3 * c2_a))
+    c2_top = -c2_b / (3 * c2_a) + np.sign(infl_c2_slope) * np.sqrt(c2_b**2 - 3 * c2_a * c2_c) / 3
+    max_2 = cubic_curve(2 * mid_c12 - c2_top, *par_c1_sym)
+    infl_c3_slope = c3_c - (c3_b**2 / (3 * c3_a))
+    c3_top = -c3_b / (3 * c3_a) + np.sign(infl_c3_slope) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c) / 3
+    max_3 = cubic_curve(c3_top, *par_c3_sym)
+    infl_c4_slope = c4_c - (c4_b**2 / (3 * c4_a))
+    c4_top = -c4_b / (3 * c4_a) + np.sign(infl_c4_slope) * np.sqrt(c4_b**2 - 3 * c4_a * c4_c) / 3
+    max_4 = cubic_curve(2 * mid_c34 - c4_top, *par_c3_sym)
     # adjust the masks to cut off at the tops and bottoms
-    mask_1 = (t_folded_adj >= t_max_1) & (t_folded_adj <= t_min_1)
-    mask_2 = (t_folded_adj >= t_min_2) & (t_folded_adj <= t_max_2)
-    mask_3 = (t_folded >= t_max_3) & (t_folded <= t_min_3)
-    mask_4 = (t_folded >= t_min_4) & (t_folded <= t_max_4)
+    mask_1 = (t_folded_adj >= c1_top) & (t_folded_adj <= t_min_1)
+    mask_2 = (t_folded_adj >= t_min_2) & (t_folded_adj <= c2_top)
+    mask_3 = (t_folded >= c3_top) & (t_folded <= t_min_3)
+    mask_4 = (t_folded >= t_min_4) & (t_folded <= c4_top)
     cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1_sym)
     cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mask_2], *par_c1_sym)
     cubic_3 = cubic_curve(t_folded[mask_3], *par_c3_sym)
     cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mask_4], *par_c3_sym)
     # make connecting lines
-    mask_12 = (t_folded > t_max_2) & (t_folded < t_max_3)  # from 1 to 2
-    mask_21 = (t_folded > t_max_4) & (t_folded < t_max_1 + p_orb)  # from 2 to 1
+    mask_12 = (t_folded > c2_top) & (t_folded < c3_top)  # from 1 to 2
+    mask_21 = (t_folded > c4_top) & (t_folded < c1_top + p_orb)  # from 2 to 1
     line_12 = np.zeros(len(t_folded[mask_12]))
     line_21 = np.zeros(len(t_folded[mask_21]))
     mask_b_1 = (t_folded_adj > t_min_1) & (t_folded_adj < t_min_2)
@@ -2611,11 +2620,11 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_ecl[mask_12] = line_12
     model_ecl[mask_21] = line_21
     # new timings based on simple empirical model (making sure t_b is within edges)
-    t_mid_1 = (t_max_1 + t_max_2) / 2
-    t_mid_2 = (t_max_3 + t_max_4) / 2
-    t_min_1, t_min_2 = max(t_min_1, t_max_1), min(t_min_2, t_max_2)
-    t_min_3, t_min_4 = max(t_min_3, t_max_3), min(t_min_4, t_max_4)
-    timings_em = np.array([t_mid_1, t_mid_2, t_max_1, t_max_2, t_max_3, t_max_4, t_min_1, t_min_2, t_min_3, t_min_4])
+    t_mid_1 = (c1_top + c2_top) / 2
+    t_mid_2 = (c3_top + c4_top) / 2
+    t_min_1, t_min_2 = max(t_min_1, c1_top), min(t_min_2, c2_top)
+    t_min_3, t_min_4 = max(t_min_3, c3_top), min(t_min_4, c4_top)
+    timings_em = np.array([t_mid_1, t_mid_2, c1_top, c2_top, c3_top, c4_top, t_min_1, t_min_2, t_min_3, t_min_4])
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))
