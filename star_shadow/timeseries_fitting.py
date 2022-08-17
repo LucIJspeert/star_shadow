@@ -808,6 +808,72 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     return res_light_3, res_stretch, const, slope
 
 
+def eclipse_cubic_model(times, p_orb, t_zero, timings, par_c1, par_c3):
+    """Separates the out-of-eclipse harmonic signal from the other harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Eclipse timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+
+    Returns
+    -------
+    model_ecl: numpy.ndarray[float]
+        symmetric eclipse model using cubic functions
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    mid_c12 = (t_1_1 + t_1_2) / 2
+    mid_c34 = (t_2_1 + t_2_2) / 2
+    t_folded = (times - t_zero) % p_orb
+    t_folded_adj = np.copy(t_folded)
+    t_folded_adj[t_folded > p_orb + t_1_1] -= p_orb  # stick eclipse 1 back together
+    # make masks for the right time intervals
+    mask_1 = (t_folded_adj >= t_1_1) & (t_folded_adj <= t_b_1_1)
+    mask_2 = (t_folded_adj >= t_b_1_2) & (t_folded_adj <= t_1_2)
+    mask_3 = (t_folded >= t_2_1) & (t_folded <= t_b_2_1)
+    mask_4 = (t_folded >= t_b_2_2) & (t_folded <= t_2_2)
+    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1)
+    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mask_2], *par_c1)
+    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3)
+    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mask_4], *par_c3)
+    # maxima and minima
+    min_1 = np.min(cubic_1)
+    max_1 = np.max(cubic_1)
+    min_3 = np.min(cubic_3)
+    max_3 = np.max(cubic_3)
+    # make connecting lines
+    mask_12 = (t_folded > t_1_2) & (t_folded < t_2_1)  # from 1 to 2
+    mask_21 = (t_folded > t_2_2) & (t_folded < t_1_1 + p_orb)  # from 2 to 1
+    line_12 = np.zeros(len(t_folded[mask_12]))
+    line_21 = np.zeros(len(t_folded[mask_21]))
+    mask_b_1 = (t_folded_adj > t_b_1_1) & (t_folded_adj < t_b_1_2)
+    mask_b_2 = (t_folded > t_b_2_1) & (t_folded < t_b_2_2)
+    line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * min_1 - max_1
+    line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * min_3 - max_3
+    # stick together the eclipse model (for t_folded_adj)
+    model_ecl = np.zeros(len(t_folded))
+    model_ecl[mask_1] = cubic_1 - max_1
+    model_ecl[mask_2] = cubic_2 - max_1
+    model_ecl[mask_3] = cubic_3 - max_3
+    model_ecl[mask_4] = cubic_4 - max_3
+    model_ecl[mask_b_1] = line_b_1
+    model_ecl[mask_b_2] = line_b_2
+    model_ecl[mask_12] = line_12
+    model_ecl[mask_21] = line_21
+    return model_ecl
+
+
 @nb.njit(cache=True)
 def eclipse_lc_simple(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio):
     """Wrapper for a simple ELLC model with some fixed inputs

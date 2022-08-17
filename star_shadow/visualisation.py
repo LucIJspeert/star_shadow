@@ -626,39 +626,8 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
         plt.show()
     else:
         plt.close()
-    # cubic model and timings
-    mask_1 = (t_model > t_1_1_em) & (t_model < t_b_1_1_em)
-    mask_2 = (t_model > t_b_1_2_em) & (t_model < t_1_2_em)
-    mask_3 = (t_model > t_2_1_em) & (t_model < t_b_2_1_em)
-    mask_4 = (t_model > t_b_2_2_em) & (t_model < t_2_2_em)
-    cubic_1 = tsf.cubic_curve(t_model[mask_1], *par_c1)
-    cubic_2 = tsf.cubic_curve(2 * t_1_em - t_model[mask_2], *par_c1)
-    cubic_3 = tsf.cubic_curve(t_model[mask_3], *par_c3)
-    cubic_4 = tsf.cubic_curve(2 * t_2_em - t_model[mask_4], *par_c3)
-    # define some flux levels
-    if np.any(mask_1):
-        min_c_1, max_c_1 = np.min(cubic_1), np.max(cubic_1)
-    else:
-        min_c_1, max_c_1 = 1, 1
-    if np.any(mask_3):
-        min_c_3, max_c_3 = np.min(cubic_3), np.max(cubic_3)
-    else:
-        min_c_3, max_c_3 = 1, 1
-    # connect with lines
-    mask_b_1 = (t_model > t_b_1_1_em) & (t_model < t_b_1_2_em)
-    mask_b_2 = (t_model > t_b_2_1_em) & (t_model < t_b_2_2_em)
-    line_b_1 = np.ones(len(t_model[mask_b_1])) * min_c_1 - max_c_1
-    line_b_2 = np.ones(len(t_model[mask_b_2])) * min_c_3 - max_c_3
-    # stick em together
-    model_ecl = np.zeros(len(t_model))
-    model_ecl[mask_1] = cubic_1 - max_c_1
-    model_ecl[mask_2] = cubic_2 - max_c_1
-    model_ecl[mask_3] = cubic_3 - max_c_3
-    model_ecl[mask_4] = cubic_4 - max_c_3
-    model_ecl[mask_b_1] = line_b_1
-    model_ecl[mask_b_2] = line_b_2
-    model_ecl -= h_adjust_2
-    model_ecl[t_model > p_orb + t_1_1_em] = np.nan
+    # cubic model
+    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, timings_em, par_c1, par_c3)
     # second plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')

@@ -2589,38 +2589,12 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     c3_top = (-c3_b + np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c)) / (3 * c3_a)
     max_3 = cubic_curve(c3_top, *par_c3_sym)
     c4_top = 2 * mid_c34 - c3_top
-    # adjust the masks to cut off at the tops and bottoms
-    mask_1 = (t_folded_adj >= c1_top) & (t_folded_adj <= t_min_1)
-    mask_2 = (t_folded_adj >= t_min_2) & (t_folded_adj <= c2_top)
-    mask_3 = (t_folded >= c3_top) & (t_folded <= t_min_3)
-    mask_4 = (t_folded >= t_min_4) & (t_folded <= c4_top)
-    cubic_1 = cubic_curve(t_folded_adj[mask_1], *par_c1_sym)
-    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mask_2], *par_c1_sym)
-    cubic_3 = cubic_curve(t_folded[mask_3], *par_c3_sym)
-    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mask_4], *par_c3_sym)
-    # make connecting lines
-    mask_12 = (t_folded > c2_top) & (t_folded < c3_top)  # from 1 to 2
-    mask_21 = (t_folded > c4_top) & (t_folded < c1_top + p_orb)  # from 2 to 1
-    line_12 = np.zeros(len(t_folded[mask_12]))
-    line_21 = np.zeros(len(t_folded[mask_21]))
-    mask_b_1 = (t_folded_adj > t_min_1) & (t_folded_adj < t_min_2)
-    mask_b_2 = (t_folded > t_min_3) & (t_folded < t_min_4)
-    line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * min_1 - max_1
-    line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * min_3 - max_3
-    # stick together the eclipse model (for t_folded_adj)
-    model_ecl = np.zeros(len(t_folded))
-    model_ecl[mask_1] = cubic_1 - max_1
-    model_ecl[mask_2] = cubic_2 - max_1
-    model_ecl[mask_3] = cubic_3 - max_3
-    model_ecl[mask_4] = cubic_4 - max_3
-    model_ecl[mask_b_1] = line_b_1
-    model_ecl[mask_b_2] = line_b_2
-    model_ecl[mask_12] = line_12
-    model_ecl[mask_21] = line_21
     # new timings based on simple empirical model (making sure t_b is within edges)
     t_min_1, t_min_2 = max(t_min_1, c1_top), min(t_min_2, c2_top)
     t_min_3, t_min_4 = max(t_min_3, c3_top), min(t_min_4, c4_top)
     timings_em = np.array([mid_c12, mid_c34, c1_top, c2_top, c3_top, c4_top, t_min_1, t_min_2, t_min_3, t_min_4])
+    # make the model
+    model_ecl = tsfit.eclipse_cubic_model(times, p_orb, t_zero, timings_em, par_c1_sym, par_c3_sym)
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))
