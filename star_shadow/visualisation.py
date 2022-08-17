@@ -640,18 +640,10 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
         min_c_1, max_c_1 = np.min(cubic_1), np.max(cubic_1)
     else:
         min_c_1, max_c_1 = 1, 1
-    if np.any(mask_2):
-        max_c_2 = np.max(cubic_2)
-    else:
-        max_c_2 = 1
     if np.any(mask_3):
         min_c_3, max_c_3 = np.min(cubic_3), np.max(cubic_3)
     else:
         min_c_3, max_c_3 = 1, 1
-    if np.any(mask_4):
-        max_c_4 = np.max(cubic_4)
-    else:
-        max_c_4 = 1
     # connect with lines
     mask_b_1 = (t_model > t_b_1_1_em) & (t_model < t_b_1_2_em)
     mask_b_2 = (t_model > t_b_2_1_em) & (t_model < t_b_2_2_em)
@@ -660,9 +652,9 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     # stick em together
     model_ecl = np.zeros(len(t_model))
     model_ecl[mask_1] = cubic_1 - max_c_1
-    model_ecl[mask_2] = cubic_2 - max_c_2
+    model_ecl[mask_2] = cubic_2 - max_c_1
     model_ecl[mask_3] = cubic_3 - max_c_3
-    model_ecl[mask_4] = cubic_4 - max_c_4
+    model_ecl[mask_4] = cubic_4 - max_c_3
     model_ecl[mask_b_1] = line_b_1
     model_ecl[mask_b_2] = line_b_2
     model_ecl -= h_adjust_2

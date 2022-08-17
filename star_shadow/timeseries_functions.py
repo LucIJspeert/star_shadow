@@ -2565,12 +2565,10 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     # get a combined fit to the eclipse edges (to make it symmetric)
     par_c1_sym = cubic_pars(t_mir_ecl1, s_mir_ecl1)
     par_c3_sym = cubic_pars(t_mir_ecl2, s_mir_ecl2)
-    c1_a, c1_b, c1_c, c1_d = par_c1_sym
-    c3_a, c3_b, c3_c, c3_d = par_c3_sym
-    cubic_1 = cubic_curve(t_folded_adj[mir_mask_1], c1_a, c1_b, c1_c, c1_d)
-    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mir_mask_2], c1_a, c1_b, c1_c, c1_d)
-    cubic_3 = cubic_curve(t_folded[mir_mask_3], c3_a, c3_b, c3_c, c3_d)
-    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mir_mask_4], c3_a, c3_b, c3_c, c3_d)
+    cubic_1 = cubic_curve(t_folded_adj[mir_mask_1], *par_c1_sym)
+    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mir_mask_2], *par_c1_sym)
+    cubic_3 = cubic_curve(t_folded[mir_mask_3], *par_c3_sym)
+    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mir_mask_4], *par_c3_sym)
     # find the bottoms (the global minima)
     min_1 = np.min(cubic_1)
     min_2 = np.min(cubic_2)
@@ -2581,12 +2579,14 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     t_min_3 = t_folded[mir_mask_3][cubic_3 == min_3][0]
     t_min_4 = t_folded[mir_mask_4][cubic_4 == min_4][0]
     # find the tops from formulae (the local maxima)
+    c1_a, c1_b, c1_c, c1_d = par_c1_sym
+    c3_a, c3_b, c3_c, c3_d = par_c3_sym
     infl_c1_slope = c1_c - (c1_b**2 / (3 * c1_a))
-    c1_top = -c1_b / (3 * c1_a) + np.sign(infl_c1_slope) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c) / 3
+    c1_top = (-c1_b + np.sign(infl_c1_slope * c1_a) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c)) / (3 * c1_a)
     max_1 = cubic_curve(c1_top, *par_c1_sym)
     c2_top = 2 * mid_c12 - c1_top
     infl_c3_slope = c3_c - (c3_b**2 / (3 * c3_a))
-    c3_top = -c3_b / (3 * c3_a) + np.sign(infl_c3_slope) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c) / 3
+    c3_top = (-c3_b + np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c)) / (3 * c3_a)
     max_3 = cubic_curve(c3_top, *par_c3_sym)
     c4_top = 2 * mid_c34 - c3_top
     # adjust the masks to cut off at the tops and bottoms
@@ -2618,11 +2618,9 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_ecl[mask_12] = line_12
     model_ecl[mask_21] = line_21
     # new timings based on simple empirical model (making sure t_b is within edges)
-    t_mid_1 = (c1_top + c2_top) / 2
-    t_mid_2 = (c3_top + c4_top) / 2
     t_min_1, t_min_2 = max(t_min_1, c1_top), min(t_min_2, c2_top)
     t_min_3, t_min_4 = max(t_min_3, c3_top), min(t_min_4, c4_top)
-    timings_em = np.array([t_mid_1, t_mid_2, c1_top, c2_top, c3_top, c4_top, t_min_1, t_min_2, t_min_3, t_min_4])
+    timings_em = np.array([mid_c12, mid_c34, c1_top, c2_top, c3_top, c4_top, t_min_1, t_min_2, t_min_3, t_min_4])
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))
