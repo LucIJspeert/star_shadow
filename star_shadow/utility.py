@@ -787,14 +787,12 @@ def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
     return None
 
 
-def save_results_timings(p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices, file_name,
+def save_results_timings(t_zero, timings, depths, timing_errs, depths_err, ecl_indices, file_name,
                          data_id=None):
     """Save the results of the eclipse timings
     
     Parameters
     ----------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
@@ -824,10 +822,10 @@ def save_results_timings(p_orb, t_zero, timings, depths, timing_errs, depths_err
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
     d_1_err, d_2_err = depths_err
-    var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
+    var_names = ['t_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 't_1_err', 't_2_err',
                  't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err', 'd_1_err', 'd_2_err']
-    var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
+    var_desc = ['time of primary minimum modulo the period',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -843,7 +841,7 @@ def save_results_timings(p_orb, t_zero, timings, depths, timing_errs, depths_err
                 'error in time of secondary first contact (t_2_1)',
                 'error in time of secondary last contact (t_2_2)',
                 'error in depth of primary minimum', 'error in depth of secondary minimum']
-    values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
+    values = [str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(depths[0]), str(depths[1]), str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2),
               str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
               str(d_1_err), str(d_2_err)]
@@ -908,9 +906,9 @@ def read_results_timings(file_name):
         as generated here (see function for details)
     """
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    p_orb, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2 = values[:10]
-    t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[10:14]
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = values[14:]
+    t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, depth_1, depth_2 = values[:9]
+    t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = values[9:13]
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = values[13:]
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
     timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
@@ -918,7 +916,7 @@ def read_results_timings(file_name):
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
     ecl_indices = read_results_ecl_indices(file_name)
-    return p_orb, t_zero, timings, depths, timing_errs, depths_err, ecl_indices
+    return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
 def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_zero, timings, par_c1, par_c3,
@@ -1847,18 +1845,21 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_16b = read_results_fselect(file_name)
         pass_hr_sigma_2, pass_hr_snr_2, passed_hr_b_2 = results_16b
     # use the same logic as in the main functions to decide between timings
-    if np.any([item is None for item in results_11]):
-        if show:
-            print(f'Not enough eclipses found. Now using low-harmonics result.\n')
-        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
-    elif (np.all(timings_11[[2, 3]] + t_zero_11 < timings_10[2] + t_zero_9)
-          | np.all(timings_11[[2, 3]] + t_zero_11 > timings_10[3] + t_zero_9)
-          | np.all(timings_11[[4, 5]] + t_zero_11 < timings_10[4] + t_zero_9)
-          | np.all(timings_11[[4, 5]] + t_zero_11 > timings_10[5] + t_zero_9)):
-        if show:
-            print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
-        p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
-        timings_11 = timings_10
+    try:
+        if np.any([item is None for item in results_11]):
+            if show:
+                print(f'Not enough eclipses found. Now using low-harmonics result.\n')
+            p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
+        elif (np.all(timings_11[[2, 3]] + t_zero_11 < timings_10[2] + t_zero_9)
+              | np.all(timings_11[[2, 3]] + t_zero_11 > timings_10[3] + t_zero_9)
+              | np.all(timings_11[[4, 5]] + t_zero_11 < timings_10[4] + t_zero_9)
+              | np.all(timings_11[[4, 5]] + t_zero_11 > timings_10[5] + t_zero_9)):
+            if show:
+                print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
+            p_orb_11, t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
+            timings_11 = timings_10
+    except NameError:
+        pass  # some variable wasn't loaded (file did not exist)
     # frequency_analysis
     if save_dir is not None:
         try:
