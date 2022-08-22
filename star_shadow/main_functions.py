@@ -70,10 +70,10 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
             base_p = 2 * base_p
         # then refine by using a dense sampling
         f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
-        n_harm, completeness, distance = af.harmonic_series_length(f_refine, f_n, freq_res)
-        h_measure = n_harm * completeness
+        n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res)
+        h_measure = n_harm_r * completeness_r
         mask_peak = (h_measure == np.max(h_measure))
-        p_orb = 1 / f_refine[mask_peak][np.argmin(distance[mask_peak])]
+        p_orb = 1 / f_refine[mask_peak][np.argmin(distance_r[mask_peak])]
         # check that we have at least one of the first three harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
         if (not 1 in harmonic_n) & (not 2 in harmonic_n) & (not 3 in harmonic_n):
@@ -610,13 +610,15 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name=None, data_id=None, overwrite=False,
-                             verbose=False):
+def eclipse_analysis_timings(times, p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name=None, data_id=None,
+                             overwrite=False, verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
 
     Parameters
     ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_h: numpy.ndarray[float]
@@ -682,8 +684,16 @@ def eclipse_analysis_timings(p_orb, f_h, a_h, ph_h, p_err, noise_level, file_nam
     else:
         if verbose:
             print(f'Measuring eclipse time points and depths.')
+        # find any gaps in phase coverage
+        t_fold_edges = times % p_orb
+        if np.all(t_fold_edges > 0):
+            t_fold_edges = np.append([0], t_fold_edges)
+        if np.all(t_fold_edges < p_orb):
+            t_fold_edges = np.append(t_fold_edges, [p_orb])
+        t_gaps = tsf.mark_folded_gaps(t_fold_edges, p_orb/100)
+        t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
         # measure eclipse timings - deepest eclipse is put first in each measurement
-        output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level)
+        output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
         t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
         # account for not finding eclipses
         if np.all([item is None for item in output]):
@@ -1300,7 +1310,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
     low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
     f_h_8, a_h_8, ph_h_8 = f_n_8[harmonics], a_n_8[harmonics], ph_n_8[harmonics]
-    out_9 = eclipse_analysis_timings(p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
+    out_9 = eclipse_analysis_timings(times, p_orb_8, f_h_8[low_h], a_h_8[low_h], ph_h_8[low_h], p_err_8, noise_level_8,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = out_9
     if np.any([item is None for item in out_9]):
@@ -1313,7 +1323,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    out_11 = eclipse_analysis_timings(p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8,
+    out_11 = eclipse_analysis_timings(times, p_orb_8, f_he_10, a_he_10, ph_he_10, p_err_8, noise_level_8,
                                       file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = out_11
     # some logic to catch bad results and fall back to previous results

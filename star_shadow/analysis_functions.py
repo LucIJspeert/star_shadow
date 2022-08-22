@@ -851,7 +851,7 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
     return height_1, height_2
 
 
-def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
+def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     """Determine the eclipse midpoints, depths and widths from the derivatives
     of the harmonic model.
     
@@ -867,6 +867,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
         Corresponding phases of the sinusoids
     noise_level: float
         The noise level (standard deviation of the residuals)
+    t_gaps: numpy.ndarray[float]
+        Gap timestamps in pairs
     
     Returns
     -------
@@ -944,6 +946,21 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
         else:
             duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
         condition &= (duration < p_orb / 2)
+        # eclipses may not be in gaps in the phase coverage
+        gap_cond = True
+        for tg in t_gaps:
+            gap_cond_1 = (t_model[peaks_2_n[comb[0]]] > tg[0]) & (t_model[peaks_2_n[comb[0]]] < tg[-1])
+            gap_cond_2 = (t_model[peaks_2_n[comb[1]]] > tg[0]) & (t_model[peaks_2_n[comb[1]]] < tg[-1])
+            if gap_cond_1 & gap_cond_2:
+                gap_cond = False  # ecl completely in gap
+            elif gap_cond_1 | gap_cond_2:
+                if (peaks_2_n[comb[0]] < peaks_2_n[comb[1]]):
+                    ecl_m = (t_model[peaks_2_n[comb[0]]] + t_model[peaks_2_n[comb[1]]]) / 2
+                else:
+                    ecl_m = (t_model[peaks_2_n[comb[0]]] + t_model[peaks_2_n[comb[1]]] + 2 * p_orb) / 2
+                # ecl more than half in gap
+                gap_cond = not (((tg[0] < ecl_m) & gap_cond_2) | (gap_cond_1 & (tg[-1] > ecl_m)))
+        condition &= gap_cond
         if condition:
             # check for prominent eclipse bottom
             if (peaks_2_p[comb[0]] > peaks_2_p[comb[1]]):
@@ -976,7 +993,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level):
                 if line_check_1 & line_check_2:
                     ecl_indices = np.vstack((ecl_indices, [ecl]))
     # check that we have some eclipses
-    if (len(ecl_indices) == 0) | (len(ecl_indices) == 1):
+    if (len(ecl_indices) < 2):
         return (None,) * 8 + (ecl_indices,)
     # finally, put the eclipse minimum at or in the middle between the peaks_2_p
     ecl_indices[:, 6] = (ecl_indices[:, 4] + ecl_indices[:, -5]) // 2

@@ -113,6 +113,8 @@ def mask_timestamps(times, stamps):
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time-series
+    stamps: numpy.ndarray[float]
+        Pairs of timestamps
 
     Returns
     -------
@@ -120,8 +122,8 @@ def mask_timestamps(times, stamps):
         Boolean mask that is True between the stamps
     """
     mask = np.zeros(len(times), dtype=np.bool_)
-    for t_points in stamps:
-        mask = mask | ((times >= t_points[0]) & (times <= t_points[-1]))
+    for ts in stamps:
+        mask = mask | ((times >= ts[0]) & (times <= ts[-1]))
     return mask
 
 
@@ -2582,12 +2584,18 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     c1_a, c1_b, c1_c, c1_d = par_c1_sym
     c3_a, c3_b, c3_c, c3_d = par_c3_sym
     infl_c1_slope = c1_c - (c1_b**2 / (3 * c1_a))
-    c1_top = (-c1_b + np.sign(infl_c1_slope * c1_a) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c)) / (3 * c1_a)
-    max_1 = cubic_curve(c1_top, *par_c1_sym)
+    c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
+    if (c1_disc >= 0):
+        c1_top = (-c1_b + np.sign(infl_c1_slope * c1_a) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c)) / (3 * c1_a)
+    else:
+        c1_top = np.min(t_folded_adj[mir_mask_1])  # simply take the interval edge
     c2_top = 2 * mid_c12 - c1_top
     infl_c3_slope = c3_c - (c3_b**2 / (3 * c3_a))
-    c3_top = (-c3_b + np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c)) / (3 * c3_a)
-    max_3 = cubic_curve(c3_top, *par_c3_sym)
+    c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
+    if (c3_disc >= 0):
+        c3_top = (-c3_b + np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c)) / (3 * c3_a)
+    else:
+        c3_top = np.min(t_folded[mir_mask_3])  # simply take the interval edge
     c4_top = 2 * mid_c34 - c3_top
     # new timings based on simple empirical model (making sure t_b is within edges)
     t_min_1, t_min_2 = max(t_min_1, c1_top), min(t_min_2, c2_top)
