@@ -1075,6 +1075,41 @@ def cubic_pars_from_quadratic(x1, a_q, b_q, c_q):
 
 
 @nb.njit(cache=True)
+def cubic_pars_two_points(x1, y1, x2, y2):
+    """Calculate the parameters of a cubic formula defined by its extrema,
+     y = a*x**3 + b*x**2 + c*x + d
+
+    Parameters
+    ----------
+    x1: float, numpy.ndarray[float]
+        The x-coordinate of the local maximum point(s)
+    y1: float, numpy.ndarray[float]
+        The y-coordinate of the local maximum point(s)
+    x2: float, numpy.ndarray[float]
+        The x-coordinate of the local minimum point(s)
+    y2: float, numpy.ndarray[float]
+        The y-coordinate of the local minimum point(s)
+
+    Returns
+    -------
+    a: float, numpy.ndarray[float]
+        The quadratic coefficient(s)
+    b: float, numpy.ndarray[float]
+        The linear coefficient(s)
+    c: float, numpy.ndarray[float]
+        The constant coefficient(s)
+    d: float, numpy.ndarray[float]
+        The constant coefficient(s)
+    """
+    cbc_dif = (x2 - x1)**3
+    a = -2 * (y2 - y1) / cbc_dif
+    b = 3 * (y2 - y1) * (x2 + x1) / cbc_dif
+    c = -3 * a * x1**2 - 2 * b * x1
+    d = y1 - a * x1**3 - b * x1**2 - c * x1
+    return a, b, c, d
+
+
+@nb.njit(cache=True)
 def sum_sines(times, f_n, a_n, ph_n):
     """A sum of sine waves at times t, given the frequencies, amplitudes and phases.
     
@@ -2453,8 +2488,8 @@ def extract_residual_harmonics(times, signal, signal_err, p_orb, t_zero, const, 
     return const_r, f_r, a_r, ph_r
 
 
-def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, noise_level,
-                       i_sectors, verbose=False):
+def eclipse_separation(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, mid_1, mid_2, par_c1, par_c3,
+                       i_sectors):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -2463,17 +2498,10 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2484,16 +2512,20 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    noise_level: float
-        The noise level (standard deviation of the residuals)
+    mid_1: float
+        Time of mid eclipse 1
+    mid_2: float
+        Time of mid eclipse 2
+    par_c1: tuple[float]
+        Cubic curve parameters of eclipse 1 (a, b, c, d)
+    par_c3: tuple[float]
+        Cubic curve parameters of eclipse 2 (a, b, c, d)
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -2511,26 +2543,7 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
         Amplitudes of a number of harmonic sine waves
     ph_he: numpy.ndarray[float]
         Phases of a number of harmonic sine waves
-    timings_em: numpy.ndarray[float]
-        Eclipse timings from the empirical model.
-        Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    par_c1_sym: tuple[float]
-        Cubic curve parameters of eclipse 1
-    par_c3_sym: tuple[float]
-        Cubic curve parameters of eclipse 2
     """
-    # make timing masks
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_folded = (times - t_zero) % p_orb
-    t_folded_adj = np.copy(t_folded)
-    t_folded_adj[t_folded > p_orb + t_1_1] -= p_orb  # stick eclipse 1 back together
-    mask_1 = (t_folded_adj > t_1_1) & (t_folded_adj < t_b_1_1)
-    mask_2 = (t_folded_adj > t_b_1_2) & (t_folded_adj < t_1_2)
-    mask_3 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
-    mask_4 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
     # make the eclipse signal (remove other stuff)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     low_h = (harmonic_n <= 20)
@@ -2539,70 +2552,8 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
-    # get the cubic polynomials from the low harmonic model
-    par_c1 = cubic_pars(t_folded_adj[mask_1], model_h_low[mask_1])
-    par_c2 = cubic_pars(t_folded_adj[mask_2], model_h_low[mask_2])
-    par_c3 = cubic_pars(t_folded[mask_3], model_h_low[mask_3])
-    par_c4 = cubic_pars(t_folded[mask_4], model_h_low[mask_4])
-    # find the inflection points of the initial cubics
-    c1_a, c1_b, c1_c, c1_d = par_c1
-    c2_a, c2_b, c2_c, c2_d = par_c2
-    c3_a, c3_b, c3_c, c3_d = par_c3
-    c4_a, c4_b, c4_c, c4_d = par_c4
-    infl_c1, infl_c2 = -c1_b / (3 * c1_a), -c2_b / (3 * c2_a)
-    mid_c12 = (infl_c1 + infl_c2) / 2
-    infl_c3, infl_c4 = -c3_b / (3 * c3_a), -c4_b / (3 * c4_a)
-    mid_c34 = (infl_c3 + infl_c4) / 2
-    # mirror the sides around the midpoint between the inflection points
-    mir_mask_1 = (t_folded_adj > t_1_1) & (t_folded_adj < mid_c12)
-    mir_mask_2 = (t_folded_adj > mid_c12) & (t_folded_adj < t_1_2)
-    mir_mask_3 = (t_folded > t_2_1) & (t_folded < mid_c34)
-    mir_mask_4 = (t_folded > mid_c34) & (t_folded < t_2_2)
-    t_mir_2 = 2 * mid_c12 - t_folded_adj[mir_mask_2]
-    t_mir_4 = 2 * mid_c34 - t_folded[mir_mask_4]
-    t_mir_ecl1 = np.append(t_folded_adj[mir_mask_1], t_mir_2)
-    t_mir_ecl2 = np.append(t_folded_adj[mir_mask_3], t_mir_4)
-    s_mir_ecl1 = np.append(ecl_signal[mir_mask_1], ecl_signal[mir_mask_2])
-    s_mir_ecl2 = np.append(ecl_signal[mir_mask_3], ecl_signal[mir_mask_4])
-    # get a combined fit to the eclipse edges (to make it symmetric)
-    par_c1_sym = cubic_pars(t_mir_ecl1, s_mir_ecl1)
-    par_c3_sym = cubic_pars(t_mir_ecl2, s_mir_ecl2)
-    cubic_1 = cubic_curve(t_folded_adj[mir_mask_1], *par_c1_sym)
-    cubic_2 = cubic_curve(2 * mid_c12 - t_folded_adj[mir_mask_2], *par_c1_sym)
-    cubic_3 = cubic_curve(t_folded[mir_mask_3], *par_c3_sym)
-    cubic_4 = cubic_curve(2 * mid_c34 - t_folded[mir_mask_4], *par_c3_sym)
-    # find the bottoms (the global minima)
-    min_1 = np.min(cubic_1)
-    min_2 = np.min(cubic_2)
-    min_3 = np.min(cubic_3)
-    min_4 = np.min(cubic_4)
-    t_min_1 = t_folded_adj[mir_mask_1][cubic_1 == min_1][0]
-    t_min_2 = t_folded_adj[mir_mask_2][cubic_2 == min_2][0]
-    t_min_3 = t_folded[mir_mask_3][cubic_3 == min_3][0]
-    t_min_4 = t_folded[mir_mask_4][cubic_4 == min_4][0]
-    # find the tops from formulae (the local maxima)
-    c1_a, c1_b, c1_c, c1_d = par_c1_sym
-    c3_a, c3_b, c3_c, c3_d = par_c3_sym
-    infl_c1_slope = c1_c - (c1_b**2 / (3 * c1_a))
-    c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
-    if (c1_disc >= 0):
-        c1_top = (-c1_b + np.sign(infl_c1_slope * c1_a) * np.sqrt(c1_b**2 - 3 * c1_a * c1_c)) / (3 * c1_a)
-    else:
-        c1_top = np.min(t_folded_adj[mir_mask_1])  # simply take the interval edge
-    c2_top = 2 * mid_c12 - c1_top
-    infl_c3_slope = c3_c - (c3_b**2 / (3 * c3_a))
-    c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
-    if (c3_disc >= 0):
-        c3_top = (-c3_b + np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_b**2 - 3 * c3_a * c3_c)) / (3 * c3_a)
-    else:
-        c3_top = np.min(t_folded[mir_mask_3])  # simply take the interval edge
-    c4_top = 2 * mid_c34 - c3_top
-    # new timings based on simple empirical model (making sure t_b is within edges)
-    t_min_1, t_min_2 = max(t_min_1, c1_top), min(t_min_2, c2_top)
-    t_min_3, t_min_4 = max(t_min_3, c3_top), min(t_min_4, c4_top)
-    timings_em = np.array([mid_c12, mid_c34, c1_top, c2_top, c3_top, c4_top, t_min_1, t_min_2, t_min_3, t_min_4])
     # make the model
-    model_ecl = tsfit.eclipse_cubic_model(times, p_orb, t_zero, timings_em, par_c1_sym, par_c3_sym)
+    model_ecl = tsfit.eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3)
     # remove from the signal and extract harmonics
     residuals = ecl_signal - model_ecl
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))
@@ -2612,6 +2563,7 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
     output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
     f_he, a_he, ph_he = output  # eclipse harmonics
     # check for gaps in the folded signal - these will mess up the harmonic subtraction
+    t_folded = (times - t_zero) % p_orb
     t_gaps = mark_folded_gaps(t_folded, p_orb / 100)
     if (len(t_gaps) > 0):
         min_diff = np.min(times[1:] - times[:-1])
@@ -2626,7 +2578,7 @@ def eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const,
         # subtract the new ooe harmonics from all the harmonics
         output = af.subtract_harmonic_sines(p_orb, f_n[harmonics], a_n[harmonics], ph_n[harmonics], f_ho, a_ho, ph_ho)
         f_he, a_he, ph_he = output  # eclipse harmonics
-    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1_sym, par_c3_sym
+    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he
 
 
 def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):

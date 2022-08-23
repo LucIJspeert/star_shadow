@@ -627,7 +627,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     else:
         plt.close()
     # cubic model
-    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, timings_em, par_c1, par_c3)
+    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, par_c1, par_c3)
     # second plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')

@@ -120,20 +120,20 @@ def signal_to_noise_threshold(n_points):
     return sn_thr
 
 
-def cubic_timings(params, timings):
-    """Updates the timings based on the empirical model parameters
+@nb.njit(cache=True)
+def cubic_timings(mid_1, mid_2, par_c1, par_c3):
+    """Finds the timings based on the empirical model parameters
     
     Parameters
     ----------
-    params: numpy.ndarray[float]
-        The parameters of a light curve model made of cubics.
-        Has to be ordered in the following way:
-        [c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d]
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    mid_1: float
+        Time of mid eclipse 1
+    mid_2: float
+        Time of mid eclipse 2
+    par_c1: tuple[float]
+        Cubic curve parameters of eclipse 1 (a, b, c, d)
+    par_c3: tuple[float]
+        Cubic curve parameters of eclipse 2 (a, b, c, d)
 
     Returns
     -------
@@ -143,32 +143,33 @@ def cubic_timings(params, timings):
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d = params
-    par_c1 = c1_a, c1_b, c1_c, c1_d
-    par_c3 = c3_a, c3_b, c3_c, c3_d
+    c1_a, c1_b, c1_c, c1_d = par_c1
+    c3_a, c3_b, c3_c, c3_d = par_c3
     # time of top and bottom cubic 1
-    infl_c1_slope = c1_c - (c1_b**2 / (3 * c1_a))
+    c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
     c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
-    if (c1_disc >= 0):
-        c1_sqrt = np.sign(infl_c1_slope * c1_a) * np.sqrt(c1_disc)
-        t_c1_1, t_c1_2 = (-c1_b + c1_sqrt) / (3 * c1_a), (-c1_b - c1_sqrt) / (3 * c1_a)
-        t_c2_1, t_c2_2 = 2 * t_1 - t_c1_1, 2 * t_1 - t_c1_2
+    if (c1_disc > 0) & (c1_infl_slope < 0):
+        t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+        t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+        t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
     else:
-        t_c1_1, t_c1_2 = t_1_1, t_b_1_1  # simply take the interval edge
-        t_c2_1, t_c2_2 = t_1_2, t_b_1_2
+        t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
     # time of top and bottom cubic 3
-    infl_c3_slope = c3_c - (c3_b**2 / (3 * c3_a))
+    c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
     c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
-    if (c3_disc >= 0):
-        c3_sqrt = np.sign(infl_c3_slope * c3_a) * np.sqrt(c3_disc)
-        t_c3_1, t_c3_2 = (-c3_b + c3_sqrt) / (3 * c3_a), (-c3_b - c3_sqrt) / (3 * c3_a)
-        t_c4_1, t_c4_2 = 2 * t_2 - t_c3_1, 2 * t_2 - t_c3_2
+    if (c3_disc > 0) & (c3_infl_slope < 0):
+        t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+        t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+        t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
     else:
-        t_c3_1, t_c3_2 = t_2_1, t_b_2_1  # simply take the interval edge
-        t_c4_1, t_c4_2 = t_2_2, t_b_2_2
-    # new timings based on simple empirical model (making sure t_b is within edges)
-    timings_em = np.array([t_1, t_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
+        t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
+    # fix overlap at the bottom
+    if (t_c1_2 > t_c2_2):
+        t_c1_2, t_c2_2 = mid_1, mid_1
+    if (t_c3_2 > t_c4_2):
+        t_c3_2, t_c4_2 = mid_2, mid_2
+    # new timings based on simple empirical model
+    timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
     return timings_em
 
 

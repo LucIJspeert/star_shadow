@@ -769,7 +769,7 @@ def eclipse_analysis_timings(times, p_orb, f_h, a_h, ph_h, p_err, noise_level, f
     return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, noise_level,
+def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
                           i_sectors, file_name=None, data_id=None, overwrite=False, verbose=False):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
@@ -800,8 +800,6 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    noise_level: float
-        The noise level (standard deviation of the residuals)
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -864,9 +862,29 @@ def eclipse_analysis_hsep(times, signal, signal_err, p_orb, t_zero, timings, con
     else:
         if verbose:
             print(f'Separating out-of-eclipse signal')
-        output = tsf.eclipse_separation(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                        f_n, a_n, ph_n, noise_level, i_sectors)
-        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3 = output
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+        low_h = (harmonic_n <= 20)
+        # get the initial cubic polynomials from the low harmonic model timings
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+        t_ys = np.array([t_1_1, t_b_1_1, t_2_1, t_b_2_1])
+        y1, y2, y3, y4 = tsf.sum_sines(t_ys, f_n[harmonics[low_h]], a_n[harmonics[low_h]], ph_n[harmonics[low_h]])
+        c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_1_1, y1, t_b_1_1, y2)
+        c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_2_1, y3, t_b_2_1, y4)
+        mid_1 = (t_1_1 + t_1_2) / 2
+        mid_2 = (t_2_1 + t_2_2) / 2
+        # fit for the cubic model parameters
+        par_init = np.array([mid_1, mid_2, c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d])
+        output_a = tsfit.fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                           f_n, a_n, ph_n, par_init, i_sectors, verbose=verbose)
+        mid_1, mid_2, c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d = output_a.x
+        # get the timings of the cubic models
+        par_c1 = (c1_a, c1_b, c1_c, c1_d)
+        par_c3 = (c3_a, c3_b, c3_c, c3_d)
+        timings_em = ut.cubic_timings(mid_1, mid_2, par_c1, par_c3)
+        # separate the eclipse signal from other variability at the harmonics
+        output_b = tsf.eclipse_separation(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, mid_1, mid_2,
+                                          par_c1, par_c3, i_sectors)
+        const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he = output_b
         if file_name is not None:
             ut.save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_zero, timings_em,
                                  par_c1, par_c3, file_name, data_id=data_id)
@@ -1318,8 +1336,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     # --- [10] --- Separation of harmonics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_hsep(times, signal, signal_err, p_orb_8, t_zero_9, timings_9, const_8, slope_8,
-                                   f_n_8, a_n_8, ph_n_8, noise_level_8, i_sectors, file_name=file_name,
-                                   data_id=data_id, overwrite=overwrite, verbose=verbose)
+                                   f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
+                                   overwrite=overwrite, verbose=verbose)
     const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3 = out_10
     # --- [11] --- Eclipse timings and depths
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
