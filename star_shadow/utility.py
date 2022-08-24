@@ -121,59 +121,6 @@ def signal_to_noise_threshold(n_points):
 
 
 @nb.njit(cache=True)
-def cubic_timings(mid_1, mid_2, par_c1, par_c3):
-    """Finds the timings based on the empirical model parameters
-    
-    Parameters
-    ----------
-    mid_1: float
-        Time of mid eclipse 1
-    mid_2: float
-        Time of mid eclipse 2
-    par_c1: tuple[float]
-        Cubic curve parameters of eclipse 1 (a, b, c, d)
-    par_c3: tuple[float]
-        Cubic curve parameters of eclipse 2 (a, b, c, d)
-
-    Returns
-    -------
-    timings_em: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    """
-    c1_a, c1_b, c1_c, c1_d = par_c1
-    c3_a, c3_b, c3_c, c3_d = par_c3
-    # time of top and bottom cubic 1
-    c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
-    c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
-    if (c1_disc > 0) & (c1_infl_slope < 0):
-        t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-        t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-        t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    else:
-        t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
-    # time of top and bottom cubic 3
-    c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
-    c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
-    if (c3_disc > 0) & (c3_infl_slope < 0):
-        t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-        t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-        t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    else:
-        t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
-    # fix overlap at the bottom
-    if (t_c1_2 > t_c2_2):
-        t_c1_2, t_c2_2 = mid_1, mid_1
-    if (t_c3_2 > t_c4_2):
-        t_c3_2, t_c4_2 = mid_2, mid_2
-    # new timings based on simple empirical model
-    timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
-    return timings_em
-
-
-@nb.njit(cache=True)
 def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
     """Median-normalises flux (counts or otherwise, should be positive) by
     dividing by the median.
@@ -972,26 +919,11 @@ def read_results_timings(file_name):
     return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_zero, timings, par_c1, par_c3,
-                      file_name, data_id=None):
-    """Save the results of the harmonic separation
+def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None):
+    """Save the results of the cubic model fit
     
     Parameters
     ----------
-    const_ho: numpy.ndarray[float]
-        Mean of the residual
-    f_ho: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_ho: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_ho: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    f_he: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_he: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_he: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1002,10 +934,8 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_z
         timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    par_c1: tuple[float]
-        Cubic curve parameters of eclipse 1
-    par_c3: tuple[float]
-        Cubic curve parameters of eclipse 2
+    depths: numpy.ndarray[float]
+        Cubic curve primary and secondary eclipse depth
     file_name: str, None
         File name (including path) for saving the results.
     data_id: int, str, None
@@ -1015,39 +945,11 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_z
     -------
     None
     """
-    len_ho = len(f_ho)
-    len_he = len(f_he)
-    var_names = ['const_ho']
-    var_names.extend([f'f_{i + 1}o' for i in range(len_ho)])
-    var_names.extend([f'a_{i + 1}o' for i in range(len_ho)])
-    var_names.extend([f'ph_{i + 1}o' for i in range(len_ho)])
-    var_names.extend([f'f_{i + 1}e' for i in range(len_he)])
-    var_names.extend([f'a_{i + 1}e' for i in range(len_he)])
-    var_names.extend([f'ph_{i + 1}e' for i in range(len_he)])
-    var_desc = ['mean of the residual after subtraction of the o.o.e. harmonics']
-    var_desc.extend([f'frequency of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
-    var_desc.extend([f'amplitude of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
-    var_desc.extend([f'phase of harmonic {i} of the o.o.e. signal' for i in range(len_ho)])
-    var_desc.extend([f'frequency of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
-    var_desc.extend([f'amplitude of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
-    var_desc.extend([f'phase of harmonic {i} of the subtracted harmonics' for i in range(len_he)])
-    values = [str(const_ho)]
-    values.extend([str(f_ho[i]) for i in range(len_ho)])
-    values.extend([str(a_ho[i]) for i in range(len_ho)])
-    values.extend([str(ph_ho[i]) for i in range(len_ho)])
-    values.extend([str(f_he[i]) for i in range(len_he)])
-    values.extend([str(a_he[i]) for i in range(len_he)])
-    values.extend([str(ph_he[i]) for i in range(len_he)])
-    table = np.column_stack((var_names, values, var_desc))
-    split_name = os.path.splitext(os.path.basename(file_name))
-    file_id = split_name[0]  # the file name without extension
-    description = 'Eclipse timings and depths.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
-    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save the timings and parameters separately
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    d_1, d_2 = depths
     var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2',
-                 't_b_2_1', 't_b_2_2', 'c1_a', 'c1_b', 'c1_c', 'c1_d', 'c3_a', 'c3_b', 'c3_c', 'c3_d']
+                 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2']
     var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
@@ -1056,22 +958,18 @@ def save_results_hsep(const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, p_orb, t_z
                 'end of (flat) eclipse bottom right of primary minimum',
                 'start of (flat) eclipse bottom left of secondary minimum',
                 'end of (flat) eclipse bottom right of secondary minimum',
-                'cubic parameter a of eclipse 1', 'cubic parameter b of eclipse 1', 'cubic parameter c of eclipse 1',
-                'cubic parameter d of eclipse 1', 'cubic parameter a of eclipse 2', 'cubic parameter b of eclipse 2',
-                'cubic parameter c of eclipse 2', 'cubic parameter d of eclipse 2']
+                'depth of primary eclipse', 'depth of secondary eclipse']
     values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
-              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(par_c1[0]), str(par_c1[1]),
-              str(par_c1[2]), str(par_c1[3]), str(par_c3[0]), str(par_c3[1]), str(par_c3[2]), str(par_c3[3])]
+              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2)]
     table = np.column_stack((var_names, values, var_desc))
-    fn_ext = split_name[1]
-    file_name_2 = file_name.replace(fn_ext, '_timings' + fn_ext)
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = 'Eclipse timings and depths.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
-    np.savetxt(file_name_2, table, delimiter=',', fmt='%s', header=hdr)
+    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     return None
 
 
-def read_results_hsep(file_name):
+def read_results_cubics(file_name):
     """Read in the results of the harmonic separation
     
     Parameters
@@ -1081,52 +979,23 @@ def read_results_hsep(file_name):
     
     Returns
     -------
-    const_ho: numpy.ndarray[float]
-        Mean of the residual
-    f_ho: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_ho: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_ho: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    f_he: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_he: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_he: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
+    t_zero: float
+        Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
         timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    par_c1: tuple[float]
-        Cubic curve parameters of eclipse 1
-    par_c3: tuple[float]
-        Cubic curve parameters of eclipse 2
+    depths: numpy.ndarray[float]
+        Cubic curve primary and secondary eclipse depth
     """
-    var_names = np.loadtxt(file_name, usecols=(0,), delimiter=',', dtype=str, unpack=True)
-    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    # find out how many sinusoids
-    f_ho_names = var_names[np.char.startswith(var_names, 'f_') & np.char.endswith(var_names, 'o')]
-    len_ho = len(f_ho_names)
-    len_he = (len(var_names) - 1 - 3 * len_ho) // 3
-    const_ho = values[0]
-    f_ho = values[1:1 + len_ho]
-    a_ho = values[1 + len_ho:1 + 2 * len_ho]
-    ph_ho = values[1 + 2 * len_ho:1 + 3 * len_ho]
-    f_he = values[1 + 3 * len_ho:1 + 3 * len_ho + len_he]
-    a_he = values[1 + 3 * len_ho + len_he:1 + 3 * len_ho + 2 * len_he]
-    ph_he = values[1 + 3 * len_ho + 2 * len_he:1 + 3 * len_ho + 3 * len_he]
     # read second file
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_timings' + fn_ext)
-    values = np.loadtxt(file_name_2, usecols=(1,), delimiter=',', unpack=True)
-    timings = values[2:12]  # first two are p_orb and t_zero
-    par_c1 = values[12:16]
-    par_c3 = values[16:20]
-    return const_ho, f_ho, a_ho, ph_ho, f_he, a_he, ph_he, timings, par_c1, par_c3
+    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
+    t_zero = values[1]  # first one is p_orb
+    timings = values[2:12]
+    depths = values[12:]
+    return t_zero, timings, depths
 
 
 def save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id=None):
@@ -1841,7 +1710,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = results_9
         # get the low harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
-        low_h = (harmonic_n < 20)  # restrict harmonics to avoid interference of ooe signal
+        low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
         f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
     elif os.path.isfile(file_name_2):
         ecl_indices_9 = read_results_ecl_indices(file_name)
@@ -1851,20 +1720,13 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             del ecl_indices_9  # delete the empty array to not do the plot
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
-        results_10 = read_results_hsep(file_name)
-        const_ho_10, f_ho_10, a_ho_10, ph_ho_10, f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3 = results_10
+        results_10 = read_results_cubics(file_name)
+        t_zero_10, timings_10, depths_10 = results_10
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
-        results_11 = read_results_timings(file_name)
-        t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_11
-    elif os.path.isfile(file_name_2):
-        ecl_indices_11 = read_results_ecl_indices(file_name)
-    if os.path.isfile(file_name) | os.path.isfile(file_name_2):
-        ecl_indices_11 = np.atleast_2d(ecl_indices_11)
-        if (np.shape(ecl_indices_11)[1] == 0):
-            del ecl_indices_11  # delete the empty array to not do the plot
+        results_11 = read_results_t_errors(file_name)
+        # timings_11 are identical to timings_10, depths_10 are preferred over depths_11
+        timings_11, timing_errs_11, depths_11, depths_err_11 = results_11
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
         results_12 = read_results_elements(file_name)
@@ -1897,22 +1759,6 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if os.path.isfile(file_name):
         results_16b = read_results_fselect(file_name)
         pass_hr_sigma_2, pass_hr_snr_2, passed_hr_b_2 = results_16b
-    # use the same logic as in the main functions to decide between timings
-    try:
-        if np.any([item is None for item in results_11]):
-            if show:
-                print(f'Not enough eclipses found. Now using low-harmonics result.\n')
-            t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
-        elif (np.all(timings_11[[2, 3]] + t_zero_11 < timings_10[2] + t_zero_9)
-              | np.all(timings_11[[2, 3]] + t_zero_11 > timings_10[3] + t_zero_9)
-              | np.all(timings_11[[4, 5]] + t_zero_11 < timings_10[4] + t_zero_9)
-              | np.all(timings_11[[4, 5]] + t_zero_11 > timings_10[5] + t_zero_9)):
-            if show:
-                print(f'Eclipses do not correspond to their original locations. Now using empirical model results.\n')
-            t_zero_11, timings_11, depths_11, timing_errs_11, depths_err_11, ecl_indices_11 = results_9
-            timings_11 = timings_10
-    except NameError:
-        pass  # some variable wasn't loaded (file did not exist)
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1967,43 +1813,29 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives.png')
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, f_he_10, a_he_10, ph_he_10, ecl_indices_11,
-                                    save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_hsep.png')
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero_9, timings_9, const_8, slope_8,
-                                            f_n_8, a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
-                                            f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3, i_sectors,
-                                            save_file=file_name, show=False)
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_cubics.png')
+            vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
+                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
+                                        save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_10, timings_10, depths_10, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
                                            i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_sep.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
-                                           ph_he_10, i_sectors, save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
-            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
+            vis.plot_corner_eclipse_parameters(timings_10, depths_10, *dists_in_12, e_12, w_12, i_12,
                                                r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
                                                save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_lc_fit.png')
-            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                         f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
@@ -2027,27 +1859,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, f_he_10, a_he_10, ph_he_10, ecl_indices_11,
-                                    save_file=None, show=True)
+            vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
+                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
+                                        save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_harmonic_separation(times, signal, p_orb_8, t_zero_9, timings_9, const_8, slope_8,
-                                            f_n_8, a_n_8, ph_n_8, const_ho_10, f_ho_10, a_ho_10, ph_ho_10,
-                                            f_he_10, a_he_10, ph_he_10, timings_10, par_c1, par_c3, i_sectors,
-                                            save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_10, timings_10, depths_10, timing_errs_11,
                                            depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
                                            i_sectors, save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_11, timings_11, depths_11, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_he_10, a_he_10,
-                                           ph_he_10, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -2055,13 +1875,13 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_12, e_12, w_12, i_12,
+            vis.plot_corner_eclipse_parameters(timings_10, depths_10, *dists_in_12, e_12, w_12, i_12,
                                                r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
                                                save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                         f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
                                         save_file=None, show=True)
         except NameError:
@@ -2087,7 +1907,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model.png')
-            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
                                                passed_hr_b, par_opt1_13, model='simple',
                                                save_file=file_name, show=False)
@@ -2096,7 +1916,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model.png')
-            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
                                                passed_hr_b_2, par_opt2_13, model='ellc',
                                                save_file=file_name, show=False)
@@ -2105,7 +1925,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_simple_model.png')
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, const_8, slope_8, f_n_8, a_n_8,
                                                ph_n_8, noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b,
                                                par_opt1_13, i_sectors, model='simple', save_file=file_name, show=False)
         except NameError:
@@ -2113,7 +1933,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_ellc_model.png')
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, const_8, slope_8, f_n_8, a_n_8,
                                                ph_n_8, noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2,
                                                par_opt2_13, i_sectors, model='ellc', save_file=file_name, show=False)
         except NameError:
@@ -2130,25 +1950,25 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, f_n_r1, a_n_r1, ph_n_r1,
                                                passed_hr_b, par_opt1_13, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, timings_11, const_8, slope_8,
+            vis.plot_lc_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
                                                f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, f_n_r2, a_n_r2, ph_n_r2,
                                                passed_hr_b_2, par_opt2_13, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, const_8, slope_8, f_n_8, a_n_8,
                                                ph_n_8, noise_level_8, const_r1, f_n_r1, a_n_r1, passed_hr_b,
                                                par_opt1_13, i_sectors, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_11, const_8, slope_8, f_n_8, a_n_8,
+            vis.plot_pd_disentangled_harmonics(times, signal, p_orb_8, t_zero_10, const_8, slope_8, f_n_8, a_n_8,
                                                ph_n_8, noise_level_8, const_r2, f_n_r2, a_n_r2, passed_hr_b_2,
                                                par_opt2_13, i_sectors, model='ellc', save_file=None, show=True)
         except NameError:

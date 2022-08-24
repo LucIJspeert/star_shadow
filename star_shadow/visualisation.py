@@ -562,11 +562,9 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     return
 
 
-def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, const_ho, f_ho,
-                                a_ho, ph_ho, f_he, a_he, ph_he, timings_em, par_c1, par_c3, i_sectors,
-                                save_file=None, show=True):
-    """Shows the separation of the harmonics froming the eclipses and the ones
-    forming the out-of-eclipse harmonic variability.
+def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
+                            timings_em, depths_em, i_sectors, save_file=None, show=True):
+    """Shows the initial and final simple empirical cubic function eclipse model
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_1_em, t_2_em, t_1_1_em, t_1_2_em, t_2_1_em, t_2_2_em, t_b_1_1_em, t_b_1_2_em, t_b_2_1_em, t_b_2_2_em = timings_em
@@ -583,57 +581,27 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
-    model_ho = 1 + const_ho + tsf.sum_sines(t_model + t_zero, f_ho, a_ho, ph_ho)
-    model_ho_t = const_ho + tsf.sum_sines(times, f_ho, a_ho, ph_ho)
-    model_he = 1 + tsf.sum_sines(t_model + t_zero, f_he, a_he, ph_he)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal_1 = signal - model_nh - model_line + 1
-    ecl_signal_1 = np.concatenate((ecl_signal_1[ext_left], ecl_signal_1, ecl_signal_1[ext_right]))
-    ecl_signal_2 = signal - model_nh - model_ho_t - model_line + 1
-    ecl_signal_2 = np.concatenate((ecl_signal_2[ext_left], ecl_signal_2, ecl_signal_2[ext_right]))
+    ecl_signal = signal - model_nh - model_line + 1
+    ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     # determine a lc offset to match the model at the edges
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
     h_adjust = 1 - np.mean(signal)
     s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
-    h_adjust_2 = np.mean(ecl_signal_1) - np.mean(ecl_signal_2)
-    # plot
-    fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')
-    ax.scatter(t_extended, ecl_signal_2 + offset + h_adjust_2, marker='.', c='tab:orange',
-               label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
-    ax.plot(t_model, model_he + offset, c='tab:green', label='i.e.-harmonics')
-    ax.plot(t_model, model_h + offset, '--', c='tab:red', label='harmonics')
-    ax.plot(t_model, model_ho + offset, c='tab:purple', label='o.o.e.-harmonics')
-    # ax.plot(t_model, model_ho + model_he - 1, '--', c='tab:brown', label='o.o.e. + i.e. harmonics')
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
-    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
-    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:grey')
-    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:grey')
-    ax.plot([t_1_1_em, t_1_1_em], s_minmax, '--', c='tab:pink', label=r'eclipse edges (cubics)')
-    ax.plot([t_1_2_em, t_1_2_em], s_minmax, '--', c='tab:pink')
-    ax.plot([t_2_1_em, t_2_1_em], s_minmax, '--', c='tab:pink')
-    ax.plot([t_2_2_em, t_2_2_em], s_minmax, '--', c='tab:pink')
-    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
-    ax.set_ylabel('normalised flux', fontsize=14)
-    plt.legend(fontsize=12)
-    plt.tight_layout()
-    if save_file is not None:
-        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
-    # cubic model
+    # cubic model - get the parameters for the cubics from the fit parameters
+    par_c1 = tsf.cubic_pars_two_points(t_1_1, 0, t_b_1_1, -depths[0])
+    par_c3 = tsf.cubic_pars_two_points(t_2_1, 0, t_b_2_1, -depths[1])
+    model_ecl_init = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1, t_2, par_c1, par_c3)
+    par_c1 = tsf.cubic_pars_two_points(t_1_1_em, 0, t_b_1_1_em, -depths_em[0])
+    par_c3 = tsf.cubic_pars_two_points(t_2_1_em, 0, t_b_2_1_em, -depths_em[1])
     model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, par_c1, par_c3)
     # second plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_extended, ecl_signal_1 + offset, marker='.', label='signal minus non-harmonics and linear curve')
-    ax.scatter(t_extended, ecl_signal_2 + offset + h_adjust_2, marker='.', c='tab:orange',
-               label='signal minus non-harmonics, o.o.e.-harmonics and linear curve')
-    ax.plot(t_model, model_ecl + 1, c='tab:red', label='simple empirical eclipse model')
+    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='signal minus non-harmonics and linear curve')
+    ax.plot(t_model, model_ecl_init + 1, c='tab:green', label='initial simple empirical eclipse model')
+    ax.plot(t_model, model_ecl + 1, c='tab:red', label='final simple empirical eclipse model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:grey')
@@ -647,11 +615,7 @@ def plot_lc_harmonic_separation(times, signal, p_orb, t_zero, timings, const, sl
     plt.legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_em.png')
-        else:
-            fig_save_file = save_file + '_em.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:

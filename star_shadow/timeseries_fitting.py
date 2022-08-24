@@ -844,8 +844,29 @@ def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3):
     # get the timings of the cubic models
     c1_a, c1_b, c1_c, c1_d = par_c1
     c3_a, c3_b, c3_c, c3_d = par_c3
-    timings = ut.cubic_timings(mid_1, mid_2, par_c1, par_c3)
-    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings
+    # time of top and bottom cubic 1
+    c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
+    c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
+    if (c1_disc > 0) & (c1_infl_slope < 0):
+        t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+        t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+        t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    else:
+        t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
+    # time of top and bottom cubic 3
+    c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
+    c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
+    if (c3_disc > 0) & (c3_infl_slope < 0):
+        t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+        t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+        t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
+    else:
+        t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
+    # fix overlap at the bottom
+    if (t_c1_2 > t_c2_2):
+        t_c1_2, t_c2_2 = mid_1, mid_1
+    if (t_c3_2 > t_c4_2):
+        t_c3_2, t_c4_2 = mid_2, mid_2
     # fold the time series
     t_folded = (times - t_zero) % p_orb
     t_folded_adj = np.copy(t_folded)
@@ -899,7 +920,7 @@ def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
     params: numpy.ndarray[float]
         The parameters of a light curve model made of cubics.
         Has to be ordered in the following way:
-        [mid_1, mid_2, c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d]
+        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2]
     times: numpy.ndarray[float]
         Timestamps of the time-series
     signal: numpy.ndarray[float]
@@ -920,9 +941,11 @@ def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
     --------
     eclipse_lc_simple
     """
-    mid_1, mid_2, c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d = params
-    par_c1 = c1_a, c1_b, c1_c, c1_d
-    par_c3 = c3_a, c3_b, c3_c, c3_d
+    # midpoints, l.h.s. cubic time points, depths
+    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
+    # get the parameters for the cubics from the fit parameters
+    par_c1 = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
+    par_c3 = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
     # the model
     model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3)
     # determine likelihood for the model
@@ -1007,16 +1030,7 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
-    import matplotlib.pyplot as plt
-    plt.scatter(t_extended, ecl_signal + offset)
-    plt.scatter(t_extended[mask], ecl_signal[mask] + offset)
-    mid_1, mid_2, c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d = par_init
-    par_c1 = c1_a, c1_b, c1_c, c1_d
-    par_c3 = c3_a, c3_b, c3_c, c3_d
-    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3)
-    plt.scatter((times - t_zero) % p_orb, model)
-    
-    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, t_zero)
+    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
     result = sp.optimize.minimize(objective_cubic_lc, par_init, args=args, method='nelder-mead',
                                   options={'maxiter': 10000})
     if verbose:
