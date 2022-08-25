@@ -2326,27 +2326,12 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
-        if (len(w_interval) == 1):
-            w_interval = w_interval[0]
-            w_errs = np.array([w - w_interval[0], w_interval[1] - w])
-        else:
-            interval_size = w_interval[:, 1] - w_interval[:, 0]
-            sorter = np.argsort(interval_size)
-            w_interval = w_interval[sorter[-2:]]  # pick onyly the largest two intervals
-            # sign of (w - w_interval) only changes if w is in the interval
-            w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
-            w_errs = np.array([w - w_interval[w_in_interval][0, 0], w_interval[w_in_interval][0, 1] - w])
-        if (len(w_bounds) == 1):
-            w_bounds = w_bounds[0]
-        else:
-            bounds_size = w_bounds[:, 1] - w_bounds[:, 0]
-            sorter = np.argsort(bounds_size)
-            w_bounds = w_bounds[sorter[-2:]]  # pick onyly the largest two intervals
     else:
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
-        w_errs = np.array([min(abs(w - w_interval[0]), abs(2*np.pi + w - w_interval[0])),
-                           min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
+    w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
+    w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
+    w_errs = np.array([w - w_inter[0], w_inter[1] - w])
     # r_sum_sma
     rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
     rsumsma_bounds = arviz.hdi(rsumsma_vals, hdi_prob=0.997)

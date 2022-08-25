@@ -80,14 +80,38 @@ def bounds_multiplicity_check(bounds, value):
         Bounds that contain the value
     bounds_2: numpy.ndarray[float], None
         Bounds that do not contain the value
+    
+    Notes
+    -----
+    If the value is not contained within one of the bounds
+    the closest bounds are taken in terms of interval width.
     """
     if hasattr(bounds[0], '__len__'):
-        if (len(bounds) > 1):
-            sign_change = np.sign((value - bounds[:, 0]) * (bounds[:, 1] - value))
-            bounds_1 = bounds[sign_change == 1][0]
-            bounds_2 = bounds[sign_change == -1][0]
-        else:
+        if (len(bounds) == 1):
             bounds_1 = bounds[0]
+            bounds_2 = None
+        elif (len(bounds) > 1):
+            # sign only changes if w is not in the interval
+            sign_change = np.sign((value - bounds[:, 0]) * (bounds[:, 1] - value) == 1)
+            if np.any(sign_change):
+                bounds_1 = bounds[sign_change][0]
+                bounds_2 = bounds[sign_change == False]
+            else:
+                # take the closest bounds (in terms of bound width)
+                width = bounds[:, 1] - bounds[:, 0]
+                mid = (bounds[:, 0] + bounds[:, 1]) / 2
+                distance = np.abs(value - mid) / width
+                closest = (distance == np.min(distance))
+                bounds_1 = bounds[closest][0]
+                bounds_2 = bounds[closest == False]
+            # if bounds_2 still contains multiple bounds, pick the largest one
+            if (len(bounds_2) == 1):
+                bounds_2 = bounds_2[0]
+            else:
+                width = bounds_2[:, 1] - bounds_2[:, 0]
+                bounds_2 = bounds_2[np.argmax(width)]
+        else:
+            bounds_1 = None
             bounds_2 = None
     else:
         bounds_1 = bounds
