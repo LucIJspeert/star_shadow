@@ -591,12 +591,10 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     h_adjust = 1 - np.mean(signal)
     s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
     # cubic model - get the parameters for the cubics from the fit parameters
-    par_c1 = tsf.cubic_pars_two_points(t_1_1, 0, t_b_1_1, -depths[0])
-    par_c3 = tsf.cubic_pars_two_points(t_2_1, 0, t_b_2_1, -depths[1])
-    model_ecl_init = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1, t_2, par_c1, par_c3)
-    par_c1 = tsf.cubic_pars_two_points(t_1_1_em, 0, t_b_1_1_em, -depths_em[0])
-    par_c3 = tsf.cubic_pars_two_points(t_2_1_em, 0, t_b_2_1_em, -depths_em[1])
-    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, par_c1, par_c3)
+    model_ecl_init = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1, t_2, t_1_1, t_2_1,
+                                               t_b_1_1, t_b_2_1, depths[0], depths[1])
+    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+                                          t_b_1_1_em, t_b_2_1_em, depths_em[0], depths_em[1])
     # second plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='signal minus non-harmonics and linear curve')

@@ -809,7 +809,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
 
 
 @nb.njit(cache=True)
-def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3):
+def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -826,10 +826,22 @@ def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3):
         Time of mid eclipse 1
     mid_2: float
         Time of mid eclipse 2
-    par_c1: tuple[float]
-        Cubic curve parameters of eclipse 1 (a, b, c, d)
-    par_c3: tuple[float]
-        Cubic curve parameters of eclipse 2 (a, b, c, d)
+    t_c1_1: float
+        Time of local maximum in cubic, eclipse 1
+    t_c3_1: float
+        Time of local maximum in cubic, eclipse 2
+    t_c1_2: float
+        Time of local minimum in cubic, eclipse 1
+        May be to the left of the middle
+    t_c3_2: float
+        Time of local minimum in cubic, eclipse 2
+        May be to the left of the middle
+    d_1: float
+        Height difference between local cubic extrema,
+        May not correspond directly to the depths of eclipse 1
+    d_2: float
+        Height difference between local cubic extrema,
+        May not correspond directly to the depths of eclipse 2
 
     Returns
     -------
@@ -841,61 +853,62 @@ def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3):
     The timings are deduced from the cubic curves in case the discriminant
     is positive and the slope at the inflection point has the right sign.
     """
-    # get the timings of the cubic models
-    c1_a, c1_b, c1_c, c1_d = par_c1
-    c3_a, c3_b, c3_c, c3_d = par_c3
-    # time of top and bottom cubic 1
-    c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
-    c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
-    if (c1_disc > 0) & (c1_infl_slope < 0):
-        t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-        t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-        t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    else:
-        t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
-    # time of top and bottom cubic 3
-    c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
-    c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
-    if (c3_disc > 0) & (c3_infl_slope < 0):
-        t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-        t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-        t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    else:
-        t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
-    # fix overlap at the bottom
-    if (t_c1_2 > t_c2_2):
-        t_c1_2, t_c2_2 = mid_1, mid_1
-    if (t_c3_2 > t_c4_2):
-        t_c3_2, t_c4_2 = mid_2, mid_2
+    # # get the timings of the cubic models
+    # c1_a, c1_b, c1_c, c1_d = par_c1
+    # c3_a, c3_b, c3_c, c3_d = par_c3
+    # # time of top and bottom cubic 1
+    # c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
+    # c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
+    # if (c1_disc > 0) & (c1_infl_slope < 0):
+    #     t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+    #     t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
+    #     t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    # else:
+    #     t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
+    # # time of top and bottom cubic 3
+    # c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
+    # c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
+    # if (c3_disc > 0) & (c3_infl_slope < 0):
+    #     t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+    #     t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
+    #     t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
+    # else:
+    #     t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
+    # # fix overlap at the bottom
+    # if (t_c1_2 > t_c2_2):
+    #     t_c1_2, t_c2_2 = mid_1, mid_1
+    # if (t_c3_2 > t_c4_2):
+    #     t_c3_2, t_c4_2 = mid_2, mid_2
+    # get the parameters for the cubics from the fit parameters
+    c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
+    c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
+    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
     # fold the time series
     t_folded = (times - t_zero) % p_orb
     t_folded_adj = np.copy(t_folded)
     t_folded_adj[t_folded > p_orb + t_c1_1] -= p_orb  # stick eclipse 1 back together
     # make masks for the right time intervals
-    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj <= t_c1_2)
-    mask_2 = (t_folded_adj >= t_c2_2) & (t_folded_adj <= t_c2_1)
-    mask_3 = (t_folded >= t_c3_1) & (t_folded <= t_c3_2)
-    mask_4 = (t_folded >= t_c4_2) & (t_folded <= t_c4_1)
+    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < min(t_c1_2, mid_1))
+    mask_2 = (t_folded_adj > max(t_c2_2, mid_1)) & (t_folded_adj <= t_c2_1)
+    mask_3 = (t_folded >= t_c3_1) & (t_folded < min(t_c3_2, mid_2))
+    mask_4 = (t_folded > max(t_c4_2, mid_2)) & (t_folded <= t_c4_1)
     cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d)
     cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d)
     cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d)
     cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d)
     # maxima and minima
-    if (len(cubic_1) > 0):
-        min_1, max_1 = np.min(cubic_1), np.max(cubic_1)
-    else:
-        min_1, max_1 = 0, 0
-    if (len(cubic_3) > 0):
-        min_3, max_3 = np.min(cubic_3), np.max(cubic_3)
-    else:
-        min_3, max_3 = 0, 0
+    max_1 = tsf.cubic_curve(t_c1_1, c1_a, c1_b, c1_c, c1_d)
+    min_1 = tsf.cubic_curve(min(t_c1_2, mid_1), c1_a, c1_b, c1_c, c1_d)
+    max_3 = tsf.cubic_curve(t_c3_1, c3_a, c3_b, c3_c, c3_d)
+    min_3 = tsf.cubic_curve(min(t_c3_2, mid_2), c3_a, c3_b, c3_c, c3_d)
     # make connecting lines
     mask_12 = (t_folded > t_c2_1) & (t_folded < t_c3_1)  # from 1 to 2
     mask_21 = (t_folded > t_c4_1) & (t_folded < t_c1_1 + p_orb)  # from 2 to 1
     line_12 = np.zeros(len(t_folded[mask_12]))
     line_21 = np.zeros(len(t_folded[mask_21]))
-    mask_b_1 = (t_folded_adj > t_c1_2) & (t_folded_adj < t_c2_2)
-    mask_b_2 = (t_folded > t_c3_2) & (t_folded < t_c4_2)
+    mask_b_1 = (t_folded_adj >= min(t_c1_2, mid_1)) & (t_folded_adj <= max(t_c2_2, mid_1))
+    mask_b_2 = (t_folded >= min(t_c3_2, mid_2)) & (t_folded <= max(t_c4_2, mid_2))
     line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * min_1 - max_1
     line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * min_3 - max_3
     # stick together the eclipse model (for t_folded_adj)
@@ -943,18 +956,15 @@ def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
     """
     # midpoints, l.h.s. cubic time points, depths
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
-    # get the parameters for the cubics from the fit parameters
-    par_c1 = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
-    par_c3 = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
     # the model
-    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, par_c1, par_c3)
+    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # determine likelihood for the model
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     return -ln_likelihood
 
 
-def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                      par_init, i_sectors, verbose=False):
+def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
+                      i_sectors, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
 
@@ -975,6 +985,8 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
         Eclipse timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    depths: numpy.ndarray[float]
+        Measurements of the elcipse depths in units of a_n
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -985,10 +997,6 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    par_init: tuple[float], list[float], numpy.ndarray[float]
-        The parameters of a light curve model made of cubics.
-        Has to be ordered in the following way:
-        [c1_a, c1_b, c1_c, c1_d, c3_a, c3_b, c3_c, c3_d]
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -1030,6 +1038,9 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
+    mid_1 = (t_1_1 + t_1_2) / 2
+    mid_2 = (t_2_1 + t_2_2) / 2
+    par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depths[0], depths[1]])
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
     result = sp.optimize.minimize(objective_cubic_lc, par_init, args=args, method='nelder-mead',
                                   options={'maxiter': 10000})
