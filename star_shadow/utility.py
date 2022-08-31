@@ -92,7 +92,7 @@ def bounds_multiplicity_check(bounds, value):
             bounds_2 = None
         elif (len(bounds) > 1):
             # sign only changes if w is not in the interval
-            sign_change = np.sign((value - bounds[:, 0]) * (bounds[:, 1] - value) == 1)
+            sign_change = (np.sign((value - bounds[:, 0]) * (bounds[:, 1] - value)) == 1)
             if np.any(sign_change):
                 bounds_1 = bounds[sign_change][0]
                 bounds_2 = bounds[sign_change == False]
@@ -943,7 +943,7 @@ def read_results_timings(file_name):
     return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
 
 
-def save_results_cubics(p_orb, t_zero, timings_em, depths_em, timings, depths, file_name, data_id=None):
+def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None):
     """Save the results of the cubic model fit
     
     Parameters
@@ -952,20 +952,10 @@ def save_results_cubics(p_orb, t_zero, timings_em, depths_em, timings, depths, f
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
-    timings_em: numpy.ndarray[float]
-        Eclipse timings from the empirical model.
-        Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency,
-        note that these may sometimes surpass the eclipse middle).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths_em: numpy.ndarray[float]
-        Cubic curve height difference between local extrema,
-        will not always correspond to primary and secondary eclipse depth
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency.
+        timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
@@ -980,22 +970,11 @@ def save_results_cubics(p_orb, t_zero, timings_em, depths_em, timings, depths, f
     None
     """
     # save the timings and parameters separately
-    t_1_em, t_2_em, t_1_1_em, t_1_2_em, t_2_1_em, t_2_2_em, t_b_1_1_em, t_b_1_2_em, t_b_2_1_em, t_b_2_2_em = timings_em
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    d_1_em, d_2_em = depths_em
     d_1, d_2 = depths
-    var_names = ['p_orb', 't_0', 't_1_em', 't_2_em', 't_1_1_em', 't_1_2_em', 't_2_1_em', 't_2_2_em',
-                 't_b_1_1_em', 't_b_1_2_em', 't_b_2_1_em', 't_b_2_2_em', 'depth_1_em', 'depth_2_em',
-                 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
-                 'depth_1', 'depth_2']
+    var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
+                 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2']
     var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
-                'empirical model mid eclipse 1', 'empirical model mid eclipse 2',
-                'first cubic curve local maximum eclipse 1', 'second cubic curve local maximum eclipse 1',
-                'first cubic curve local maximum eclipse 2', 'second cubic curve local maximum eclipse 2',
-                'first cubic curve local minimum eclispe 1', 'second cubic curve local minimum eclispe 1',
-                'first cubic curve local minimum eclispe 2', 'second cubic curve local minimum eclispe 2',
-                'height difference between cubic curve local extrema eclipse 1',
-                'height difference between cubic curve local extrema eclipse 2',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -1004,9 +983,7 @@ def save_results_cubics(p_orb, t_zero, timings_em, depths_em, timings, depths, f
                 'start of (flat) eclipse bottom left of secondary minimum',
                 'end of (flat) eclipse bottom right of secondary minimum',
                 'depth of primary eclipse', 'depth of secondary eclipse']
-    values = [str(p_orb), str(t_zero), str(t_1_em), str(t_2_em), str(t_1_1_em), str(t_1_2_em),
-              str(t_2_1_em), str(t_2_2_em), str(t_b_1_1_em), str(t_b_1_2_em), str(t_b_2_1_em), str(t_b_2_2_em),
-              str(d_1_em), str(d_2_em), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
+    values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2)]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
@@ -1040,11 +1017,9 @@ def read_results_cubics(file_name):
     # read second file
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     t_zero = values[1]  # first one is p_orb
-    timings_em = values[2:12]
-    depths_em = values[12:14]
-    timings = values[14:24]
-    depths = values[24:]
-    return t_zero, timings_em, depths_em, timings, depths
+    timings = values[2:12]
+    depths = values[12:]
+    return t_zero, timings, depths
 
 
 def save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id=None):
@@ -1770,7 +1745,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
         results_10 = read_results_cubics(file_name)
-        t_zero_10, timings_em_10, depths_em_10, timings_10, depths_10 = results_10
+        t_zero_10, timings_10, depths_10 = results_10
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
         results_11 = read_results_t_errors(file_name)
@@ -1864,7 +1839,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_cubics.png')
             vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, timings_em_10, depths_em_10, i_sectors,
+                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1909,7 +1884,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, timings_em_10, depths_em_10, i_sectors,
+                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
                                         save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

@@ -832,13 +832,13 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
     depths_em: numpy.ndarray[float]
         Cubic curve height difference between local extrema,
         will not always correspond to primary and secondary eclipse depth
-    timings_em_adj: numpy.ndarray[float]
+    timings_em: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
         timings of the possible flat bottom (internal tangency.
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths_em_adj: numpy.ndarray[float]
+    depths_em: numpy.ndarray[float]
         Cubic curve primary and secondary eclipse depth
 
     Notes
@@ -853,7 +853,7 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
     if os.path.isfile(file_name) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
-        t_zero_em, timings_em, depths_em, timings_em_adj, depths_em_adj = ut.read_results_cubics(file_name)
+        t_zero_em, timings_em, depths_em = ut.read_results_cubics(file_name)
     else:
         if verbose:
             print(f'Improving timings and depths with cubic model')
@@ -872,48 +872,43 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
         t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
         t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
         t_zero_em = t_zero + mid_1  # shift everything so that mid_1 is zero
-        timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2]) - mid_1
         depths_em = np.array([d_1, d_2])
         # adjust the parameters to more physical measures
-        timings_em_adj = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
-        timings_em_adj[6:10] = [min(t_c1_2, mid_1), max(t_c2_2, mid_1), min(t_c3_2, mid_2), max(t_c4_2, mid_2)]
-        timings_em_adj = timings_em_adj - mid_1
-        depths_em_adj = tsfit.eclipse_cubic_model(np.array([mid_1, mid_2]), p_orb, 0, mid_1, mid_2,
-                                                  t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-        depths_em_adj = np.abs(depths_em_adj)
+        timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
+        timings_em[6:10] = [min(t_c1_2, mid_1), max(t_c2_2, mid_1), min(t_c3_2, mid_2), max(t_c4_2, mid_2)]
+        timings_em = timings_em - mid_1
         if file_name is not None:
-            ut.save_results_cubics(p_orb, t_zero_em, timings_em, depths_em, timings_em_adj, depths_em_adj,
-                                   file_name, data_id=data_id)
+            ut.save_results_cubics(p_orb, t_zero_em, timings_em, depths_em, file_name, data_id=data_id)
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
-        dur_1, dur_2 = (timings_em_adj[3] - timings_em_adj[2]), (timings_em_adj[5] - timings_em_adj[4])
-        dur_b_1, dur_b_2 = (timings_em_adj[7] - timings_em_adj[6]), (timings_em_adj[9] - timings_em_adj[8])
+        dur_1, dur_2 = (timings_em[3] - timings_em[2]), (timings_em[5] - timings_em[4])
+        dur_b_1, dur_b_2 = (timings_em[7] - timings_em[6]), (timings_em[9] - timings_em[8])
         rnd_t_zero = ut.decimal_figures(t_zero_em, 2)
-        rnd_t_1 = ut.decimal_figures(timings_em_adj[0], 2)
-        rnd_t_2 = ut.decimal_figures(timings_em_adj[1], 2)
-        rnd_t_1_1 = ut.decimal_figures(timings_em_adj[2], 2)
-        rnd_t_1_2 = ut.decimal_figures(timings_em_adj[3], 2)
-        rnd_t_2_1 = ut.decimal_figures(timings_em_adj[4], 2)
-        rnd_t_2_2 = ut.decimal_figures(timings_em_adj[5], 2)
+        rnd_t_1 = ut.decimal_figures(timings_em[0], 2)
+        rnd_t_2 = ut.decimal_figures(timings_em[1], 2)
+        rnd_t_1_1 = ut.decimal_figures(timings_em[2], 2)
+        rnd_t_1_2 = ut.decimal_figures(timings_em[3], 2)
+        rnd_t_2_1 = ut.decimal_figures(timings_em[4], 2)
+        rnd_t_2_2 = ut.decimal_figures(timings_em[5], 2)
         rnd_dur_1 = ut.decimal_figures(dur_1, 2)
         rnd_dur_2 = ut.decimal_figures(dur_2, 2)
         rnd_bot_1 = ut.decimal_figures(dur_b_1, 2)
         rnd_bot_2 = ut.decimal_figures(dur_b_2, 2)
-        rnd_d_1 = ut.decimal_figures(depths_em_adj[0], 2)
-        rnd_d_2 = ut.decimal_figures(depths_em_adj[1], 2)
+        rnd_d_1 = ut.decimal_figures(depths_em[0], 2)
+        rnd_d_2 = ut.decimal_figures(depths_em[1], 2)
         print(f'\033[1;32;48mOptimised empirical cubic model:\033[0m')
         print(f'\033[0;32;48mt_zero: {t_zero_em:.{rnd_t_zero}f}, '
-              f't_1: {timings_em_adj[0]:.{rnd_t_1}f}, t_2: {timings_em_adj[1]:.{rnd_t_2}f}, \n'
-              f't_1_1: {timings_em_adj[2]:.{rnd_t_1_1}f}, t_1_2: {timings_em_adj[3]:.{rnd_t_1_2}f}, \n'
-              f't_2_1: {timings_em_adj[4]:.{rnd_t_2_1}f}, t_2_2: {timings_em_adj[5]:.{rnd_t_2_2}f}, \n'
+              f't_1: {timings_em[0]:.{rnd_t_1}f}, t_2: {timings_em[1]:.{rnd_t_2}f}, \n'
+              f't_1_1: {timings_em[2]:.{rnd_t_1_1}f}, t_1_2: {timings_em[3]:.{rnd_t_1_2}f}, \n'
+              f't_2_1: {timings_em[4]:.{rnd_t_2_1}f}, t_2_2: {timings_em[5]:.{rnd_t_2_2}f}, \n'
               f'duration_1: {dur_1:.{rnd_dur_1}f}, duration_2: {dur_2:.{rnd_dur_2}f}. \n'
-              f't_b_1_1: {timings_em_adj[6]:.{rnd_t_1_1}f}, t_b_1_2: {timings_em_adj[7]:.{rnd_t_1_2}f}, \n'
-              f't_b_2_1: {timings_em_adj[8]:.{rnd_t_2_1}f}, t_b_2_2: {timings_em_adj[9]:.{rnd_t_2_2}f}, \n'
+              f't_b_1_1: {timings_em[6]:.{rnd_t_1_1}f}, t_b_1_2: {timings_em[7]:.{rnd_t_1_2}f}, \n'
+              f't_b_2_1: {timings_em[8]:.{rnd_t_2_1}f}, t_b_2_2: {timings_em[9]:.{rnd_t_2_2}f}, \n'
               f'bottom_dur_1: {dur_b_1:.{rnd_bot_1}f}, bottom_dur_2: {dur_b_2:.{rnd_bot_2}f}. \n'
-              f'd_1: {depths_em_adj[0]:.{rnd_d_1}f}, d_2: {depths_em_adj[1]:.{rnd_d_2}f}. \n'
+              f'd_1: {depths_em[0]:.{rnd_d_1}f}, d_2: {depths_em[1]:.{rnd_d_2}f}. \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return t_zero_em, timings_em, depths_em, timings_em_adj, depths_em_adj
+    return t_zero_em, timings_em, depths_em
 
 
 def eclipse_analysis_timing_err(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, p_err,
@@ -1362,7 +1357,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     out_10 = eclipse_analysis_cubics(times, signal, signal_err, p_orb_8, t_zero_9, timings_9, const_8, slope_8,
                                      f_n_8, a_n_8, ph_n_8, i_sectors, file_name=file_name, data_id=data_id,
                                      overwrite=overwrite, verbose=verbose)
-    t_zero_10, timings_em_10, depths_em_10, timings_10, depths_10 = out_10
+    t_zero_10, timings_10, depths_10 = out_10
     # --- [11] --- Timing and depth error estimates
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_timing_err(times, signal, signal_err, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
@@ -1751,7 +1746,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     # load t_zero from the timings file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     if os.path.isfile(file_name):
-        t_zero_10, timings_em_10, depths_em_10, timings_10, depths_10 = ut.read_results_cubics(file_name)
+        t_zero_10, timings_10, depths_10 = ut.read_results_cubics(file_name)
     else:
         if verbose:
             print('No timing results found')

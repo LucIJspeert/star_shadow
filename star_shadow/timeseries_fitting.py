@@ -853,33 +853,8 @@ def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1
     The timings are deduced from the cubic curves in case the discriminant
     is positive and the slope at the inflection point has the right sign.
     """
-    # # get the timings of the cubic models
-    # c1_a, c1_b, c1_c, c1_d = par_c1
-    # c3_a, c3_b, c3_c, c3_d = par_c3
-    # # time of top and bottom cubic 1
-    # c1_infl_slope = c1_c - (c1_b**2 / (3 * c1_a))  # slope at inflection point of cubic 1
-    # c1_disc = c1_b**2 - 3 * c1_a * c1_c  # not actually the full discriminant
-    # if (c1_disc > 0) & (c1_infl_slope < 0):
-    #     t_c1_1 = (-c1_b - np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-    #     t_c1_2 = (-c1_b + np.sign(c1_a) * np.sqrt(c1_disc)) / (3 * c1_a)
-    #     t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    # else:
-    #     t_c1_1, t_c1_2, t_c2_1, t_c2_2 = mid_1, mid_1, mid_1, mid_1  # no eclipse
-    # # time of top and bottom cubic 3
-    # c3_infl_slope = c3_c - (c3_b**2 / (3 * c3_a))  # slope at inflection point of cubic 3
-    # c3_disc = c3_b**2 - 3 * c3_a * c3_c  # not actually the full discriminant
-    # if (c3_disc > 0) & (c3_infl_slope < 0):
-    #     t_c3_1 = (-c3_b - np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-    #     t_c3_2 = (-c3_b + np.sign(c3_a) * np.sqrt(c3_disc)) / (3 * c3_a)
-    #     t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    # else:
-    #     t_c3_1, t_c3_2, t_c4_1, t_c4_2 = mid_2, mid_2, mid_2, mid_2  # no eclipse
-    # # fix overlap at the bottom
-    # if (t_c1_2 > t_c2_2):
-    #     t_c1_2, t_c2_2 = mid_1, mid_1
-    # if (t_c3_2 > t_c4_2):
-    #     t_c3_2, t_c4_2 = mid_2, mid_2
     # get the parameters for the cubics from the fit parameters
+    t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)  # do not surpass middle
     c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
     c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
     t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
