@@ -1473,102 +1473,6 @@ def read_results_fselect(file_name):
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def save_results_disentangle(const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2, file_name,
-                             data_id=None):
-    """Save the results of disentangling the harmonics from the eclipse model
-    
-    Parameters
-    ----------
-    const_r1: numpy.ndarray[float]
-        Mean of the residual
-    f_n_r1: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_n_r1: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_n_r1: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    const_r2: numpy.ndarray[float]
-        Mean of the residual
-    f_n_r2: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_n_r2: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_n_r2: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    file_name: str, None
-        File name (including path) for saving the results.
-    data_id: int, str, None
-        Identification for the dataset used
-    
-    Returns
-    -------
-    None
-    """
-    # save the first model
-    table = np.column_stack((np.arange(len(f_n_r1)+1), np.append([0], f_n_r1), np.append([const_r1], a_n_r1),
-                             np.append([0], ph_n_r1)))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
-    description = f'Disentangelment of harmonics using simple lc model'
-    hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
-    np.savetxt(file_name, table, delimiter=',', header=hdr)
-    # save the second model
-    table = np.column_stack((np.arange(len(f_n_r2)+1), np.append([0], f_n_r2), np.append([const_r2], a_n_r2),
-                             np.append([0], ph_n_r2)))
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ellc' + fn_ext)
-    description = f'Disentangelment of harmonics using ellc lc model'
-    hdr = f'{file_id}, {data_id}, {description}\nn, f_n_r, a_n_r, ph_n_r'
-    np.savetxt(file_name_2, table, delimiter=',', header=hdr)
-    return None
-
-
-def read_results_disentangle(file_name):
-    """Read in the results of disentangling the harmonics from the eclipse model
-    
-    Parameters
-    ----------
-    file_name: str, None
-        File name (including path) for loading the results.
-    
-    Returns
-    -------
-    const_r1: numpy.ndarray[float]
-        Mean of the residual
-    f_n_r1: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_n_r1: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_n_r1: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    const_r2: numpy.ndarray[float]
-        Mean of the residual
-    f_n_r2: numpy.ndarray[float]
-        Frequencies of a number of harmonic sine waves
-    a_n_r2: numpy.ndarray[float]
-        Amplitudes of a number of harmonic sine waves
-    ph_n_r2: numpy.ndarray[float]
-        Phases of a number of harmonic sine waves
-    """
-    results = np.loadtxt(file_name, usecols=(1, 2, 3), delimiter=',', unpack=True)
-    if (len(np.shape(results)) == 2):
-        const_r1 = results[1, 0]
-        f_n_r1, a_n_r1, ph_n_r1 = results[:, 1:]
-    else:
-        const_r1 = 0
-        f_n_r1, a_n_r1, ph_n_r1 = np.array([[], [], []])
-    # read in the second model
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ellc' + fn_ext)
-    results = np.loadtxt(file_name_2, usecols=(1, 2, 3), delimiter=',', unpack=True)
-    if (len(np.shape(results)) == 2):
-        const_r2 = results[1, 0]
-        f_n_r2, a_n_r2, ph_n_r2 = results[:, 1:]
-    else:
-        const_r2 = 0
-        f_n_r2, a_n_r2, ph_n_r2 = np.array([[], [], []])
-    return const_r1, f_n_r1, a_n_r1, ph_n_r1, const_r2, f_n_r2, a_n_r2, ph_n_r2
-
-
 def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, show=False):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
@@ -1786,16 +1690,22 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     # frequency_analysis
     if save_dir is not None:
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_full_pd.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_pd_full.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
                                     show=False)
             if np.any([len(fs) != 0 for fs in f_n_i]):
                 plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
-                plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
-                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
+                plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'), eval(f'f_n_{plot_nr}'),
+                             eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                         f'tic_{tic}_frequency_analysis_output_{plot_nr}.png')
-                vis.plot_lc_full_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
+                                         f'tic_{tic}_frequency_analysis_lc_output_{plot_nr}.png')
+                vis.plot_lc_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
+                title = 'Initial and residual periodogram'
+                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                         f'tic_{tic}_frequency_analysis_pd_output_{plot_nr}.png')
+                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], eval(f'f_n_{plot_nr}'),
+                             eval(f'a_n_{plot_nr}')]
+                vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
@@ -1803,7 +1713,6 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                          f'tic_{tic}_frequency_analysis_harmonics_{plot_nr}.png')
                 vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
-
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
@@ -1813,7 +1722,11 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                 plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
                 plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-                vis.plot_lc_full_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
+                vis.plot_lc_single_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
+                title = 'Initial and residual periodogram'
+                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], eval(f'f_n_{plot_nr}'),
+                             eval(f'a_n_{plot_nr}')]
+                vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
                 plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
@@ -1865,7 +1778,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_ellc_corner.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner_lc_fit.png')
             vis.plot_corner_lc_fit_pars(par_init_12, par_opt1_13, par_opt2_13, dists_out_12,
                                         save_file=file_name, show=False)
         except NameError:

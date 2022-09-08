@@ -25,8 +25,8 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, bic, i_sectors, title, zoom=None,
-                          annotate=False, save_file=None, show=True):
+def plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, title, n_param=None, bic=None,
+                                zoom=None, annotate=False, save_file=None, show=True):
     """Plot the periodogram with the output of one frequency analysis step.
     Primarily meant for the visualisation of the extraction process.
     """
@@ -38,6 +38,10 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
     err = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
     a_height = np.max(ampls)
     a_width = np.max(freqs)
+    if (n_param is not None) & (bic is not None):
+        model_text = f'(n_param: {n_param}, BIC: {bic:1.2f})'
+    else:
+        model_text = ''
     # plotting
     fig = plt.figure(figsize=(16, 9))
     fig.suptitle(title, fontsize=14)
@@ -46,8 +50,9 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
     ax0 = fig.add_subplot(fgrid[0])
     ax1 = fig.add_subplot(fsubgrid[0])
     ax2 = fig.add_subplot(fsubgrid[1], sharex=ax1)
-    ax0.text(0.5, 0.95, f'(n_param: {n_param}, BIC: {bic:1.2f})', fontsize=14, horizontalalignment='center',
-             verticalalignment='center', transform=ax0.transAxes)
+    if model_text is not '':
+        ax0.text(0.5, 0.95, model_text, fontsize=14, horizontalalignment='center',
+                 verticalalignment='center', transform=ax0.transAxes)
     ax0.plot(freqs, ampls, label='signal')
     ax0.plot(freqs_r, ampls_r, label=f'residual')
     for i in range(len(f_n)):
@@ -84,12 +89,47 @@ def plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, 
                               head_width=0.005 * a_width_ins, width=0.005 * a_width_ins, color='blue',
                               head_starts_at_zero=False)
         ax0_ins.set_xlim(zoom[0], zoom[1])
-        ax0_ins.text(0.5, 0.95, f'(n_param: {n_param}, BIC: {bic:1.2f})', fontsize=14, ha='center', va='center',
-                     transform=ax0.transAxes)
+        if model_text is not '':
+            ax0_ins.text(0.5, 0.95, model_text, fontsize=14, ha='center', va='center',
+                         transform=ax0.transAxes)
         ax0.indicate_inset_zoom(ax0_ins, edgecolor="black")
     else:
-        ax0.text(0.5, 0.95, f'(n_param: {n_param}, BIC: {bic:1.2f})', fontsize=14, ha='center', va='center',
-                 transform=ax0.transAxes)
+        if model_text is not '':
+            ax0.text(0.5, 0.95, model_text, fontsize=14, ha='center', va='center',
+                     transform=ax0.transAxes)
+    if save_file is not None:
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return
+
+
+def plot_pd_single_output(times, signal, model, p_orb, f_n, a_n, i_half_s, save_file=None, show=True):
+    """Plot the periodogram with one output of the analysis recipe."""
+    # make periodograms
+    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model - np.all(model == 0) * np.mean(signal))
+    # get error values
+    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
+    # plot
+    fig, ax = plt.subplots(figsize=(16, 9))
+    ax.plot(freqs, ampls, label='signal')
+    if (len(f_n) > 0):
+        ax.plot(freqs_r, ampls_r, label='residual')
+    if (p_orb > 0):
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+        p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
+        ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(ampls)], xerr=[0, p_err / p_orb**2],
+                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
+    for i in range(len(f_n)):
+        ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
+                    linestyle=':', capsize=2, c='tab:red')
+    plt.xlabel('frequency (1/d)', fontsize=14)
+    plt.ylabel('amplitude', fontsize=14)
+    plt.legend(fontsize=12)
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -182,7 +222,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     return
 
 
-def plot_lc_full_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
+def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
     model = tsf.linear_curve(times, const, slope, i_half_s)
@@ -207,7 +247,8 @@ def plot_lc_full_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, s
 
 
 
-def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
+def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, annotate=True,
+                               save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
     model_line = tsf.linear_curve(times, const, slope, i_half_s)
@@ -232,9 +273,9 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_2.png')
+            fig_save_file = save_file.replace('.png', '_1.png')
         else:
-            fig_save_file = save_file + '_2.png'
+            fig_save_file = save_file + '_1.png'
         plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
@@ -254,17 +295,18 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     for i in range(len(f_n[non_harm])):
         ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]],
                     xerr=[0, errors[2][non_harm][i]], yerr=[0, errors[3][non_harm][i]],
-                    linestyle=':', capsize=2, c='tab:orange')
-        ax.annotate(f'{i+1}', (f_n[non_harm][i], a_n[non_harm][i]))
+                    linestyle=':', capsize=2, c='tab:red')
+        if annotate:
+            ax.annotate(f'{i+1}', (f_n[non_harm][i], a_n[non_harm][i]))
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_3.png')
+            fig_save_file = save_file.replace('.png', '_2.png')
         else:
-            fig_save_file = save_file + '_3.png'
+            fig_save_file = save_file + '_2.png'
         plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
@@ -282,17 +324,18 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     for i in range(len(f_n[harmonics])):
         ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]],
                     xerr=[0, errors[2][harmonics][i]], yerr=[0, errors[3][harmonics][i]],
-                    linestyle=':', capsize=2, c='tab:orange')
-        ax.annotate(f'{i+1}', (f_n[harmonics][i], a_n[harmonics][i]))
+                    linestyle=':', capsize=2, c='tab:red')
+        if annotate:
+            ax.annotate(f'{i+1}', (f_n[harmonics][i], a_n[harmonics][i]))
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_4.png')
+            fig_save_file = save_file.replace('.png', '_3.png')
         else:
-            fig_save_file = save_file + '_4.png'
+            fig_save_file = save_file + '_3.png'
         plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
@@ -1579,6 +1622,6 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
                 title = f'Iteration {iteration}'
                 f_name = os.path.join(save_dir, f'vis_step_1_iteration_{iteration}.png')
                 xlim = None
-        plot_pd_single_output(times, signal, const, slope, f_n, a_n, ph_n, n_param, bic, i_half_s, title,
-                              zoom=xlim, annotate=False, save_file=f_name, show=False)
+        plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, title, n_param=n_param, bic=bic,
+                                    zoom=xlim, annotate=False, save_file=f_name, show=False)
     return
