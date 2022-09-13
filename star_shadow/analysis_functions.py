@@ -1323,7 +1323,6 @@ def contact_angles_radii(phi, e, w, i, r_sum_sma, ecl=1, contact=1):
     """
     sin_i_2 = np.sin(i)**2
     term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
-    term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
     if (ecl == 1) & (contact == 1):
         term_2 = - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w + phi))
     elif (ecl == 1) & (contact == 2):
