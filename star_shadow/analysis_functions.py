@@ -1204,12 +1204,10 @@ def delta_deriv(theta, e, w, i):
     at primary eclipse (eclipse maximum), or near pi to get it for the secondary eclipse.
     """
     sin_i_2 = np.sin(i)**2
-    sin_t = np.sin(theta)
-    cos_t = np.cos(theta)
     # previous (identical except for a factor 1/2 which doesn't matter because it equals zero) formula, from Kopal 1959
     # term_1 = (1 - e * np.sin(theta - w)) * sin_i_2 * np.sin(2*theta)
     # term_2 = 2 * e * np.cos(theta - w) * (1 - np.cos(theta)**2 * sin_i_2)
-    minimize = e * np.cos(w) * (1 - sin_i_2) * cos_t + sin_i_2 * cos_t * sin_t + e * np.sin(w) * sin_t
+    minimize = e * np.cos(theta - w) + sin_i_2 * np.cos(theta) * (np.sin(theta) - e * np.cos(w))
     return minimize
 
 

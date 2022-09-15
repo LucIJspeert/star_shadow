@@ -1738,7 +1738,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     # make the eclipse models
     ecl_model_simple = tsfit.eclipse_lc_simple(times, p_orb_9, t_zero_11, *par_opt1_14)
     ecl_model_ellc = tsfit.ellc_lc_simple(times, p_orb_9, t_zero_11, *par_opt2_14, 0)
-    # --- [14] --- Eclipse model disentangling
+    # --- [15] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     out_15 = pulsation_analysis_disentangle(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11,
                                             const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name,
@@ -1749,7 +1749,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
                                              const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name,
                                              data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_15b
-    # --- [15] --- Frequency selection
+    # --- [16] --- Frequency selection
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
     out_16 = pulsation_analysis_fselect(times, signal, ecl_model_simple, f_n_r1, a_n_r1, ph_n_r1, noise_level_9,
                                         i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
@@ -1760,10 +1760,10 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
                                          i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
                                          verbose=verbose)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_16b
-    # --- [16] --- Frequency selection f_n_r
-    # todo: determine which residual frequencies are consistent with harmonics
-    # --- [17] --- Amplitude modulation
-    # todo: use wavelet transform or smth to see which star is pulsating
+    # --- [17] --- Harmonics in the residuals
+    # determine which residual frequencies are consistent with harmonics
+    # --- [18] --- Amplitude modulation
+    # use wavelet transform or smth to see which star is pulsating
     return out_15, out_16, out_16b
 
 
