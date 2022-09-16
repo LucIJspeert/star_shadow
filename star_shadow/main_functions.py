@@ -57,54 +57,31 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     # also check the number of harmonics at each period and include into best f
     n_harm, completeness, distance = af.harmonic_series_length(1/periods, f_n, freq_res)
     psi_h_measure = psi_measure * n_harm * completeness
-    
-    import matplotlib.pyplot as plt
-    # plt.scatter(periods, psi_measure)
-    # plt.scatter(periods, n_harm * completeness)
-    # plt.scatter(periods, psi_h_measure)
-    # plt.scatter(periods, phase_disp)
     # go from best to worst period, skipping those with only 1 harmonic
     sorter = np.argsort(psi_h_measure)[::-1]  # descending order
     for i in sorter:
-        # todo: only double if p not longer than timeseries (and maybe not even double here...?)
         base_p = periods[i]
-        print(base_p)
-        f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
-        p_refine_1, phase_disp_1 = tsf.phase_dispersion_minimisation(times, signal, f_refine, local=True)
-        p_refine_2, phase_disp_2 = tsf.phase_dispersion_minimisation(times, signal, f_refine/2, local=True)
-        # plt.scatter(1/f_refine, phase_disp)
-        # plt.scatter(2/f_refine, phase_disp_2)
-        # then refine by using a dense sampling
+        # refine by using a dense sampling
         f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
         n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res)
         h_measure = n_harm_r * completeness_r
         mask_peak = (h_measure == np.max(h_measure))
         p_orb = 1 / f_refine[mask_peak][np.argmin(distance_r[mask_peak])]
-
-        n_harm_r2, completeness_r2, distance_r2 = af.harmonic_series_length(f_refine/2, f_n, freq_res)
-        h_measure2 = n_harm_r2 * completeness_r2
-        plt.scatter(1/f_refine, h_measure/phase_disp_1)
-        plt.scatter(2/f_refine, h_measure2/phase_disp_2)
-        plt.scatter(1/f_refine, 1/phase_disp_1)
-        plt.scatter(2/f_refine, 1/phase_disp_2)
         # check that we have at least one of the first three harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        print(p_orb)
         if (not 1 in harmonic_n) & (not 2 in harmonic_n) & (not 3 in harmonic_n):
             continue
         # try to find out whether we need to double the period
         model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
         sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
         peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
-        if (len(peaks) == 1):
+        if (len(peaks) == 1) & (2 * p_orb < t_tot):
             p_orb = 2 * p_orb
         # if we have too few harmonics, try the next period, else stop
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        print(p_orb, '\n')
         if (len(harmonics) > 2):
             break
         
-        # # todo: only double if p not longer than timeseries
         # base_p = periods[i]
         # print(base_p)
         # # check if there is a harmonic series at double the period
@@ -112,7 +89,7 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
         # check_h = (1 in harmonic_n) | (3 in harmonic_n) | (5 in harmonic_n)
         # odd_h = np.sum(harmonic_n % 2)  # number of harmonics in between
         # check_len = (odd_h > 5) | (odd_h > n_harm[i] / 2.1)  # at least five of more than half-ish the original n_harm
-        # if check_h & check_len:
+        # if check_h & check_len & (2 * base_p < t_tot):
         #     base_p = 2 * base_p
         # print(base_p)
         # # then refine by using a dense sampling
@@ -130,15 +107,13 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
         # model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
         # sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
         # peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
-        # if (len(peaks) == 1):
+        # if (len(peaks) == 1) & (2 * p_orb < t_tot):
         #     p_orb = 2 * p_orb
         # # if we have too few harmonics, try the next period, else stop
         # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
         # print(p_orb, '\n')
         # if (len(harmonics) > 2):
         #     break
-    
-    raise
     return p_orb
 
 
@@ -684,7 +659,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_9, bic_9, np.std(signal - model_9))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
         desc = '[9] Second multi-sine NL-LS fit results with coupled harmonics.'
-        ut.save_rsults(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
         # save final freqs and linear curve in ascii format
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9_sinusoid.csv')
         data = np.column_stack((f_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9))

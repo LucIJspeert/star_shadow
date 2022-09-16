@@ -911,7 +911,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
         return (None,) * 9  # No eclipse signatures found above the noise level
-    ecl_peaks = np.argsort(props['prominences'])[-8:]  # 8 or less (most prominent) peaks
+    # 12 or less (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
+    ecl_peaks = np.argsort(props['prominences'])[-12:]
     peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
     # walk outward from peaks_1 to zero in deriv_1
