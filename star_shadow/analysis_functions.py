@@ -1502,7 +1502,7 @@ def radius_sum_from_phi0(e, i, phi_0):
     r_sum_sma: float, numpy.ndarray[float]
         Sum of radii in units of the semi-major axis
     """
-    r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)
+    r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)  # (1 - e**2) not srt as in Kopal
     r_sum_sma = max(r_sum_sma, 0)  # prevent it going below zero (i.e. for e>1)
     return r_sum_sma
 
@@ -1745,8 +1745,6 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     # obtain phi_0 and the approximate e and w
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     e, w = ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi_0)
-    # psi_0
-    psi_0 = np.pi * (tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) / (2 * p_orb)
     if (e >= 1):
         return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)

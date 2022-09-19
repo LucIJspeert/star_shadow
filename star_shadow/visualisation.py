@@ -478,62 +478,67 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     """
     # 0.864 second steps if we work in days and per day units, as with the measure_eclipses_dt function
     t_model = np.linspace(0, 2 * p_orb, 10**6)
-    # get the right time points
-    peaks_1_l = t_model[ecl_indices[:, 3]]
-    zeros_1_l = t_model[ecl_indices[:, 0]]
-    peaks_2_n_l = t_model[ecl_indices[:, 2]]
-    minimum_1_l = t_model[ecl_indices[:, 1]]
-    peaks_2_p_l = t_model[ecl_indices[:, 4]]
-    zeros_1_in_l = t_model[ecl_indices[:, 5]]
-    minimum_0 = t_model[ecl_indices[:, 6]]
-    zeros_1_in_r = t_model[ecl_indices[:, -6]]
-    peaks_2_p_r = t_model[ecl_indices[:, -5]]
-    minimum_1_r = t_model[ecl_indices[:, -2]]
-    peaks_2_n_r = t_model[ecl_indices[:, -3]]
-    zeros_1_r = t_model[ecl_indices[:, -1]]
-    peaks_1_r = t_model[ecl_indices[:, -4]]
-    # get the corresponding heights
-    he_peaks_1_l = tsf.sum_sines(peaks_1_l, f_he, a_he, ph_he)
-    he_zeros_1_l = tsf.sum_sines(zeros_1_l, f_he, a_he, ph_he)
-    he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_he, a_he, ph_he)
-    he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_he, a_he, ph_he)
-    he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_he, a_he, ph_he)
-    he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_he, a_he, ph_he)
-    he_minimum_0 = tsf.sum_sines(minimum_0, f_he, a_he, ph_he)
-    he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_he, a_he, ph_he)
-    he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_he, a_he, ph_he)
-    he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_he, a_he, ph_he)
-    he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_he, a_he, ph_he)
-    he_zeros_1_r = tsf.sum_sines(zeros_1_r, f_he, a_he, ph_he)
-    he_peaks_1_r = tsf.sum_sines(peaks_1_r, f_he, a_he, ph_he)
-    # deriv 1
-    h1e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=1)
-    h1e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=1)
-    h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=1)
-    h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=1)
-    h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=1)
-    h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=1)
-    h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=1)
-    h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=1)
-    h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=1)
-    h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=1)
-    h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=1)
-    h1e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=1)
-    h1e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=1)
-    # deriv 2
-    h2e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=2)
-    h2e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=2)
-    h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=2)
-    h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=2)
-    h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=2)
-    h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=2)
-    h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=2)
-    h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=2)
-    h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=2)
-    h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=2)
-    h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=2)
-    h2e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=2)
-    h2e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=2)
+    eclipses = False
+    if (len(ecl_indices) > 0):
+        if (np.shape(ecl_indices)[1] > 0):
+            eclipses = True
+    if eclipses:
+        # get the right time points
+        peaks_1_l = t_model[ecl_indices[:, 3]]
+        zeros_1_l = t_model[ecl_indices[:, 0]]
+        peaks_2_n_l = t_model[ecl_indices[:, 2]]
+        minimum_1_l = t_model[ecl_indices[:, 1]]
+        peaks_2_p_l = t_model[ecl_indices[:, 4]]
+        zeros_1_in_l = t_model[ecl_indices[:, 5]]
+        minimum_0 = t_model[ecl_indices[:, 6]]
+        zeros_1_in_r = t_model[ecl_indices[:, -6]]
+        peaks_2_p_r = t_model[ecl_indices[:, -5]]
+        minimum_1_r = t_model[ecl_indices[:, -2]]
+        peaks_2_n_r = t_model[ecl_indices[:, -3]]
+        zeros_1_r = t_model[ecl_indices[:, -1]]
+        peaks_1_r = t_model[ecl_indices[:, -4]]
+        # get the corresponding heights
+        he_peaks_1_l = tsf.sum_sines(peaks_1_l, f_he, a_he, ph_he)
+        he_zeros_1_l = tsf.sum_sines(zeros_1_l, f_he, a_he, ph_he)
+        he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_he, a_he, ph_he)
+        he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_he, a_he, ph_he)
+        he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_he, a_he, ph_he)
+        he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_he, a_he, ph_he)
+        he_minimum_0 = tsf.sum_sines(minimum_0, f_he, a_he, ph_he)
+        he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_he, a_he, ph_he)
+        he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_he, a_he, ph_he)
+        he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_he, a_he, ph_he)
+        he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_he, a_he, ph_he)
+        he_zeros_1_r = tsf.sum_sines(zeros_1_r, f_he, a_he, ph_he)
+        he_peaks_1_r = tsf.sum_sines(peaks_1_r, f_he, a_he, ph_he)
+        # deriv 1
+        h1e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=1)
+        h1e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=1)
+        h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=1)
+        h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=1)
+        h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=1)
+        h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=1)
+        h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=1)
+        h1e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=1)
+        # deriv 2
+        h2e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=2)
+        h2e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=2)
+        h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=2)
+        h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=2)
+        h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=2)
+        h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=2)
+        h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=2)
+        h2e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=2)
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.arange(0, 2 * p_orb + 0.0001, 0.0001)  # this is 10x fewer points, thus much faster
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
@@ -546,54 +551,57 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
     fig, ax = plt.subplots(nrows=3, sharex=True, figsize=(16, 9))
     ax[0].plot(t_model, model_he)
     ax[0].plot(t_model, model_h, c='grey', alpha=0.4)
-    ax[0].scatter(peaks_1_l, he_peaks_1_l, c='tab:blue', marker='o', label='peaks_1')
-    ax[0].scatter(peaks_1_r, he_peaks_1_r, c='tab:blue', marker='o')
-    ax[0].scatter(zeros_1_l, he_zeros_1_l, c='tab:orange', marker='>', label='zeros_1')
-    ax[0].scatter(zeros_1_r, he_zeros_1_r, c='tab:orange', marker='<')
-    ax[0].scatter(peaks_2_n_l, he_peaks_2_n_l, c='tab:green', marker='v', label='peaks_2_n')
-    ax[0].scatter(peaks_2_n_r, he_peaks_2_n_r, c='tab:green', marker='v')
-    ax[0].scatter(minimum_1_l, he_minimum_1_l, c='tab:red', marker='d', label='minimum_1')
-    ax[0].scatter(minimum_1_r, he_minimum_1_r, c='tab:red', marker='d')
-    ax[0].scatter(peaks_2_p_l, he_peaks_2_p_l, c='tab:purple', marker='^', label='peaks_2_p')
-    ax[0].scatter(peaks_2_p_r, he_peaks_2_p_r, c='tab:purple', marker='^')
-    ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
-    ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
-    ax[0].scatter(minimum_0, he_minimum_0, c='tab:brown', marker='|', label='minimum_0')
+    if eclipses:
+        ax[0].scatter(peaks_1_l, he_peaks_1_l, c='tab:blue', marker='o', label='peaks_1')
+        ax[0].scatter(peaks_1_r, he_peaks_1_r, c='tab:blue', marker='o')
+        ax[0].scatter(zeros_1_l, he_zeros_1_l, c='tab:orange', marker='>', label='zeros_1')
+        ax[0].scatter(zeros_1_r, he_zeros_1_r, c='tab:orange', marker='<')
+        ax[0].scatter(peaks_2_n_l, he_peaks_2_n_l, c='tab:green', marker='v', label='peaks_2_n')
+        ax[0].scatter(peaks_2_n_r, he_peaks_2_n_r, c='tab:green', marker='v')
+        ax[0].scatter(minimum_1_l, he_minimum_1_l, c='tab:red', marker='d', label='minimum_1')
+        ax[0].scatter(minimum_1_r, he_minimum_1_r, c='tab:red', marker='d')
+        ax[0].scatter(peaks_2_p_l, he_peaks_2_p_l, c='tab:purple', marker='^', label='peaks_2_p')
+        ax[0].scatter(peaks_2_p_r, he_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
+        ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
+        ax[0].scatter(minimum_0, he_minimum_0, c='tab:brown', marker='|', label='minimum_0')
     ax[0].set_ylabel(r'$\mathscr{l}$', fontsize=14)
     ax[0].legend()
     ax[1].plot(t_model, deriv_1e)
     ax[1].plot(t_model, deriv_1, c='grey', alpha=0.4)
     ax[1].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
-    ax[1].scatter(peaks_1_l, h1e_peaks_1_l, c='tab:blue', marker='o')
-    ax[1].scatter(peaks_1_r, h1e_peaks_1_r, c='tab:blue', marker='o')
-    ax[1].scatter(zeros_1_l, h1e_zeros_1_l, c='tab:orange', marker='>')
-    ax[1].scatter(zeros_1_r, h1e_zeros_1_r, c='tab:orange', marker='<')
-    ax[1].scatter(peaks_2_n_l, h1e_peaks_2_n_l, c='tab:green', marker='v')
-    ax[1].scatter(peaks_2_n_r, h1e_peaks_2_n_r, c='tab:green', marker='v')
-    ax[1].scatter(minimum_1_l, h1e_minimum_1_l, c='tab:red', marker='d')
-    ax[1].scatter(minimum_1_r, h1e_minimum_1_r, c='tab:red', marker='d')
-    ax[1].scatter(peaks_2_p_l, h1e_peaks_2_p_l, c='tab:purple', marker='^')
-    ax[1].scatter(peaks_2_p_r, h1e_peaks_2_p_r, c='tab:purple', marker='^')
-    ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
-    ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
-    ax[1].scatter(minimum_0, h1e_minimum_0, c='tab:brown', marker='|')
+    if eclipses:
+        ax[1].scatter(peaks_1_l, h1e_peaks_1_l, c='tab:blue', marker='o')
+        ax[1].scatter(peaks_1_r, h1e_peaks_1_r, c='tab:blue', marker='o')
+        ax[1].scatter(zeros_1_l, h1e_zeros_1_l, c='tab:orange', marker='>')
+        ax[1].scatter(zeros_1_r, h1e_zeros_1_r, c='tab:orange', marker='<')
+        ax[1].scatter(peaks_2_n_l, h1e_peaks_2_n_l, c='tab:green', marker='v')
+        ax[1].scatter(peaks_2_n_r, h1e_peaks_2_n_r, c='tab:green', marker='v')
+        ax[1].scatter(minimum_1_l, h1e_minimum_1_l, c='tab:red', marker='d')
+        ax[1].scatter(minimum_1_r, h1e_minimum_1_r, c='tab:red', marker='d')
+        ax[1].scatter(peaks_2_p_l, h1e_peaks_2_p_l, c='tab:purple', marker='^')
+        ax[1].scatter(peaks_2_p_r, h1e_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
+        ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
+        ax[1].scatter(minimum_0, h1e_minimum_0, c='tab:brown', marker='|')
     ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$', fontsize=14)
     ax[2].plot(t_model, deriv_2e)
     ax[2].plot(t_model, deriv_2,  c='grey', alpha=0.4)
     ax[2].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
-    ax[2].scatter(peaks_1_l, h2e_peaks_1_l, c='tab:blue', marker='o')
-    ax[2].scatter(peaks_1_r, h2e_peaks_1_r, c='tab:blue', marker='o')
-    ax[2].scatter(zeros_1_l, h2e_zeros_1_l, c='tab:orange', marker='>')
-    ax[2].scatter(zeros_1_r, h2e_zeros_1_r, c='tab:orange', marker='<')
-    ax[2].scatter(peaks_2_n_l, h2e_peaks_2_n_l, c='tab:green', marker='v')
-    ax[2].scatter(peaks_2_n_r, h2e_peaks_2_n_r, c='tab:green', marker='v')
-    ax[2].scatter(minimum_1_l, h2e_minimum_1_l, c='tab:red', marker='d')
-    ax[2].scatter(minimum_1_r, h2e_minimum_1_r, c='tab:red', marker='d')
-    ax[2].scatter(peaks_2_p_l, h2e_peaks_2_p_l, c='tab:purple', marker='^')
-    ax[2].scatter(peaks_2_p_r, h2e_peaks_2_p_r, c='tab:purple', marker='^')
-    ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
-    ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
-    ax[2].scatter(minimum_0, h2e_minimum_0, c='tab:brown', marker='|')
+    if eclipses:
+        ax[2].scatter(peaks_1_l, h2e_peaks_1_l, c='tab:blue', marker='o')
+        ax[2].scatter(peaks_1_r, h2e_peaks_1_r, c='tab:blue', marker='o')
+        ax[2].scatter(zeros_1_l, h2e_zeros_1_l, c='tab:orange', marker='>')
+        ax[2].scatter(zeros_1_r, h2e_zeros_1_r, c='tab:orange', marker='<')
+        ax[2].scatter(peaks_2_n_l, h2e_peaks_2_n_l, c='tab:green', marker='v')
+        ax[2].scatter(peaks_2_n_r, h2e_peaks_2_n_r, c='tab:green', marker='v')
+        ax[2].scatter(minimum_1_l, h2e_minimum_1_l, c='tab:red', marker='d')
+        ax[2].scatter(minimum_1_r, h2e_minimum_1_r, c='tab:red', marker='d')
+        ax[2].scatter(peaks_2_p_l, h2e_peaks_2_p_l, c='tab:purple', marker='^')
+        ax[2].scatter(peaks_2_p_r, h2e_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
+        ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
+        ax[2].scatter(minimum_0, h2e_minimum_0, c='tab:brown', marker='|')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$', fontsize=14)
     plt.tight_layout()
     if save_file is not None:

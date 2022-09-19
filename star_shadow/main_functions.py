@@ -564,9 +564,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
         else:
             p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5
-            n_param_7 = n_param_5
-            model_7 = np.copy(model_7)
-            bic_7 = tsf.calc_bic((signal - model_7)/signal_err, n_param_7)
+            model_7 = np.copy(model_5)
+            bic_7 = tsf.calc_bic((signal - model_7)/signal_err, n_param_4)
             if verbose:
                 print(f'\033[1;32;48mNo frequencies added, so no additional fit needed.\033[0m')
     # ----------------------------------------------------------------------

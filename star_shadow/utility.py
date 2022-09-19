@@ -1624,71 +1624,90 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
         n_param_8, bic_8, noise_level_8 = 0, 0, 0
         model_8 = np.zeros(len(times))
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
+    if os.path.isfile(file_name):
+        results, errors, stats = read_results(file_name, verbose=False)
+        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
+        p_orb_9 = p_orb_9[0]  # must be a float
+        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
+        n_param_9, bic_9, noise_level_9 = stats
+        model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
+        model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
+        f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
+    else:
+        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = np.array([[], [], [], [], [], []])
+        p_orb_9 = 0
+        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = np.array([[], [], [], [], [], []])
+        n_param_9, bic_9, noise_level_9 = 0, 0, 0
+        model_9 = np.zeros(len(times))
     # stick together for sending to plot function
-    models = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8]
-    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_8]
-    f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8]
-    a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8]
+    models = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9]
+    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_7, p_orb_9]
+    f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8, f_n_9]
+    a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8, a_n_9]
+    # get the low harmonics
+    if (len(f_n_9) > 0):
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
+        if (len(harmonics) > 0):
+            low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
+            f_hl_9, a_hl_9, ph_hl_9 = f_n_9[harmonics[low_h]], a_n_9[harmonics[low_h]], ph_n_9[harmonics[low_h]]
     # open some more data - timings, harmonic separation, eclipse parameters
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
-        results_9 = read_results_timings(file_name)
-        t_zero_9, timings_9, depths_9, timing_errs_9, depths_err_9, ecl_indices_9 = results_9
-        # get the low harmonics
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_8, f_tol=1e-9)
-        low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
-        f_hl_8, a_hl_8, ph_hl_8 = f_n_8[harmonics[low_h]], a_n_8[harmonics[low_h]], ph_n_8[harmonics[low_h]]
+        results_10 = read_results_timings(file_name)
+        t_zero_10, timings_10, depths_10, timing_errs_10, depths_err_10, ecl_indices_10 = results_10
     elif os.path.isfile(file_name_2):
-        ecl_indices_9 = read_results_ecl_indices(file_name)
+        ecl_indices_10 = read_results_ecl_indices(file_name)
     if os.path.isfile(file_name) | os.path.isfile(file_name_2):
-        ecl_indices_9 = np.atleast_2d(ecl_indices_9)
-        if (len(ecl_indices_9) == 0):
-            del ecl_indices_9  # delete the empty array to not do the plot
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    if os.path.isfile(file_name):
-        results_10 = read_results_cubics(file_name)
-        t_zero_10, timings_10, depths_10 = results_10
+        ecl_indices_10 = np.atleast_2d(ecl_indices_10)
+        if (len(ecl_indices_10) == 0):
+            del ecl_indices_10  # delete the empty array to not do the plot
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
-        results_11 = read_results_t_errors(file_name)
-        # timings_11 are identical to timings_10, depths_10 are preferred over depths_11
-        timings_11, timing_errs_11, depths_11, depths_err_11 = results_11
+        results_11 = read_results_cubics(file_name)
+        t_zero_11, timings_11, depths_11 = results_11
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     if os.path.isfile(file_name):
-        results_12 = read_results_elements(file_name)
-        e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12 = results_12[:6]
-        errors_12, bounds_12, formal_errors_12, dists_in_12, dists_out_12 = results_12[6:]
-        # intervals_w #? for when the interval is disjoint
-    # open some more data - ellc fits and pulsation analysis
+        results_12 = read_results_t_errors(file_name)
+        # timings_12 are identical to timings_11, depths_11 are preferred over depths_12
+        timings_12, timing_errs_12, depths_12, depths_err_12 = results_12
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
-        par_init_12, par_opt1_13, par_opt2_13 = read_results_lc_fit(file_name)
-        par_simple = np.copy(par_opt1_13)
-        par_simple[0] = par_opt1_13[0] * np.cos(par_opt1_13[1])
-        par_simple[1] = par_opt1_13[0] * np.sin(par_opt1_13[1])
-        par_ellc = np.copy(par_opt2_13)
-        par_ellc[0] = np.sqrt(par_opt2_13[0]) * np.cos(par_opt2_13[1])
-        par_ellc[1] = np.sqrt(par_opt2_13[0]) * np.sin(par_opt2_13[1])
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14_2.hdf5')
+        results_13 = read_results_elements(file_name)
+        e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13 = results_13[:6]
+        errors_13, bounds_13, formal_errors_13, dists_in_13, dists_out_13 = results_13[6:]
+        # intervals_w #? for when the interval is disjoint
+    # open some more data - ellc fits and pulsation analysis
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     if os.path.isfile(file_name):
-        results_14 = read_results(file_name, verbose=False)
-        results, errors, stats = results_14
+        par_init_13, par_opt1_14, par_opt2_14 = read_results_lc_fit(file_name)
+        par_simple = np.copy(par_opt1_14)
+        par_simple[0] = par_opt1_14[0] * np.cos(par_opt1_14[1])
+        par_simple[1] = par_opt1_14[0] * np.sin(par_opt1_14[1])
+        par_ellc = np.copy(par_opt2_14)
+        par_ellc[0] = np.sqrt(par_opt2_14[0]) * np.cos(par_opt2_14[1])
+        par_ellc[1] = np.sqrt(par_opt2_14[0]) * np.sin(par_opt2_14[1])
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_2.hdf5')
+    if os.path.isfile(file_name):
+        results_15 = read_results(file_name, verbose=False)
+        results, errors, stats = results_15
         _, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = results
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14_ellc_2.hdf5')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_ellc_2.hdf5')
     if os.path.isfile(file_name):
-        results_14b = read_results(file_name, verbose=False)
-        results, errors, stats = results_14b
+        results_15b = read_results(file_name, verbose=False)
+        results, errors, stats = results_15b
         _, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = results
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
     if os.path.isfile(file_name):
-        results_15 = read_results_fselect(file_name)
-        pass_r_sigma, pass_r_snr, passed_r_b = results_15
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_ellc.csv')
+        results_16 = read_results_fselect(file_name)
+        pass_r_sigma, pass_r_snr, passed_r_b = results_16
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
     if os.path.isfile(file_name):
-        results_15b = read_results_fselect(file_name)
-        pass_r_sigma_2, pass_r_snr_2, passed_r_b_2 = results_15b
+        results_16b = read_results_fselect(file_name)
+        pass_r_sigma_2, pass_r_snr_2, passed_r_b_2 = results_16b
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1740,179 +1759,187 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives_lh.png')
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9,
+            vis.plot_lc_derivatives(p_orb_9, f_h_9, a_h_9, ph_h_9, f_hl_9, a_hl_9, ph_hl_9, ecl_indices_10,
                                     save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
-                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
-                                           ph_hl_8, i_sectors, save_file=file_name, show=False)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timing_errs_10,
+                                           depths_err_10, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_hl_9, a_hl_9,
+                                           ph_hl_9, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_cubics.png')
-            vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
+            vis.plot_lc_empirical_model(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, const_9, slope_9,
+                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_10, timings_10, depths_10, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timing_errs_12,
+                                           depths_err_12, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
                                            i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
-            vis.plot_corner_eclipse_parameters(timings_10, depths_10, *dists_in_12, e_12, w_12, i_12,
-                                               r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
+            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_13, e_13, w_13, i_13,
+                                               r_sum_sma_13, r_ratio_13, sb_ratio_13, *dists_out_13,
                                                save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no dynamic range for some variable
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_lc_fit.png')
-            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
+                                        f_n_9, a_n_9, ph_n_9, par_init_13, par_opt1_14, par_opt2_14, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner_lc_fit.png')
-            vis.plot_corner_lc_fit_pars(par_init_12, par_opt1_13, par_opt2_13, dists_out_12,
+            vis.plot_corner_lc_fit_pars(par_init_13, par_opt1_14, par_opt2_14, dists_out_13,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no dynamic range for some variable
     if show:
         try:
-            vis.plot_lc_derivatives(p_orb_8, f_h_8, a_h_8, ph_h_8, f_hl_8, a_hl_8, ph_hl_8, ecl_indices_9,
+            vis.plot_lc_derivatives(p_orb_9, f_h_9, a_h_9, ph_h_9, f_hl_9, a_hl_9, ph_hl_9, ecl_indices_10,
                                     save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, timing_errs_9,
-                                           depths_err_9, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_hl_8, a_hl_8,
-                                           ph_hl_8, i_sectors, save_file=None, show=True)
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timing_errs_10,
+                                           depths_err_10, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_hl_9, a_hl_9,
+                                           ph_hl_9, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_empirical_model(times, signal, p_orb_8, t_zero_9, timings_9, depths_9, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, timings_10, depths_10, i_sectors,
+            vis.plot_lc_empirical_model(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, const_9, slope_9,
+                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, i_sectors,
                                         save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_8, t_zero_10, timings_10, depths_10, timing_errs_11,
-                                           depths_err_11, const_8, slope_8, f_n_8, a_n_8, ph_n_8, f_h_8, a_h_8, ph_h_8,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timing_errs_12,
+                                           depths_err_12, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
                                            i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_dists_eclipse_parameters(e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12)
+            vis.plot_dists_eclipse_parameters(e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13, *dists_out_13)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_eclipse_parameters(timings_10, depths_10, *dists_in_12, e_12, w_12, i_12,
-                                               r_sum_sma_12, r_ratio_12, sb_ratio_12, *dists_out_12,
+            vis.plot_corner_eclipse_parameters(timings_11, depths_11, *dists_in_13, e_13, w_13, i_13,
+                                               r_sum_sma_13, r_ratio_13, sb_ratio_13, *dists_out_13,
                                                save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no dynamic range for some variable
         try:
-            vis.plot_lc_light_curve_fit(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
-                                        f_n_8, a_n_8, ph_n_8, par_init_12, par_opt1_13, par_opt2_13, i_sectors,
+            vis.plot_lc_light_curve_fit(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
+                                        f_n_9, a_n_9, ph_n_9, par_init_13, par_opt1_14, par_opt2_14, i_sectors,
                                         save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_lc_fit_pars(par_init_12, par_opt1_13, par_opt2_13, dists_out_12, save_file=None, show=True)
+            vis.plot_corner_lc_fit_pars(par_init_13, par_opt1_14, par_opt2_14, dists_out_13, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no dynamic range for some variable
     # pulsation_analysis
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                             a_n_8, ph_n_8, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                             passed_r_b, par_opt1_13, model='simple', save_file=file_name, show=False)
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                             passed_r_b, par_opt1_14, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                             a_n_8, ph_n_8, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                             passed_r_b_2, par_opt2_13, model='ellc', save_file=file_name, show=False)
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                             passed_r_b_2, par_opt2_14, model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model.png')
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
-                                           f_n_8, a_n_8, ph_n_8, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                           passed_r_b, par_opt1_13, model='simple', save_file=file_name, show=False)
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
+                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                           passed_r_b, par_opt1_14, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model.png')
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8,
-                                           f_n_8, a_n_8, ph_n_8, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                           passed_r_b_2, par_opt2_13, model='ellc', save_file=file_name, show=False)
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
+                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                           passed_r_b_2, par_opt2_14, model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_simple_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_8, t_zero_10, noise_level_8, const_r1, slope_r1,
-                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_13, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r1, slope_r1,
+                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_14, i_sectors,
                                            model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_ellc_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_8, t_zero_10, noise_level_8, const_r2, slope_r2,
-                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_13, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r2, slope_r2,
+                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_14, i_sectors,
                                            model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                             a_n_8, ph_n_8, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                             passed_r_b, par_opt1_13, model='simple', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                             passed_r_b, par_opt1_14, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                             a_n_8, ph_n_8, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                             passed_r_b_2, par_opt2_13, model='ellc', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                             passed_r_b_2, par_opt2_14, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                           a_n_8, ph_n_8, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                           passed_r_b, par_opt1_13, model='simple', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                           a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
+                                           passed_r_b, par_opt1_14, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_8, t_zero_10, timings_10, const_8, slope_8, f_n_8,
-                                           a_n_8, ph_n_8, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                           passed_r_b_2, par_opt2_13, model='ellc', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                           a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
+                                           passed_r_b_2, par_opt2_14, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_8, t_zero_10, noise_level_8, const_r1, slope_r1,
-                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_13, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r1, slope_r1,
+                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_14, i_sectors,
                                            model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_8, t_zero_10, noise_level_8, const_r2, slope_r2,
-                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_13, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r2, slope_r2,
+                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_14, i_sectors,
                                            model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
