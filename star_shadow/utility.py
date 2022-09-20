@@ -634,7 +634,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     return corr, check
 
 
-def save_results(results, errors, stats, file_name, description='none', dataset='none'):
+def save_results(results, errors, stats, file_name, description='none', data_id='none'):
     """Save the full output of the frequency analysis function to an hdf5 file.
     
     Parameters
@@ -651,7 +651,7 @@ def save_results(results, errors, stats, file_name, description='none', dataset=
         File name (including path) for saving the results.
     description: str
         Optional description of the saved results
-    dataset: str
+    data_id: str
         Optional identifier for the data set used
     
     Returns
@@ -777,7 +777,7 @@ def read_results(file_name, verbose=False):
     
     if verbose:
         print(f'Opened frequency analysis file with identifier: {identifier}, created on {date_time}. \n'
-              f'Dataset: {dataset}. Description: {description} \n')
+              f'data_id: {dataset}. Description: {description} \n')
     return results, errors, stats
 
 
@@ -1406,6 +1406,111 @@ def read_results_lc_fit(file_name):
     param_opt1 = results[6:12]
     param_opt2 = results[12:]
     return param_init, param_opt1, param_opt2
+
+
+def save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio, file_name,
+                             description='none', data_id='none'):
+    """Save the results of the eclipse, sinusoid and linear models
+
+    Parameters
+    ----------
+    results: tuple[numpy.ndarray[float]]
+        Results containing the following data:
+        p_orb, const, slope, f_n, a_n, ph_n
+    errors: tuple[numpy.ndarray[float]]
+        Error values containing the following data:
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
+    stats: tuple[numpy.ndarray[float]]
+        Statistic parameters: n_param, bic, noise_level
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    file_name: str, None
+        File name (including path) for saving the results.
+    description: str
+        Optional description of the saved results
+    data_id: int, str, None
+        Identification for the dataset used
+
+    Returns
+    -------
+    None
+    """
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    # save in hdf5 format
+    save_results(results, errors, stats, file_name, description=description, dataset=data_id)
+    # save eclipse parameters, sinusoids and linear curve in ascii format
+    file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
+    values = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio]).astype(str)
+    names = 'p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio'
+    data = np.column_stack((hdr, data))
+    np.savetxt(file_name_e, data, delimiter=',')
+    file_name_s = file_name.replace(fn_ext, '_sinusoid.csv')
+    data = np.column_stack((f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err))
+    hdr = 'f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err'
+    np.savetxt(file_name_s, data, delimiter=',', header=hdr)
+    file_name_l = file_name.replace(fn_ext, '_linear.csv')
+    data = np.column_stack((const, c_err, slope, sl_err, i_sectors[:, 0], i_sectors[:, 1]))
+    hdr = 'const, c_err, slope, sl_err, sector_start, sector_end'
+    np.savetxt(file_name_l, data, delimiter=',', header=hdr)
+    return None
+
+
+def read_results_ecl_sin_lin(file_name):
+    """Read in the results of the eclipse, sinusoid and linear models
+
+    Parameters
+    ----------
+    file_name: str, None
+        File name (including path) for loading the results.
+    
+    Returns
+    -------
+    results: tuple[numpy.ndarray[float]]
+        Results containing the following data:
+        p_orb, const, slope, f_n, a_n, ph_n
+    errors: tuple[numpy.ndarray[float]]
+        Error values containing the following data:
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
+    stats: tuple[numpy.ndarray[float]]
+        Statistic parameters: n_param, bic, noise_level
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    """
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    results, errors, stats = read_results(file_name)
+    # eclipse model
+    file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
+    ecl_res = np.loadtxt(file_name_e, usecols=(1,), delimiter=',', unpack=True)
+    p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = ecl_res
+    return results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
 def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, data_id=None):

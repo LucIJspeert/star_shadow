@@ -241,7 +241,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         errors = (-1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1)
         stats = (n_param_1, bic_1, np.std(signal - model_1))
         desc = '[1] Initial frequency extraction results.'
-        ut.save_results(results, errors, stats, file_name_1, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name_1, description=desc, data_id=data_id)
     # ---------------------------------------------------
     # [2] --- do a first multi-sine NL-LS fit (in chunks)
     # ---------------------------------------------------
@@ -260,8 +260,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             print(f'Step 2: Starting multi-sine NL-LS fit.')
         t_2a = time.time()
         f_groups = ut.group_fequencies_for_fit(a_n_1, g_min=10, g_max=15)
-        out_2 = tsfit.multi_sine_NL_LS_fit_per_group(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
-                                                     i_sectors, f_groups, verbose=verbose)
+        out_2 = tsfit.fit_multi_sinusoid_per_group(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
+                                                   i_sectors, f_groups, verbose=verbose)
         t_2b = time.time()
         # main function done, do the rest for this step
         const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
@@ -283,7 +283,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_2, bic_2, noise_level_2)
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2.hdf5')
         desc = '[2] First multi-sine NL-LS fit results.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
         # save freqs and linear curve in ascii format at this stage
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2_sinusoid.csv')
         data = np.column_stack((f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2))
@@ -394,7 +394,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_3, bic_3, np.std(signal - model_3))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
         desc = '[3] Harmonic frequencies coupled.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
     f_errors = tsf.formal_uncertainties(times, signal - model_2, a_n_2, i_sectors)
     c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = f_errors
     # ----------------------------------------------------------------------
@@ -438,7 +438,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_4, bic_4, np.std(signal - model_4))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
         desc = '[4] Additional harmonic extraction.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
     # -----------------------------------------------------------------
     # [5] --- fit a second time but now with fixed harmonic frequencies
     # -----------------------------------------------------------------
@@ -455,8 +455,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         if verbose:
             print(f'Step 5: Starting multi-sine NL-LS fit with harmonics.')
         t_5a = time.time()
-        out_5 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb_3, const_4, slope_4,
-                                                               f_n_4, a_n_4, ph_n_4, i_sectors, verbose=verbose)
+        out_5 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_3, const_4, slope_4,
+                                                             f_n_4, a_n_4, ph_n_4, i_sectors, verbose=verbose)
         t_5b = time.time()
         # main function done, do the rest for this step
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
@@ -478,7 +478,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_4, bic_5, np.std(signal - model_5))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
         desc = '[5] Multi-sine NL-LS fit results with coupled harmonics.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
     # --------------------------------------------------------------
     # [6] --- attempt to extract additional non-harmonic frequencies
     # --------------------------------------------------------------
@@ -520,7 +520,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_6, bic_6, np.std(signal - model_6))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
         desc = '[6] Additional non-harmonic extraction.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
     # -------------------------------------------------------------------
     # [7] --- need to fit once more after the additon of some frequencies
     # -------------------------------------------------------------------
@@ -538,8 +538,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             if verbose:
                 print(f'Step 7: Starting multi-sine NL-LS fit with harmonics.')
             t_7a = time.time()
-            out_7 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb_5, const_6, slope_6,
-                                                                   f_n_6, a_n_6, ph_n_6, i_sectors, verbose=verbose)
+            out_7 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_5, const_6, slope_6,
+                                                                 f_n_6, a_n_6, ph_n_6, i_sectors, verbose=verbose)
             t_7b = time.time()
             # main function done, do the rest for this step
             p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
@@ -561,7 +561,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             stats = (n_param_6, bic_7, np.std(signal - model_7))
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
             desc = '[7] Multi-sine NL-LS fit results with coupled harmonics.'
-            ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+            ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
         else:
             p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5
             model_7 = np.copy(model_5)
@@ -608,7 +608,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_8, bic_8, np.std(signal - model_8))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
         desc = '[8] Reduce frequency set.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
     # -------------------------------------------------------------------
     # [9] --- need to fit once more after the removal of some frequencies
     # -------------------------------------------------------------------
@@ -626,8 +626,8 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
             if verbose:
                 print(f'Step 9: Starting second multi-sine NL-LS fit with harmonics.')
             t_9a = time.time()
-            out_9 = tsfit.multi_sine_NL_LS_harmonics_fit_per_group(times, signal, signal_err, p_orb_7, const_8, slope_8,
-                                                                   f_n_8, a_n_8, ph_n_8, i_sectors, verbose=verbose)
+            out_9 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_7, const_8, slope_8,
+                                                                 f_n_8, a_n_8, ph_n_8, i_sectors, verbose=verbose)
             t_9b = time.time()
             # main function done, do the rest for this step
             p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = out_9
@@ -658,7 +658,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
         stats = (n_param_9, bic_9, np.std(signal - model_9))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
         desc = '[9] Second multi-sine NL-LS fit results with coupled harmonics.'
-        ut.save_results(results, errors, stats, file_name, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
         # save final freqs and linear curve in ascii format
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9_sinusoid.csv')
         data = np.column_stack((f_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9))
@@ -1316,7 +1316,7 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         e, w = par_init[:2]
         e = min(e, 0.999)  # prevent unbound orbits
         par_init_simple = (e * np.cos(w), e * np.sin(w), *par_init[2:])
-        output = tsfit.fit_eclipse_simple(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+        output = tsfit.fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                           f_n, a_n, ph_n, par_init_simple, i_sectors, verbose=verbose)
         # get e and w from fitting parameters
         opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = output.x
@@ -1326,8 +1326,8 @@ def eclipse_analysis_fit(times, signal, signal_err, par_init, p_orb, t_zero, tim
         # use results of first fit as initial values for the second fit
         par_init_ellc = (opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w), *par_opt_simple[2:])
         # todo: test with ldc_1=0.5 and 1.0 on the synthetics
-        output = tsfit.fit_eclipse_ellc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                        f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
+        output = tsfit.fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                   f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
         # todo: think of a way to get errors?
         # get e and w from fitting parameters f_c and f_s
         opt_f_c, opt_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = output.x
@@ -1542,7 +1542,7 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
         errors = (-1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1)
         stats = (n_param_1, bic_1, np.std(resid - model_1))
         desc = '[disentangle 1] Initial frequency extraction results.'
-        ut.save_results(results, errors, stats, file_name_1, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name_1, description=desc, data_id=data_id)
     # [disentangle 2] --- do a first multi-sine NL-LS fit (in chunks)
     file_name_2 = file_name.replace(fn_ext, '_2.hdf5')
     if os.path.isfile(file_name_2) & (not overwrite):
@@ -1559,8 +1559,8 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
             print(f'Step 2: Starting multi-sine NL-LS fit.')
         t_2a = time.time()
         f_groups = ut.group_fequencies_for_fit(a_n_1, g_min=10, g_max=15)
-        out_2 = tsfit.multi_sine_NL_LS_fit_per_group(times, resid, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
-                                                     i_sectors, f_groups, verbose=verbose)
+        out_2 = tsfit.fit_multi_sinusoid_per_group(times, resid, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
+                                                   i_sectors, f_groups, verbose=verbose)
         t_2b = time.time()
         # main function done, do the rest for this step
         const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
@@ -1581,7 +1581,7 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
         errors = (-1, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2)
         stats = (n_param_2, bic_2, noise_level_2)
         desc = '[disentangle 2] First multi-sine NL-LS fit results.'
-        ut.save_results(results, errors, stats, file_name_2, description=desc, dataset=data_id)
+        ut.save_results(results, errors, stats, file_name_2, description=desc, data_id=data_id)
         # save freqs and linear curve in ascii format at this stage
         file_name_s = file_name.replace(fn_ext, '_2_sinusoid.csv')
         data = np.column_stack((f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2))
@@ -1607,6 +1607,129 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
               f'BIC of eclipse model plus sinusoids: {bic_full:1.2f}. \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return const_2, slope_2, f_n_2, a_n_2, ph_n_2
+
+
+def pulsation_analysis_full_fit(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
+                                i_sectors, model, file_name, data_id=None, overwrite=False, verbose=False):
+    """Selects the credible frequencies from the given set,
+    ignoring the harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    ecl_par: numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    model: str
+        Which eclipse light curve model to use. Choose 'simple' or 'ellc'
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary
+    t_zero: float
+        Time of deepest minimum
+    ecl_par: numpy.ndarray[float]
+        Eclipse parameters, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    t_a = time.time()
+    n_sectors = len(i_sectors)
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    # multi-sine NL-LS fit with eclipse model (in chunks)
+    file_name = file_name.replace(fn_ext, '.hdf5')
+    if os.path.isfile(file_name) & (not overwrite):
+        full_results = ut.read_results_ecl_sin_lin(file_name, verbose=verbose)
+        results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = full_results
+        ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
+        _, const, slope, f_n, a_n, ph_n = results
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
+        n_param, bic, noise_level = stats
+        if verbose:
+            print(f'Loaded existing full fit results\n')
+    else:
+        if verbose:
+            print(f'Starting multi-sine NL-LS fit with eclispe model.')
+        f_groups = ut.group_fequencies_for_fit(a_n, g_min=10, g_max=15)
+        out = tsfit.fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, ecl_par, const,
+                                                         slope, f_n, a_n, ph_n, i_sectors, f_groups, verbose=verbose)
+        # main function done, do the rest for this step
+        p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n = out
+        ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
+        e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
+        # make model including everything to calculate BIC and noise level
+        model_full = tsf.linear_curve(times, const, slope, i_sectors)
+        model_full += tsf.sum_sines(times, f_n, a_n, ph_n)
+        if (model == 'ellc'):
+            f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
+            model_full += tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+        else:
+            model_full += tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        residuals = signal - model_full
+        noise_level = np.std(residuals)
+        f_errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
+        c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+        n_param = 2 + len(ecl_par) + 2 * n_sectors + 3 * len(f_n)
+        bic = tsf.calc_bic(residuals / signal_err, n_param)
+        # save everything
+        results = (p_orb, const, slope, f_n, a_n, ph_n)
+        errors = (-1, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+        stats = (n_param, bic, noise_level)
+        desc = '[16] Results of multi-sine NL-LS fit with eclipse model.'
+        ut.save_results_ecl_sin_lin(results, errors, stats, e, w, i, r_sum_sma, r_ratio, sb_ratio, file_name,
+                                    description=desc, data_id=data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mFit complete.\033[0m')
+        print(f'\033[0;32;48mNumber of frequencies: {len(f_n)}, \n'
+              f'BIC of eclipse model plus sinusoids: {bic:1.2f}. \n'
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
 def pulsation_analysis_fselect(times, signal, ecl_model, f_n, a_n, ph_n, noise_level, i_sectors, file_name,
@@ -1725,11 +1848,15 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     Returns
     -------
     out_15: tuple
-        output of pulsation_analysis_fselect
-    out_16: tuple
         output of pulsation_analysis_disentangle
     out_16: tuple
-        output of pulsation_analysis_fselect_h
+        output of pulsation_analysis_full_fit
+    out_16b: tuple
+        output of pulsation_analysis_full_fit for ellc model
+    out_17: tuple
+        output of pulsation_analysis_fselect
+    out_17b: tuple
+        output of pulsation_analysis_fselect for ellc model
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     # read in the frequency analysis results
@@ -1761,8 +1888,8 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
             print('No elements results found')
         return (None,) * 4
     # make the eclipse models
-    ecl_model_simple = tsfit.eclipse_lc_simple(times, p_orb_9, t_zero_11, *par_opt1_14)
-    ecl_model_ellc = tsfit.ellc_lc_simple(times, p_orb_9, t_zero_11, *par_opt2_14, 0)
+    ecl_model_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_11, *par_opt1_14)
+    ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_11, *par_opt2_14, 0)
     # --- [15] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
     out_15 = pulsation_analysis_disentangle(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11,
@@ -1774,22 +1901,33 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
                                              const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name,
                                              data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_15b
-    # --- [16] --- Frequency selection
+    # --- [16] --- Full model fit
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
-    out_16 = pulsation_analysis_fselect(times, signal, ecl_model_simple, f_n_r1, a_n_r1, ph_n_r1, noise_level_9,
+    out_16 = pulsation_analysis_full_fit(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11, par_opt2_14,
+                                         const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='simple',
+                                         file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+    const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_16
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
+    out_16b = pulsation_analysis_full_fit(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11, par_opt2_14,
+                                          const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='ellc',
+                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+    const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_16b
+    # --- [17] --- Frequency selection
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.csv')
+    out_17 = pulsation_analysis_fselect(times, signal, ecl_model_simple, f_n_r1, a_n_r1, ph_n_r1, noise_level_9,
                                         i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
                                         verbose=verbose)
-    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_16
-    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
-    out_16b = pulsation_analysis_fselect(times, signal, ecl_model_ellc, f_n_r2, a_n_r2, ph_n_r2, noise_level_9,
+    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_17
+    file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17_ellc.csv')
+    out_17b = pulsation_analysis_fselect(times, signal, ecl_model_ellc, f_n_r2, a_n_r2, ph_n_r2, noise_level_9,
                                          i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
                                          verbose=verbose)
-    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_16b
-    # --- [17] --- Harmonics in the residuals
+    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_17b
+    # --- [18] --- Harmonics in the residuals
     # determine which residual frequencies are consistent with harmonics
-    # --- [18] --- Amplitude modulation
+    # --- [19] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
-    return out_15, out_16, out_16b
+    return out_15, out_16, out_16b, out_17, out_17b
 
 
 def analyse_from_file(file_name, p_orb=0, data_id=None, overwrite=False, verbose=False):
