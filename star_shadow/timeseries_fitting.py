@@ -1412,13 +1412,13 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, ve
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = (len(params) - 8 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    ecl_par = output.x[0:8]
+    ecl_par = params[0:8]
     p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
-    const = output.x[8:8 + n_sect]
-    slope = output.x[8 + n_sect:8 + 2 * n_sect]
-    freqs = output.x[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
-    ampls = output.x[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
-    phases = output.x[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
+    const = params[8:8 + n_sect]
+    slope = params[8 + n_sect:8 + 2 * n_sect]
+    freqs = params[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
+    ampls = params[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
+    phases = params[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
@@ -1472,13 +1472,13 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, i_sectors, verbo
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = (len(params) - 8 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    ecl_par = output.x[0:8]
+    ecl_par = params[0:8]
     p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
-    const = output.x[8:8 + n_sect]
-    slope = output.x[8 + n_sect:8 + 2 * n_sect]
-    freqs = output.x[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
-    ampls = output.x[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
-    phases = output.x[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
+    const = params[8:8 + n_sect]
+    slope = params[8 + n_sect:8 + 2 * n_sect]
+    freqs = params[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
+    ampls = params[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
+    phases = params[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model

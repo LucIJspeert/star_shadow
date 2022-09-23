@@ -597,7 +597,7 @@ def find_unknown_harmonics(f_n, f_n_err, sigma=1., n_max=5, f_tol=None):
 
 
 @nb.njit(cache=True)
-def harmonic_series_length(f_test, f_n, freq_res):
+def harmonic_series_length(f_test, f_n, freq_res, f_nyquist):
     """Find the number of harmonics that a set of frequencies has
     
     Parameters
@@ -608,6 +608,8 @@ def harmonic_series_length(f_test, f_n, freq_res):
         The frequencies of a number of sine waves
     freq_res: float
         Frequency resolution
+    f_nyquist: float
+        Nyquist frequency
     
     Returns
     -------
@@ -628,7 +630,7 @@ def harmonic_series_length(f_test, f_n, freq_res):
             completeness[i] = 1
             distance[i] = 0
         else:
-            completeness[i] = n_harm[i] / np.max(harmonic_n)
+            completeness[i] = n_harm[i] / (f_nyquist // f)
             distance[i] = np.sum((f_n[harmonics] - harmonic_n * f)**2)
     return n_harm, completeness, distance
 

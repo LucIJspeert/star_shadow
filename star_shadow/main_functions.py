@@ -50,70 +50,37 @@ def frequency_analysis_porb(times, signal, f_n, a_n, ph_n, noise_level):
     """
     t_tot = np.ptp(times)
     freq_res = 1.5 / t_tot  # Rayleigh criterion
+    f_nyquist = 1 / (2 * np.min(np.diff(times)))
     # first to get a global minimum do combined PDM and LS, at select frequencies
     periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n, local=False)
     ampls = tsf.scargle_ampl(times, signal - np.mean(signal), 1/periods)
     psi_measure = ampls / phase_disp
     # also check the number of harmonics at each period and include into best f
-    n_harm, completeness, distance = af.harmonic_series_length(1/periods, f_n, freq_res)
+    n_harm, completeness, distance = af.harmonic_series_length(1/periods, f_n, freq_res, f_nyquist)
     psi_h_measure = psi_measure * n_harm * completeness
-    # go from best to worst period, skipping those with only 1 harmonic
-    sorter = np.argsort(psi_h_measure)[::-1]  # descending order
-    for i in sorter:
-        base_p = periods[i]
-        # refine by using a dense sampling
-        f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
-        n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res)
-        h_measure = n_harm_r * completeness_r
-        mask_peak = (h_measure == np.max(h_measure))
-        p_orb = 1 / f_refine[mask_peak][np.argmin(distance_r[mask_peak])]
-        # check that we have at least one of the first three harmonics
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        if (not 1 in harmonic_n) & (not 2 in harmonic_n) & (not 3 in harmonic_n):
-            continue
-        # try to find out whether we need to double the period
-        model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
-        sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
-        peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
-        if (len(peaks) == 1) & (2 * p_orb < t_tot):
-            p_orb = 2 * p_orb
-        # if we have too few harmonics, try the next period, else stop
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        if (len(harmonics) > 2):
-            break
-        
-        # base_p = periods[i]
-        # print(base_p)
-        # # check if there is a harmonic series at double the period
-        # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, 2*base_p, f_tol=freq_res/2)
-        # check_h = (1 in harmonic_n) | (3 in harmonic_n) | (5 in harmonic_n)
-        # odd_h = np.sum(harmonic_n % 2)  # number of harmonics in between
-        # check_len = (odd_h > 5) | (odd_h > n_harm[i] / 2.1)  # at least five of more than half-ish the original n_harm
-        # if check_h & check_len & (2 * base_p < t_tot):
-        #     base_p = 2 * base_p
-        # print(base_p)
-        # # then refine by using a dense sampling
-        # f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
-        # n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res)
-        # h_measure = n_harm_r * completeness_r
-        # mask_peak = (h_measure == np.max(h_measure))
-        # p_orb = 1 / f_refine[mask_peak][np.argmin(distance_r[mask_peak])]
-        # # check that we have at least one of the first three harmonics
-        # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        # print(p_orb)
-        # if (not 1 in harmonic_n) & (not 2 in harmonic_n) & (not 3 in harmonic_n):
-        #     continue
-        # # try to find out whether we need to double the period
-        # model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
-        # sorted_model_h = model_h[np.argsort(tsf.fold_time_series(times, p_orb))]
-        # peaks, props = sp.signal.find_peaks(-sorted_model_h, height=noise_level, prominence=noise_level, width=9)
-        # if (len(peaks) == 1) & (2 * p_orb < t_tot):
-        #     p_orb = 2 * p_orb
-        # # if we have too few harmonics, try the next period, else stop
-        # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res/2)
-        # print(p_orb, '\n')
-        # if (len(harmonics) > 2):
-        #     break
+    # select the best period, refine it and check double P
+    base_p = periods[np.argmax(psi_h_measure)]
+    # refine by using a dense sampling
+    f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.0001 / base_p)
+    n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res, f_nyquist)
+    h_measure = n_harm_r * completeness_r
+    mask_peak = (n_harm_r == np.max(n_harm_r))
+    i_min_dist = np.argmin(distance_r[mask_peak])
+    p_orb = 1 / f_refine[mask_peak][i_min_dist]
+    # check twice the period as well
+    base_p2 = base_p * 2
+    # refine by using a dense sampling
+    f_refine_2 = np.arange(0.99 / base_p2, 1.01 / base_p2, 0.0001 / base_p2)
+    n_harm_r_2, completeness_r_2, distance_r_2 = af.harmonic_series_length(f_refine_2, f_n, freq_res, f_nyquist)
+    h_measure_2 = n_harm_r_2 * completeness_r_2
+    mask_peak_2 = (n_harm_r_2 == np.max(n_harm_r_2))
+    i_min_dist_2 = np.argmin(distance_r_2[mask_peak_2])
+    p_orb_2 = 1 / f_refine_2[mask_peak_2][i_min_dist_2]
+    # compare the length and completeness to decide, using a threshold
+    minimal_frac = 1.5  # empirically determined threshold
+    frac_double = h_measure_2[mask_peak_2][i_min_dist_2] / h_measure[mask_peak][i_min_dist]
+    if (frac_double > minimal_frac):
+        p_orb = p_orb_2
     return p_orb
 
 
@@ -1897,18 +1864,18 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
                                             data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_15
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_ellc.csv')
-    out_15b = pulsation_analysis_disentangle(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11,
+    out_15b = pulsation_analysis_disentangle(times, signal, signal_err, ecl_model_ellc, p_orb_9, t_zero_11,
                                              const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name,
                                              data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_15b
     # --- [16] --- Full model fit
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
-    out_16 = pulsation_analysis_full_fit(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11, par_opt2_14,
+    out_16 = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
                                          const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='simple',
                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_16
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
-    out_16b = pulsation_analysis_full_fit(times, signal, signal_err, ecl_model_simple, p_orb_9, t_zero_11, par_opt2_14,
+    out_16b = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
                                           const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='ellc',
                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_16b
