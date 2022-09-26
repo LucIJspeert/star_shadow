@@ -674,7 +674,7 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
     with h5py.File(file_name, 'w') as file:
         file.attrs['identifier'] = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
         file.attrs['description'] = description
-        file.attrs['dataset'] = dataset
+        file.attrs['data_id'] = data_id
         file.attrs['date_time'] = str(datetime.datetime.now())
         file.attrs['n_param'] = n_param  # number of free parameters
         file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals

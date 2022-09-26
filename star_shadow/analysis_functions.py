@@ -913,8 +913,17 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
         return (None,) * 9  # No eclipse signatures found above the noise level
-    # 12 or less (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
-    ecl_peaks = np.argsort(props['prominences'])[-12:]
+    # 24 or fewer (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
+    n_prominent = 24
+    ecl_peaks = np.argsort(props['prominences'])[-n_prominent:]
+    # increase the amount if any peaks fell into gaps
+    mask_gaps = tsf.mask_timestamps(t_model, t_gaps)  # masks everything but the gaps
+    mask_peaks = np.zeros(len(t_model), dtype=bool)
+    mask_peaks[peaks_1[ecl_peaks]] = True  # mask everything but the eclipse peaks
+    n_pk_in_gap = np.sum(mask_gaps & mask_peaks)  # number of peaks falling in gaps
+    if (n_pk_in_gap > 0):
+        ecl_peaks = np.argsort(props['prominences'])[-n_prominent - n_pk_in_gap:]
+    # now convert ecl_peaks to peaks in t_model and get slope signs
     peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
     # walk outward from peaks_1 to zero in deriv_1
@@ -935,40 +944,47 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     peaks_2_p = curve_walker(deriv_2, peaks_2_p, slope_sign, mode='up')
     # determine prominences for peaks_2_n (peaks_2_p handeled separately)
     prom_2_n = deriv_2[peaks_2_p] - deriv_2[peaks_2_n]
-    # make all the consecutive combinations of peaks (as many as there are peaks)
+    # group peaks in with negative and then positive slopes
     indices = np.arange(len(peaks_1))
-    combinations = np.vstack(([[i, j] for i, j in zip(indices[:-1], indices[1:])], [indices[-1], 0]))
+    i_neg = indices[slope_sign == -1]  # negative slope is candidate ingress
+    i_pos = indices[slope_sign == 1]  # positive slope is candidate egress
+    combinations = np.zeros((0, 2), dtype=int)
+    for i in i_neg:
+        egress = i_pos[i_pos > i]  # select all points after i
+        ingress = np.repeat(i, len(egress))
+        combinations = np.append(combinations, np.column_stack((ingress, egress)), axis=0)
+    
+    
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot(t_model, model_h)
+    # ax.scatter(t_model[peaks_1], model_h[peaks_1])
+    ax.scatter(t_model[minimum_1], model_h[minimum_1])
+    # ax.scatter(t_model[zeros_1], model_h[zeros_1])
+    fig2, ax2 = plt.subplots()
+    ax2.plot(t_model, deriv_1)
+    ax2.scatter(t_model[peaks_1], deriv_1[peaks_1])
+    # ax2.scatter(t_model[minimum_1], deriv_1[minimum_1])
+    # ax2.scatter(t_model[zeros_1], deriv_1[zeros_1])
+    
+    
     # make eclipses
     ecl_indices = np.zeros((0, 13), dtype=int)
     for comb in combinations:
-        # eclipses can only be an eclipse if ingress and then egress
-        condition = (slope_sign[comb[0]] == -1) & (slope_sign[comb[1]] == 1)
         # restrict duration to half the orbital period
-        if (peaks_2_n[comb[0]] > peaks_2_n[comb[1]]):  # be careful with wrap-around
-            duration = t_model[zeros_1[comb[1]]] + 2 * p_orb - t_model[zeros_1[comb[0]]]
-        else:
-            duration = t_model[zeros_1[comb[1]]] - t_model[zeros_1[comb[0]]]
-        condition &= (duration < p_orb / 2)
+        duration = t_model[minimum_1[comb[1]]] - t_model[minimum_1[comb[0]]]
+        condition = (duration < p_orb / 2)
         # eclipses may not be in gaps in the phase coverage
         gap_cond = True
         for tg in t_gaps:
             gap_cond_1 = (t_model[peaks_2_n[comb[0]]] > tg[0]) & (t_model[peaks_2_n[comb[0]]] < tg[-1])
             gap_cond_2 = (t_model[peaks_2_n[comb[1]]] > tg[0]) & (t_model[peaks_2_n[comb[1]]] < tg[-1])
-            if gap_cond_1 & gap_cond_2:
-                gap_cond = False  # ecl completely in gap
-            elif gap_cond_1 | gap_cond_2:
-                if (peaks_2_n[comb[0]] < peaks_2_n[comb[1]]):
-                    ecl_m = (t_model[peaks_2_n[comb[0]]] + t_model[peaks_2_n[comb[1]]]) / 2
-                else:
-                    ecl_m = (t_model[peaks_2_n[comb[0]]] + t_model[peaks_2_n[comb[1]]] + 2 * p_orb) / 2
-                # ecl more than half in gap
-                gap_cond = not (((tg[0] < ecl_m) & gap_cond_2) | (gap_cond_1 & (tg[-1] > ecl_m)))
+            if gap_cond_1 | gap_cond_2:
+                gap_cond = False  # at least one side in gap
         condition &= gap_cond
         if condition:
             # check for prominent eclipse bottom
-            if (peaks_2_p[comb[0]] > peaks_2_p[comb[1]]):
-                min_d2_p = np.min(np.append(deriv_2[peaks_2_p[comb[0]]:], deriv_2[:peaks_2_p[comb[1]] + 1]))
-            elif (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
+            if (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
                 min_d2_p = np.max(deriv_2[peaks_2_p[comb]])
             else:
                 min_d2_p = np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1])
@@ -979,47 +995,70 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
             else:
                 p_2_p_1 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
                 p_2_p_2 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
+            p_2_p_mid = (p_2_p_1 + p_2_p_2) // 2  # put the eclipse minimum at or in the middle between the peaks_2_p
             # assemble eclipse indices
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]],
-                   p_2_p_1, zeros_1_in[comb[0]], 0, zeros_1_in[comb[1]], p_2_p_2,
+                   p_2_p_1, zeros_1_in[comb[0]], p_2_p_mid, zeros_1_in[comb[1]], p_2_p_2,
                    peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
-            if (ecl[2] > ecl[-3]):  # be careful with wrap-around
-                line_check_1 = np.all(model_h[ecl[2]:] <= model_h[ecl[2]])
-                line_check_2 = np.all(model_h[:ecl[-3]] <= model_h[ecl[-3]])
-                if line_check_1 & line_check_2:
-                    ecl_indices = np.vstack((ecl_indices, [ecl]))
-            else:
-                i_mid_ecl = (ecl[2] + ecl[-3]) // 2
-                line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
-                line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
-                if line_check_1 & line_check_2:
-                    ecl_indices = np.vstack((ecl_indices, [ecl]))
+            i_mid_ecl = (ecl[2] + ecl[-3]) // 2
+            line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
+            line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
+            if line_check_1 & line_check_2:
+                ecl_indices = np.vstack((ecl_indices, [ecl]))
+    # check overlap and pick highest peaks in deriv_1
+    indices = np.arange(len(ecl_indices))
+    combinations = np.zeros((0, 2), dtype=int)
+    for i in indices:
+        ecl_2 = indices[indices > i]  # select all eclipses after ecl_1 to avoid doubles
+        ecl_1 = np.repeat(i, len(ecl_2))
+        combinations = np.append(combinations, np.column_stack((ecl_1, ecl_2)), axis=0)
+    ecl_remove = []
+    for comb in combinations:
+        overlap_1 = (ecl_indices[comb[0], 1] >= ecl_indices[comb[1], 1])
+        overlap_1 &= (ecl_indices[comb[0], 1] < ecl_indices[comb[1], -2])
+        overlap_2 = (ecl_indices[comb[0], 1] <= ecl_indices[comb[1], 1])
+        overlap_2 &= (ecl_indices[comb[0], -2] > ecl_indices[comb[1], 1])
+        if (overlap_1 | overlap_2):
+            peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
+            ecl_remove.append(comb[np.argmin(peak_height)])
+    ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
+    
+    
+    ax.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:red')
+    ax.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:red')
+    ax2.scatter(t_model[ecl_indices[:, 3]], deriv_1[ecl_indices[:, 3]], c='tab:red')
+    ax2.scatter(t_model[ecl_indices[:, -4]], deriv_1[ecl_indices[:, -4]], c='tab:red')
+    for i, ecl in enumerate(ecl_indices):
+        ax.plot(t_model[[ecl[3], ecl[-4]]], [i/100, i/100], '--')
+    plt.show()
+    
     # check that we have some eclipses
     if (len(ecl_indices) < 2):
         return (None,) * 8 + (ecl_indices,)
-    # finally, put the eclipse minimum at or in the middle between the peaks_2_p
-    ecl_indices[:, 6] = (ecl_indices[:, 4] + ecl_indices[:, -5]) // 2
-    # make the timing measurement - make sure to account for wrap around when an eclipse is divided up
+    # make the timing measurement
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
     t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
     t_p2n_1 = t_model[ecl_indices[:, 2]]  # first times of negative extremum deriv_2 (from peaks_2_n)
     t_p2n_2 = t_model[ecl_indices[:, -3]]  # last times of negative extremum deriv_2 (from peaks_2_n)
     # determine the eclipse edges from the midpoint between peaks_2_n and minimum_1
-    t_i_1 = (t_m1_1 + t_p2n_1) / 2 * (t_p2n_1 >= t_m1_1) + (t_m1_1 + t_p2n_1 - 2 * p_orb) / 2 * (t_p2n_1 < t_m1_1)
-    t_i_2 = (t_m1_2 + t_p2n_2) / 2 * (t_m1_2 >= t_p2n_2) + (t_m1_2 + t_p2n_2 - 2 * p_orb) / 2 * (t_m1_2 < t_p2n_2)
+    t_i_1 = (t_m1_1 + t_p2n_1) / 2
+    t_i_2 = (t_m1_2 + t_p2n_2) / 2
     indices_t_i_1 = np.searchsorted(t_model, t_i_1)  # if t_model is granular enough, this should be precise enough
     indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
     # use the intervals as 3 sigma limits on either side
-    t_i_1_err = (t_p2n_1 - t_m1_1) / 6 * (t_p2n_1 > t_m1_1) + (t_p2n_1 - t_m1_1 + 2 * p_orb) / 6 * (t_p2n_1 < t_m1_1)
+    t_i_1_err = (t_p2n_1 - t_m1_1) / 6
     t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
-    t_i_2_err = (t_m1_2 - t_p2n_2) / 6 * (t_m1_2 > t_p2n_2) + (t_m1_2 - t_p2n_2 + 2 * p_orb) / 6 * (t_m1_2 < t_p2n_2)
+    t_i_2_err = (t_m1_2 - t_p2n_2) / 6
     t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
-    # convert to midpoints and widths
+    # convert to midpoints and widths and take deepest depth measured in two ways
     ecl_min = t_model[ecl_indices[:, 6]]
-    ecl_mid = (t_i_1 + t_i_2) / 2 * (t_i_2 >= t_i_1) + (t_i_1 + t_i_2 - 2 * p_orb) / 2 * (t_i_2 < t_i_1)
-    widths = (t_i_2 - t_i_1) * (t_i_2 > t_i_1) + (t_i_2 - t_i_1 + 2 * p_orb) * (t_i_2 < t_i_1)
-    depths = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 6]]
+    ecl_mid = (t_i_1 + t_i_2) / 2
+    widths = (t_i_2 - t_i_1)
+    depths_1 = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 6]]
+    depths_2 = (model_h[indices_t_i_1] - model_h[ecl_indices[:, 4]]
+                + model_h[indices_t_i_2] - model_h[ecl_indices[:, -5]]) / 2
+    depths = np.max([depths_1, depths_2], axis=0)
     # remove too shallow eclipses
     remove_shallow = (depths > noise_level / 4)
     ecl_min = ecl_min[remove_shallow]
@@ -1032,18 +1071,16 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # estimates of flat bottom
     t_b_i_1 = t_model[ecl_indices[:, 4]]
     t_b_i_2 = t_model[ecl_indices[:, -5]]
-    ecl_mid_b = ((t_b_i_1 + t_b_i_2) / 2 * (t_b_i_2 >= t_b_i_1)
-                 + (t_b_i_1 + t_b_i_2 - 2 * p_orb) / 2 * (t_b_i_2 < t_b_i_1))
-    widths_b = (t_b_i_2 - t_b_i_1) * (t_b_i_2 > t_b_i_1) + (t_b_i_2 - t_b_i_1 + 2 * p_orb) * (t_b_i_2 < t_b_i_1)
+    ecl_mid_b = (t_b_i_1 + t_b_i_2) / 2
+    widths_b = (t_b_i_2 - t_b_i_1)
     # now pick out two consecutive, fully covered eclipses
     indices = np.arange(len(ecl_indices))
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
-    init_n_comb = len(combinations)
     # check overlap of the eclipses
     comb_remove = []
     for i, comb in enumerate(combinations):
-        c_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
-        if (c_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
+        comb_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
+        if (comb_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
             comb_remove.append(i)
     combinations = np.delete(combinations, comb_remove, axis=0)
     if (len(combinations) == 0):

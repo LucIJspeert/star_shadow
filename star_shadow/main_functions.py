@@ -650,7 +650,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, p_orb, save_di
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_analysis_timings(times, p_orb, f_h, a_h, ph_h, p_err, noise_level, file_name, data_id=None,
+def eclipse_analysis_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name, data_id=None,
                              overwrite=False, verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
@@ -661,12 +661,12 @@ def eclipse_analysis_timings(times, p_orb, f_h, a_h, ph_h, p_err, noise_level, f
         Timestamps of the time-series
     p_orb: float
         Orbital period of the eclipsing binary in days
-    f_h: numpy.ndarray[float]
-        The frequencies of a number of harmonic sine waves
-    a_h: numpy.ndarray[float]
-        The amplitudes of a number of harmonic sine waves
-    ph_h: numpy.ndarray[float]
-        The phases of a number of harmonic sine waves
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
     p_err: float
         Error in the orbital period
     noise_level: float
@@ -731,9 +731,17 @@ def eclipse_analysis_timings(times, p_orb, f_h, a_h, ph_h, p_err, noise_level, f
             t_fold_edges = np.append(t_fold_edges, [p_orb])
         t_gaps = tsf.mark_folded_gaps(t_fold_edges, p_orb/100)
         t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
+        # we use the lowest harmonics
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+        low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
+        f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
         # measure eclipse timings - deepest eclipse is put first in each measurement
-        output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+        output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
         t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
+        # if at first we don't succeed, try all harmonics
+        if np.any([item is None for item in output]):
+            output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+            t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
         # account for not finding eclipses
         if np.all([item is None for item in output]):
             message = f'No eclipse signatures found above the noise level of {noise_level}'
@@ -1377,14 +1385,11 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     n_param_9, bic_9, noise_level_9 = stats
     # --- [9] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
-    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
-    f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
-    out_10 = eclipse_analysis_timings(times, p_orb_9, f_h_9[low_h], a_h_9[low_h], ph_h_9[low_h], p_err_9, noise_level_9,
+    out_10 = eclipse_analysis_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_10, timings_10, depths_10, timing_errs_10, depths_err_10, ecl_indices_10 = out_10
     if np.any([item is None for item in out_10]):
-        return (None,) * 5  # couldn't find eclipses for some reason
+        return (None,) * 5  # could still not find eclipses for some reason
     # --- [10] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_cubics(times, signal, signal_err, p_orb_9, t_zero_10, timings_10, const_9, slope_9,
@@ -1399,6 +1404,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     timing_errs_12, depths_12, depths_err_12 = out_12
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
+    f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
     out_13 = eclipse_analysis_elements(p_orb_9, t_zero_11, timings_11, depths_11, p_err_9,
                                        timing_errs_12, depths_err_12, f_h_9, a_h_9, ph_h_9,
                                        file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
