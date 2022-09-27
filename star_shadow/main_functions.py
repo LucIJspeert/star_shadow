@@ -1527,10 +1527,10 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
         model_2 = tsf.linear_curve(times, const_2, slope_2, i_sectors)
         model_2 += tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
         if verbose:
-            print(f'Step 2: Loaded existing results\n')
+            print(f'Disentangle step 2: Loaded existing results\n')
     else:
         if verbose:
-            print(f'Step 2: Starting multi-sine NL-LS fit.')
+            print(f'Disentangle step 2: Starting multi-sine NL-LS fit.')
         t_2a = time.time()
         f_groups = ut.group_fequencies_for_fit(a_n_1, g_min=10, g_max=15)
         out_2 = tsfit.fit_multi_sinusoid_per_group(times, resid, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
@@ -1576,7 +1576,7 @@ def pulsation_analysis_disentangle(times, signal, signal_err, ecl_model, p_orb, 
     bic_full = tsf.calc_bic(resid_full/signal_err, n_param)
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mHarmonic model disentangled.\033[0m')
+        print(f'\033[1;32;48mSinusoid model disentangled.\033[0m')
         print(f'\033[0;32;48mNumber of frequencies: {len(f_n_2)}, \n'
               f'BIC of eclipse model plus sinusoids: {bic_full:1.2f}. \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
@@ -1656,9 +1656,10 @@ def pulsation_analysis_full_fit(times, signal, signal_err, p_orb, t_zero, ecl_pa
     n_sectors = len(i_sectors)
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     # multi-sine NL-LS fit with eclipse model (in chunks)
-    file_name = file_name.replace(fn_ext, '.hdf5')
-    if os.path.isfile(file_name) & (not overwrite):
-        full_results = ut.read_results_ecl_sin_lin(file_name, verbose=verbose)
+    file_name_1 = file_name.replace(fn_ext, '.hdf5')
+    file_name_2 = file_name.replace(fn_ext, '_eclipse_par.csv')
+    if os.path.isfile(file_name_1) & os.path.isfile(file_name_2) & (not overwrite):
+        full_results = ut.read_results_ecl_sin_lin(file_name_1, verbose=verbose)
         results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = full_results
         ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
         _, const, slope, f_n, a_n, ph_n = results
@@ -1668,7 +1669,7 @@ def pulsation_analysis_full_fit(times, signal, signal_err, p_orb, t_zero, ecl_pa
             print(f'Loaded existing full fit results\n')
     else:
         if verbose:
-            print(f'Starting multi-sine NL-LS fit with eclispe model.')
+            print(f'Starting multi-sine NL-LS fit with {model} eclipse model.')
         f_groups = ut.group_fequencies_for_fit(a_n, g_min=10, g_max=15)
         out = tsfit.fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, ecl_par, const,
                                                          slope, f_n, a_n, ph_n, i_sectors, f_groups, verbose=verbose)
@@ -1695,8 +1696,8 @@ def pulsation_analysis_full_fit(times, signal, signal_err, p_orb, t_zero, ecl_pa
         errors = (-1, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
         stats = (n_param, bic, noise_level)
         desc = '[16] Results of multi-sine NL-LS fit with eclipse model.'
-        ut.save_results_ecl_sin_lin(results, errors, stats, e, w, i, r_sum_sma, r_ratio, sb_ratio, file_name,
-                                    description=desc, data_id=data_id)
+        ut.save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio,
+                                    i_sectors, file_name_1, description=desc, data_id=data_id)
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mFit complete.\033[0m')
@@ -1880,12 +1881,12 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     out_16 = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
                                          const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='simple',
                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_16
+    p_orb_r1, t_zero_r1, ecl_par_r1, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_16
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
     out_16b = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
                                           const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='ellc',
                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_16b
+    p_orb_r2, t_zero_r2, ecl_par_r2, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_16b
     # --- [17] --- Frequency selection
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.csv')
     out_17 = pulsation_analysis_fselect(times, signal, ecl_model_simple, f_n_r1, a_n_r1, ph_n_r1, noise_level_9,

@@ -434,7 +434,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     indices = np.arange(len(f_n))
     i_non_harm = np.delete(indices, harmonics)
-    f_groups = ut.group_fequencies_for_fit(a_n[i_non_harm], g_min=20, g_max=25)
+    f_groups = ut.group_fequencies_for_fit(a_n[i_non_harm], g_min=15, g_max=20)
     f_groups = [i_non_harm[g] for g in f_groups]  # convert back to indices for full f_n list
     n_groups = len(f_groups)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
@@ -1424,7 +1424,7 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, ve
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
     # eclipse model
     e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
-    model_ecl = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl = simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
@@ -1486,7 +1486,7 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, i_sectors, verbo
     ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = params
     e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
-    model_ecl = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+    model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
@@ -1585,7 +1585,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         params_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group]))
         arguments = (times, signal, signal_err, i_sectors, verbose)
-        if (model == 'ellc'):
+        if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc
         else:
             obj_fun = objective_sinusoids_eclipse

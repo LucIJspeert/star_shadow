@@ -751,7 +751,8 @@ def read_results(file_name, verbose=False):
     with h5py.File(file_name, 'r') as file:
         identifier = file.attrs['identifier']
         description = file.attrs['description']
-        dataset = file.attrs['dataset']
+        # data_id = file.attrs['data_id']  # todo: commented for compatibility, uncomment later
+        data_id = ''
         date_time = file.attrs['date_time']
         # stats
         n_param = file.attrs['n_param']
@@ -777,7 +778,7 @@ def read_results(file_name, verbose=False):
     
     if verbose:
         print(f'Opened frequency analysis file with identifier: {identifier}, created on {date_time}. \n'
-              f'data_id: {dataset}. Description: {description} \n')
+              f'data_id: {data_id}. Description: {description} \n')
     return results, errors, stats
 
 
@@ -1408,8 +1409,8 @@ def read_results_lc_fit(file_name):
     return param_init, param_opt1, param_opt2
 
 
-def save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio, file_name,
-                             description='none', data_id='none'):
+def save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio, i_sectors,
+                             file_name, description='none', data_id='none'):
     """Save the results of the eclipse, sinusoid and linear models
 
     Parameters
@@ -1449,15 +1450,16 @@ def save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_s
     -------
     None
     """
+    p_orb, const, slope, f_n, a_n, ph_n = results
+    p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     # save in hdf5 format
-    save_results(results, errors, stats, file_name, description=description, dataset=data_id)
+    save_results(results, errors, stats, file_name, description=description, data_id=data_id)
     # save eclipse parameters, sinusoids and linear curve in ascii format
     file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
-    values = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio]).astype(str)
-    names = 'p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio'
-    data = np.column_stack((hdr, data))
-    np.savetxt(file_name_e, data, delimiter=',')
+    data = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio]).reshape(-1, 1)
+    hdr = 'p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio'
+    np.savetxt(file_name_e, data, delimiter=',', header=hdr)
     file_name_s = file_name.replace(fn_ext, '_sinusoid.csv')
     data = np.column_stack((f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err))
     hdr = 'f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err'
@@ -1469,13 +1471,15 @@ def save_results_ecl_sin_lin(results, errors, stats, p_orb, t_zero, e, w, i, r_s
     return None
 
 
-def read_results_ecl_sin_lin(file_name):
+def read_results_ecl_sin_lin(file_name, verbose=False):
     """Read in the results of the eclipse, sinusoid and linear models
 
     Parameters
     ----------
     file_name: str, None
         File name (including path) for loading the results.
+    verbose: bool
+        If set to True, this function will print some information
     
     Returns
     -------
@@ -1508,7 +1512,7 @@ def read_results_ecl_sin_lin(file_name):
     results, errors, stats = read_results(file_name)
     # eclipse model
     file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
-    ecl_res = np.loadtxt(file_name_e, usecols=(1,), delimiter=',', unpack=True)
+    ecl_res = np.loadtxt(file_name_e, delimiter=',', unpack=True)
     p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = ecl_res
     return results, errors, stats, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
@@ -1800,19 +1804,33 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results_15 = read_results(file_name, verbose=False)
         results, errors, stats = results_15
         _, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = results
+        print(len(f_n_r1))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_ellc_2.hdf5')
     if os.path.isfile(file_name):
         results_15b = read_results(file_name, verbose=False)
         results, errors, stats = results_15b
         _, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = results
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.hdf5')
     if os.path.isfile(file_name):
-        results_16 = read_results_fselect(file_name)
-        pass_r_sigma, pass_r_snr, passed_r_b = results_16
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
+        results_16 = read_results_ecl_sin_lin(file_name, verbose=False)
+        results, errors, stats = results_16[:3]
+        _, const_16, slope_16, f_n_16, a_n_16, ph_n_16 = results
+        p_orb_16, t_zero_16, e_16, w_16, i_16, r_sum_sma_16, r_ratio_16, sb_ratio_16 = results_16[3:]
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.hdf5')
     if os.path.isfile(file_name):
-        results_16b = read_results_fselect(file_name)
-        pass_r_sigma_2, pass_r_snr_2, passed_r_b_2 = results_16b
+        results_16b = read_results_ecl_sin_lin(file_name, verbose=False)
+        results, errors, stats = results_16b[:3]
+        _, const_16b, slope_16b, f_n_16b, a_n_16b, ph_n_16b = results
+        p_orb_16b, t_zero_16b, e_16b, w_16b, i_16b, r_sum_sma_16b, r_ratio_16b, sb_ratio_16b = results_16b[3:]
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.csv')
+    if os.path.isfile(file_name):
+        results_17 = read_results_fselect(file_name)
+        pass_r_sigma, pass_r_snr, passed_r_b = results_17
+        print(len(passed_r_b))
+    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17_ellc.csv')
+    if os.path.isfile(file_name):
+        results_17b = read_results_fselect(file_name)
+        pass_r_sigma_2, pass_r_snr_2, passed_r_b_2 = results_17b
     # frequency_analysis
     if save_dir is not None:
         try:

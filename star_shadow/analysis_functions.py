@@ -955,17 +955,17 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
         combinations = np.append(combinations, np.column_stack((ingress, egress)), axis=0)
     
     
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.plot(t_model, model_h)
-    # ax.scatter(t_model[peaks_1], model_h[peaks_1])
-    ax.scatter(t_model[minimum_1], model_h[minimum_1])
-    # ax.scatter(t_model[zeros_1], model_h[zeros_1])
-    fig2, ax2 = plt.subplots()
-    ax2.plot(t_model, deriv_1)
-    ax2.scatter(t_model[peaks_1], deriv_1[peaks_1])
-    # ax2.scatter(t_model[minimum_1], deriv_1[minimum_1])
-    # ax2.scatter(t_model[zeros_1], deriv_1[zeros_1])
+    # import matplotlib.pyplot as plt
+    # fig, ax = plt.subplots()
+    # ax.plot(t_model, model_h)
+    # # ax.scatter(t_model[peaks_1], model_h[peaks_1])
+    # ax.scatter(t_model[minimum_1], model_h[minimum_1])
+    # # ax.scatter(t_model[zeros_1], model_h[zeros_1])
+    # fig2, ax2 = plt.subplots()
+    # ax2.plot(t_model, deriv_1)
+    # ax2.scatter(t_model[peaks_1], deriv_1[peaks_1])
+    # # ax2.scatter(t_model[minimum_1], deriv_1[minimum_1])
+    # # ax2.scatter(t_model[zeros_1], deriv_1[zeros_1])
     
     
     # make eclipses
@@ -1025,13 +1025,13 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
     
     
-    ax.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:red')
-    ax.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:red')
-    ax2.scatter(t_model[ecl_indices[:, 3]], deriv_1[ecl_indices[:, 3]], c='tab:red')
-    ax2.scatter(t_model[ecl_indices[:, -4]], deriv_1[ecl_indices[:, -4]], c='tab:red')
-    for i, ecl in enumerate(ecl_indices):
-        ax.plot(t_model[[ecl[3], ecl[-4]]], [i/100, i/100], '--')
-    plt.show()
+    # ax.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:red')
+    # ax.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:red')
+    # ax2.scatter(t_model[ecl_indices[:, 3]], deriv_1[ecl_indices[:, 3]], c='tab:red')
+    # ax2.scatter(t_model[ecl_indices[:, -4]], deriv_1[ecl_indices[:, -4]], c='tab:red')
+    # for i, ecl in enumerate(ecl_indices):
+    #     ax.plot(t_model[[ecl[3], ecl[-4]]], [i/100, i/100], '--')
+    # plt.show()
     
     # check that we have some eclipses
     if (len(ecl_indices) < 2):
@@ -2309,7 +2309,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         rsumsma_vals[k] = out[3]
         rratio_vals[k] = out[4]
         sbratio_vals[k] = out[5]
-        if verbose & ((k % 200) + 1 == 0):
+        if verbose & ((k + 1) % 200 == 0):
             print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)
