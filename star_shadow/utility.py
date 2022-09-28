@@ -812,7 +812,7 @@ def save_results_ecl_indices(ecl_indices, file_name,  data_id=None):
     return None
 
 
-def save_results_timings(t_zero, timings, depths, timing_errs, depths_err, ecl_indices, file_name,
+def save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_indices, file_name,
                          data_id=None):
     """Save the results of the eclipse timings
     
@@ -827,7 +827,7 @@ def save_results_timings(t_zero, timings, depths, timing_errs, depths_err, ecl_i
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    timing_errs: numpy.ndarray[float]
+    timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
@@ -845,7 +845,7 @@ def save_results_timings(t_zero, timings, depths, timing_errs, depths_err, ecl_i
     None
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     d_1_err, d_2_err = depths_err
     var_names = ['t_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 't_1_err', 't_2_err',
@@ -921,7 +921,7 @@ def read_results_timings(file_name):
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    timing_errs: numpy.ndarray[float]
+    timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
@@ -937,14 +937,14 @@ def read_results_timings(file_name):
     # put these into some arrays
     depths = np.array([depth_1, depth_2])
     timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
-    timing_errs = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
+    timings_err = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
     depths_err = np.array([d_1_err, d_2_err])
     # eclipse indices
     ecl_indices = read_results_ecl_indices(file_name)
-    return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
+    return t_zero, timings, depths, timings_err, depths_err, ecl_indices
 
 
-def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None):
+def save_results_cubics(p_orb, t_zero, timings, timings_err, depths, depths_err, file_name, data_id=None):
     """Save the results of the cubic model fit
     
     Parameters
@@ -959,8 +959,13 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None)
         timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths: numpy.ndarray[float]
         Cubic curve primary and secondary eclipse depth
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
     file_name: str, None
         File name (including path) for saving the results.
     data_id: int, str, None
@@ -972,9 +977,12 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None)
     """
     # save the timings and parameters separately
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     d_1, d_2 = depths
+    d_1_err, d_2_err = depths_err
     var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
-                 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2']
+                 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
+                 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err', 'd_1_err', 'd_2_err']
     var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
@@ -983,12 +991,21 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id=None)
                 'end of (flat) eclipse bottom right of primary minimum',
                 'start of (flat) eclipse bottom left of secondary minimum',
                 'end of (flat) eclipse bottom right of secondary minimum',
-                'depth of primary eclipse', 'depth of secondary eclipse']
+                'depth of primary eclipse', 'depth of secondary eclipse',
+                'error in time of primary minimum (t_1)',
+                'error in time of secondary minimum (t_2)',
+                'error in time of primary first contact (t_1_1)',
+                'error in time of primary last contact (t_1_2)',
+                'error in time of secondary first contact (t_2_1)',
+                'error in time of secondary last contact (t_2_2)',
+                'error in depth of primary minimum', 'error in depth of secondary minimum']
     values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
-              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2)]
+              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2),
+              str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
+              str(d_1_err), str(d_2_err)]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
-    description = 'Eclipse timings and depths.'
+    description = 'Eclipse timings and depths with error estimates.'
     hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     return None
@@ -1012,109 +1029,22 @@ def read_results_cubics(file_name):
         timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths: numpy.ndarray[float]
         Cubic curve primary and secondary eclipse depth
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths
     """
     # read second file
     values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     t_zero = values[1]  # first one is p_orb
     timings = values[2:12]
-    depths = values[12:]
-    return t_zero, timings, depths
-
-
-def save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id=None):
-    """Save the results of the eclipse timings
-
-    Parameters
-    ----------
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    timing_errs: numpy.ndarray[float]
-        Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-    depths: numpy.ndarray[float]
-        Eclipse depth of the primary and secondary, depth_1, depth_2
-    depths_err: numpy.ndarray[float]
-        Error estimates for the depths
-    file_name: str, None
-        File name (including path) for saving the results.
-    data_id: int, str, None
-        Identification for the dataset used
-
-    Returns
-    -------
-    None
-    """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
-    d_1, d_2 = depths
-    d_1_err, d_2_err = depths_err
-    var_names = ['t_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
-                 'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
-                 'd_1_err', 'd_2_err']
-    var_desc = ['time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
-                'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
-                'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
-                'start of (flat) eclipse bottom left of primary minimum',
-                'end of (flat) eclipse bottom right of primary minimum',
-                'start of (flat) eclipse bottom left of secondary minimum',
-                'end of (flat) eclipse bottom right of secondary minimum',
-                'depth of primary minimum', 'depth of secondary minimum',
-                'error in time of primary minimum (t_1)',
-                'error in time of secondary minimum (t_2)',
-                'error in time of primary first contact (t_1_1)',
-                'error in time of primary last contact (t_1_2)',
-                'error in time of secondary first contact (t_2_1)',
-                'error in time of secondary last contact (t_2_2)',
-                'error in depth of primary minimum', 'error in depth of secondary minimum']
-    values = [str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
-              str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(depths[0]), str(depths[1]),
-              str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
-              str(d_1_err), str(d_2_err)]
-    table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
-    description = 'Eclipse timing errors and depths with errors.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
-    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
-    return None
-
-
-def read_results_t_errors(file_name):
-    """Read in the results of the eclipse timings
-
-    Parameters
-    ----------
-    file_name: str, None
-        File name (including path) for loading the results.
-
-    Returns
-    -------
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    timing_errs: numpy.ndarray[float]
-        Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-    depths: numpy.ndarray[float]
-        Eclipse depth of the primary and secondary, depth_1, depth_2
-    depths_err: numpy.ndarray[float]
-        Error estimates for the depths
-    """
-    values = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = values[:12]
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = values[12:]
-    # put these into some arrays
-    timings = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2])
-    timing_errs = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
-    depths = np.array([depth_1, depth_2])
-    depths_err = np.array([d_1_err, d_2_err])
-    return timings, timing_errs, depths, depths_err
+    depths = values[12:14]
+    timings_err = values[14:20]
+    depths_err = values[20:22]
+    return t_zero, timings, timings_err, depths, depths_err
 
 
 def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
@@ -1767,7 +1697,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
         results_10 = read_results_timings(file_name)
-        t_zero_10, timings_10, depths_10, timing_errs_10, depths_err_10, ecl_indices_10 = results_10
+        t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = results_10
     elif os.path.isfile(file_name_2):
         ecl_indices_10 = read_results_ecl_indices(file_name)
     if os.path.isfile(file_name) | os.path.isfile(file_name_2):
@@ -1777,12 +1707,12 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
         results_11 = read_results_cubics(file_name)
-        t_zero_11, timings_11, depths_11 = results_11
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
-    if os.path.isfile(file_name):
-        results_12 = read_results_t_errors(file_name)
+        t_zero_11, timings_11, timings_err_11, depths_11, depths_err_11 = results_11
+    # file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
+    # if os.path.isfile(file_name):
+    #     results_12 = read_results_t_errors(file_name)
         # timings_12 are identical to timings_11, depths_11 are preferred over depths_12
-        timings_12, timing_errs_12, depths_12, depths_err_12 = results_12
+        # timings_12, timings_err_11, depths_12, depths_err_11 = results_12
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     if os.path.isfile(file_name):
         results_13 = read_results_elements(file_name)
@@ -1888,7 +1818,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timing_errs_10,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timings_err_10,
                                            depths_err_10, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_hl_9, a_hl_9,
                                            ph_hl_9, i_sectors, save_file=file_name, show=False)
         except NameError:
@@ -1902,8 +1832,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timing_errs_12,
-                                           depths_err_12, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timings_err_11,
+                                           depths_err_11, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
                                            i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1938,7 +1868,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timing_errs_10,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timings_err_10,
                                            depths_err_10, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_hl_9, a_hl_9,
                                            ph_hl_9, i_sectors, save_file=None, show=True)
         except NameError:
@@ -1950,8 +1880,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timing_errs_12,
-                                           depths_err_12, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
+            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timings_err_11,
+                                           depths_err_11, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
                                            i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

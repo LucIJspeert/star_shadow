@@ -1953,7 +1953,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     return bic
 
 
-def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verbose=False):
+def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
     """Determine all eclipse parameters using a combination of approximate
     functions and fitting procedures
     
@@ -1968,7 +1968,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2
     depths: numpy.ndarray[float]
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    timing_errs: numpy.ndarray[float]
+    timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
@@ -1996,7 +1996,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
         Surface brightness ratio sb_2/sb_1
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
-    args_i = (p_orb, *timings_tau, depths[0], depths[1], *timing_errs, *depths_err)
+    args_i = (p_orb, *timings_tau, depths[0], depths[1], *timings_err, *depths_err)
     bounds_i = (np.pi/4, np.pi/2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
@@ -2020,7 +2020,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verb
     # prepare for fit of: ecosw, esinw, i, r_sum_sma and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, r_sum_sma, 1)
-    args_ep = (p_orb, *timings_tau, *depths, *timing_errs, *depths_err)
+    args_ep = (p_orb, *timings_tau, *depths, *timings_err, *depths_err)
     bounds_ep = ((-1, 1), (-1, 1), (np.pi/8, np.pi/2), (0, 1), rr_bounds)
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, r_sum_sma, r_ratio = res.x
@@ -2147,7 +2147,7 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
 
 
 def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h, timings,
-                        timing_errs, depths_err, verbose=False):
+                        timings_err, depths_err, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2179,7 +2179,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         Timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    timing_errs: numpy.ndarray[float]
+    timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
@@ -2211,7 +2211,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     degeneracy between angles around 90 degrees and 270 degrees.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     bot_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)  # estimate from the tau errors
     bot_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)  # estimate from the tau errors
     # generate input distributions
@@ -2302,7 +2302,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timing_errs, depths_err, verbose=verbose)
+        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timings_err, depths_err, verbose=verbose)
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]

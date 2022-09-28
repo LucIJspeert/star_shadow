@@ -693,7 +693,7 @@ def eclipse_analysis_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float], None
         Eclipse depth of the primary and secondary, depth_1, depth_2
-    timing_errs: numpy.ndarray[float], None
+    timings_err: numpy.ndarray[float], None
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float], None
@@ -710,7 +710,7 @@ def eclipse_analysis_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_timings(file_name)
-        t_zero, timings, depths, timing_errs, depths_err, ecl_indices = results
+        t_zero, timings, depths, timings_err, depths_err, ecl_indices = results
     elif os.path.isfile(file_name_2) & (not overwrite):  # not enough eclipses found last time
         ecl_indices = ut.read_results_ecl_indices(file_name)  # read only the indices file
         if verbose:
@@ -761,30 +761,30 @@ def eclipse_analysis_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         # define some errors
         t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2 + p_err**2) / 3  # this is an estimate
         t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2 + p_err**2) / 3  # this is an estimate
-        timing_errs = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]])
+        timings_err = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1]])
         # depth errors from the noise levels at contact points and bottom of eclipse
         # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
         depths_err = np.array([np.sqrt(3 / 2 * noise_level**2), np.sqrt(3 / 2 * noise_level**2)])
         # save
-        ut.save_results_timings(t_zero, timings, depths, timing_errs, depths_err, ecl_indices, file_name, data_id)
+        ut.save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_indices, file_name, data_id)
     # total durations
     dur_1 = timings[3] - timings[2]  # t_1_2 - t_1_1
     dur_2 = timings[5] - timings[4]  # t_2_2 - t_2_1
     dur_b_1 = timings[7] - timings[6]  # t_b_1_2 - t_b_1_1
     dur_b_2 = timings[9] - timings[8]  # t_b_2_2 - t_b_2_1
-    dur_1_err = np.sqrt(timing_errs[2]**2 + timing_errs[3]**2)
-    dur_2_err = np.sqrt(timing_errs[4]**2 + timing_errs[5]**2)
+    dur_1_err = np.sqrt(timings_err[2]**2 + timings_err[3]**2)
+    dur_2_err = np.sqrt(timings_err[4]**2 + timings_err[5]**2)
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
         rnd_p_orb = max(ut.decimal_figures(p_err, 2), ut.decimal_figures(p_orb, 2))
-        rnd_t_zero = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(t_zero, 2))
-        rnd_t_1 = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(timings[0], 2))
-        rnd_t_2 = max(ut.decimal_figures(timing_errs[1], 2), ut.decimal_figures(timings[1], 2))
-        rnd_t_1_1 = max(ut.decimal_figures(timing_errs[2], 2), ut.decimal_figures(timings[2], 2))
-        rnd_t_1_2 = max(ut.decimal_figures(timing_errs[3], 2), ut.decimal_figures(timings[3], 2))
-        rnd_t_2_1 = max(ut.decimal_figures(timing_errs[4], 2), ut.decimal_figures(timings[4], 2))
-        rnd_t_2_2 = max(ut.decimal_figures(timing_errs[5], 2), ut.decimal_figures(timings[5], 2))
+        rnd_t_zero = max(ut.decimal_figures(timings_err[0], 2), ut.decimal_figures(t_zero, 2))
+        rnd_t_1 = max(ut.decimal_figures(timings_err[0], 2), ut.decimal_figures(timings[0], 2))
+        rnd_t_2 = max(ut.decimal_figures(timings_err[1], 2), ut.decimal_figures(timings[1], 2))
+        rnd_t_1_1 = max(ut.decimal_figures(timings_err[2], 2), ut.decimal_figures(timings[2], 2))
+        rnd_t_1_2 = max(ut.decimal_figures(timings_err[3], 2), ut.decimal_figures(timings[3], 2))
+        rnd_t_2_1 = max(ut.decimal_figures(timings_err[4], 2), ut.decimal_figures(timings[4], 2))
+        rnd_t_2_2 = max(ut.decimal_figures(timings_err[5], 2), ut.decimal_figures(timings[5], 2))
         rnd_dur_1 = max(ut.decimal_figures(dur_1_err, 2), ut.decimal_figures(dur_1, 2))
         rnd_dur_2 = max(ut.decimal_figures(dur_2_err, 2), ut.decimal_figures(dur_2, 2))
         rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
@@ -793,29 +793,29 @@ def eclipse_analysis_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         rnd_bot_2 = max(ut.decimal_figures(dur_2_err, 2), ut.decimal_figures(dur_b_2, 2))
         print(f'\033[1;32;48mMeasurements of timings and depths:\033[0m')
         print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_t_1}f}), '
-              f't_zero: {t_zero:.{rnd_t_zero}f} (+-{timing_errs[0]:.{rnd_t_zero}f}), \n'
-              f't_1: {timings[0]:.{rnd_t_1}f} (+-{timing_errs[0]:.{rnd_t_1}f}), '
-              f't_2: {timings[1]:.{rnd_t_2}f} (+-{timing_errs[1]:.{rnd_t_2}f}), \n'
-              f't_1_1: {timings[2]:.{rnd_t_1_1}f} (+-{timing_errs[2]:.{rnd_t_1_1}f}), \n'
-              f't_1_2: {timings[3]:.{rnd_t_1_2}f} (+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
-              f't_2_1: {timings[4]:.{rnd_t_2_1}f} (+-{timing_errs[4]:.{rnd_t_2_1}f}), \n'
-              f't_2_2: {timings[5]:.{rnd_t_2_2}f} (+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
+              f't_zero: {t_zero:.{rnd_t_zero}f} (+-{timings_err[0]:.{rnd_t_zero}f}), \n'
+              f't_1: {timings[0]:.{rnd_t_1}f} (+-{timings_err[0]:.{rnd_t_1}f}), '
+              f't_2: {timings[1]:.{rnd_t_2}f} (+-{timings_err[1]:.{rnd_t_2}f}), \n'
+              f't_1_1: {timings[2]:.{rnd_t_1_1}f} (+-{timings_err[2]:.{rnd_t_1_1}f}), \n'
+              f't_1_2: {timings[3]:.{rnd_t_1_2}f} (+-{timings_err[3]:.{rnd_t_1_2}f}), \n'
+              f't_2_1: {timings[4]:.{rnd_t_2_1}f} (+-{timings_err[4]:.{rnd_t_2_1}f}), \n'
+              f't_2_2: {timings[5]:.{rnd_t_2_2}f} (+-{timings_err[5]:.{rnd_t_2_2}f}), \n'
               f'duration_1: {dur_1:.{rnd_dur_1}f} (+-{dur_1_err:.{rnd_dur_1}f}), \n'
               f'duration_2: {dur_2:.{rnd_dur_2}f} (+-{dur_2_err:.{rnd_dur_2}f}). \n'
-              f't_b_1_1: {timings[6]:.{rnd_t_1_1}f} (+-{timing_errs[2]:.{rnd_t_1_1}f}), \n'
-              f't_b_1_2: {timings[7]:.{rnd_t_1_2}f} (+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
-              f't_b_2_1: {timings[8]:.{rnd_t_2_1}f} (+-{timing_errs[4]:.{rnd_t_2_1}f}), \n'
-              f't_b_2_2: {timings[9]:.{rnd_t_2_2}f} (+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
+              f't_b_1_1: {timings[6]:.{rnd_t_1_1}f} (+-{timings_err[2]:.{rnd_t_1_1}f}), \n'
+              f't_b_1_2: {timings[7]:.{rnd_t_1_2}f} (+-{timings_err[3]:.{rnd_t_1_2}f}), \n'
+              f't_b_2_1: {timings[8]:.{rnd_t_2_1}f} (+-{timings_err[4]:.{rnd_t_2_1}f}), \n'
+              f't_b_2_2: {timings[9]:.{rnd_t_2_2}f} (+-{timings_err[5]:.{rnd_t_2_2}f}), \n'
               f'bottom_dur_1: {dur_b_1:.{rnd_bot_1}f} (+-{dur_1_err:.{rnd_bot_1}f}), \n'
               f'bottom_dur_2: {dur_b_2:.{rnd_bot_2}f} (+-{dur_2_err:.{rnd_bot_2}f}). \n'
               f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
               f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return t_zero, timings, depths, timing_errs, depths_err, ecl_indices
+    return t_zero, timings, depths, timings_err, depths_err, ecl_indices
 
 
 def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                            i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                            noise_level, i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
     """Refine the eclispe timings using an empirical model of cubic functions
 
     Parameters
@@ -845,6 +845,8 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+    noise_level: float
+        The noise level (standard deviation of the residuals)
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -869,26 +871,21 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
     timings_em: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency,
-        note that these may sometimes surpass the eclipse middle).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths_em: numpy.ndarray[float]
-        Cubic curve height difference between local extrema,
-        will not always correspond to primary and secondary eclipse depth
-    timings_em: numpy.ndarray[float]
-        Eclipse timings from the empirical model.
-        Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency.
+        timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths_em: numpy.ndarray[float]
         Cubic curve primary and secondary eclipse depth
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+    depths_err: numpy.ndarray[float]
+        Error estimates for the depths, depth_1_err, depth_2_err
 
     Notes
     -----
     Eclipses are modelled by a simple empirical model consisting of
-    one cubic funciton per eclipse, which is mirrored to both sides.
+    one cubic function per eclipse, which is mirrored to both sides.
     Only the part of the cubic function between the two local
     extrema is used (so the discriminant is always positive).
     """
@@ -897,21 +894,35 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
     if os.path.isfile(file_name) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
-        t_zero_em, timings_em, depths_em = ut.read_results_cubics(file_name)
+        t_zero_em, timings_em, timings_err, depths_em, depths_err = ut.read_results_cubics(file_name)
     else:
         if verbose:
             print(f'Improving timings and depths with cubic model')
+        # fit for the cubic model parameters with fixed sinusoids
+        out_a = tsfit.fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                        f_n, a_n, ph_n, i_sectors, verbose=verbose)
+        mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = out_a.x
+
+
+        # get the harmonics from the residuals
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-        low_h = (harmonic_n <= 20)
-        # get the initial cubic polynomials from the low harmonic model timings
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-        t_ys = np.array([t_1_1, t_b_1_1, t_2_1, t_b_2_1]) + t_zero  # add t_zero for the harmonic model
-        y1, y2, y3, y4 = tsf.sum_sines(t_ys, f_n[harmonics[low_h]], a_n[harmonics[low_h]], ph_n[harmonics[low_h]])
-        # fit for the cubic model parameters
-        depths = np.array([y1-y2, y3-y4])
-        output_a = tsfit.fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
-                                           f_n, a_n, ph_n, i_sectors, verbose=verbose)
-        mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = output_a.x
+        non_harm = np.delete(np.arange(len(f_n)), harmonics)
+        i_sec = np.array([[0, len(times)]])  # we don't want to fit for linear curve so i_sectors is all data
+        model = tsfit.eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+        model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sines = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+        resid = signal - 1 - model - model_sines - model_linear  # model is <= 0
+        out_b = tsf.extract_additional_harmonics(times, resid, signal_err, p_orb, np.array([0]), np.array([0]),
+                                                 np.array([]), np.array([]), np.array([]), i_sec, verbose=verbose)
+        _, _, f_h_r, a_h_r, ph_h_r = out_b
+        # fit for the cubic model parameters simultaneously with harmoncis
+        par_init = np.array([mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2])
+        par_init = np.concatenate((par_init, a_h_r, ph_h_r))
+        out_c = tsfit.fit_eclipse_cubic_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                                  f_n, a_n, ph_n, i_sectors, par_init, f_h_r, verbose=verbose)
+        mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = out_a.x[:]
+        
+        
         # get the rest of the timings of the cubic models and translate them
         t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
         t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
@@ -921,152 +932,56 @@ def eclipse_analysis_cubics(times, signal, signal_err, p_orb, t_zero, timings, c
         timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
         timings_em[6:10] = [min(t_c1_2, mid_1), max(t_c2_2, mid_1), min(t_c3_2, mid_2), max(t_c4_2, mid_2)]
         timings_em = timings_em - mid_1
+        # determine error estimates using the noise level
+        out_d = tsf.measure_timing_depth_error(times, signal, p_orb, t_zero_em, const, slope, f_n, a_n, ph_n,
+                                               timings_em, noise_level, i_sectors)
+        t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err = out_d
+        t_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2) / 2
+        t_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2) / 2
+        timings_err = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
+        depths_err = np.array([depth_1_err, depth_2_err])
         # save
-        ut.save_results_cubics(p_orb, t_zero_em, timings_em, depths_em, file_name, data_id=data_id)
+        ut.save_results_cubics(p_orb, t_zero_em, timings_em, timings_err, depths_em, depths_err, file_name,
+                               data_id=data_id)
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
         dur_1, dur_2 = (timings_em[3] - timings_em[2]), (timings_em[5] - timings_em[4])
         dur_b_1, dur_b_2 = (timings_em[7] - timings_em[6]), (timings_em[9] - timings_em[8])
-        rnd_t_zero = ut.decimal_figures(t_zero_em, 2)
-        rnd_t_1 = ut.decimal_figures(timings_em[0], 2)
-        rnd_t_2 = ut.decimal_figures(timings_em[1], 2)
-        rnd_t_1_1 = ut.decimal_figures(timings_em[2], 2)
-        rnd_t_1_2 = ut.decimal_figures(timings_em[3], 2)
-        rnd_t_2_1 = ut.decimal_figures(timings_em[4], 2)
-        rnd_t_2_2 = ut.decimal_figures(timings_em[5], 2)
+        rnd_t_zero = max(ut.decimal_figures(timings_err[0], 2), ut.decimal_figures(t_zero_em, 2))
+        rnd_t_1 = max(ut.decimal_figures(timings_err[0], 2), ut.decimal_figures(timings_em[0], 2))
+        rnd_t_2 = max(ut.decimal_figures(timings_err[1], 2), ut.decimal_figures(timings_em[1], 2))
+        rnd_t_1_1 = max(ut.decimal_figures(timings_err[2], 2), ut.decimal_figures(timings_em[2], 2))
+        rnd_t_1_2 = max(ut.decimal_figures(timings_err[3], 2), ut.decimal_figures(timings_em[3], 2))
+        rnd_t_2_1 = max(ut.decimal_figures(timings_err[4], 2), ut.decimal_figures(timings_em[4], 2))
+        rnd_t_2_2 = max(ut.decimal_figures(timings_err[5], 2), ut.decimal_figures(timings_em[5], 2))
         rnd_dur_1 = ut.decimal_figures(dur_1, 2)
         rnd_dur_2 = ut.decimal_figures(dur_2, 2)
         rnd_bot_1 = ut.decimal_figures(dur_b_1, 2)
         rnd_bot_2 = ut.decimal_figures(dur_b_2, 2)
-        rnd_d_1 = ut.decimal_figures(depths_em[0], 2)
-        rnd_d_2 = ut.decimal_figures(depths_em[1], 2)
+        rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths_em[0], 2))
+        rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths_em[1], 2))
         print(f'\033[1;32;48mOptimised empirical cubic model:\033[0m')
-        print(f'\033[0;32;48mt_zero: {t_zero_em:.{rnd_t_zero}f}, '
-              f't_1: {timings_em[0]:.{rnd_t_1}f}, t_2: {timings_em[1]:.{rnd_t_2}f}, \n'
-              f't_1_1: {timings_em[2]:.{rnd_t_1_1}f}, t_1_2: {timings_em[3]:.{rnd_t_1_2}f}, \n'
-              f't_2_1: {timings_em[4]:.{rnd_t_2_1}f}, t_2_2: {timings_em[5]:.{rnd_t_2_2}f}, \n'
+        print(f'\033[0;32;48mt_zero: {t_zero_em:.{rnd_t_zero}f} (+-{timings_err[0]:.{rnd_t_zero}f}), \n'
+              f't_1: {timings_em[0]:.{rnd_t_1}f} (+-{timings_err[0]:.{rnd_t_1}f}), '
+              f't_2: {timings_em[1]:.{rnd_t_2}f} (+-{timings_err[1]:.{rnd_t_2}f}), \n'
+              f't_1_1: {timings_em[2]:.{rnd_t_1_1}f} (+-{timings_err[2]:.{rnd_t_1_1}f}), '
+              f't_1_2: {timings_em[3]:.{rnd_t_1_2}f} (+-{timings_err[3]:.{rnd_t_1_2}f}), \n'
+              f't_2_1: {timings_em[4]:.{rnd_t_2_1}f} (+-{timings_err[4]:.{rnd_t_2_1}f}), '
+              f't_2_2: {timings_em[5]:.{rnd_t_2_2}f} (+-{timings_err[5]:.{rnd_t_2_2}f}), \n'
               f'duration_1: {dur_1:.{rnd_dur_1}f}, duration_2: {dur_2:.{rnd_dur_2}f}. \n'
-              f't_b_1_1: {timings_em[6]:.{rnd_t_1_1}f}, t_b_1_2: {timings_em[7]:.{rnd_t_1_2}f}, \n'
-              f't_b_2_1: {timings_em[8]:.{rnd_t_2_1}f}, t_b_2_2: {timings_em[9]:.{rnd_t_2_2}f}, \n'
+              f't_b_1_1: {timings_em[6]:.{rnd_t_1_1}f} (+-{timings_err[2]:.{rnd_t_1_1}f}), '
+              f', t_b_1_2: {timings_em[7]:.{rnd_t_1_2}f} (+-{timings_err[3]:.{rnd_t_1_2}f}), \n'
+              f't_b_2_1: {timings_em[8]:.{rnd_t_2_1}f} (+-{timings_err[4]:.{rnd_t_2_1}f}), '
+              f', t_b_2_2: {timings_em[9]:.{rnd_t_2_2}f} (+-{timings_err[5]:.{rnd_t_2_2}f}), \n'
               f'bottom_dur_1: {dur_b_1:.{rnd_bot_1}f}, bottom_dur_2: {dur_b_2:.{rnd_bot_2}f}. \n'
-              f'd_1: {depths_em[0]:.{rnd_d_1}f}, d_2: {depths_em[1]:.{rnd_d_2}f}. \n'
+              f'd_1: {depths_em[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
+              f'd_2: {depths_em[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return t_zero_em, timings_em, depths_em
+    return t_zero_em, timings_em, depths_em, timings_err, depths_err
 
 
-def eclipse_analysis_timing_err(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, p_err,
-                                noise_level, i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
-    """Takes the output of the frequency analysis and finds the position
-    of the eclipses using the orbital harmonics
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time-series
-    signal: numpy.ndarray[float]
-        Measurement values of the time-series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of deepest minimum modulo p_orb
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    p_err: float
-        Error in the orbital period
-    noise_level: float
-        The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_half_s = np.array([[0, len(times)]]).
-    file_name: str
-        File name (including path) for saving the results. Also used to
-        load previous analysis results if found.
-    data_id: int, str, None
-        Identification for the dataset used
-    overwrite: bool
-        If set to True, overwrite old results in the same directory as
-        save_dir, or (if False) to continue from the last save-point.
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    timing_errs: numpy.ndarray[float], None
-        Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-    depths: numpy.ndarray[float], None
-        Eclipse depth of the primary and secondary, depth_1, depth_2
-    depths_err: numpy.ndarray[float], None
-        Error estimates for the depths
-    """
-    t_a = time.time()
-    if os.path.isfile(file_name) & (not overwrite):
-        if verbose:
-            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
-        results = ut.read_results_t_errors(file_name)
-        timings, timing_errs, depths, depths_err = results
-    else:
-        if verbose:
-            print('Improving timing and depth errors.')
-        out_a = tsf.measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n,
-                                         timings, noise_level, i_sectors)
-        t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = out_a
-        t_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2) / 2
-        t_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2) / 2
-        timing_errs = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
-        out_b = tsf.measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings,
-                                           timing_errs, noise_level, i_sectors)
-        depth_1, depth_2, depth_1_err, depth_2_err = out_b
-        depths = np.array([depth_1, depth_2])
-        depths_err = np.array([depth_1_err, depth_2_err])
-        # save
-        ut.save_results_t_errors(timings, timing_errs, depths, depths_err, file_name, data_id)
-    t_b = time.time()
-    if verbose:
-        # determine decimals to print for two significant figures
-        rnd_t_zero = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(t_zero, 2))
-        rnd_t_1 = max(ut.decimal_figures(timing_errs[0], 2), ut.decimal_figures(timings[0], 2))
-        rnd_t_2 = max(ut.decimal_figures(timing_errs[1], 2), ut.decimal_figures(timings[1], 2))
-        rnd_t_1_1 = max(ut.decimal_figures(timing_errs[2], 2), ut.decimal_figures(timings[2], 2))
-        rnd_t_1_2 = max(ut.decimal_figures(timing_errs[3], 2), ut.decimal_figures(timings[3], 2))
-        rnd_t_2_1 = max(ut.decimal_figures(timing_errs[4], 2), ut.decimal_figures(timings[4], 2))
-        rnd_t_2_2 = max(ut.decimal_figures(timing_errs[5], 2), ut.decimal_figures(timings[5], 2))
-        rnd_d_1 = max(ut.decimal_figures(depths_err[0], 2), ut.decimal_figures(depths[0], 2))
-        rnd_d_2 = max(ut.decimal_figures(depths_err[1], 2), ut.decimal_figures(depths[1], 2))
-        print(f'\033[1;32;48mMeasurements of timings and depths:\033[0m')
-        print(f'\033[0;32;48mt_zero: {t_zero:.{rnd_t_zero}f} (+-{timing_errs[0]:.{rnd_t_zero}f}), \n'
-              f't_1: {timings[0]:.{rnd_t_1}f} (+-{timing_errs[0]:.{rnd_t_1}f}), '
-              f't_2: {timings[1]:.{rnd_t_2}f} (+-{timing_errs[1]:.{rnd_t_2}f}), \n'
-              f't_1_1: {timings[2]:.{rnd_t_1_1}f} (+-{timing_errs[2]:.{rnd_t_1_1}f}), '
-              f't_1_2: {timings[3]:.{rnd_t_1_2}f} (+-{timing_errs[3]:.{rnd_t_1_2}f}), \n'
-              f't_2_1: {timings[4]:.{rnd_t_2_1}f} (+-{timing_errs[4]:.{rnd_t_2_1}f}), '
-              f't_2_2: {timings[5]:.{rnd_t_2_2}f} (+-{timing_errs[5]:.{rnd_t_2_2}f}), \n'
-              f'd_1: {depths[0]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
-              f'd_2: {depths[1]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}), \n'
-              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return timing_errs, depths, depths_err
-
-
-def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timing_errs, depths_err, f_h, a_h,
+def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, f_h, a_h,
                               ph_h, file_name, data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclispe timings
 
@@ -1085,7 +1000,7 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timing_errs
         Eclipse depth of the primary and secondary, depth_1, depth_2
     p_err: float
         Error in the orbital period
-    timing_errs: numpy.ndarray[float]
+    timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
@@ -1164,14 +1079,14 @@ def eclipse_analysis_elements(p_orb, t_zero, timings, depths, p_err, timing_errs
         tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
         timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
         # minimisation procedure for parameters from formulae
-        output = af.eclipse_parameters(p_orb, timings_tau, depths, timing_errs, depths_err, verbose=verbose)
+        output = af.eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=verbose)
         e, w, i, r_sum_sma, r_ratio, sb_ratio = output
         # calculate the errors
         output_2 = af.error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h,
-                                          timings, timing_errs, depths_err, verbose=verbose)
+                                          timings, timings_err, depths_err, verbose=verbose)
         intervals, bounds, errors, dists_in, dists_out = output_2
         i_sym_err = max(errors[2])  # take the maximum as pessimistic estimate of the symmetric error
-        formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timing_errs)
+        formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timings_err)
         # save
         ut.save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
                                  dists_in, dists_out, file_name, data_id)
@@ -1387,29 +1302,31 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    t_zero_10, timings_10, depths_10, timing_errs_10, depths_err_10, ecl_indices_10 = out_10
+    t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = out_10
     if np.any([item is None for item in out_10]):
         return (None,) * 5  # could still not find eclipses for some reason
     # --- [10] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_cubics(times, signal, signal_err, p_orb_9, t_zero_10, timings_10, const_9, slope_9,
-                                     f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name, data_id=data_id,
-                                     overwrite=overwrite, verbose=verbose)
-    t_zero_11, timings_11, depths_11 = out_11
+                                     f_n_9, a_n_9, ph_n_9, noise_level_9, i_sectors, file_name=file_name,
+                                     data_id=data_id, overwrite=overwrite, verbose=verbose)
+    t_zero_11, timings_11, depths_11, timings_err_11, depths_err_11 = out_11
     # --- [11] --- Timing and depth error estimates
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     out_12 = eclipse_analysis_timing_err(times, signal, signal_err, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
                                           f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, i_sectors, file_name=file_name,
                                           data_id=data_id, overwrite=overwrite, verbose=verbose)
-    timing_errs_12, depths_12, depths_err_12 = out_12
+    timings_err_12, depths_12, depths_err_12 = out_12
     # --- [12] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
     f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
     out_13 = eclipse_analysis_elements(p_orb_9, t_zero_11, timings_11, depths_11, p_err_9,
-                                       timing_errs_12, depths_err_12, f_h_9, a_h_9, ph_h_9,
+                                       timings_err_11, depths_err_11, f_h_9, a_h_9, ph_h_9,
                                        file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13 = out_13[:6]
+    if (e_13 > 0.99):
+        return (None,) * 5  # unphysical parameters
     # errors_13, bounds_13, formal_errors_13, dists_in_13, dists_out_13 = out_13[6:]
     # --- [13] --- Fit for the light curve parameters
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
@@ -1849,7 +1766,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     # load t_zero from the timings file
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     if os.path.isfile(file_name):
-        t_zero_11, timings_11, depths_11 = ut.read_results_cubics(file_name)
+        t_zero_11, timings_11, timings_err_11, depths_11, depths_err_11 = ut.read_results_cubics(file_name)
     else:
         if verbose:
             print('No timing results found')
@@ -1879,12 +1796,12 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
     # --- [16] --- Full model fit
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.csv')
     out_16 = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
-                                         const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='simple',
+                                         const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1, i_sectors, model='simple',
                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     p_orb_r1, t_zero_r1, ecl_par_r1, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = out_16
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_ellc.csv')
     out_16b = pulsation_analysis_full_fit(times, signal, signal_err, p_orb_9, t_zero_11, par_opt2_14,
-                                          const_9, slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, model='ellc',
+                                          const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2, i_sectors, model='ellc',
                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     p_orb_r2, t_zero_r2, ecl_par_r2, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = out_16b
     # --- [17] --- Frequency selection
@@ -1899,7 +1816,7 @@ def pulsation_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data
                                          verbose=verbose)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_17b
     # --- [18] --- Harmonics in the residuals
-    # determine which residual frequencies are consistent with harmonics
+    # determine which residual frequencies are consistent with harmonics (already done in plotting)
     # --- [19] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
     return out_15, out_16, out_16b, out_17, out_17b

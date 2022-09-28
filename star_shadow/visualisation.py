@@ -344,13 +344,13 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     return
 
 
-def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timing_errs, depths_err, const, slope,
+def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, timings_err, depths_err, const, slope,
                                f_n, a_n, ph_n, f_h, a_h, ph_h, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the first and
     last contact points as well as minima indicated.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # plotting bounds

@@ -1325,7 +1325,8 @@ def formal_period_uncertainty(p_orb, f_n_err, harmonics, harmonic_n):
 
 
 @nb.njit(cache=True)
-def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
+def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, noise_level,
+                               i_sectors):
     """Estimate the error in the timing measurements based on the
     noise level and the eclipse slopes.
 
@@ -1335,6 +1336,8 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
     const: numpy.ndarray[float]
@@ -1363,10 +1366,14 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
 
     Returns
     -------
-    depth_1: float
-        Depth of primary minimum
-    depth_2: float
-        Depth of secondary minimum
+    t_1_1_err: float
+        Error in the time of primary first contact
+    t_1_2_err: float
+        Error in the time of primary last contact
+    t_2_1_err: float
+        Error in the time of secondary first contact
+    t_2_2_err: float
+        Error in the time of secondary last contact
     depth_1_err: float
         Error in the depth of primary minimum
     depth_2_err: float
@@ -1414,71 +1421,9 @@ def measure_timing_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, p
         deriv_1 = sum_sines_deriv(t_model, f_n[harmonics], a_n[harmonics], ph_n[harmonics], deriv=1)
         slope = np.array([np.max(deriv_1)])
     t_2_2_err = abs(noise_level / slope[0])
-    return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-
-
-@nb.njit(cache=True)
-def measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, timing_errs,
-                           noise_level, i_sectors):
-    """Measure the depths of the eclipses from the data given
-    the timing measurements
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time-series
-    signal: numpy.ndarray[float]
-        Measurement values of the time-series
-    t_zero: float
-        Time of deepest minimum modulo p_orb
-    const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    timing_errs: numpy.ndarray[float]
-        Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-    noise_level: float
-        The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_half_s = np.array([[0, len(times)]]).
-
-    Returns
-    -------
-    depth_1: float
-        Depth of primary minimum
-    depth_2: float
-        Depth of secondary minimum
-    depth_1_err: float
-        Error in the depth of primary minimum
-    depth_2_err: float
-        Error in the depth of secondary minimum
-    """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timing_errs
+    # determine depth errors
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
-    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_nh = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line
     # use the full bottom if nonzero
     t_folded = (times - t_zero) % p_orb
     if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
@@ -1491,40 +1436,24 @@ def measure_eclipse_depths(times, signal, p_orb, t_zero, const, slope, f_n, a_n,
         mask_b_2 = ((t_folded > t_b_2_1) & (t_folded < t_b_2_2))
     else:
         mask_b_2 = ((t_folded > t_2 - t_2_1_err) & (t_folded < t_2 + t_2_2_err))
-    # if the masks still cover insufficient points, fall back to the harmonic model
-    t_model = np.array([t_1, t_2])
-    model_h = sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     # determine heights at the bottom and errors
     if (np.sum(mask_b_1) > 2):
-        height_b_1 = np.mean(ecl_signal[mask_b_1])
         height_b_1_err = np.std(ecl_signal[mask_b_1])
     else:
-        height_b_1 = model_h[0]
         height_b_1_err = noise_level
     if (np.sum(mask_b_2) > 2):
-        height_b_2 = np.mean(ecl_signal[mask_b_2])
         height_b_2_err = np.std(ecl_signal[mask_b_2])
     else:
-        height_b_2 = model_h[1]
         height_b_2_err = noise_level
-    # calculate the harmonic model at the eclipse edges
-    t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = sum_sines(t_model + t_zero, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     # heights at the edges
-    height_1_1 = model_h[0]
     height_1_1_err = noise_level
-    height_1_2 = model_h[1]
     height_1_2_err = noise_level
-    height_2_1 = model_h[2]
     height_2_1_err = noise_level
-    height_2_2 = model_h[3]
     height_2_2_err = noise_level
     # calculate depths
-    depth_1 = (height_1_1 + height_1_2) / 2 - height_b_1
     depth_1_err = np.sqrt(height_1_1_err**2/4 + height_1_2_err**2/4 + height_b_1_err**2)
-    depth_2 = (height_2_1 + height_2_2) / 2 - height_b_2
     depth_2_err = np.sqrt(height_2_1_err**2/4 + height_2_2_err**2/4 + height_b_2_err**2)
-    return depth_1, depth_2, depth_1_err, depth_2_err
+    return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
 
 
 def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors):
@@ -2224,10 +2153,8 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     as achieved with the functions mentioned in the see also section.
     """
     f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
-    # extract the harmonics using the period
+    # extract the existing harmonics using the period
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    if (len(harmonics) == 0):
-        raise ValueError('No harmonic frequencies found')
     # make a list of not-present possible harmonics
     h_candidate = np.arange(1, p_orb * f_max, dtype=int)
     h_candidate = np.delete(h_candidate, harmonic_n - 1)  # harmonic_n minus one is the position
