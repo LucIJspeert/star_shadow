@@ -1298,26 +1298,26 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     p_orb_9 = p_orb_9[0]  # must be a float
     p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
     n_param_9, bic_9, noise_level_9 = stats
-    # --- [9] --- Initial eclipse timings
+    # --- [10] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
     out_10 = eclipse_analysis_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9,
                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = out_10
     if np.any([item is None for item in out_10]):
         return (None,) * 5  # could still not find eclipses for some reason
-    # --- [10] --- Improvement of timings with cubics
+    # --- [11] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')
     out_11 = eclipse_analysis_cubics(times, signal, signal_err, p_orb_9, t_zero_10, timings_10, const_9, slope_9,
                                      f_n_9, a_n_9, ph_n_9, noise_level_9, i_sectors, file_name=file_name,
                                      data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_11, timings_11, depths_11, timings_err_11, depths_err_11 = out_11
-    # --- [11] --- Timing and depth error estimates
+    # --- [12] --- Timing and depth error estimates
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.csv')
     out_12 = eclipse_analysis_timing_err(times, signal, signal_err, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
                                           f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, i_sectors, file_name=file_name,
                                           data_id=data_id, overwrite=overwrite, verbose=verbose)
     timings_err_12, depths_12, depths_err_12 = out_12
-    # --- [12] --- Determination of orbital elements
+    # --- [13] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
     f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
@@ -1328,7 +1328,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     if (e_13 > 0.99):
         return (None,) * 5  # unphysical parameters
     # errors_13, bounds_13, formal_errors_13, dists_in_13, dists_out_13 = out_13[6:]
-    # --- [13] --- Fit for the light curve parameters
+    # --- [14] --- Fit for the light curve parameters
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     par_init_13 = (e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13)
     out_14 = eclipse_analysis_fit(times, signal, signal_err, par_init_13, p_orb_9, t_zero_11, timings_11[:6], const_9,

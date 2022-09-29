@@ -1719,7 +1719,6 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         e_13, w_13, i_13, r_sum_sma_13, r_ratio_13, sb_ratio_13 = results_13[:6]
         errors_13, bounds_13, formal_errors_13, dists_in_13, dists_out_13 = results_13[6:]
         # intervals_w #? for when the interval is disjoint
-    # open some more data - ellc fits and pulsation analysis
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     if os.path.isfile(file_name):
         par_init_13, par_opt1_14, par_opt2_14 = read_results_lc_fit(file_name)
@@ -1729,17 +1728,17 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         par_ellc = np.copy(par_opt2_14)
         par_ellc[0] = np.sqrt(par_opt2_14[0]) * np.cos(par_opt2_14[1])
         par_ellc[1] = np.sqrt(par_opt2_14[0]) * np.sin(par_opt2_14[1])
+    # pulsation analysis
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_2.hdf5')
     if os.path.isfile(file_name):
         results_15 = read_results(file_name, verbose=False)
         results, errors, stats = results_15
-        _, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1 = results
-        print(len(f_n_r1))
+        _, const_15, slope_15, f_n_15, a_n_15, ph_n_15 = results
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15_ellc_2.hdf5')
     if os.path.isfile(file_name):
         results_15b = read_results(file_name, verbose=False)
         results, errors, stats = results_15b
-        _, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2 = results
+        _, const_15b, slope_15b, f_n_15b, a_n_15b, ph_n_15b = results
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16.hdf5')
     if os.path.isfile(file_name):
         results_16 = read_results_ecl_sin_lin(file_name, verbose=False)
@@ -1755,12 +1754,11 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.csv')
     if os.path.isfile(file_name):
         results_17 = read_results_fselect(file_name)
-        pass_r_sigma, pass_r_snr, passed_r_b = results_17
-        print(len(passed_r_b))
+        pass_sigma_17, pass_snr_17, passed_b_17 = results_17
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17_ellc.csv')
     if os.path.isfile(file_name):
         results_17b = read_results_fselect(file_name)
-        pass_r_sigma_2, pass_r_snr_2, passed_r_b_2 = results_17b
+        pass_sigma_17b, pass_snr_17b, passed_b_17b = results_17b
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -1824,17 +1822,10 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_cubics.png')
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_em.png')
             vis.plot_lc_empirical_model(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, const_9, slope_9,
-                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, i_sectors,
-                                        save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps.png')
-            vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_11, timings_11, depths_11, timings_err_11,
-                                           depths_err_11, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_h_9, a_h_9, ph_h_9,
-                                           i_sectors, save_file=file_name, show=False)
+                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, timings_err_11, depths_err_11,
+                                        i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1875,8 +1866,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_empirical_model(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, const_9, slope_9,
-                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, i_sectors,
-                                        save_file=None, show=True)
+                                        f_n_9, a_n_9, ph_n_9, timings_11, depths_11, timings_err_11, depths_err_11,
+                                        i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -1913,86 +1904,86 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                             a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                             passed_r_b, par_opt1_14, model='simple', save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                             a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                             passed_r_b_2, par_opt2_14, model='ellc', save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model.png')
             vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
-                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                           passed_r_b, par_opt1_14, model='simple', save_file=file_name, show=False)
+                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
+                                           passed_b_17, par_opt1_14, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model.png')
             vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9,
-                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                           passed_r_b_2, par_opt2_14, model='ellc', save_file=file_name, show=False)
+                                           f_n_9, a_n_9, ph_n_9, i_sectors, const_15b, slope_15b, f_n_15b, a_n_15b, ph_n_15b,
+                                           passed_b_17b, par_opt2_14, model='ellc', save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model_h.png')
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
+                                             passed_b_17, par_opt1_14, model='simple', save_file=file_name, show=False)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
+                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_15b, slope_15b, f_n_15b, a_n_15b, ph_n_15b,
+                                             passed_b_17b, par_opt2_14, model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_simple_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r1, slope_r1,
-                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_14, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_15, slope_15,
+                                           f_n_15, a_n_15, ph_n_15, passed_b_17, par_opt1_14, i_sectors,
                                            model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                      f'tic_{tic}_pulsation_analysis_pd_disentangled_ellc_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r2, slope_r2,
-                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_14, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_15b, slope_15b,
+                                           f_n_15b, a_n_15b, ph_n_15b, passed_b_17b, par_opt2_14, i_sectors,
                                            model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                             a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                             passed_r_b, par_opt1_14, model='simple', save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                             a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                             passed_r_b_2, par_opt2_14, model='ellc', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                           a_n_9, ph_n_9, i_sectors, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
+                                           passed_b_17, par_opt1_14, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                           a_n_9, ph_n_9, i_sectors, const_r1, slope_r1, f_n_r1, a_n_r1, ph_n_r1,
-                                           passed_r_b, par_opt1_14, model='simple', save_file=None, show=True)
+                                           a_n_9, ph_n_9, i_sectors, const_15b, slope_15b, f_n_15b, a_n_15b, ph_n_15b,
+                                           passed_b_17b, par_opt2_14, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
-                                           a_n_9, ph_n_9, i_sectors, const_r2, slope_r2, f_n_r2, a_n_r2, ph_n_r2,
-                                           passed_r_b_2, par_opt2_14, model='ellc', save_file=None, show=True)
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
+                                             passed_b_17, par_opt1_14, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r1, slope_r1,
-                                           f_n_r1, a_n_r1, ph_n_r1, passed_r_b, par_opt1_14, i_sectors,
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_11, timings_11, const_9, slope_9, f_n_9,
+                                             a_n_9, ph_n_9, i_sectors, const_15b, slope_15b, f_n_15b, a_n_15b, ph_n_15b,
+                                             passed_b_17b, par_opt2_14, model='ellc', save_file=None, show=True)
+        except NameError:
+            pass  # some variable wasn't loaded (file did not exist)
+        try:
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_15, slope_15,
+                                           f_n_15, a_n_15, ph_n_15, passed_b_17, par_opt1_14, i_sectors,
                                            model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_r2, slope_r2,
-                                           f_n_r2, a_n_r2, ph_n_r2, passed_r_b_2, par_opt2_14, i_sectors,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_11, noise_level_9, const_15b, slope_15b,
+                                           f_n_15b, a_n_15b, ph_n_15b, passed_b_17b, par_opt2_14, i_sectors,
                                            model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)

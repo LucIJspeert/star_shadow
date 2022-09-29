@@ -436,7 +436,7 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
         ax.plot([t_b_1_2, t_b_1_2], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
         ax.fill_between([t_b_1_1 - t_1_1_err, t_b_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3, label=r'1 and 3 $\sigma$ error')
+                        color='tab:brown', alpha=0.3)
         ax.fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.3)
         # 3 sigma errors
@@ -614,11 +614,17 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
 
 
 def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                            timings_em, depths_em, i_sectors, save_file=None, show=True):
+                            timings_em, depths_em, timings_err, depths_err, i_sectors, save_file=None, show=True):
     """Shows the initial and final simple empirical cubic function eclipse model
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    depth_1, depth_2 = depths
     t_1_em, t_2_em, t_1_1_em, t_1_2_em, t_2_1_em, t_2_2_em, t_b_1_1_em, t_b_1_2_em, t_b_2_1_em, t_b_2_2_em = timings_em
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    depth_em_1, depth_em_2 = depths_em
+    depth_1_err, depth_2_err = depths_err
+    dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
+    dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # plotting bounds
     t_start = t_1_1
     t_end = p_orb + t_1_2
@@ -645,10 +651,10 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
     model_ecl_init = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
-                                               t_b_1_1, t_b_2_1, depths[0], depths[1])
+                                               t_b_1_1, t_b_2_1, depth_1, depth_2)
     model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
-                                          t_b_1_1_em, t_b_2_1_em, depths_em[0], depths_em[1])
-    # second plot
+                                          t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
+    # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='signal minus non-harmonics and linear curve')
     ax.plot(t_model, model_ecl_init + 1, c='tab:green', label='initial simple empirical eclipse model')
@@ -661,6 +667,67 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax.plot([t_1_2_em, t_1_2_em], s_minmax, '-', c='tab:purple')
     ax.plot([t_2_1_em, t_2_1_em], s_minmax, '-', c='tab:purple')
     ax.plot([t_2_2_em, t_2_2_em], s_minmax, '-', c='tab:purple')
+    ax.plot([t_1_1_em, t_1_2_em], [1, 1], '--', c='tab:pink')
+    ax.plot([t_1_1_em, t_1_2_em], [1 - depth_em_1, 1 - depth_em_1], '--', c='tab:pink')
+    ax.plot([t_2_1_em, t_2_2_em], [1, 1], '--', c='tab:pink')
+    ax.plot([t_2_1_em, t_2_2_em], [1 - depth_em_2, 1 - depth_em_2], '--', c='tab:pink')
+    # 1 sigma errors
+    ax.fill_between([t_1_1_em - t_1_1_err, t_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
+    ax.fill_between([t_1_2_em - t_1_2_err, t_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.3)
+    ax.fill_between([t_2_1_em - t_2_1_err, t_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.3)
+    ax.fill_between([t_2_2_em - t_2_2_err, t_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.3)
+    ax.fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + depth_1_err, 1 - depth_em_1 + depth_1_err],
+                    y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:pink', alpha=0.3)
+    ax.fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + depth_2_err, 1 - depth_em_2 + depth_2_err],
+                    y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:pink', alpha=0.3)
+    # 3 sigma errors
+    ax.fill_between([t_1_1_em - 3*t_1_1_err, t_1_1_em + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.2)
+    ax.fill_between([t_1_2_em - 3*t_1_2_err, t_1_2_em + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.2)
+    ax.fill_between([t_2_1_em - 3*t_2_1_err, t_2_1_em + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.2)
+    ax.fill_between([t_2_2_em - 3*t_2_2_err, t_2_2_em + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                    color='tab:purple', alpha=0.2)
+    ax.fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + 3*depth_1_err, 1 - depth_em_1 + 3*depth_1_err],
+                    y2=[1 - depth_em_1 - 3*depth_1_err, 1 - depth_em_1 - 3*depth_1_err],
+                    color='tab:pink', alpha=0.2)
+    ax.fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + 3*depth_2_err, 1 - depth_em_2 + 3*depth_2_err],
+                    y2=[1 - depth_em_2 - 3*depth_2_err, 1 - depth_em_2 - 3*depth_2_err],
+                    color='tab:pink', alpha=0.2)
+    # flat bottom
+    if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1):
+        ax.plot([t_b_1_1_em, t_b_1_1_em], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_1_2_em, t_b_1_2_em], s_minmax, '--', c='tab:brown')
+        # 1 sigma errors
+        ax.fill_between([t_b_1_1_em - t_1_1_err, t_b_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_1_2_em - t_1_2_err, t_b_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        # 3 sigma errors
+        ax.fill_between([t_b_1_1_em - 3*t_1_1_err, t_b_1_1_em + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_1_2_em - 3*t_1_2_err, t_b_1_2_em + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+    if ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
+        ax.plot([t_b_2_1_em, t_b_2_1_em], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_2_2_em, t_b_2_2_em], s_minmax, '--', c='tab:brown')
+        # 1 sigma errors
+        ax.fill_between([t_b_2_1_em - t_2_1_err, t_b_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_2_2_em - t_2_2_err, t_b_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.3)
+        # 3 sigma errors
+        ax.fill_between([t_b_2_1_em - 3*t_2_1_err, t_b_2_1_em + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_2_2_em - 3*t_2_2_err, t_b_2_2_em + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                        color='tab:brown', alpha=0.2)
+    if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1) | ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
+        ax.plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)', fontsize=14)
     ax.set_ylabel('normalised flux', fontsize=14)
     plt.legend(fontsize=12)
@@ -1047,31 +1114,6 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         plt.show()
     else:
         plt.close()
-    # alternate parameterisation
-    value_names = np.array([r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
-                                r'$log10\left(\frac{r_2}{r_1}\right)$', r'$log10\left(\frac{sb_2}{sb_1}\right)$'])
-    values = np.array([e*cos_w, e*sin_w, i/np.pi*180, r_sum_sma, np.log10(r_ratio), np.log10(sb_ratio)])
-    dist_data = np.column_stack((e_vals * np.cos(w_vals_hist), e_vals * np.sin(w_vals_hist), i_vals / np.pi * 180,
-                                 rsumsma_vals, np.log10(rratio_vals), np.log10(sbratio_vals)))
-    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
-    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
-    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
-                        labels=value_names[nonzero_range], quiet=True)
-    if not np.all(nonzero_range):
-        fig.suptitle('Output distributions (alternate parametrisation)'
-                     f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
-    else:
-        fig.suptitle('Output distributions (alternate parametrisation)', fontsize=14)
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_out_alt.png')
-        else:
-            fig_save_file = save_file + '_out_alt.png'
-        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
     return
 
 
@@ -1237,32 +1279,39 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals = distributions
     # transform some params - initial
     e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
-    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
+    ecosw, esinw = e * np.cos(w), e * np.sin(w)
     i = i_rad / np.pi * 180
-    par_init = [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
+    par_init = [ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio]
     # simple fit params
     opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
-    opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
+    opt1_ecosw, opt1_esinw = opt1_e * np.cos(opt1_w), opt1_e * np.sin(opt1_w)
     opt1_i = opt1_i_rad / np.pi * 180
-    par_opt1 = [opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
+    par_opt1 = [opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
     # ellc fit params
     opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-    opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    opt2_ecosw, opt2_esinw = opt2_e * np.cos(opt2_w), opt2_e * np.sin(opt2_w)
     opt2_i = opt2_i_rad / np.pi * 180
-    par_opt2 = [opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
-    f_c_vals = np.sqrt(e_vals) * np.cos(w_vals)
-    f_s_vals = np.sqrt(e_vals) * np.sin(w_vals)
+    par_opt2 = [opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
+    ecosw_vals = e_vals * np.cos(w_vals)
+    esinw_vals = e_vals * np.sin(w_vals)
     # stack dists and plot
-    dist_data = np.column_stack((f_c_vals, f_s_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
-    fig = corner.corner(dist_data, labels=('f_c', 'f_s', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
-                        r'$\frac{sb_2}{sb_1}$'), truth_color='tab:orange', quiet=True)
-    corner.overplot_lines(fig, par_init, color='tab:blue')
-    corner.overplot_points(fig, [par_init], marker='s', color='tab:blue')
-    corner.overplot_lines(fig, par_opt1, color='tab:orange')
-    corner.overplot_points(fig, [par_opt1], marker='s', color='tab:orange')
-    corner.overplot_lines(fig, par_opt2, color='tab:green')
-    corner.overplot_points(fig, [par_opt2], marker='s', color='tab:green')
-    fig.suptitle('Output distributions and lc fit outcome', fontsize=14)
+    value_names = np.array([r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
+                            r'$\frac{r_2}{r_1}$', r'$\frac{sb_2}{sb_1}$'])
+    dist_data = np.column_stack((ecosw_vals, esinw_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
+    corner.overplot_lines(fig, par_init[nonzero_range], color='tab:blue')
+    corner.overplot_points(fig, [par_init[nonzero_range]], marker='s', color='tab:blue')
+    corner.overplot_lines(fig, par_opt1[nonzero_range], color='tab:orange')
+    corner.overplot_points(fig, [par_opt1[nonzero_range]], marker='s', color='tab:orange')
+    corner.overplot_lines(fig, par_opt2[nonzero_range], color='tab:green')
+    corner.overplot_points(fig, [par_opt2[nonzero_range]], marker='s', color='tab:green')
+    if not np.all(nonzero_range):
+        fig.suptitle('Output distributions and lc fit outcome'
+                     f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)', fontsize=14)
+    else:
+        fig.suptitle('Output distributions and lc fit outcome', fontsize=14)
     if save_file is not None:
         fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
