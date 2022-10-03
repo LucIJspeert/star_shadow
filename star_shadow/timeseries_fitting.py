@@ -805,7 +805,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
 
 
 @nb.njit(cache=True)
-def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2):
+def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -900,49 +900,7 @@ def eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1
 
 
 @nb.njit(cache=True)
-def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
-    """Objective function for a set of eclipse parameters
-
-    Parameters
-    ----------
-    params: numpy.ndarray[float]
-        The parameters of a light curve model made of cubics.
-        Has to be ordered in the following way:
-        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2]
-    times: numpy.ndarray[float]
-        Timestamps of the time-series
-    signal: numpy.ndarray[float]
-        Measurement values of the time-series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of deepest minimum modulo p_orb
-
-    Returns
-    -------
-    -ln_likelihood: float
-        Minus the (natural)log-likelihood of the resuduals
-
-    See Also
-    --------
-    eclipse_lc_simple
-    """
-    # midpoints, l.h.s. cubic time points, depths
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
-    # make sure we don't allow impossible stuff
-    if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
-        return 10**9
-    # the model
-    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-    # determine likelihood for the model
-    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
-    return -ln_likelihood
-
-
-@nb.njit(cache=True)
-def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
+def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
     """Objective function for a set of eclipse timings
 
     Parameters
@@ -969,7 +927,7 @@ def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
 
     See Also
     --------
-    eclipse_lc_simple
+    eclipse_cubics_model
     """
     # midpoints, l.h.s. cubic time points, depths
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
@@ -977,14 +935,14 @@ def objective_cubic_lc(params, times, signal, signal_err, p_orb, t_zero):
     if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
         return 10**9
     # the model
-    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+    model = 1 + eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # determine likelihood for the model
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     return -ln_likelihood
 
 
-def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                      i_sectors, verbose=False):
+def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                       i_sectors, verbose=False):
     """Perform least-squares fit for improved eclipse timings using an empirical model.
 
     Parameters
@@ -1064,7 +1022,7 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
     mid_2 = (t_2_1 + t_2_2) / 2
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depths[0], depths[1]])
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
-    result = sp.optimize.minimize(objective_cubic_lc, par_init, args=args, method='nelder-mead',
+    result = sp.optimize.minimize(objective_cubics_lc, par_init, args=args, method='nelder-mead',
                                   options={'maxiter': 10000})
     if verbose:
         print('Fit complete')
@@ -1075,7 +1033,7 @@ def fit_eclipse_cubic(times, signal, signal_err, p_orb, t_zero, timings, const, 
 
 
 @nb.njit(cache=True)
-def objective_cubic_lc_h(params, times, signal, signal_err, p_orb, t_zero, f_h):
+def objective_cubics_sinusoids_lc(params, times, signal, signal_err, p_orb, t_zero, i_sectors, verbose):
     """Objective function for a set of eclipse timings and harmonics
 
     Parameters
@@ -1084,7 +1042,8 @@ def objective_cubic_lc_h(params, times, signal, signal_err, p_orb, t_zero, f_h):
         The parameters of a light curve model made of cubics,
         plus a set of harmonic sinusoids.
         Has to be ordered in the following way:
-        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2]
+        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2,
+         const, a_h_1, a_h_2, ..., ph_h_1, ph_h_2, ...]
     times: numpy.ndarray[float]
         Timestamps of the time-series
     signal: numpy.ndarray[float]
@@ -1095,8 +1054,12 @@ def objective_cubic_lc_h(params, times, signal, signal_err, p_orb, t_zero, f_h):
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of deepest minimum modulo p_orb
-    f_h: numpy.ndarray[int]
-        Frequencies of the harmonics (fixed)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
@@ -1107,27 +1070,37 @@ def objective_cubic_lc_h(params, times, signal, signal_err, p_orb, t_zero, f_h):
     --------
     eclipse_lc_simple
     """
-    # midpoints, l.h.s. cubic time points, depths
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params[:8]
+    n_sect = len(i_sectors)  # each sector has its own slope (or two)
+    n_sin = (len(params) - 8 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
+    # separate the parameters
+    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params[0:8]
+    const = params[8:8 + n_sect]
+    slope = params[8 + n_sect:8 + 2 * n_sect]
+    freqs = params[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
+    ampls = params[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
+    phases = params[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
     # make sure we don't allow impossible stuff
     if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
         return 10**9
     # the model
-    model = 1 + eclipse_cubic_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-    # add the harmonics
-    n_harm = len(f_h)
-    ampls = params[8:8 + n_harm]
-    phases = params[8 + n_harm:8 + 2 * n_harm]
-    model += tsf.sum_sines(times, f_h, ampls, phases)
-    # determine likelihood for the model
+    model_ecl = 1 + eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+    # make the sinusoid model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+    model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
+    # calculate the likelihood
+    model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
+    # to keep track, sometimes print the value
+    if verbose:
+        if np.random.randint(10000) == 0:
+            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
-def fit_eclipse_cubic_harmonics(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                                i_sectors, par_init, f_h, verbose=False):
-    """Perform least-squares fit for improved eclipse timings
-    using an empirical model and harmonic sinusoids.
+def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
+                                 f_n, a_n, ph_n, i_sectors, f_groups, verbose=False):
+    """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
+    and including the cubics eclipse model
 
     Parameters
     ----------
@@ -1142,10 +1115,13 @@ def fit_eclipse_cubic_harmonics(times, signal, signal_err, p_orb, t_zero, timing
     t_zero: float
         Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Eclipse timings of the possible flat bottom (internal tangency),
+        Eclipse timings from the empirical model.
+        Timings of minima and first and last contact points,
+        timings of the possible flat bottom (internal tangency).
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    depths: numpy.ndarray[float]
+        Cubic curve primary and secondary eclipse depth
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1160,52 +1136,82 @@ def fit_eclipse_cubic_harmonics(times, signal, signal_err, p_orb, t_zero, timing
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    par_init: numpy.ndarray[float]
-        initial parameters for the empirical eclipse model
-        and harmonic sinusoids.
-    f_h: numpy.ndarray[int]
-        Frequencies of the harmonics (fixed)
+    f_groups: list[numpy.ndarray[int]]
+        List of sets of frequencies to be fit separately in order
     verbose: bool
         If set to True, this function will print some information
 
     Returns
     -------
-    result: Object
-        Fit results object from the scipy optimizer
-
+    res_t_zero: float
+        Updated time of deepest minimum
+    res_ecl_par: numpy.ndarray[float]
+        Updated eclipse parameters, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    res_const: numpy.ndarray[float]
+        Updated y-intercept(s) of a piece-wise linear curve
+    res_slope: numpy.ndarray[float]
+        Updated slope(s) of a piece-wise linear curve
+    res_freqs: numpy.ndarray[float]
+        Updated frequencies of a number of sine waves
+    res_ampls: numpy.ndarray[float]
+        Updated amplitudes of a number of sine waves
+    res_phases: numpy.ndarray[float]
+        Updated phases of a number of sine waves
+    
     See Also
     --------
     eclipse_cubic_model, objective_cubic_lc
-
+    
     Notes
     -----
-    Strictly speaking it is doing a maximum log-likelihood fit, but that is
-    in essence identical (and numerically more stable due to the logarithm).
+    In reducing the overall runtime of the NL-LS fit, this will improve the
+    fits on just the given groups of (closely spaced) frequencies, leaving the other
+    frequencies as fixed parameters.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
-    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    harmonics, harm_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
-    ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
-    # initial parameters
-    args = (t_extended, ecl_signal, signal_err, p_orb, 0, f_h)
-    result = sp.optimize.minimize(objective_cubic_lc_h, par_init, args=args, method='nelder-mead',
-                                  options={'maxiter': 10000})
-    if verbose:
-        print('Fit complete')
-        print(f'fun: {result.fun}')
-        print(f'message: {result.message}')
-        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
-    return result
+    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings
+    d_1, d_2 = depths
+    cubics_par = np.array([mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2])
+    n_groups = len(f_groups)
+    n_sect = len(i_sectors)
+    n_sin = len(f_n)
+    # make a copy of the initial parameters
+    res_cubics = np.copy(cubics_par)
+    res_const = np.copy(np.atleast_1d(const))
+    res_slope = np.copy(np.atleast_1d(slope))
+    res_freqs = np.copy(f_n)
+    res_ampls = np.copy(a_n)
+    res_phases = np.copy(ph_n)
+    # update the parameters for each group
+    for i, group in enumerate(f_groups):
+        if verbose:
+            print(f'Starting fit of group {i + 1} of {n_groups}')
+        # subtract all other sines from the data, they are fixed now
+        resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
+                                       np.delete(res_phases, group))
+        # fit only the frequencies in this group (and eclipse model, constant and slope)
+        params_init = np.concatenate((res_cubics, res_const, res_slope, res_freqs[group], res_ampls[group],
+                                      res_phases[group]))
+        arguments = (times, signal, signal_err, p_orb, t_zero, i_sectors, verbose)
+        output = sp.optimize.minimize(objective_cubics_sinusoids_lc, x0=params_init, args=arguments,
+                                      method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
+        # separate results
+        n_sin_g = len(res_freqs[group])
+        res_ecl_par = output.x[0:8]
+        res_const = output.x[8:8 + n_sect]
+        res_slope = output.x[8 + n_sect:8 + 2 * n_sect]
+        out_freqs = output.x[8 + 2 * n_sect:8 + 2 * n_sect + n_sin_g]
+        out_ampls = output.x[8 + 2 * n_sect + n_sin_g:8 + 2 * n_sect + 2 * n_sin_g]
+        out_phases = output.x[8 + 2 * n_sect + 2 * n_sin_g:8 + 2 * n_sect + 3 * n_sin_g]
+        res_freqs[group] = out_freqs
+        res_ampls[group] = out_ampls
+        res_phases[group] = out_phases
+        if verbose:
+            model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+            bic = tsf.calc_bic((signal - model) / signal_err, 2 * n_sect + 3 * n_sin)
+            print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
+    return res_cubics, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
 @nb.njit(cache=True)
@@ -1561,7 +1567,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
 
 
 @nb.njit(cache=True)
-def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, verbose=False):
+def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize
     for an eclipse model plus a sum of sine waves.
 
@@ -1580,10 +1586,14 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, ve
         Measurement values of the time-series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
@@ -1595,15 +1605,15 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, ve
     linear_curve and sum_sines for the definition of the parameters.
     """
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
-    n_sin = (len(params) - 8 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
+    n_sin = (len(params) - 7 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    ecl_par = params[0:8]
-    p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
-    const = params[8:8 + n_sect]
-    slope = params[8 + n_sect:8 + 2 * n_sect]
-    freqs = params[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
-    ampls = params[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
-    phases = params[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
+    ecl_par = params[0:7]
+    t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
+    const = params[7:7 + n_sect]
+    slope = params[7 + n_sect:7 + 2 * n_sect]
+    freqs = params[7 + 2 * n_sect:7 + 2 * n_sect + n_sin]
+    ampls = params[7 + 2 * n_sect + n_sin:7 + 2 * n_sect + 2 * n_sin]
+    phases = params[7 + 2 * n_sect + 2 * n_sin:7 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
@@ -1621,7 +1631,7 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, i_sectors, ve
 
 
 # @nb.njit(cache=True)
-def objective_sinusoids_ellc(params, times, signal, signal_err, i_sectors, verbose=False):
+def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors, verbose=False):
     """This is the objective function to give to scipy.optimize.minimize
     for an ellc model plus a sum of sine waves.
 
@@ -1640,10 +1650,14 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, i_sectors, verbo
         Measurement values of the time-series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
@@ -1655,15 +1669,15 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, i_sectors, verbo
     linear_curve and sum_sines for the definition of the parameters.
     """
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
-    n_sin = (len(params) - 8 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
+    n_sin = (len(params) - 7 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    ecl_par = params[0:8]
-    p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
-    const = params[8:8 + n_sect]
-    slope = params[8 + n_sect:8 + 2 * n_sect]
-    freqs = params[8 + 2 * n_sect:8 + 2 * n_sect + n_sin]
-    ampls = params[8 + 2 * n_sect + n_sin:8 + 2 * n_sect + 2 * n_sin]
-    phases = params[8 + 2 * n_sect + 2 * n_sin:8 + 2 * n_sect + 3 * n_sin]
+    ecl_par = params[0:7]
+    t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par  # period fixed
+    const = params[7:7 + n_sect]
+    slope = params[7 + n_sect:7 + 2 * n_sect]
+    freqs = params[7 + 2 * n_sect:7 + 2 * n_sect + n_sin]
+    ampls = params[7 + 2 * n_sect + n_sin:7 + 2 * n_sect + 2 * n_sin]
+    phases = params[7 + 2 * n_sect + 2 * n_sin:7 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
@@ -1725,8 +1739,6 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
 
     Returns
     -------
-    res_p_orb: float
-        Updated orbital period of the eclipsing binary
     res_t_zero: float
         Updated time of deepest minimum
     res_ecl_par: numpy.ndarray[float]
@@ -1753,7 +1765,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     n_sect = len(i_sectors)
     n_sin = len(f_n)
     # make a copy of the initial parameters
-    res_ecl_par = np.append([p_orb, t_zero], np.copy(ecl_par))
+    res_ecl_par = np.append([t_zero], np.copy(ecl_par))
     res_const = np.copy(np.atleast_1d(const))
     res_slope = np.copy(np.atleast_1d(slope))
     res_freqs = np.copy(f_n)
@@ -1769,7 +1781,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         # fit only the frequencies in this group (and eclipse model, constant and slope)
         params_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group]))
-        arguments = (times, signal, signal_err, i_sectors, verbose)
+        arguments = (times, signal, signal_err, p_orb, i_sectors, verbose)
         if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc
         else:
@@ -1778,12 +1790,12 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
                                       options={'maxfev': 10**4 * len(params_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
-        res_ecl_par = output.x[0:8]
-        res_const = output.x[8:8 + n_sect]
-        res_slope = output.x[8 + n_sect:8 + 2 * n_sect]
-        out_freqs = output.x[8 + 2 * n_sect:8 + 2 * n_sect + n_sin_g]
-        out_ampls = output.x[8 + 2 * n_sect + n_sin_g:8 + 2 * n_sect + 2 * n_sin_g]
-        out_phases = output.x[8 + 2 * n_sect + 2 * n_sin_g:8 + 2 * n_sect + 3 * n_sin_g]
+        res_ecl_par = output.x[0:7]
+        res_const = output.x[7:7 + n_sect]
+        res_slope = output.x[7 + n_sect:7 + 2 * n_sect]
+        out_freqs = output.x[7 + 2 * n_sect:7 + 2 * n_sect + n_sin_g]
+        out_ampls = output.x[7 + 2 * n_sect + n_sin_g:7 + 2 * n_sect + 2 * n_sin_g]
+        out_phases = output.x[7 + 2 * n_sect + 2 * n_sin_g:7 + 2 * n_sect + 3 * n_sin_g]
         res_freqs[group] = out_freqs
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
@@ -1792,7 +1804,6 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
             model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             bic = tsf.calc_bic((signal - model) / signal_err, 2 * n_sect + 3 * n_sin)
             print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
-    res_p_orb = res_ecl_par[0]
-    res_t_zero = res_ecl_par[1]
-    res_ecl_par = res_ecl_par[2:]
-    return res_p_orb, res_t_zero, res_ecl_par, res_const, res_slope, res_freqs, res_ampls, res_phases
+    res_t_zero = res_ecl_par[0]
+    res_ecl_par = res_ecl_par[1:]
+    return res_t_zero, res_ecl_par, res_const, res_slope, res_freqs, res_ampls, res_phases

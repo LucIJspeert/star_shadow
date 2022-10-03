@@ -614,7 +614,8 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
 
 
 def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                            timings_em, depths_em, timings_err, depths_err, i_sectors, save_file=None, show=True):
+                            timings_em, depths_em, timings_err, depths_err, const_r, f_h_r, a_h_r, ph_h_r, i_sectors,
+                            save_file=None, show=True):
     """Shows the initial and final simple empirical cubic function eclipse model
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
@@ -626,8 +627,8 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # plotting bounds
-    t_start = t_1_1
-    t_end = p_orb + t_1_2
+    t_start = min(t_1_1, t_1_1_em)
+    t_end = p_orb + max(t_1_2, t_1_2_em)
     # make the model times array, one full period plus the primary eclipse halves
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_start)
@@ -650,14 +651,18 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     # cubic model - get the parameters for the cubics from the fit parameters
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
-    model_ecl_init = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
-                                               t_b_1_1, t_b_2_1, depth_1, depth_2)
-    model_ecl = tsfit.eclipse_cubic_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
-                                          t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
+    model_ecl_init = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
+                                                t_b_1_1, t_b_2_1, depth_1, depth_2)
+    model_ecl = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+                                           t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
+    # add residual harmonic sinusoids to model
+    model_sin_r = tsf.sum_sines(t_model, f_h_r, a_h_r, ph_h_r) + const_r
+    model_ecl_h = model_sin_r + model_ecl
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='signal minus non-harmonics and linear curve')
     ax.plot(t_model, model_ecl_init + 1, c='tab:green', label='initial simple empirical eclipse model')
+    ax.plot(t_model, model_ecl_h + 1, c='tab:orange', label='final simple empirical eclipse model plus harmonics')
     ax.plot(t_model, model_ecl + 1, c='tab:red', label='final simple empirical eclipse model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
@@ -1281,17 +1286,17 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     i = i_rad / np.pi * 180
-    par_init = [ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio]
+    par_init = np.array([ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio])
     # simple fit params
     opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
     opt1_ecosw, opt1_esinw = opt1_e * np.cos(opt1_w), opt1_e * np.sin(opt1_w)
     opt1_i = opt1_i_rad / np.pi * 180
-    par_opt1 = [opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio]
+    par_opt1 = np.array([opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
     # ellc fit params
     opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
     opt2_ecosw, opt2_esinw = opt2_e * np.cos(opt2_w), opt2_e * np.sin(opt2_w)
     opt2_i = opt2_i_rad / np.pi * 180
-    par_opt2 = [opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio]
+    par_opt2 = np.array([opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
     ecosw_vals = e_vals * np.cos(w_vals)
     esinw_vals = e_vals * np.sin(w_vals)
     # stack dists and plot
@@ -1371,21 +1376,12 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     return
 
 
-def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                               const_r, slope_r, f_n_r, a_n_r, ph_n_r, passed_r, param_lc, model='simple',
-                               save_file=None, show=True):
+def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, const_r, slope_r, f_n_r, a_n_r, ph_n_r,
+                               i_sectors, passed_r, param_lc, model='simple', save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    # make the eclipse signal by subtracting other stuff
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
-    s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
     # eclipse signal with disentangled frequencies
     model_r = tsf.linear_curve(times, const_r, slope_r, i_sectors)
     model_r += tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
@@ -1393,9 +1389,6 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, timings, const, slo
     # model of passed frequencies
     model_r_p = tsf.linear_curve(times, const_r, slope_r, i_sectors)
     model_r_p += tsf.sum_sines(times, f_n_r[passed_r], a_n_r[passed_r], ph_n_r[passed_r])
-    # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
-    offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     f_c, f_s = np.sqrt(e) * np.cos(w), np.sqrt(e) * np.sin(w)
@@ -1404,26 +1397,19 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, timings, const, slo
         ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
         ecl_model = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    s_minmax_r = [np.min(signal - ecl_model) + offset, np.max(signal - ecl_model) + offset]
+    full_model = ecl_model + model_r
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
-    ax[0].scatter(times, ecl_signal + offset, marker='.', label='signal - original (linear + non-harmonic model)')
+    ax[0].scatter(times, signal, marker='.', label='original signal')
     ax[0].scatter(times, ecl_signal_r, marker='.', c='tab:green',
-                  label='signal - disentangled (linear + sinusoid model)')
-    ax[0].plot(times, ecl_model, c='tab:orange', label='eclipse model')
-    # ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
-    # ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
-    # ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
-    # ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
+                  label='signal - disentangled (linear + sinusoid) model')
+    ax[0].plot(times, full_model, c='tab:orange', label='linear + sinusoid + eclipse model')
+    ax[0].plot(times, ecl_model, c='tab:red', label='eclipse model')
     ax[0].set_ylabel('normalised flux/model', fontsize=14)
     ax[0].legend(fontsize=12)
     ax[1].scatter(times, signal - ecl_model, marker='.', label='signal - eclipse model')
-    ax[1].plot(times, model_r, c='tab:orange', label='disentangled sinusoid model')
-    ax[1].plot(times, model_r_p, c='tab:green', label='disentangled sinusoid model, passed criteria')
-    # ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='eclipse edges')
-    # ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='grey')
-    # ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='grey')
-    # ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='grey')
+    ax[1].plot(times, model_r, c='tab:orange', label='disentangled (sinusoid + linear) model')
+    ax[1].plot(times, model_r_p, c='tab:green', label='disentangled (sinusoid + linear) model, passed criteria')
     ax[1].set_ylabel('residual/model', fontsize=14)
     ax[1].set_xlabel('time (d)', fontsize=14)
     ax[1].legend(fontsize=12)
@@ -1437,9 +1423,9 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, timings, const, slo
     return
 
 
-def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                                 const_r, slope_r, f_n_r, a_n_r, ph_n_r, passed_r, param_lc, model='simple',
-                                 save_file=None, show=True):
+def plot_lc_disentangled_freqs_h(times, signal, p_orb, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 p_orb_2, t_zero, const_r, slope_r, f_n_r, a_n_r, ph_n_r, passed_r, param_lc,
+                                 model='simple', save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1447,10 +1433,10 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const, s
     freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_folded = (times - t_zero) % p_orb
-    ext_left = (t_folded > p_orb + t_1_1)
+    t_folded = (times - t_zero) % p_orb_2
+    ext_left = (t_folded > p_orb_2 + t_1_1)
     ext_right = (t_folded < t_1_2)
-    t_folded = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
+    t_folded = np.concatenate((t_folded[ext_left] - p_orb_2, t_folded, t_folded[ext_right] + p_orb_2))
     sorter = np.argsort(t_folded)
     signal_ext = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting other stuff
@@ -1460,33 +1446,38 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const, s
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    s_minmax = [np.min(ecl_signal), np.max(ecl_signal)]
+    s_minmax = [np.min(signal), np.max(signal)]
+    # disentangled frequencies
+    model_r = tsf.linear_curve(t_folded, const_r, slope_r, i_sectors)
+    model_r += tsf.sum_sines(t_folded, f_n_r, a_n_r, ph_n_r)
     # candidate harmonics in the disentangled frequencies
-    harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r, p_orb, f_tol=freq_res/2)
+    harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r, p_orb_2, f_tol=freq_res/2)
     model_r_h = tsf.sum_sines(times, f_n_r[harm_r], a_n_r[harm_r], ph_n_r[harm_r])
     model_r_h = np.concatenate((model_r_h[ext_left], model_r_h, model_r_h[ext_right]))
     # model of passed frequencies
     if np.any(passed_r):
-        harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r[passed_r], p_orb, f_tol=freq_res/2)
+        harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r[passed_r], p_orb_2, f_tol=freq_res/2)
         model_r_p_h = tsf.sum_sines(times, f_n_r[passed_r][harm_r], a_n_r[passed_r][harm_r], ph_n_r[passed_r][harm_r])
         model_r_p_h = np.concatenate((model_r_p_h[ext_left], model_r_p_h, model_r_p_h[ext_right]))
-    # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
-    offset = 1 - (h_1 + h_2) / 2
+    else:
+        model_r_p_h = np.zeros(len(t_folded))
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     f_c, f_s = np.sqrt(e) * np.cos(w), np.sqrt(e) * np.sin(w)
     # make the eclipse model
     if (model == 'ellc'):
-        ecl_model = tsfit.wrap_ellc_lc(t_folded, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+        ecl_model = tsfit.wrap_ellc_lc(t_folded, p_orb_2, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.simple_eclipse_lc(t_folded, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        ecl_model = tsfit.simple_eclipse_lc(t_folded, p_orb_2, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    full_model = model_r + ecl_model
     s_minmax_r = [np.min(ecl_signal - ecl_model) + offset, np.max(ecl_signal - ecl_model) + offset]
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
-    ax[0].scatter(t_folded, ecl_signal + offset, marker='.', label='signal - original (linear + non-harmonic model)')
-    ax[0].plot(t_folded[sorter], ecl_model[sorter], c='tab:orange', label='eclipse model')
-    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
+    ax[0].scatter(t_folded, signal_ext, marker='.', label='original signal')
+    ax[0].scatter(t_folded, ecl_signal, marker='.', label='signal - original (linear + non-harmonic) model')
+    ax[0].plot(t_folded[sorter], full_model[sorter], c='tab:orange', label='linear + sinusoid + eclipse model')
+    ax[0].plot(t_folded[sorter], ecl_model[sorter], c='tab:red', label='eclipse model')
+    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='previous eclipse edges')
     ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
     ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
@@ -1495,10 +1486,9 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const, s
     ax[1].scatter(t_folded, signal_ext - ecl_model, marker='.', label='signal - eclipse model')
     ax[1].plot(t_folded[sorter], model_r_h[sorter], c='tab:orange',
                label='disentangled sinusoid model, candidate harmonics')
-    if np.any(passed_r):
-        ax[1].plot(t_folded[sorter], model_r_p_h[sorter], c='tab:green',
-                   label='disentangled sinusoid model, candidate harmonics, passed criteria')
-    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='eclipse edges')
+    ax[1].plot(t_folded[sorter], model_r_p_h[sorter], c='tab:green',
+               label='disentangled sinusoid model, candidate harmonics, passed criteria')
+    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='previous eclipse edges')
     ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='grey')
     ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='grey')
     ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='grey')
