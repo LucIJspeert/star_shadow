@@ -49,7 +49,7 @@ def f_within_rayleigh(i, f_n, rayleigh):
         # none of the frequencies are close
         i_close = np.zeros(0, dtype=np.int_)
     elif np.all(f_diff < rayleigh):
-        # all of the frequencies are close
+        # all the frequencies are close
         i_close = indices
     else:
         # the frequency to investigate is somewhere inbetween other frequencies
@@ -73,7 +73,7 @@ def f_within_rayleigh(i, f_n, rayleigh):
 
 @nb.njit(cache=True)
 def chains_within_rayleigh(f_n, rayleigh):
-    """Find all chains of frequencies within each others Rayleigh criterion.
+    """Find all chains of frequencies within each other's Rayleigh criterion.
     
     Parameters
     ----------
@@ -184,7 +184,7 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
 @nb.njit(cache=True)
 def subtract_sines(a_n_1, ph_n_1, a_n_2, ph_n_2):
     """Analytically subtract a set of sine waves from another set
-     with equal freguencies
+     with equal frequencies
      
     Parameters
     ----------
@@ -299,7 +299,7 @@ def find_harmonics(f_n, f_n_err, p_orb, sigma=1.):
     Only includes those frequencies that are within sigma * error of an orbital harmonic.
     If multiple frequencies correspond to one harmonic, only the closest is kept.
     """
-    # the frequencies divided by the orbital frequency gives integers for hamronics
+    # the frequencies divided by the orbital frequency gives integers for harmonics
     test_int = f_n * p_orb
     is_harmonic = ((test_int % 1) > 1 - sigma * f_n_err * p_orb) | ((test_int % 1) < sigma * f_n_err * p_orb)
     # look for harmonics that have multiple close frequencies
@@ -366,7 +366,7 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     
     Notes
     -----
-    A frequency is only axcepted as harmonic if it is within 1e-9 of the pattern.
+    A frequency is only accepted as harmonic if it is within 1e-9 of the pattern.
     This can now be user defined for more flexibility.
     """
     # make the pattern of harmonics
@@ -383,7 +383,7 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     # get the distances to nearest neighbours
     d_nn = np.abs(f_n[i_nn] - harmonic_pattern)
     # check that the closest neighbours are reasonably close to the harmonic
-    m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance must be smaller than tollerance
+    m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance must be smaller than tolerance
     return sorter[i_nn[m_cn]], harmonic_n[m_cn]
 
 
@@ -409,13 +409,13 @@ def find_harmonics_tolerance(f_n, p_orb, f_tol):
     
     Notes
     -----
-    A frequency is only axcepted as harmonic if it is within some relative error.
+    A frequency is only accepted as harmonic if it is within some relative error.
     This can be user defined for flexibility.
     """
     harmonic_n = np.zeros(len(f_n))
     harmonic_n = np.round(f_n * p_orb, 0, harmonic_n)  # closest harmonic (out argument needed in numba atm)
     harmonic_n[harmonic_n == 0] = 1  # avoid zeros resulting from large f_tol
-    # get the distances to nearest pattern frequency
+    # get the distances to the nearest pattern frequency
     d_nn = np.abs(f_n - harmonic_n / p_orb)
     # check that the closest neighbours are reasonably close to the harmonic
     m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance smaller than tolerance (or half the harmonic spacing)
@@ -760,7 +760,7 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of the deepest minimum modulo p_orb
     t_1: float
         Time of primary minimum in domain [0, p_orb)
     t_2: float
@@ -823,7 +823,7 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of the deepest minimum modulo p_orb
     t_1_1: float
         Time of primary first contact
     t_1_2: float
@@ -875,7 +875,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     Returns
     -------
     t_zero: float, None
-        Time of deepest minimum modulo p_orb
+        Time of the deepest minimum modulo p_orb
     t_1: float, None
         Time of primary minimum in domain [0, p_orb)
         Shifted by t_zero so that deepest minimum occurs at 0
@@ -886,7 +886,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
         Measurements of the times of contact in the order:
         t_1_1, t_1_2, t_2_1, t_2_2
     depths: numpy.ndarray[float], None
-        Measurements of the elcipse depths in units of a_n
+        Measurements of the eclipse depths in units of a_n
     t_int_tan: tuple[float], None
         Measurements of the times near internal tangency in the order:
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
@@ -906,7 +906,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.linspace(0, 2 * p_orb, 10**6)
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-    # the following code utilises a similar idea to find the eclipses as ECLIPSR (except waaay simpler)
+    # the following code utilises a similar idea to find the eclipses as ECLIPSR (except somewhat simpler)
     deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
     deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
@@ -928,7 +928,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
     # walk outward from peaks_1 to zero in deriv_1
     zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
-    # find the minima in deriv_2 betweern peaks_1 and zeros_1
+    # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
     # adjust slightly to account for any misalignment with peaks_1
@@ -937,12 +937,12 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, slope_sign, mode='down')
     # walk inward from peaks_1 to zero in deriv_1
     zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
-    # find the maxima in deriv_2 betweern peaks_1 and zeros_1
+    # find the maxima in deriv_2 between peaks_1 and zeros_1
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
     # adjust slightly to account for any misalignment with peaks_1
     peaks_2_p = curve_walker(deriv_2, peaks_2_p, slope_sign, mode='up')
-    # determine prominences for peaks_2_n (peaks_2_p handeled separately)
+    # determine prominences for peaks_2_n (peaks_2_p handled separately)
     prom_2_n = deriv_2[peaks_2_p] - deriv_2[peaks_2_n]
     # group peaks in with negative and then positive slopes
     indices = np.arange(len(peaks_1))
@@ -953,21 +953,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
         egress = i_pos[i_pos > i]  # select all points after i
         ingress = np.repeat(i, len(egress))
         combinations = np.append(combinations, np.column_stack((ingress, egress)), axis=0)
-    
-    
-    # import matplotlib.pyplot as plt
-    # fig, ax = plt.subplots()
-    # ax.plot(t_model, model_h)
-    # # ax.scatter(t_model[peaks_1], model_h[peaks_1])
-    # ax.scatter(t_model[minimum_1], model_h[minimum_1])
-    # # ax.scatter(t_model[zeros_1], model_h[zeros_1])
-    # fig2, ax2 = plt.subplots()
-    # ax2.plot(t_model, deriv_1)
-    # ax2.scatter(t_model[peaks_1], deriv_1[peaks_1])
-    # # ax2.scatter(t_model[minimum_1], deriv_1[minimum_1])
-    # # ax2.scatter(t_model[zeros_1], deriv_1[zeros_1])
-    
-    
     # make eclipses
     ecl_indices = np.zeros((0, 13), dtype=int)
     for comb in combinations:
@@ -1006,7 +991,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
             line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
             if line_check_1 & line_check_2:
                 ecl_indices = np.vstack((ecl_indices, [ecl]))
-    # check overlap and pick highest peaks in deriv_1
+    # check overlap and pick the highest peaks in deriv_1
     indices = np.arange(len(ecl_indices))
     combinations = np.zeros((0, 2), dtype=int)
     for i in indices:
@@ -1023,16 +1008,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
             ecl_remove.append(comb[np.argmin(peak_height)])
     ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
-    
-    
-    # ax.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:red')
-    # ax.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:red')
-    # ax2.scatter(t_model[ecl_indices[:, 3]], deriv_1[ecl_indices[:, 3]], c='tab:red')
-    # ax2.scatter(t_model[ecl_indices[:, -4]], deriv_1[ecl_indices[:, -4]], c='tab:red')
-    # for i, ecl in enumerate(ecl_indices):
-    #     ax.plot(t_model[[ecl[3], ecl[-4]]], [i/100, i/100], '--')
-    # plt.show()
-    
     # check that we have some eclipses
     if (len(ecl_indices) < 2):
         return (None,) * 8 + (ecl_indices,)
@@ -1051,7 +1026,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
     t_i_2_err = (t_m1_2 - t_p2n_2) / 6
     t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
-    # convert to midpoints and widths and take deepest depth measured in two ways
+    # convert to midpoints and widths and take the deepest depth measured in two ways
     ecl_min = t_model[ecl_indices[:, 6]]
     ecl_mid = (t_i_1 + t_i_2) / 2
     widths = (t_i_2 - t_i_1)
@@ -1202,9 +1177,9 @@ def integral_kepler_2(nu_1, nu_2, e):
     The indefinite integral formula is:
     2 arctan(sqrt(1 - e)sin(nu/2) / (sqrt(1 + e)cos(nu/2))) - e sqrt(1 - e**2)sin(nu) / (1 + e cos(nu))
     """
-    def indefinite_integral(nu, e):
-        term_1 = 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu/2), np.sqrt(1 + e) * np.cos(nu/2))
-        term_2 = - e * np.sqrt(1 - e**2) * np.sin(nu) / (1 + e * np.cos(nu))
+    def indefinite_integral(nu, ecc):
+        term_1 = 2 * np.arctan2(np.sqrt(1 - ecc) * np.sin(nu / 2), np.sqrt(1 + ecc) * np.cos(nu / 2))
+        term_2 = - ecc * np.sqrt(1 - ecc**2) * np.sin(nu) / (1 + ecc * np.cos(nu))
         mod_term = 4 * np.pi * ((nu // (2 * np.pi) + 1) // 2)  # correction term for going over 2pi
         return term_1 + term_2 + mod_term
     
@@ -1304,7 +1279,7 @@ def contact_angles(phi, e, w, i, phi_0, ecl=1, contact=1):
     i: float
         Inclination of the orbit
     phi_0: float
-        Auxilary angle (see Kopal 1959)
+        Auxiliary angle (see Kopal 1959)
     ecl: int
         Primary or secondary eclipse (1 or 2)
     contact: int
@@ -1387,7 +1362,7 @@ def root_contact_phase_angles(e, w, i, phi_0):
     i: float
         Inclination of the orbit
     phi_0: float
-        Auxilary angle (see Kopal 1959)
+        Auxiliary angle (see Kopal 1959)
         
     Returns
     -------
@@ -1493,24 +1468,24 @@ def ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi
     t_2: float, numpy.ndarray[float]
         Time of secondary minimum in domain [0, p_orb)
     tau_1_1: float, numpy.ndarray[float]
-        Duration of primary first contact to mimimum
+        Duration of primary first contact to minimum
     tau_1_2: float, numpy.ndarray[float]
-        Duration of primary mimimum to last contact
+        Duration of primary minimum to last contact
     tau_2_1: float, numpy.ndarray[float]
-        Duration of secondary first contact to mimimum
+        Duration of secondary first contact to minimum
     tau_2_2: float, numpy.ndarray[float]
-        Duration of secondary mimimum to last contact
+        Duration of secondary minimum to last contact
     i: float
         Inclination of the orbit
     phi_0: float
-        Auxilary angle (see Kopal 1959)
+        Auxiliary angle (see Kopal 1959)
 
     Returns
     -------
     e: float, numpy.ndarray[float]
-        Eccentricity for each set of imput parameters
+        Eccentricity for each set of input parameters
     w: float, numpy.ndarray[float]
-        Argument of periastron for each set of imput parameters
+        Argument of periastron for each set of input parameters
     """
     sin_i_2 = np.sin(i)**2
     cos_p0_2 = np.cos(phi_0)**2
@@ -1534,7 +1509,7 @@ def radius_sum_from_phi0(e, i, phi_0):
     i: float, numpy.ndarray[float]
         Inclination of the orbit
     phi_0: float, numpy.ndarray[float]
-        Auxilary angle, see Kopal 1959
+        Auxiliary angle, see Kopal 1959
     
     Returns
     -------
@@ -1717,8 +1692,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
     return light_lost
 
 
-def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
-                          tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2, d_1, d_2, t_1_err, t_2_err,
+def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, t_1_err, t_2_err,
                           t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
     
@@ -1734,21 +1708,13 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     t_2: float
         Time of secondary minimum in domain [0, p_orb)
     tau_1_1: float
-        Duration of primary first contact to mimimum
+        Duration of primary first contact to minimum
     tau_1_2: float
-        Duration of primary mimimum to last contact
+        Duration of primary minimum to last contact
     tau_2_1: float
-        Duration of secondary first contact to mimimum
+        Duration of secondary first contact to minimum
     tau_2_2: float
-        Duration of secondary mimimum to last contact
-    tau_b_1_1: float
-        Time of primary first internal tangency to mimimum
-    tau_b_1_2: float
-        Time of primary minimum to second internal tangency
-    tau_b_2_1: float
-        Time of secondary first internal tangency to mimimum
-    tau_b_2_2: float
-        Time of secondary minimum to second internal tangency
+        Duration of secondary minimum to last contact
     d_1: float
         Depth of primary minimum
     d_2: float
@@ -1849,19 +1815,19 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     t_2: float
         Time of secondary minimum in domain [0, p_orb)
     tau_1_1: float
-        Duration of primary first contact to mimimum
+        Duration of primary first contact to minimum
     tau_1_2: float
-        Duration of primary mimimum to last contact
+        Duration of primary minimum to last contact
     tau_2_1: float
-        Duration of secondary first contact to mimimum
+        Duration of secondary first contact to minimum
     tau_2_2: float
-        Duration of secondary mimimum to last contact
+        Duration of secondary minimum to last contact
     tau_b_1_1: float
-        Time of primary first internal tangency to mimimum
+        Time of primary first internal tangency to minimum
     tau_b_1_2: float
         Time of primary minimum to second internal tangency
     tau_b_2_1: float
-        Time of secondary first internal tangency to mimimum
+        Time of secondary first internal tangency to minimum
     tau_b_2_2: float
         Time of secondary minimum to second internal tangency
     d_1: float
@@ -1953,7 +1919,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     return bic
 
 
-def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
+def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     """Determine all eclipse parameters using a combination of approximate
     functions and fitting procedures
     
@@ -1983,9 +1949,9 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     i: float
         Inclination of the orbit
     phi_0: float
-        Auxilary angle (see Kopal 1959)
+        Auxiliary angle (see Kopal 1959)
     psi_0: float
-        Auxilary angle like phi_0 but for the eclipse bottoms
+        Auxiliary angle like phi_0 but for the eclipse bottoms
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
     r_dif_sma: float
@@ -1996,7 +1962,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
         Surface brightness ratio sb_2/sb_1
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
-    args_i = (p_orb, *timings_tau, depths[0], depths[1], *timings_err, *depths_err)
+    args_i = (p_orb, *timings_tau[:6], depths[0], depths[1], *timings_err, *depths_err)
     bounds_i = (np.pi/4, np.pi/2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
@@ -2054,13 +2020,13 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     t_2: float
         Time of secondary minimum in domain [0, p_orb)
     tau_1_1: float
-        Duration of primary first contact to mimimum
+        Duration of primary first contact to minimum
     tau_1_2: float
-        Duration of primary mimimum to last contact
+        Duration of primary minimum to last contact
     tau_2_1: float
-        Duration of secondary first contact to mimimum
+        Duration of secondary first contact to minimum
     tau_2_2: float
-        Duration of secondary mimimum to last contact
+        Duration of secondary minimum to last contact
     p_err: float
         Error in the orbital period (used as error in the times of minima)
     i_err: float
@@ -2085,7 +2051,7 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     sigma_w: float
         Formal error in argument of periastron
     sigma_phi_0: float
-        Formal error in auxilary angle
+        Formal error in auxiliary angle
     sigma_r_sum_sma: float
         Formal error in sum of radii in units of the semi-major axis
     sigma_ecosw: float
@@ -2196,7 +2162,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     errors: tuple[numpy.ndarray[float]]
         The (non-symmetric) errors for the same parameters as intervals.
-        Derived from the intervals
+        These are computed from the intervals.
     dists_in: tuple[numpy.ndarray[float]]
         Full input distributions for: t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
@@ -2212,11 +2178,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
-    bot_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)  # estimate from the tau errors
-    bot_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)  # estimate from the tau errors
     # generate input distributions
     rng = np.random.default_rng()
-    n_gen = 10**3#10**4
+    n_gen = 10**3  # 10**4
     # the edges are measured first so choose them from regular normal distributions
     normal_t_1_1 = rng.normal(t_1_1, t_1_1_err, n_gen)
     normal_t_1_2 = rng.normal(t_1_2, t_1_2_err, n_gen)
@@ -2302,7 +2266,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timings_err, depths_err, verbose=verbose)
+        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timings_err, depths_err)
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]
@@ -2365,7 +2329,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
     w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
-    w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
+    # w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
     w_errs = np.array([w - w_inter[0], w_inter[1] - w])
     # r_sum_sma
     rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)

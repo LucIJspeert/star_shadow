@@ -12,9 +12,8 @@ import numpy as np
 import scipy as sp
 import scipy.stats
 import numba as nb
-import astropy.timeseries as apyt
+import astropy.timeseries as apy
 
-from . import timeseries_fitting as tsfit
 from . import analysis_functions as af
 
 
@@ -29,7 +28,7 @@ def fold_time_series(times, p_orb, zero=None):
     p_orb: float
         The orbital period with which the time-series is folded
     zero: float, None
-        Reference zero point in time where the phase equals zero
+        Reference zero point in time when the phase equals zero
     
     Returns
     -------
@@ -68,7 +67,7 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     Notes
     -----
     Uses scipy.stats.binned_statistic for flexibility. For the use in number
-    crunching, use a specialised function that can be jitted instead.
+    crunching, use a specialised function that can be JIT-ted instead.
     """
     if not hasattr(bins, '__len__'):
         # use as number of bins, else use as bin edges
@@ -149,7 +148,7 @@ def phase_dispersion(phases, signal, n_bins):
     Notes
     -----
     Intentionally does not make use of bin_folded_signal (which uses scipy)
-    to enable jitting, which makes this considerably faster.
+    to enable JIT-ting, which makes this considerably faster.
     """
     def var_no_avg(a):
         return np.sum(np.abs(a - np.mean(a))**2)  # if mean instead of sum, this is variance
@@ -192,11 +191,11 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
         Phase dispersion at the given periods
     """
     # number of bins for dispersion calculation
-    n_dpoints = len(times)
-    if (n_dpoints / 10 > 1000):
+    n_points = len(times)
+    if (n_points / 10 > 1000):
         n_bins = 1000
     else:
-        n_bins = n_dpoints // 10  # at least 10 data points per bin on average
+        n_bins = n_points // 10  # at least 10 data points per bin on average
     # determine where to look based on the frequencies, including fractions of the frequencies
     if local:
         periods = 1 / f_n
@@ -245,7 +244,7 @@ def noise_spectrum(times, signal, window_width=1.):
     ext_noise = np.convolve(ext_ampls, window, 'same')
     # cut back to original interval
     noise = ext_noise[n_points:-n_points]
-    # extra correction to account for convolve mode='full' instead of 'same' (needed for jitting)
+    # extra correction to account for convolve mode='full' instead of 'same' (needed for JIT-ting)
     # noise = noise[n_points//2 - 1:-n_points//2]
     return noise
 
@@ -303,9 +302,9 @@ def spectral_window(times, freqs):
     n_time = len(times)
     cos_term = np.sum(np.cos(2.0 * np.pi * freqs * times.reshape(n_time, 1)), axis=0)
     sin_term = np.sum(np.sin(2.0 * np.pi * freqs * times.reshape(n_time, 1)), axis=0)
-    winkernel = cos_term**2 + sin_term**2
-    # Normalise such that winkernel(nu = 0.0) = 1.0
-    spec_win = winkernel / n_time**2
+    win_kernel = cos_term**2 + sin_term**2
+    # Normalise such that win_kernel(nu = 0.0) = 1.0
+    spec_win = win_kernel / n_time**2
     return spec_win
 
 
@@ -341,7 +340,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     
     Notes
     -----
-    Translated from Fortran (and just as fast when JITted with Numba!)
+    Translated from Fortran (and just as fast when JIT-ted with Numba!)
         Computation of Scargles periodogram without explicit tau
         calculation, with iteration (Method Cuypers)
         (is this the same: https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract ?)
@@ -356,7 +355,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     if (fn == 0):
         fn = 1 / (2 * np.min(times[1:] - times[:-1]))
     nf = int((fn - f0) / df + 0.001) + 1
-    # preassign some memory
+    # pre-assign some memory
     ss = np.zeros(nf)
     sc = np.zeros(nf)
     ss2 = np.zeros(nf)
@@ -480,7 +479,7 @@ def scargle_ampl(times, signal, fs):
     f1: numpy.ndarray[float]
         Frequencies at which the periodogram was calculated
     s1: numpy.ndarray[float]
-        The periodogram spectrum in the chosen unitsme series
+        The periodogram spectrum in the chosen units
     signal: numpy.ndarray[float]
         Measurement values of the time-series
     fs: numpy.ndarray[float]
@@ -685,7 +684,7 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     nf = int((fn - f0) / df + 0.001) + 1
     f1 = f0 + np.arange(nf) * df
     # use the astropy fast algorithm and normalise afterward
-    ls = apyt.LombScargle(times, signal, fit_mean=False, center_data=False)
+    ls = apy.LombScargle(times, signal, fit_mean=False, center_data=False)
     s1 = ls.power(f1, normalization='psd', method='fast')
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
@@ -720,7 +719,7 @@ def calc_likelihood(residuals):
     """
     n = len(residuals)
     # like = -n / 2 * (np.log(2 * np.pi * np.sum(residuals**2) / n) + 1)
-    # originally unjitted function, but for loop is quicker with numba
+    # originally un-JIT-ted function, but for loop is quicker with numba
     sum_r_2 = 0
     for i, r in enumerate(residuals):
         sum_r_2 += r**2
@@ -761,7 +760,7 @@ def calc_bic(residuals, n_param):
     """
     n = len(residuals)
     # bic = n * np.log(2 * np.pi * np.sum(residuals**2) / n) + n + n_param * np.log(n)
-    # originally jitted function, but with for loop is slightly quicker
+    # originally JIT-ted function, but with for loop is slightly quicker
     sum_r_2 = 0
     for i, r in enumerate(residuals):
         sum_r_2 += r**2
@@ -1132,7 +1131,7 @@ def sum_sines(times, f_n, a_n, ph_n):
     model_sines = np.zeros(len(times))
     for f, a, ph in zip(f_n, a_n, ph_n):
         # model_sines += a * np.sin((2 * np.pi * f * times) + ph)
-        # double loop runs a tad quicker when numba-jitted
+        # double loop runs a tad quicker when numba-JIT-ted
         for i, t in enumerate(times):
             model_sines[i] += a * np.sin((2 * np.pi * f * t) + ph)
     return model_sines
@@ -1455,7 +1454,7 @@ def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, 
 
 
 def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors):
-    """Fixes the frequecy of harmonics to the theoretical value, then
+    """Fixes the frequency of harmonics to the theoretical value, then
     re-determines the amplitudes and phases.
 
     Parameters
@@ -1936,7 +1935,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     
     [Author's note] Although it is my belief that doing a non-linear
     multi-sinusoid fit at each iteration of the prewhitening is the
-    best approach, it is also a very time consuming one and this
+    best approach, it is also a very time-consuming one and this
     algorithm aims to be fast while approaching the optimal solution.
     """
     times -= times[0]  # shift reference time to times[0]
@@ -2190,7 +2189,7 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
             f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
             n_accepted += 1
             if verbose:
-                print(f'Succesfully extracted harmonic {h_c}, BIC= {bic:1.2f}')
+                print(f'Successfully extracted harmonic {h_c}, BIC= {bic:1.2f}')
         else:
             # h_c is rejected, revert to previous residual
             resid = signal - sum_sines(times, f_n, a_n, ph_n)
@@ -2244,14 +2243,14 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     
     Notes
     -----
-    Checks whether the BIC can be inproved by removing a frequency. Special attention
+    Checks whether the BIC can be improved by removing a frequency. Special attention
     is given to frequencies that are within the Rayleigh criterion of each other.
     It is attempted to replace these by a single frequency.
     """
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_freq = np.arange(len(f_n))
     n_sectors = len(i_sectors)
-    # first check if any one frequency can be left out (after the fit, this may be possible)
+    # first check if any frequency can be left out (after the fit, this may be possible)
     remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
     # determine initial bic
     model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
@@ -2388,7 +2387,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     
     Notes
     -----
-    Checks whether the BIC can be inproved by removing a frequency. Special attention
+    Checks whether the BIC can be improved by removing a frequency. Special attention
     is given to frequencies that are within the Rayleigh criterion of each other.
     It is attempted to replace these by a single frequency.
     Harmonics are not removed (amplitude/phase can be updated).
@@ -2398,7 +2397,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     n_sectors = len(i_sectors)
     n_harm = len(harmonics)
-    # first check if any one frequency can be left out (after the fit, this may be possible)
+    # first check if any frequency can be left out (after the fit, this may be possible)
     remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
     # determine initial bic
     model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
@@ -2438,7 +2437,8 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     # make an array of sets of frequencies to be investigated for replacement
     close_f_groups = af.chains_within_rayleigh(f_n[non_harm], freq_res)
     close_f_groups = [non_harm[group] for group in close_f_groups]  # convert to the right indices
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))]
+    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1)
+              for p2 in range(p1 + 1, len(g))]
     s_indices = np.arange(len(f_sets))
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by 1 freq)
     used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
@@ -2488,8 +2488,8 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     # make an array of sets of frequencies to be investigated (now with harmonics)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     close_f_groups = af.chains_within_rayleigh(f_n, freq_res)
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))
-              if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
+    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1)
+              for p2 in range(p1 + 1, len(g)) if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
     s_indices = np.arange(len(f_sets))
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by a harmonic)
     used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore

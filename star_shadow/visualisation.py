@@ -246,7 +246,6 @@ def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s,
     return
 
 
-
 def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, annotate=True,
                                save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
@@ -614,8 +613,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
 
 
 def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                            timings_em, depths_em, timings_err, depths_err, const_r, f_h_r, a_h_r, ph_h_r, i_sectors,
-                            save_file=None, show=True):
+                            timings_em, depths_em, timings_err, depths_err, i_sectors, save_file=None, show=True):
     """Shows the initial and final simple empirical cubic function eclipse model
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
@@ -634,21 +632,17 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ext_left = (t_extended > p_orb + t_start)
     ext_right = (t_extended < t_end - p_orb)
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    t_model = np.arange(t_start, t_end, 0.001)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_sinusoid - model_linear
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
-    offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
     h_adjust = 1 - np.mean(signal)
     s_minmax = np.array([np.min(signal), np.max(signal)]) + h_adjust
     # cubic model - get the parameters for the cubics from the fit parameters
+    t_model = np.arange(t_start, t_end, 0.001)
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
     model_ecl_init = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
@@ -656,13 +650,20 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     model_ecl = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
                                            t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
     # add residual harmonic sinusoids to model
-    model_sin_r = tsf.sum_sines(t_model, f_h_r, a_h_r, ph_h_r) + const_r
-    model_ecl_h = model_sin_r + model_ecl
+    model_ecl_2 = tsfit.eclipse_cubics_model(times, p_orb, t_zero, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+                                             t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
+    model_ecl_2 = np.concatenate((model_ecl_2[ext_left], model_ecl_2, model_ecl_2[ext_right]))
+    model_sinusoid_2 = np.concatenate((model_sinusoid[ext_left], model_sinusoid, model_sinusoid[ext_right]))
+    model_linear_2 = np.concatenate((model_linear[ext_left], model_linear, model_linear[ext_right]))
+    model_ecl_sin_lin = model_ecl_2 + model_sinusoid_2 + model_linear_2
+    sorter = np.argsort(t_extended)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='signal minus non-harmonics and linear curve')
-    ax.plot(t_model, model_ecl_init + 1, c='tab:green', label='initial simple empirical eclipse model')
-    ax.plot(t_model, model_ecl_h + 1, c='tab:orange', label='final simple empirical eclipse model plus harmonics')
+    ax.scatter(t_extended, s_extended, marker='.', label='original signal')
+    ax.scatter(t_extended, ecl_signal, marker='.', c='tab:green', label='signal minus sinusoid and linear model')
+    ax.plot(t_model, model_ecl_init + 1, c='tab:orange', label='initial simple empirical eclipse model')
+    ax.plot(t_extended[sorter], model_ecl_sin_lin[sorter] + 1, c='tab:grey', alpha=0.8,
+            label='final simple empirical eclipse model plus sinusoids')
     ax.plot(t_model, model_ecl + 1, c='tab:red', label='final simple empirical eclipse model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:grey', label=r'eclipse edges (low harmonics)')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:grey')
@@ -817,7 +818,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
 def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals, w_vals, i_vals, rsumsma_vals,
                                   rratio_vals, sbratio_vals):
     """Shows the histograms resulting from the input distributions
-    and the hdi_prob=0.683 and hdi_prob=0.997 bounds resulting from the HDI's
+    and the hdi_prob=0.683 and hdi_prob=0.997 bounds resulting from the HDIs
 
     Note: produces several plots
     """
@@ -895,28 +896,28 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
         if (len(w_interval) == 1):
             w_interval = w_interval[0]
-            w_errs = np.array([w - w_interval[0], w_interval[1] - w])
+            # w_errs = np.array([w - w_interval[0], w_interval[1] - w])
         else:
             interval_size = w_interval[:, 1] - w_interval[:, 0]
             sorter = np.argsort(interval_size)
-            w_interval = w_interval[sorter[-2:]]  # pick onyly the largest two intervals
+            w_interval = w_interval[sorter[-2:]]  # pick only the largest two intervals
             # sign of (w - w_interval) only changes if w is in the interval
-            w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
-            w_errs = np.array([w - w_interval[w_in_interval][0, 0], w_interval[w_in_interval][0, 1] - w])
+            # w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
+            # w_errs = np.array([w - w_interval[w_in_interval][0, 0], w_interval[w_in_interval][0, 1] - w])
         if (len(w_bounds) == 1):
             w_bounds = w_bounds[0]
         else:
             bounds_size = w_bounds[:, 1] - w_bounds[:, 0]
             sorter = np.argsort(bounds_size)
-            w_bounds = w_bounds[sorter[-2:]]  # pick onyly the largest two intervals
+            w_bounds = w_bounds[sorter[-2:]]  # pick only the largest two intervals
     else:
         w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
-        w_errs = np.array([min(abs(w - w_interval[0]), abs(2*np.pi + w - w_interval[0])),
-                           min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
+        # w_errs = np.array([min(abs(w - w_interval[0]), abs(2*np.pi + w - w_interval[0])),
+        #                    min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
-    hist = ax.hist(w_vals_hist/np.pi*180, bins=50, label='vary fit input')
+    hist = ax.hist(w_vals/np.pi*180, bins=50, label='vary fit input')
     ax.plot([w/np.pi*180, w/np.pi*180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         ax.plot([(2*np.pi-w)/np.pi*180, (2*np.pi-w)/np.pi*180], [0, np.max(hist[0])], c='tab:pink',
@@ -1063,14 +1064,12 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
-    cos_w = np.cos(w)
-    sin_w = np.sin(w)
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
-        w_vals_hist = np.copy(w_vals)
+        w_vals = np.copy(w_vals)
     else:
-        w_vals_hist = np.copy(w_vals)
+        w_vals = np.copy(w_vals)
         mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
-        w_vals_hist[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
+        w_vals[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
     # input
     value_names = np.array([r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
                             r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
@@ -1099,7 +1098,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
                             r'$\frac{sb_2}{sb_1}$'])
     values = np.array([e, w/np.pi*180, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio])
-    dist_data = np.column_stack((e_vals, w_vals_hist / np.pi * 180, i_vals / np.pi * 180, rsumsma_vals, rratio_vals,
+    dist_data = np.column_stack((e_vals, w_vals / np.pi * 180, i_vals / np.pi * 180, rsumsma_vals, rratio_vals,
                                  sbratio_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
@@ -1147,8 +1146,6 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
-    ecosw, esinw = e * np.cos(w), e * np.sin(w)
     opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
     opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
     opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
@@ -1470,7 +1467,7 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, timings, const, slope, f_
     else:
         ecl_model = tsfit.simple_eclipse_lc(t_folded, p_orb_2, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     full_model = model_r + ecl_model
-    s_minmax_r = [np.min(ecl_signal - ecl_model) + offset, np.max(ecl_signal - ecl_model) + offset]
+    s_minmax_r = [np.min(ecl_signal - ecl_model), np.max(ecl_signal - ecl_model)]
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(t_folded, signal_ext, marker='.', label='original signal')
@@ -1633,7 +1630,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
     return const, slope, f_n, a_n, ph_n
 
 
-def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s, save_dir, verbose=False):
+def visualise_frequency_analysis(tic, times, signal, signal_err, i_sectors, i_half_s, save_dir, verbose=False):
     """Visualise the whole frequency analysis process."""
     # make the directory
     sub_dir = f'tic_{tic}_analysis'
@@ -1641,7 +1638,7 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
     if (not os.path.isdir(os.path.join(save_dir, sub_dir))):
         os.mkdir(os.path.join(save_dir, sub_dir))  # create the subdir
     save_dir = os.path.join(save_dir, sub_dir)  # this is what we will use from now on
-    # start by saving the light curve itself (this is for future reproducability)
+    # start by saving the light curve itself (this is for future reproducibility)
     with h5py.File(os.path.join(save_dir, f'vis_step_0_light_curve.hdf5'), 'w-') as file:
         file.attrs['identifier'] = file_id
         file.attrs['date_time'] = str(datetime.datetime.now())
@@ -1651,7 +1648,7 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
         file.create_dataset('i_half_s', data=i_half_s)
     # now do the extraction
     out = extract_all_visual(times, signal, signal_err, i_half_s, save_dir, verbose=verbose)
-    
+    # const, slope, f_n, a_n, ph_n = out
     freq_res = 1.5 / np.ptp(times)
     # make the images (step 1)
     step_1_files = []
@@ -1680,6 +1677,6 @@ def visualise_frequency_analysis(tic, times, signal, p_orb, i_sectors, i_half_s,
                 title = f'Iteration {iteration}'
                 f_name = os.path.join(save_dir, f'vis_step_1_iteration_{iteration}.png')
                 xlim = None
-        plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, title, n_param=n_param, bic=bic,
-                                    zoom=xlim, annotate=False, save_file=f_name, show=False)
+        plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, title, n_param=n_param,
+                                    bic=bic, zoom=xlim, annotate=False, save_file=f_name, show=False)
     return
