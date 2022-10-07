@@ -1508,7 +1508,7 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     save_results(results, errors, stats, file_name_sl, description=desc, data_id=data_id)
     # save eclipse parameters, sinusoids and linear curve in ascii format
     file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
-    data = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio]).reshape(-1, 1)
+    data = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio])
     hdr = 'p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio'
     np.savetxt(file_name_e, data, delimiter=',', header=hdr)
     file_name_s = file_name.replace(fn_ext, '_sinusoid.csv')

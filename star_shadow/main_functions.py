@@ -1151,6 +1151,11 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         stats = (n_param, bic, noise_level)
         ut.save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, depths_em, timings_err,
                                        depths_err, i_sectors, file_name, data_id=data_id)
+        dur_1 = (t_c2_1 - t_c1_1)
+        dur_2 = (t_c4_1 - t_c3_1)
+        if ((dur_1 < 0.0001) & (dur_1 < 0.001 * dur_2)) | ((dur_2 < 0.0001) & (dur_2 < 0.001 * dur_1)):
+            line1 = [f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}']
+            np.savetxt(file_name.replace(fn_ext, '.txt'), line1, fmt='%s')
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
@@ -1298,6 +1303,9 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
         # save
         ut.save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
                                  dists_in, dists_out, file_name, data_id)
+        if (e > 0.99):
+            line1 = [f'Unphysically large eccentricity found: {e}']
+            np.savetxt(file_name.replace(fn_ext, '.txt'), line1, fmt='%s')
     t_b = time.time()
     if verbose:
         e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
@@ -1532,6 +1540,9 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
         if verbose:
             print(f'Starting multi-sine NL-LS fit with {model} eclipse model.')
         f_groups = ut.group_frequencies_for_fit(a_n, g_min=10, g_max=15)
+        e, w, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
+        ecosw, esinw = e * np.cos(w), e * np.sin(w)
+        ecl_par = ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio  # convert to fitting params
         out = tsfit.fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, ecl_par, const,
                                                          slope, f_n, a_n, ph_n, i_sectors, f_groups, verbose=verbose)
         # main function done, do the rest for this step
@@ -1750,6 +1761,13 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13 = out_13[:5]
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[5:]
+    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_13
+    dur_1 = (t_c2_1 - t_c1_1)
+    dur_2 = (t_c4_1 - t_c3_1)
+    if ((dur_1 < 0.0001) & (dur_1 < 0.001 * dur_2)) | ((dur_2 < 0.0001) & (dur_2 < 0.001 * dur_1)):
+        if verbose:
+            print(f'One of the eclipses too narrow, durations: {t_c2_1 - t_c1_1}, {t_c4_1 - t_c3_1}')
+        return (None,) * 10  # unphysical parameters
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
@@ -1759,6 +1777,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                        file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
+        if verbose:
+            print(f'Unphysical eccentricity found: {e_14}')
         return (None,) * 10  # unphysical parameters
     # errors_14, bounds_14, formal_errors_14, dists_in_14, dists_out_14 = out_14[6:]
     # --- [15] --- Fit for the light curve parameters

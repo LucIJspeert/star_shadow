@@ -125,10 +125,10 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = len(f_n)  # each sine has freq, ampl and phase
     # do the fit
-    params_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
+    par_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
     arguments = (times, signal, signal_err, i_sectors, verbose)
-    result = sp.optimize.minimize(objective_sinusoids, x0=params_init, args=arguments,
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
+    result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments,
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_const = result.x[0:n_sect]
     res_slope = result.x[n_sect:2 * n_sect]
@@ -349,12 +349,12 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     n_sin = n_f_tot - n_harm  # each independent sine has freq, ampl and phase
     non_harm = np.delete(np.arange(n_f_tot), harmonics)
     # do the fit
-    params_init = np.concatenate(([p_orb], np.atleast_1d(const), np.atleast_1d(slope), np.delete(f_n, harmonics),
+    par_init = np.concatenate(([p_orb], np.atleast_1d(const), np.atleast_1d(slope), np.delete(f_n, harmonics),
                                   np.delete(a_n, harmonics), np.delete(ph_n, harmonics),
                                   a_n[harmonics], ph_n[harmonics]))
-    result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=params_init,
-                                  args=(times, signal, signal_err, harmonic_n, i_sectors, verbose),
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
+    arguments = (times, signal, signal_err, harmonic_n, i_sectors, verbose)
+    result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_p_orb = result.x[0]
     res_const = result.x[1:1 + n_sect]
@@ -451,10 +451,10 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
         print(f'Starting fit of orbital harmonics')
     resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
                                    np.delete(res_phases, harmonics))  # the sinusoid part of the model without harmonics
-    params_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
-    output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=params_init,
-                                  args=(times, resid, signal_err, harmonic_n, i_sectors, verbose),
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
+    par_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
+    arguments = (times, resid, signal_err, harmonic_n, i_sectors, verbose)
+    output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
+                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_p_orb = output.x[0]
     res_const = output.x[1:1 + n_sect]
@@ -615,12 +615,12 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     model_init += tsf.linear_curve(times, const, slope, i_sectors)
     bic_init = tsf.calc_bic((signal - model_init)/signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
     # start off at third light of 0.01 and stretch parameter of 1.01
-    params_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
-    param_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
+    par_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
+    par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
     arguments = (times, signal, signal_err, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, verbose)
     # do the fit
-    result = sp.optimize.minimize(objective_third_light, x0=params_init, args=arguments, method='Nelder-Mead',
-                                  bounds=param_bounds, options={'maxfev': 10**4 * len(params_init)})
+    result = sp.optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_light_3 = result.x[:n_sect]
     res_stretch = result.x[-1]
@@ -844,13 +844,17 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
-    # initial parameters
+    # initial parameters and bounds (to avoid weird behaviour)
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
+    dur_1 = t_1_2 - t_1_1
+    dur_2 = t_2_2 - t_2_1
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
+    par_bounds = np.array([(t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
+                           (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None)])
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
     result = sp.optimize.minimize(objective_cubics_lc, par_init, args=args, method='nelder-mead',
-                                  options={'maxiter': 10000})
+                                  bounds=par_bounds, options={'maxiter': 10000})
     if verbose:
         print('Fit complete')
         print(f'fun: {result.fun}')
@@ -1017,11 +1021,16 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
         # fit only the frequencies in this group (and eclipse model, constant and slope)
-        params_init = np.concatenate((res_cubics, res_const, res_slope, res_freqs[group], res_ampls[group],
+        par_init = np.concatenate((res_cubics, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group]))
+        dur_1 = t_c2_1 - t_c1_1
+        dur_2 = t_c4_1 - t_c3_1
+        par_bounds = [(t_c1_1, t_c2_1), (t_c3_1, t_c4_1), (t_c1_1 - dur_1, t_c2_1), (t_c3_1 - dur_2, t_c4_1),
+                      (t_c1_2 - dur_1, t_c2_1), (t_c3_2 - dur_2, t_c4_1), (0, None), (0, None)]
+        par_bounds.extend([(None, None) for i in range(2 * n_sect + 3 * len(res_freqs[group]))])
         arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors, verbose)
-        output = sp.optimize.minimize(objective_cubics_sinusoids_lc, x0=params_init, args=arguments,
-                                      method='Nelder-Mead', options={'maxfev': 10**4 * len(params_init)})
+        output = sp.optimize.minimize(objective_cubics_sinusoids_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+                                      bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
         res_cubics = output.x[0:8]
@@ -1196,10 +1205,10 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
-    params_init = (ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio)
-    bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.01, 100), (0.01, 100))
+    par_init = (ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio)
+    par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.01, 100), (0.01, 100))
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
-    result = sp.optimize.minimize(objective_eclipse_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
+    result = sp.optimize.minimize(objective_eclipse_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
     if verbose:
         print('Fit complete')
@@ -1380,10 +1389,10 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     h_1, h_2 = af.height_at_contact(f_n[harmonics], a_n[harmonics], ph_n[harmonics], t_zero, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
-    params_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
-    bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100))
+    par_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
+    par_bounds = ((-1, 1), (-1, 1), (0, np.pi/2), (0, 1), (0.01, 100), (0.01, 100))
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
-    result = sp.optimize.minimize(objective_ellc_lc, params_init, args=args, method='nelder-mead', bounds=bounds,
+    result = sp.optimize.minimize(objective_ellc_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
     if verbose:
         print('Fit complete')
@@ -1606,15 +1615,15 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
         # fit only the frequencies in this group (and eclipse model, constant and slope)
-        params_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
+        par_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
                                       res_phases[group]))
         arguments = (times, resid, signal_err, p_orb, i_sectors, verbose)
         if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc
         else:
             obj_fun = objective_sinusoids_eclipse
-        output = sp.optimize.minimize(obj_fun, x0=params_init, args=arguments, method='Nelder-Mead',
-                                      options={'maxfev': 10**4 * len(params_init)})
+        output = sp.optimize.minimize(obj_fun, x0=par_init, args=arguments, method='Nelder-Mead',
+                                      options={'maxfev': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
         res_ecl_par = output.x[0:7]
