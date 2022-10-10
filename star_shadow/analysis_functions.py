@@ -2179,7 +2179,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     degeneracy between angles around 90 degrees and 270 degrees.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    depth_1, depth_2 = depths
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    depth_1_err, depth_2_err = depths_err
     # generate input distributions
     rng = np.random.default_rng()
     n_gen = 10**3  # 10**4
@@ -2242,15 +2244,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
     normal_tau_b_1_2 = normal_t_b_1_2 - normal_t_1
     normal_tau_b_2_1 = normal_t_2 - normal_t_b_2_1
     normal_tau_b_2_2 = normal_t_b_2_2 - normal_t_2
-    # depths are calculated from the above inputs
-    normal_d_1 = np.zeros(n_gen)
-    normal_d_2 = np.zeros(n_gen)
-    for k in range(n_gen):
-        depths_k = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, normal_t_1[k], normal_t_2[k],
-                                           normal_t_1_1[k], normal_t_1_2[k], normal_t_2_1[k], normal_t_2_2[k],
-                                           normal_t_b_1_1[k], normal_t_b_1_2[k], normal_t_b_2_1[k], normal_t_b_2_2[k])
-        normal_d_1[k] = depths_k[0]
-        normal_d_2[k] = depths_k[1]
+    # depths are truncated at zero and upper limit of five sigma
+    normal_d_1 = sp.stats.truncnorm.rvs((0 - depth_1) / depth_1_err, 5, loc=depth_1, scale=depth_1_err, size=n_gen)
+    normal_d_2 = sp.stats.truncnorm.rvs((0 - depth_2) / depth_2_err, 5, loc=depth_2, scale=depth_2_err, size=n_gen)
     # determine the output distributions
     e_vals = np.zeros(n_gen)
     w_vals = np.zeros(n_gen)
