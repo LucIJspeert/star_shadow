@@ -2112,7 +2112,7 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s
 
 
-def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h, timings,
+def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h, timings, depths,
                         timings_err, depths_err, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
@@ -2145,6 +2145,8 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         Timings of the possible flat bottom (internal tangency),
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    depths: numpy.ndarray[float]
+        Primary and secondary eclipse depth
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err

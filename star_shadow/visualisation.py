@@ -106,7 +106,7 @@ def plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_s
     return
 
 
-def plot_pd_single_output(times, signal, model, p_orb, f_n, a_n, i_half_s, save_file=None, show=True):
+def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s, save_file=None, show=True):
     """Plot the periodogram with one output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
@@ -120,7 +120,6 @@ def plot_pd_single_output(times, signal, model, p_orb, f_n, a_n, i_half_s, save_
         ax.plot(freqs_r, ampls_r, label='residual')
     if (p_orb > 0):
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-        p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
         ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(ampls)], xerr=[0, p_err / p_orb**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(len(f_n)):
@@ -139,7 +138,7 @@ def plot_pd_single_output(times, signal, model, p_orb, f_n, a_n, i_half_s, save_
     return
 
 
-def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, save_file=None, show=True):
+def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_half_s, save_file=None, show=True):
     """Plot the periodogram with the full output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
@@ -151,6 +150,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     freqs_6, ampls_6 = tsf.astropy_scargle(times, signal - models[5] - np.all(models[5] == 0) * np.mean(signal))
     freqs_7, ampls_7 = tsf.astropy_scargle(times, signal - models[6] - np.all(models[6] == 0) * np.mean(signal))
     freqs_8, ampls_8 = tsf.astropy_scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
+    freqs_9, ampls_9 = tsf.astropy_scargle(times, signal - models[8] - np.all(models[8] == 0) * np.mean(signal))
     # get error values
     err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_half_s)
     err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_half_s)
@@ -160,6 +160,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     err_6 = tsf.formal_uncertainties(times, signal - models[5], a_n_i[5], i_half_s)
     err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_half_s)
     err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_half_s)
+    err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_half_s)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.plot(freqs, ampls, label='signal')
@@ -170,20 +171,25 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     if (len(f_n_i[2]) > 0):
         ax.plot(freqs_3, ampls_3, label='fixed harmonics residual')
     if (len(f_n_i[3]) > 0):
-        ax.plot(freqs_4, ampls_4, label='extra harmonics residual')
+        ax.plot(freqs_4, ampls_4, label='additional harmonics residual')
     if (len(f_n_i[4]) > 0):
-        ax.plot(freqs_5, ampls_5, label='extra non-harmonics residual')
+        ax.plot(freqs_5, ampls_5, label='first NL-LS fit residual with harmonics')
     if (len(f_n_i[5]) > 0):
-        ax.plot(freqs_6, ampls_6, label='NL-LS fit residual with harmonics')
+        ax.plot(freqs_6, ampls_6, label='additional non-harmonics residual')
     if (len(f_n_i[6]) > 0):
-        ax.plot(freqs_7, ampls_7, label='Reduced frequencies')
+        ax.plot(freqs_7, ampls_7, label='second NL-LS fit residual with harmonics')
     if (len(f_n_i[7]) > 0):
-        ax.plot(freqs_8, ampls_8, label='second NL-LS fit residual with harmonics')
-    if (p_orb_i[7] > 0):
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_i[7], p_orb_i[7], f_tol=1e-9)
-        p_err = tsf.formal_period_uncertainty(p_orb_i[7], err_8[2], harmonics, harmonic_n)
-        ax.errorbar([1/p_orb_i[7], 1/p_orb_i[7]], [0, np.max(ampls)], xerr=[0, p_err/p_orb_i[7]**2],
+        ax.plot(freqs_8, ampls_8, label='Reduced frequencies')
+    if (len(f_n_i[8]) > 0):
+        ax.plot(freqs_9, ampls_9, label='third NL-LS fit residual with harmonics')
+    # period
+    if (p_orb_i[8] > 0):
+        ax.errorbar([1/p_orb_i[8], 1/p_orb_i[8]], [0, np.max(ampls)], xerr=[0, p_err_i[8]/p_orb_i[8]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
+    elif (p_orb_i[2] > 0):
+        ax.errorbar([1/p_orb_i[2], 1/p_orb_i[2]], [0, np.max(ampls)], xerr=[0, p_err_i[2]/p_orb_i[2]**2],
+                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[2]:1.4f}d)')
+    # frequencies
     for i in range(len(f_n_i[0])):
         ax.errorbar([f_n_i[0][i], f_n_i[0][i]], [0, a_n_i[0][i]], xerr=[0, err_1[2][i]], yerr=[0, err_1[3][i]],
                     linestyle=':', capsize=2, c='tab:orange')
@@ -208,7 +214,10 @@ def plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_half_s, 
     for i in range(len(f_n_i[7])):
         ax.errorbar([f_n_i[7][i], f_n_i[7][i]], [0, a_n_i[7][i]], xerr=[0, err_8[2][i]], yerr=[0, err_8[3][i]],
                     linestyle=':', capsize=2, c='tab:olive')
-        ax.annotate(f'{i+1}', (f_n_i[7][i], a_n_i[7][i]))
+    for i in range(len(f_n_i[8])):
+        ax.errorbar([f_n_i[8][i], f_n_i[8][i]], [0, a_n_i[8][i]], xerr=[0, err_9[2][i]], yerr=[0, err_9[3][i]],
+                    linestyle=':', capsize=2, c='tab:cyan')
+        ax.annotate(f'{i+1}', (f_n_i[8][i], a_n_i[8][i]))
     plt.xlabel('frequency (1/d)', fontsize=14)
     plt.ylabel('amplitude', fontsize=14)
     plt.legend(fontsize=12)
@@ -246,7 +255,7 @@ def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s,
     return
 
 
-def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_half_s, annotate=True,
+def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_half_s, annotate=True,
                                save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
@@ -257,7 +266,6 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, const, slope, f_n, a_n, ph_
     model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
                              np.delete(ph_n, harmonics))
     errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
-    p_err = tsf.formal_period_uncertainty(p_orb, errors[2], harmonics, harmonic_n)
     # plot the harmonic model and non-harmonic model
     fig, ax = plt.subplots(nrows=2, sharex=True, figsize=(16, 9))
     ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonics')

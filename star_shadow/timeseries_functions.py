@@ -1290,37 +1290,40 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
 
 
 @nb.njit(cache=True)
-def formal_period_uncertainty(p_orb, f_n_err, harmonics, harmonic_n):
+def formal_period_uncertainty(p_orb, t_tot, t_int):
     """Calculates a formal error for the orbital period
     
     Parameters
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    f_n_err: numpy.ndarray[float]
-        Formal errors in the frequencies
-    harmonics: numpy.ndarray[int]
-        Indices of the orbital harmonics in the frequency list
-    harmonic_n: numpy.ndarray[int]
-        Integer indicating which harmonic each index in 'harmonics'
-        points to. n=1 for the base frequency (=orbital frequency)
+    t_tot: float
+        Total time base of observations
+    t_int: float
+        Integration time of the observations
     
     Returns
     -------
-    p_orb_err: float
+    p_err: float
         Uncertainty in the orbital period
     
     Notes
     -----
-    Computes the error that one would obtain if the orbital period was calculated by
-    the weighted average of the orbital harmonic frequencies.
+    Computes the error using the prescription in:
+    https://ui.adsabs.harvard.edu/abs/2013AJ....145..148M/abstract
     """
-    # errors of the harmonics have to be scaled the same as the frequencies in a weighted average
-    f_h_err = f_n_err[harmonics] / harmonic_n
-    f_orb_err = np.sqrt(np.sum(1/f_h_err**2 / len(f_h_err)**2)) / np.sum(1/f_h_err**2 / len(f_h_err))
-    # calculation of period error via relative error (same as p * f_err / f)
-    p_orb_err = f_orb_err * p_orb**2
-    return p_orb_err
+    # half the bin width (integration time) of the observations
+    sigma = t_int / 2
+    # number of cycles
+    m = int(abs(t_tot // p_orb))
+    # error is the minimal value of the following computation
+    p_err = np.zeros(m)
+    for i in range(1, m + 1):
+        for j in range(1, i + 1):
+            p_err[i - 1] += (2 * sigma**2) / (j * (m - (j - 1))**2)
+        p_err[i - 1] /= i
+    p_err = np.min(np.sqrt(p_err))
+    return p_err
 
 
 @nb.njit(cache=True)

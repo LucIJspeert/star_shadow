@@ -1698,14 +1698,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
         p_orb_3 = p_orb_3[0]  # must be a float
-        # p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
+        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
         # n_param_3, bic_3, noise_level_3 = stats
         model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
         model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
     else:
         p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = np.array([[], [], [], [], [], []])
         p_orb_3 = 0
-        # p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = np.array([[], [], [], [], [], []])
+        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = np.array([[], [], [], [], [], []])
         # n_param_3, bic_3, noise_level_3 = 0, 0, 0
         model_3 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
@@ -1713,14 +1713,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = results
         # p_orb_4 = p_orb_4[0]  # must be a float
-        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
+        p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
         # n_param_4, bic_4, noise_level_4 = stats
         model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
         model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
     else:
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = np.array([[], [], [], [], [], []])
         # p_orb_4 = 0
-        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
+        p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
         # n_param_4, bic_4, noise_level_4 = 0, 0, 0
         model_4 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
@@ -1728,14 +1728,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = results
         p_orb_5 = p_orb_5[0]  # must be a float
-        # p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = errors
+        p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = errors
         # n_param_5, bic_5, noise_level_5 = stats
         model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
         model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
     else:
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = np.array([[], [], [], [], [], []])
         p_orb_5 = 0
-        # p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = np.array([[], [], [], [], [], []])
+        p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = np.array([[], [], [], [], [], []])
         # n_param_5, bic_5, noise_level_5 = 0, 0, 0
         model_5 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
@@ -1743,14 +1743,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = results
         # p_orb_6 = p_orb_6[0]  # must be a float
-        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
+        p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
         # n_param_6, bic_6, noise_level_6 = stats
         model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
         model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
     else:
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = np.array([[], [], [], [], [], []])
         # p_orb_6 = 0
-        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
+        p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
         # n_param_6, bic_6, noise_level_6 = 0, 0, 0
         model_6 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
@@ -1758,14 +1758,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results
         p_orb_7 = p_orb_7[0]  # must be a float
-        # p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = errors
+        p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = errors
         # n_param_7, bic_7, noise_level_7 = stats
         model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
         model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
     else:
         p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = np.array([[], [], [], [], [], []])
         p_orb_7 = 0
-        # p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = np.array([[], [], [], [], [], []])
+        p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = np.array([[], [], [], [], [], []])
         # n_param_7, bic_7, noise_level_7 = 0, 0, 0
         model_7 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
@@ -1773,14 +1773,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
         # p_orb_8 = p_orb_8[0]  # must be a float
-        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
+        p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
         # n_param_8, bic_8, noise_level_8 = stats
         model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
         model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
     else:
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], [], []])
         # p_orb_8 = 0
-        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
+        p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
         # n_param_8, bic_8, noise_level_8 = 0, 0, 0
         model_8 = np.zeros(len(times))
     file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
@@ -1788,7 +1788,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
         p_orb_9 = p_orb_9[0]  # must be a float
-        # p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
+        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
         n_param_9, bic_9, noise_level_9 = stats
         model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
         model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
@@ -1797,13 +1797,14 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     else:
         p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = np.array([[], [], [], [], [], []])
         p_orb_9 = 0
-        # p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = np.array([[], [], [], [], [], []])
+        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = np.array([[], [], [], [], [], []])
         n_param_9, bic_9, noise_level_9 = 0, 0, 0
         model_9 = np.zeros(len(times))
         f_h_9, a_h_9, ph_h_9 = np.array([[], [], []])
     # stick together for sending to plot function
     models = [model_1, model_2, model_3, model_4, model_5, model_6, model_7, model_8, model_9]
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_7, p_orb_9]
+    p_err_i = [0, 0, p_err_3, p_err_3, p_err_5, p_err_5, p_err_7, p_err_7, p_err_9]
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8, f_n_9]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8, a_n_9]
     # get the low harmonics
@@ -1892,8 +1893,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     if save_dir is not None:
         try:
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_pd_full.png')
-            vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=file_name,
-                                    show=False)
+            vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
+                                    save_file=file_name, show=False)
             if np.any([len(fs) != 0 for fs in f_n_i]):
                 plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
                 plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'), eval(f'f_n_{plot_nr}'),
@@ -1903,12 +1904,13 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                 vis.plot_lc_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                          f'tic_{tic}_frequency_analysis_pd_output_{plot_nr}.png')
-                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], eval(f'f_n_{plot_nr}'),
-                             eval(f'a_n_{plot_nr}')]
+                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1],
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}')]
                 vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]
-                plot_data = [eval(f'p_orb_{plot_nr}'), eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
+                plot_data = [p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1],
+                             eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
                                          f'tic_{tic}_frequency_analysis_harmonics_{plot_nr}.png')
@@ -1917,14 +1919,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_pd_full_output(times, signal, models, p_orb_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True)
+            vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
+                                    save_file=None, show=True)
             if np.any([len(fs) != 0 for fs in f_n_i]):
                 plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
                 plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
                 vis.plot_lc_single_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
-                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], eval(f'f_n_{plot_nr}'),
-                             eval(f'a_n_{plot_nr}')]
+                plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1],
+                             eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}')]
                 vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
             if np.any(np.nonzero(p_orb_i)):
                 plot_nr = np.arange(1, len(p_orb_i) + 1)[np.nonzero(p_orb_i)][-1]

@@ -1518,7 +1518,6 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
     # eclipse model
-    ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = params
     e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
