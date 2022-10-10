@@ -1149,11 +1149,22 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         stats = (n_param, bic, noise_level)
         ut.save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, depths_em, timings_err,
                                        depths_err, i_sectors, file_name, data_id=data_id)
-        dur_1 = (t_c2_1 - t_c1_1)
-        dur_2 = (t_c4_1 - t_c3_1)
-        if ((dur_1 < 0.0001) & (dur_1 < 0.001 * dur_2)) | ((dur_2 < 0.0001) & (dur_2 < 0.001 * dur_1)):
-            line1 = [f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}']
-            np.savetxt(file_name.replace(fn_ext, '.txt'), line1, fmt='%s')
+        # check significance
+        dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
+        dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
+        dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
+        depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)
+        dur_insig = (dur_1 < dur_1_err) | (dur_2 < dur_2_err)
+        if dur_diff | depth_insig | dur_insig:
+            if depth_insig:
+                line = [f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}']
+            elif dur_insig:
+                line = [f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}']
+            elif dur_diff:
+                line = [f'One of the eclipses too narrow compared to the other, durations: {dur_1}, {dur_2}']
+            if verbose:
+                print(line[0])
+            np.savetxt(file_name.replace(fn_ext, '.txt'), line, fmt='%s')
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
@@ -1303,6 +1314,8 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
                                  dists_in, dists_out, file_name, data_id)
         if (e > 0.99):
             line1 = [f'Unphysically large eccentricity found: {e}']
+            if verbose:
+                print(line1)
             np.savetxt(file_name.replace(fn_ext, '.txt'), line1, fmt='%s')
     t_b = time.time()
     if verbose:
@@ -1760,12 +1773,15 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13 = out_13[:5]
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[5:]
+    # check for significance
     mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_13
-    dur_1 = (t_c2_1 - t_c1_1)
-    dur_2 = (t_c4_1 - t_c3_1)
-    if ((dur_1 < 0.0001) & (dur_1 < 0.001 * dur_2)) | ((dur_2 < 0.0001) & (dur_2 < 0.001 * dur_1)):
-        if verbose:
-            print(f'One of the eclipses too narrow, durations: {t_c2_1 - t_c1_1}, {t_c4_1 - t_c3_1}')
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err_13
+    dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
+    dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
+    dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
+    depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)
+    dur_insig = (dur_1 < dur_1_err) | (dur_2 < dur_2_err)
+    if dur_diff | depth_insig | dur_insig:
         return (None,) * 10  # unphysical parameters
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
@@ -1776,8 +1792,6 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
                                        file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
-        if verbose:
-            print(f'Unphysical eccentricity found: {e_14}')
         return (None,) * 10  # unphysical parameters
     # errors_14, bounds_14, formal_errors_14, dists_in_14, dists_out_14 = out_14[6:]
     # --- [15] --- Fit for the light curve parameters
