@@ -766,6 +766,9 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     ext_left = (t_extended > p_orb + t_1_1)
     ext_right = (t_extended < t_1_2)
     t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    sorter = np.argsort(t_extended)
+    mask_1 = (t_extended > t_1_1) & (t_extended < t_1_2)
+    mask_2 = (t_extended > t_2_1) & (t_extended < t_2_2)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -779,33 +782,16 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     s_minmax = [np.min(signal), np.max(signal)]
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
-    # determine phase angles of crucial points
-    theta_1, theta_2 = af.minima_phase_angles(e, w, i)
-    nu_1 = af.true_anomaly(theta_1, w)
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = af.root_contact_phase_angles(e, w, i, phi_0)
     # make the simple model
-    thetas_1 = np.arange(0-phi_1_1, 0+phi_1_2, 0.0001)
-    thetas_2 = np.arange(np.pi-phi_2_1, np.pi+phi_2_2, 0.0001)
-    model_ecl_1 = np.zeros(len(thetas_1))
-    model_ecl_2 = np.zeros(len(thetas_2))
-    for k in range(len(thetas_1)):
-        model_ecl_1[k] = 1 - af.eclipse_depth(e, w, i, thetas_1[k], r_sum_sma, r_ratio, sb_ratio)
-    for k in range(len(thetas_2)):
-        model_ecl_2[k] = 1 - af.eclipse_depth(e, w, i, thetas_2[k], r_sum_sma, r_ratio, sb_ratio)
-    t_model_1 = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas_1, w), e)
-    t_model_2 = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas_2, w), e)
-    # include out of eclipse
-    thetas = np.arange(0-2*phi_1_1, np.pi+2*phi_2_2, 0.001)
-    ecl_model = np.zeros(len(thetas))
-    for k in range(len(thetas)):
-        ecl_model[k] = 1 - af.eclipse_depth(e, w, i, thetas[k], r_sum_sma, r_ratio, sb_ratio)
-    t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(thetas, w), e)
+    ecl_model = simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_1 = simple_eclipse_lc(t_extended[mask_1], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_2 = simple_eclipse_lc(t_extended[mask_2], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # plot
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_model_1, model_ecl_1, c='tab:orange', label='spheres of uniform brightness')
-    ax.plot(t_model_2, model_ecl_2, c='tab:orange')
-    ax.plot(t_model, ecl_model, c='tab:purple', alpha=0.3)
+    ax.plot(t_extended[sorter][mask_1], model_ecl_1, c='tab:orange', label='spheres of uniform brightness')
+    ax.plot(t_extended[sorter][mask_2], model_ecl_2, c='tab:orange')
+    ax.plot(t_extended[sorter], ecl_model, c='tab:purple', alpha=0.3)
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')

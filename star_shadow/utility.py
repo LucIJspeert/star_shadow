@@ -41,6 +41,34 @@ def weighted_mean(x, w):
 
 
 @nb.njit(cache=True)
+def interp_two_points(x, xp1, yp1, xp2, yp2):
+    """Interpolate on a straight line between two points
+
+    Parameters
+    ----------
+    x: numpy.ndarray[float]
+        The x-coordinates at which to evaluate the interpolated values.
+        All other inputs must have the same length.
+    xp1: float, numpy.ndarray[float]
+        The x-coordinate of the left point(s)
+    yp1: float, numpy.ndarray[float]
+        The y-coordinate of the left point(s)
+    xp2: float, numpy.ndarray[float]
+        The x-coordinate of the right point(s)
+    yp2: float, numpy.ndarray[float]
+        The y-coordinate of the right point(s)
+
+    Returns
+    -------
+    y: numpy.ndarray[float]
+        The interpolated values, same shape as x.
+    """
+    y_inter, slope = tsf.linear_pars_two_points(xp1, yp1, xp2, yp2)
+    y = y_inter + slope * x
+    return y
+
+
+@nb.njit(cache=True)
 def decimal_figures(x, n_sf):
     """Determine the number of decimal figures to print given a target
     number of significant figures

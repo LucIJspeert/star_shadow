@@ -431,7 +431,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3)
         f_errors = tsf.formal_uncertainties(times, signal - model_3, a_n_3, i_sectors)
         c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = f_errors
-        p_err_3 = tsf.formal_period_uncertainty(p_orb_3, t_tot, t_int)
+        p_err_3 = af.formal_period_uncertainty(p_orb_3, t_tot, t_int)
         errors = (p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3)
         stats = (n_param_3, bic_3, np.std(signal - model_3))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
@@ -472,7 +472,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4)
         f_errors = tsf.formal_uncertainties(times, signal - model_4, a_n_4, i_sectors)
         c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = f_errors
-        p_err_4 = tsf.formal_period_uncertainty(p_orb_3, t_tot, t_int)
+        p_err_4 = af.formal_period_uncertainty(p_orb_3, t_tot, t_int)
         errors = (p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4)
         stats = (n_param_4, bic_4, np.std(signal - model_4))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
@@ -511,7 +511,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5)
         f_errors = tsf.formal_uncertainties(times, signal - model_5, a_n_5, i_sectors)
         c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = f_errors
-        p_err_5 = tsf.formal_period_uncertainty(p_orb_5, t_tot, t_int)
+        p_err_5 = af.formal_period_uncertainty(p_orb_5, t_tot, t_int)
         errors = (p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5)
         stats = (n_param_4, bic_5, np.std(signal - model_5))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
@@ -552,7 +552,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_5, const_6, slope_6, f_n_6, a_n_6, ph_n_6)
         f_errors = tsf.formal_uncertainties(times, signal - model_6, a_n_6, i_sectors)
         c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = f_errors
-        p_err_6 = tsf.formal_period_uncertainty(p_orb_5, t_tot, t_int)
+        p_err_6 = af.formal_period_uncertainty(p_orb_5, t_tot, t_int)
         errors = (p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6)
         stats = (n_param_6, bic_6, np.std(signal - model_6))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
@@ -592,7 +592,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
             results = (p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7)
             f_errors = tsf.formal_uncertainties(times, signal - model_7, a_n_7, i_sectors)
             c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = f_errors
-            p_err_7 = tsf.formal_period_uncertainty(p_orb_7, t_tot, t_int)
+            p_err_7 = af.formal_period_uncertainty(p_orb_7, t_tot, t_int)
             errors = (p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7)
             stats = (n_param_6, bic_7, np.std(signal - model_7))
             file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
@@ -637,7 +637,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_7, const_8, slope_8, f_n_8, a_n_8, ph_n_8)
         f_errors = tsf.formal_uncertainties(times, signal - model_8, a_n_8, i_sectors)
         c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = f_errors
-        p_err_8 = tsf.formal_period_uncertainty(p_orb_7, t_tot, t_int)
+        p_err_8 = af.formal_period_uncertainty(p_orb_7, t_tot, t_int)
         errors = (p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8)
         stats = (n_param_8, bic_8, np.std(signal - model_8))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
@@ -686,7 +686,7 @@ def frequency_analysis(tic, times, signal, signal_err, i_sectors, t_int, p_orb, 
         results = (p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9)
         f_errors = tsf.formal_uncertainties(times, signal - model_9, a_n_9, i_sectors)
         c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = f_errors
-        p_err_9 = tsf.formal_period_uncertainty(p_orb_9, t_tot, t_int)
+        p_err_9 = af.formal_period_uncertainty(p_orb_9, t_tot, t_int)
         errors = (p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9)
         stats = (n_param_9, bic_9, np.std(signal - model_9))
         file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
@@ -1007,7 +1007,7 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
 
 
 def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                                i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                                p_err, i_sectors, t_int, file_name, data_id=None, overwrite=False, verbose=False):
     """Refine the eclipse timings using an empirical model of cubic functions
 
     Parameters
@@ -1040,12 +1040,16 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+    p_err: float
+        Uncertainty in the orbital period
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
+    t_int: float
+        Integration time of the observations
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
@@ -1093,6 +1097,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     extrema is used (so the discriminant is always positive).
     """
     t_a = time.time()
+    t_tot = np.ptp(times)
     # file needs to exist
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_1 = file_name.replace(fn_ext, '.hdf5')
@@ -1135,10 +1140,16 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         n_param = 8 + 2 * len(const) + 3 * len(f_n)
         bic = tsf.calc_bic(residuals, n_param)
         noise_level = np.std(residuals)
-        # determine error estimates using the noise level
+        # determine error estimates using the noise level and slopes
         out_b = tsf.measure_timing_depth_error(times, signal, p_orb, t_zero_em, const, slope, f_n, a_n, ph_n,
                                                timings_em, depths_em, noise_level, i_sectors)
         t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err = out_b
+        # add in square the formal timing error
+        t_err = af.formal_timing_uncertainty(p_orb, p_err, t_tot, t_int)
+        t_1_1_err = np.sqrt(t_1_1_err**2 + t_err**2)
+        t_1_2_err = np.sqrt(t_1_2_err**2 + t_err**2)
+        t_2_1_err = np.sqrt(t_2_1_err**2 + t_err**2)
+        t_2_2_err = np.sqrt(t_2_2_err**2 + t_err**2)
         t_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2) / 2
         t_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2) / 2
         timings_err = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err])
@@ -1149,7 +1160,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         stats = (n_param, bic, noise_level)
         ut.save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, depths_em, timings_err,
                                        depths_err, i_sectors, file_name, data_id=data_id)
-        # check significance
+        # check eclipse significance
         dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
         dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
         dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
@@ -1670,7 +1681,8 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_id=None, overwrite=False, verbose=False):
+def eclipse_analysis(tic, times, signal, signal_err, i_sectors, t_int, save_dir, data_id=None, overwrite=False,
+                     verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
 
@@ -1691,6 +1703,8 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
+    t_int: float
+        Integration time of the observations
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
@@ -1769,8 +1783,9 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, save_dir, data_i
     # --- [13] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.csv')
     out_13 = analysis_cubics_sines_model(times, signal, signal_err, p_orb_9, t_zero_11, timings_11, depths_11,
-                                         const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2, i_sectors,
-                                         file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+                                         const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2, p_err_9, i_sectors,
+                                         t_int, file_name=file_name, data_id=data_id, overwrite=overwrite,
+                                         verbose=verbose)
     t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13 = out_13[:5]
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[5:]
     # check for significance
@@ -1889,7 +1904,7 @@ def analyse_from_file(file_name, p_orb=0, t_int=None, data_id=None, overwrite=Fa
     out_a = frequency_analysis(target_id, times, signal, signal_err, i_half_s, t_int, p_orb=p_orb, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s, **kw_args)
+        out_b = eclipse_analysis(target_id, times, signal, signal_err, i_half_s, t_int, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(target_id, times, signal, signal_err, i_half_s, **kw_args)
     if verbose:
@@ -1944,7 +1959,7 @@ def period_from_file(file_name, t_int=None, data_id=None, overwrite=False, verbo
             print('done.')
         return -1
     p_orb = analysis_orbital_period(times, signal, f_n_2)
-    p_err = tsf.formal_period_uncertainty(p_orb, t_tot, t_int)
+    p_err = af.formal_period_uncertainty(p_orb, t_tot, t_int)
     # save p_orb
     file_name = os.path.join(save_dir, f'tic_{target_id}_analysis', f'tic_{target_id}_period.txt')
     col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
@@ -1999,7 +2014,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
     out_a = frequency_analysis(tic, times, signal, signal_err, i_half_s, t_int, p_orb=p_orb, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 8):
-        out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s, **kw_args)
+        out_b = eclipse_analysis(tic, times, signal, signal_err, i_half_s, t_int, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(tic, times, signal, signal_err, i_half_s, **kw_args)
     if verbose:

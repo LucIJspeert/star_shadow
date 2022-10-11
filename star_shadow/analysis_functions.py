@@ -692,19 +692,38 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
 def curve_walker(signal, peaks, slope_sign, mode='up'):
     """Walk up or down a slope to approach zero or to reach an extremum.
     
-    'peaks' are the starting points, 'signal' is the slope to walk
-    mode = 'up': walk in the slope sign direction to reach a maximum (minus is left)
-    mode = 'down': walk against the slope sign direction to reach a minimum (minus is right)
-    mode = 'up_to_zero'/'down_to_zero': same as above, but approaching zero
-        as closely as possible without changing direction.
-    mode = 'zero': continue until the sign changes
-    """
-    if 'up' in mode:
-        slope_sign = -slope_sign
-    max_i = len(signal) - 1
+    Parameters
+    ----------
+    signal: numpy.ndarray[float]
+        The curve to walk along
+    peaks: numpy.ndarray[float]
+        The starting points
+    slope_sign: numpy.ndarray[float]
+        Sign of the slope of the curve at the peak locations
+    mode: str
+        mode='up': walk in the slope sign direction to reach a
+            minimum (minus is left)
+        mode='down': walk against the slope sign direction to reach
+            a maximum (minus is right)
+        mode='up_to_zero'/'down_to_zero': same as above, but approaching zero
+            as closely as possible without changing direction.
+        mode='zero': continue until the sign changes
     
-    def check_edges(indices):
-        return (indices >= 0) & (indices <= max_i)
+    Returns
+    -------
+    cur_i: numpy.ndarray[float]
+        End positions of all the walkers
+    
+    Notes
+    -----
+    Assumes a circular curve, so that it can walk from one end
+    back onto the other end.
+    """
+    if 'down' in mode:
+        steps = -slope_sign
+    else:
+        steps = slope_sign
+    len_s = len(signal)
     
     def check_condition(prev_signal, cur_signal):
         if 'up' in mode:
@@ -720,28 +739,23 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
     # start at the peaks
     prev_i = peaks
     prev_s = signal[prev_i]
-    # step in the desired direction (checking the edges of the array)
-    check_cur_edges = check_edges(prev_i + slope_sign)
-    cur_i = prev_i + slope_sign * check_cur_edges
+    # step in the desired direction
+    cur_i = (prev_i + steps) % len_s
     cur_s = signal[cur_i]
-    # check that we fulfill the condition (also check next points)
-    check_cur_slope = check_condition(prev_s, cur_s)
-    # combine the checks for the current indices
-    check = (check_cur_slope & check_cur_edges)
+    # check that we fulfill the condition
+    check = check_condition(prev_s, cur_s)
     # define the indices to be optimized
-    cur_i = prev_i + slope_sign * check
+    cur_i = (prev_i + steps * check) % len_s
     while np.any(check):
         prev_i = cur_i
         prev_s = signal[prev_i]
-        # step in the desired direction (checking the edges of the array)
-        check_cur_edges = check_edges(prev_i + slope_sign)
-        cur_i = prev_i + slope_sign * check_cur_edges
+        # step in the desired direction
+        cur_i = (prev_i + steps) % len_s
         cur_s = signal[cur_i]
         # and check that we fulfill the condition
-        check_cur_slope = check_condition(prev_s, cur_s)
-        check = (check_cur_slope & check_cur_edges)
+        check = check_condition(prev_s, cur_s)
         # finally, make the actual approved steps
-        cur_i = prev_i + slope_sign * check
+        cur_i = (prev_i + steps * check) % len_s
     return cur_i
 
 
@@ -932,16 +946,16 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
     # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
+    peaks_2_n = curve_walker(deriv_2, peaks_2_n, -slope_sign, mode='down')
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, slope_sign, mode='down')
+    minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, -slope_sign, mode='down')
     # walk inward from peaks_1 to zero in deriv_1
     zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
     # find the maxima in deriv_2 between peaks_1 and zeros_1
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
     # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_p = curve_walker(deriv_2, peaks_2_p, slope_sign, mode='up')
+    peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
     # determine prominences for peaks_2_n (peaks_2_p handled separately)
     prom_2_n = deriv_2[peaks_2_p] - deriv_2[peaks_2_n]
     # group peaks in with negative and then positive slopes
@@ -1110,6 +1124,80 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
 
 
 @nb.njit(cache=True)
+def formal_period_uncertainty(p_orb, t_tot, t_int):
+    """Calculates a formal error for the orbital period
+
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_tot: float
+        Total time base of observations
+    t_int: float
+        Integration time of the observations
+
+    Returns
+    -------
+    p_err: float
+        Uncertainty in the orbital period
+
+    Notes
+    -----
+    Computes the error using the prescription in:
+    https://ui.adsabs.harvard.edu/abs/2013AJ....145..148M/abstract
+    """
+    # half the bin width (integration time) of the observations
+    sigma = t_int / 2
+    # number of cycles
+    m = int(abs(t_tot // p_orb))
+    # error is the minimal value of the following computation
+    p_err = np.zeros(m)
+    for i in range(1, m + 1):
+        for j in range(1, i + 1):
+            p_err[i - 1] += (2 * sigma**2) / (j * (m - (j - 1))**2)
+        p_err[i - 1] /= i
+    p_err = np.min(np.sqrt(p_err))
+    return p_err
+
+
+@nb.njit(cache=True)
+def formal_timing_uncertainty(p_orb, p_err, t_tot, t_int):
+    """Calculates a formal error for folded timing measurements
+
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    p_err: float
+        Uncertainty in the orbital period
+    t_tot: float
+        Total time base of observations
+    t_int: float
+        Integration time of the observations
+
+    Returns
+    -------
+    t_err: float
+        Uncertainty in the orbital period
+
+    Notes
+    -----
+    Computes an approximation of the propagated error in a
+    timing measurement of a folded time-series (like a phase)
+    assuming all eclipse cycles are present and the time-series
+    is zeroed at its start.
+    """
+    # half the bin width (integration time) of the observations
+    sigma = t_int / 2
+    # number of cycles
+    m = int(abs(t_tot // p_orb))
+    # error is the sum of squared single-time-point error and period error with a factor
+    factor = ((m + 1) * (2 * m + 1) / (6 * m))
+    t_err = np.sqrt(sigma**2 / m + factor * p_err**2)
+    return t_err
+
+
+@nb.njit(cache=True)
 def true_anomaly(theta, w):
     """True anomaly in terms of the phase angle and argument of periastron
     
@@ -1226,6 +1314,32 @@ def delta_deriv(theta, e, w, i):
     return minimize
 
 
+@nb.njit(cache=True)
+def delta_deriv_2(theta, e, w, i):
+    """Second derivative of the projected normalised distance between the centres of the stars
+
+    Parameters
+    ----------
+    theta: float, numpy.ndarray[float]
+        Phase angle of the eclipse minimum
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+
+    Returns
+    -------
+    deriv: float, numpy.ndarray[float]
+        Derivative value of the delta_deriv function
+    """
+    sin_i_2 = np.sin(i)**2
+    deriv = -e * np.cos(w) * (1 - sin_i_2) * np.sin(theta) + e * np.sin(w) * np.cos(theta) + sin_i_2 * np.cos(2 * theta)
+    return deriv
+
+
+@nb.njit(cache=True)
 def minima_phase_angles(e, w, i):
     """Determine the phase angles of minima for given e, w, i
     
@@ -1244,23 +1358,49 @@ def minima_phase_angles(e, w, i):
         Phase angle of primary minimum
     theta_2: float
         Phase angle of secondary minimum
+    theta_3: float
+        Phase angle of maximum separation between 1 and 2
+    theta_4: float
+        Phase angle of maximum separation between 2 and 1
     
     Notes
     -----
-    If theta_2 equals zero, this means no solution was possible
-    (no opposite signs), physically there was no minimum separation
+    Precision is 0.001 rad
     """
-    try:
-        opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
-        theta_1 = opt_1.root
-    except ValueError:
-        theta_1 = 0
-    try:
-        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
-        theta_2 = opt_2.root
-    except ValueError:
-        theta_2 = 0
-    return theta_1, theta_2
+    # previous version that could not be JIT-ted:
+    # try:
+    #     opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
+    #     theta_1 = opt_1.root
+    # except ValueError:
+    #     theta_1 = 0
+    # try:
+    #     opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
+    #     theta_2 = opt_2.root
+    # except ValueError:
+    #     theta_2 = 0
+    if (e == 0):
+        # this would break, so return the default for circular orbits
+        return 0, np.pi, np.pi / 2, 3 * np.pi / 2
+    thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
+    # calculate derivative of the projected distance to get theta angles
+    deriv_p_dist = delta_deriv(thetas, e, w, i)
+    start = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+    start_i = np.searchsorted(thetas, start)  # starting points to find the four thetas
+    deriv_1 = delta_deriv(start, e, w, i)  # value of the projected distance derivative
+    deriv_2 = delta_deriv_2(start, e, w, i)  # value of the second derivative
+    walk_sign = np.sign(-deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
+    # walk along the curve to find zero points
+    zeros_p_dist = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
+    # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
+    theta_1, theta_3, theta_2, theta_4 = thetas[zeros_p_dist]
+    # interpolate for better precision than the angle step
+    deriv_p1 = deriv_p_dist[zeros_p_dist]
+    th_1, th_3, th_2, th_4 = thetas[zeros_p_dist]
+    steps = np.sign(deriv_p1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
+    deriv_p2 = deriv_p_dist[zeros_p_dist + steps]
+    th_1, th_3, th_2, th_4 = thetas[zeros_p_dist + steps]
+    ut.interp_two_points(x, xp1, yp1, xp2, yp2)  # todo: finish this
+    return theta_1, theta_2, theta_3, theta_4
 
 
 @nb.njit(cache=True)
@@ -1396,6 +1536,25 @@ def root_contact_phase_angles(e, w, i, phi_0):
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
+    if (e == 0):
+        # this would break, so return the default for circular orbits
+        return 0, np.pi, np.pi / 2, 3 * np.pi / 2
+    thetas = np.arange(-10**-5, np.pi/2, 0.0002)  # angles (step gives the precision)
+    # calculate derivative of the projected distance to get theta angles
+    deriv_p_dist = delta_deriv(thetas, e, w, i)
+    start = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+    start_i = np.searchsorted(thetas, start)  # starting points to find the four thetas
+    deriv_1 = delta_deriv(start, e, w, i)  # value of the projected distance derivative
+    deriv_2 = delta_deriv_2(start, e, w, i)  # value of the second derivative
+    walk_sign = np.sign(-deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
+    # walk along the curve to find zero points
+    zeros_p_dist = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
+    # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
+    theta_1, theta_3, theta_2, theta_4 = thetas[zeros_p_dist]
+
+    contact_angles(thetas, e, w, i, phi_0, 1, 1)
+    zero_1_1 = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
+    
     return phi_1_1, phi_1_2, phi_2_1, phi_2_2
 
 
@@ -1644,7 +1803,7 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2
 
 
 @nb.njit(cache=True)
-def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
+def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4):
     """Theoretical eclipse depth in the assumption of uniform brightness
     
     Parameters
@@ -1687,7 +1846,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio):
         area = covered_area(sep, r_1, r_2)
         light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
     # factor sb_ratio depends on primary or secondary, theta ~ 180 is secondary
-    if (theta > np.pi/2) & (theta < 3*np.pi/2):
+    if (theta > theta_3) & (theta < theta_4):
         light_lost = light_lost * sb_ratio
     return light_lost
 
@@ -1753,7 +1912,7 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     if (e >= 1):
         return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)
-    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
     if (theta_2 == 0):
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
@@ -1778,8 +1937,8 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     r_ratio = 1
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
-    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
+    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -1864,7 +2023,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     if (e >= 1):
         return 10**9  # we want to stay in orbit
     # minimise for the phases of minima (theta)
-    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
     if (theta_2 == 0):
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
@@ -1897,8 +2056,8 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio)
-    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio)
+    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -1993,7 +2152,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     # value for sb_ratio from the depths ratio and the other parameters
-    theta_1, theta_2 = minima_phase_angles(e, w, i)
+    theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
     sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     return e, w, i, r_sum_sma, r_ratio, sb_ratio
 

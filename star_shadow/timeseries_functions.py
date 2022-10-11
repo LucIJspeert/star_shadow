@@ -1290,43 +1290,6 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
 
 
 @nb.njit(cache=True)
-def formal_period_uncertainty(p_orb, t_tot, t_int):
-    """Calculates a formal error for the orbital period
-    
-    Parameters
-    ----------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_tot: float
-        Total time base of observations
-    t_int: float
-        Integration time of the observations
-    
-    Returns
-    -------
-    p_err: float
-        Uncertainty in the orbital period
-    
-    Notes
-    -----
-    Computes the error using the prescription in:
-    https://ui.adsabs.harvard.edu/abs/2013AJ....145..148M/abstract
-    """
-    # half the bin width (integration time) of the observations
-    sigma = t_int / 2
-    # number of cycles
-    m = int(abs(t_tot // p_orb))
-    # error is the minimal value of the following computation
-    p_err = np.zeros(m)
-    for i in range(1, m + 1):
-        for j in range(1, i + 1):
-            p_err[i - 1] += (2 * sigma**2) / (j * (m - (j - 1))**2)
-        p_err[i - 1] /= i
-    p_err = np.min(np.sqrt(p_err))
-    return p_err
-
-
-@nb.njit(cache=True)
 def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, depths, noise_level,
                                i_sectors):
     """Estimate the error in the timing measurements based on the
