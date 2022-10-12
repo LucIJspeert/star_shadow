@@ -760,6 +760,67 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
 
 
 @nb.njit(cache=True)
+def curve_explorer_root_angle(func, x0, walk_sign, args):
+    """Walk up or down a slope to approach zero for angles
+
+    Parameters
+    ----------
+    func: numpy.ndarray[float]
+        Function that generates the curve to walk along.
+    x0: numpy.ndarray[float]
+        The starting positions
+    walk_sign: numpy.ndarray[float]
+        Sign of the direction to walk in (minus is left)
+    args: tuple
+        Arguments for func
+
+    Returns
+    -------
+    x_interp: numpy.ndarray[float]
+        Root positions for each x0
+
+    Notes
+    -----
+    Assumes a circular curve with a period of 2 pi, so that it
+    can walk from one end back onto the other end.
+    """
+    two_pi = 2 * np.pi
+    step = 0.001  # step in rad (does not determine final precision)
+    # start at x0
+    cur_x = x0
+    cur_y = func(x0, *args)
+    f_sign_x0 = np.sign(cur_y).astype(np.int_)  # sign of function at initial position
+    # step in the desired direction
+    try_x = (x0 + step * walk_sign)
+    try_y = func(try_x, *args)
+    # check whether the sign stays the same
+    check = (np.sign(cur_y) == np.sign(try_y))
+    # if we take this many steps, we've gone full circle
+    for _ in range(two_pi // step + 1):
+        if not np.any(check):
+            break
+        # make the approved steps and continue if any were approved
+        cur_x[check] = try_x[check]
+        cur_y[check] = try_y[check]
+        # try the next steps
+        try_x[check] = (cur_x[check] + step * walk_sign[check] * check[check])
+        try_y[check] = func(try_x[check], *args)
+        # check whether the sign stays the same
+        check[check] = (np.sign(cur_y[check]) == np.sign(try_y[check]))
+    # non-wrapped try positions
+    try_x = (cur_x + step * walk_sign)
+    try_y = func(try_x, *args)
+    # interpolate for better precision than the angle step
+    xp1 = cur_y * (f_sign_x0 == -1) + try_y * (f_sign_x0 == 1)
+    yp1 = cur_x * (f_sign_x0 == -1) + try_x * (f_sign_x0 == 1)
+    xp2 = cur_y * (f_sign_x0 == 1) + try_y * (f_sign_x0 == -1)
+    yp2 = cur_x * (f_sign_x0 == 1) + try_x * (f_sign_x0 == -1)
+    x_interp = ut.interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
+    x_interp = x_interp % two_pi
+    return x_interp
+
+
+@nb.njit(cache=True)
 def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
                             t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2):
     """Measure the depths of the eclipses from the harmonic model given
@@ -1339,7 +1400,6 @@ def delta_deriv_2(theta, e, w, i):
     return deriv
 
 
-@nb.njit(cache=True)
 def minima_phase_angles(e, w, i):
     """Determine the phase angles of minima for given e, w, i
     
@@ -1362,44 +1422,102 @@ def minima_phase_angles(e, w, i):
         Phase angle of maximum separation between 1 and 2
     theta_4: float
         Phase angle of maximum separation between 2 and 1
+    """
+    try:
+        opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
+        theta_1 = opt_1.root
+    except ValueError:
+        theta_1 = 0
+    try:
+        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
+        theta_2 = opt_2.root
+    except ValueError:
+        theta_2 = np.pi
+    try:
+        opt_3 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi/2-1, np.pi/2+1))
+        theta_3 = opt_3.root
+    except ValueError:
+        theta_3 = np.pi / 2
+    try:
+        opt_4 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+                                        bracket=(3*np.pi/2-1, 3*np.pi/2+1))
+        theta_4 = opt_4.root
+    except ValueError:
+        theta_4 = 3 * np.pi / 2
+    return theta_1, theta_2, theta_3, theta_4
+
+
+@nb.njit(cache=True)
+def minima_phase_angles_2(e, w, i):
+    """Determine the phase angles of minima for given e, w, i
+
+    Parameters
+    ----------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+
+    Returns
+    -------
+    theta_1: float
+        Phase angle of primary minimum
+    theta_2: float
+        Phase angle of secondary minimum
+    theta_3: float
+        Phase angle of maximum separation between 1 and 2
+    theta_4: float
+        Phase angle of maximum separation between 2 and 1
     
     Notes
     -----
-    Precision is 0.001 rad
+    Other implementation for minima_phase_angles that can be JIT-ted.
+    On its own it is 10x slower, but as part of other functions it can be faster
+    if it means that other function can then also be JIT-ted
     """
-    # previous version that could not be JIT-ted:
-    # try:
-    #     opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
-    #     theta_1 = opt_1.root
-    # except ValueError:
-    #     theta_1 = 0
-    # try:
-    #     opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
-    #     theta_2 = opt_2.root
-    # except ValueError:
-    #     theta_2 = 0
     if (e == 0):
-        # this would break, so return the default for circular orbits
+        # this would break, so return the defaults for circular orbits
         return 0, np.pi, np.pi / 2, 3 * np.pi / 2
-    thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
-    # calculate derivative of the projected distance to get theta angles
-    deriv_p_dist = delta_deriv(thetas, e, w, i)
-    start = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
-    start_i = np.searchsorted(thetas, start)  # starting points to find the four thetas
-    deriv_1 = delta_deriv(start, e, w, i)  # value of the projected distance derivative
-    deriv_2 = delta_deriv_2(start, e, w, i)  # value of the second derivative
-    walk_sign = np.sign(-deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
+    # use the derivative of the projected distance to get theta angles
+    x0 = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+    deriv_1 = delta_deriv(x0, e, w, i)  # value of the projected distance derivative
+    deriv_2 = delta_deriv_2(x0, e, w, i)  # value of the second derivative
+    walk_sign = -np.sign(deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
     # walk along the curve to find zero points
-    zeros_p_dist = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
-    # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
-    theta_1, theta_3, theta_2, theta_4 = thetas[zeros_p_dist]
+    two_pi = 2 * np.pi
+    step = 0.001  # step in rad (does not determine final precision)
+    # start at x0
+    cur_x = x0
+    cur_y = delta_deriv(x0, e, w, i)
+    f_sign_x0 = np.sign(cur_y).astype(np.int_)  # sign of delta_deriv at initial position
+    # step in the desired direction
+    try_x = cur_x + step * walk_sign
+    try_y = delta_deriv(try_x, e, w, i)
+    # check whether the sign stays the same
+    check = (np.sign(cur_y) == np.sign(try_y))
+    # if we take this many steps, we've gone full circle
+    for _ in range(two_pi // step + 1):
+        if not np.any(check):
+            break
+        # make the approved steps and continue if any were approved
+        cur_x[check] = try_x[check]
+        cur_y[check] = try_y[check]
+        # try the next steps
+        try_x[check] = cur_x[check] + step * walk_sign[check] * check[check]
+        try_y[check] = delta_deriv(try_x[check], e, w, i)
+        # check whether the sign stays the same
+        check[check] = (np.sign(cur_y[check]) == np.sign(try_y[check]))
     # interpolate for better precision than the angle step
-    deriv_p1 = deriv_p_dist[zeros_p_dist]
-    th_1, th_3, th_2, th_4 = thetas[zeros_p_dist]
-    steps = np.sign(deriv_p1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
-    deriv_p2 = deriv_p_dist[zeros_p_dist + steps]
-    th_1, th_3, th_2, th_4 = thetas[zeros_p_dist + steps]
-    ut.interp_two_points(x, xp1, yp1, xp2, yp2)  # todo: finish this
+    xp1 = cur_y * (f_sign_x0 == -1) + try_y * (f_sign_x0 == 1)
+    yp1 = cur_x * (f_sign_x0 == -1) + try_x * (f_sign_x0 == 1)
+    xp2 = cur_y * (f_sign_x0 == 1) + try_y * (f_sign_x0 == -1)
+    yp2 = cur_x * (f_sign_x0 == 1) + try_x * (f_sign_x0 == -1)
+    thetas_interp = ut.interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
+    thetas_interp = thetas_interp % two_pi
+    # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
+    theta_1, theta_3, theta_2, theta_4 = thetas_interp
     return theta_1, theta_2, theta_3, theta_4
 
 
@@ -1427,23 +1545,23 @@ def contact_angles(phi, e, w, i, phi_0, ecl=1, contact=1):
 
     Returns
     -------
-     : float, numpy.ndarray[float]
+     eqn: float, numpy.ndarray[float]
         Numeric result of the function that should equal 0
     """
     sin_i_2 = np.sin(i)**2
     term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
     if (ecl == 1) & (contact == 1):
-        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w + phi))
+        eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w + phi))
     elif (ecl == 1) & (contact == 2):
-        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w - phi))
+        eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 + e * np.sin(w - phi))
     elif (ecl == 2) & (contact == 1):
-        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w + phi))
+        eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w + phi))
     elif (ecl == 2) & (contact == 2):
-        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w - phi))
+        eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w - phi))
     else:
         print(f'ecl={ecl} and contact={contact} are not valid choises.')
-        term_2 = - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2)
-    return term_1 + term_2
+        eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2)
+    return eqn
 
 
 @nb.njit(cache=True)
@@ -1471,23 +1589,23 @@ def contact_angles_radii(phi, e, w, i, r_sum_sma, ecl=1, contact=1):
 
     Returns
     -------
-     : float, numpy.ndarray[float]
+     eqn: float, numpy.ndarray[float]
         Numeric result of the function that should equal 0
     """
     sin_i_2 = np.sin(i)**2
     term_1 = np.sqrt(1 - sin_i_2 * np.cos(phi)**2)
     if (ecl == 1) & (contact == 1):
-        term_2 = - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w + phi))
+        eqn = term_1 - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w + phi))
     elif (ecl == 1) & (contact == 2):
-        term_2 = - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w - phi))
+        eqn = term_1 - r_sum_sma / (1 - e**2) * (1 + e * np.sin(w - phi))
     elif (ecl == 2) & (contact == 1):
-        term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w + phi))
+        eqn = term_1 - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w + phi))
     elif (ecl == 2) & (contact == 2):
-        term_2 = - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
+        eqn = term_1 - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
     else:
         print(f'ecl={ecl} and contact={contact} are not valid choises.')
-        term_2 = - r_sum_sma / (1 - e**2)
-    return term_1 + term_2
+        eqn = term_1 - r_sum_sma / (1 - e**2)
+    return eqn
 
 
 def root_contact_phase_angles(e, w, i, phi_0):
@@ -1536,25 +1654,68 @@ def root_contact_phase_angles(e, w, i, phi_0):
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
-    if (e == 0):
-        # this would break, so return the default for circular orbits
-        return 0, np.pi, np.pi / 2, 3 * np.pi / 2
-    thetas = np.arange(-10**-5, np.pi/2, 0.0002)  # angles (step gives the precision)
-    # calculate derivative of the projected distance to get theta angles
-    deriv_p_dist = delta_deriv(thetas, e, w, i)
-    start = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
-    start_i = np.searchsorted(thetas, start)  # starting points to find the four thetas
-    deriv_1 = delta_deriv(start, e, w, i)  # value of the projected distance derivative
-    deriv_2 = delta_deriv_2(start, e, w, i)  # value of the second derivative
-    walk_sign = np.sign(-deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
-    # walk along the curve to find zero points
-    zeros_p_dist = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
-    # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
-    theta_1, theta_3, theta_2, theta_4 = thetas[zeros_p_dist]
+    return phi_1_1, phi_1_2, phi_2_1, phi_2_2
 
-    contact_angles(thetas, e, w, i, phi_0, 1, 1)
-    zero_1_1 = curve_walker(deriv_p_dist, start_i, walk_sign, mode='zero')
-    
+
+@nb.njit(cache=True)
+def root_contact_phase_angles_2(e, w, i, phi_0):
+    """Determine the contact angles for given e, w, i, phi_0
+
+    Parameters
+    ----------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    phi_0: float
+        Auxiliary angle (see Kopal 1959)
+
+    Returns
+    -------
+    phi_1_1: float
+        First contact angle of primary eclipse
+    phi_1_2: float
+        Last contact angle of primary eclipse
+    phi_2_1: float
+        First contact angle of secondary eclipse
+    phi_2_2: float
+        Last contact angle of secondary eclipse
+    """
+    # walk along the curve to find zero points
+    pi_two = np.pi / 2
+    step = 0.001  # step in rad (does not determine final precision)
+    # repeat for all phis
+    phis = []
+    for l, m in [[1, 1], [1, 2], [2, 1], [2, 2]]:
+        cur_x = 0
+        cur_y = contact_angles(0, e, w, i, phi_0, l, m)
+        f_sign_x0 = int(np.sign(cur_y))  # sign of delta_deriv at initial position
+        # step in the desired direction
+        try_x = cur_x + step
+        try_y = contact_angles(try_x, e, w, i, phi_0, l, m)
+        # check whether the sign stays the same
+        check = (np.sign(cur_y) == np.sign(try_y))
+        # if we take this many steps, we should have found the root
+        for _ in range(pi_two // step + 1):
+            if not check:
+                break
+            # make the approved steps and continue if any were approved
+            cur_x = try_x
+            cur_y = try_y
+            # try the next steps
+            try_x = cur_x + step
+            try_y = contact_angles(try_x, e, w, i, phi_0, l, m)
+            # check whether the sign stays the same
+            check = (np.sign(cur_y) == np.sign(try_y))
+        # interpolate for better precision than the angle step
+        xp1 = cur_y * (f_sign_x0 == -1) + try_y * (f_sign_x0 == 1)
+        yp1 = cur_x * (f_sign_x0 == -1) + try_x * (f_sign_x0 == 1)
+        xp2 = cur_y * (f_sign_x0 == 1) + try_y * (f_sign_x0 == -1)
+        yp2 = cur_x * (f_sign_x0 == 1) + try_x * (f_sign_x0 == -1)
+        phis.append(ut.interp_two_points(0, xp1, yp1, xp2, yp2))
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = phis
     return phi_1_1, phi_1_2, phi_2_1, phi_2_2
 
 

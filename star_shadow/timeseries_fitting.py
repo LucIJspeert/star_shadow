@@ -1082,7 +1082,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     """
     thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
-    theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles(e, w, i)
+    theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)
     # make the simple model
     ecl_model = np.zeros(len(thetas))
     for k in range(len(thetas)):
