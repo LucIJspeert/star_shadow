@@ -1790,7 +1790,9 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, t_int, save_dir,
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[5:]
     # check for significance
     mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_13
+    d_1, d_2 = depths_13
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err_13
+    depth_1_err, depth_2_err = depths_err_13
     dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
     dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
