@@ -1564,14 +1564,15 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
         f_groups = ut.group_frequencies_for_fit(a_n, g_min=10, g_max=15)
         e, w, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
         ecosw, esinw = e * np.cos(w), e * np.sin(w)
-        ecl_par = ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio  # convert to fitting params
-        out = tsfit.fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, ecl_par, const,
+        par_init = ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio  # convert to fitting params
+        out = tsfit.fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, par_init, const,
                                                          slope, f_n, a_n, ph_n, i_sectors, f_groups, model=model,
                                                          verbose=verbose)
         # main function done, do the rest for this step
         t_zero, ecl_par, const, slope, f_n, a_n, ph_n = out
         ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = ecl_par
         e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
+        ecl_par = np.array([e, w, i, r_sum_sma, r_ratio, sb_ratio])
         # make model including everything to calculate BIC and noise level
         model_full = tsf.linear_curve(times, const, slope, i_sectors)
         model_full += tsf.sum_sines(times, f_n, a_n, ph_n)
@@ -1826,9 +1827,11 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, t_int, save_dir,
                                              overwrite=overwrite, verbose=verbose)
     # const_16_1, slope_16_1, f_n_16_1, a_n_16_1, ph_n_16_1 = out_16[:5]
     const_16_2, slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2 = out_16[5:]
-    # ellc model
+    # ellc model (convert optimised parameters)
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16b.csv')
-    ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b, 0)
+    f_c, f_s = par_opt_15b[0]**0.5 * np.cos(par_opt_15b[1]), par_opt_15b[0]**0.5 * np.sin(par_opt_15b[1])
+    par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
+    ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
     residual = signal - ecl_model_ellc
     out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
                                               overwrite=overwrite, verbose=verbose)
@@ -1836,10 +1839,11 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, t_int, save_dir,
     const_16b_2, slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2 = out_16b[5:]
     # --- [17] --- Full model fit
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.csv')
-    out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16_2,
+    out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16_2,
                                           slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2, i_sectors, model='simple',
                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_r_17, ecl_par_r_17, const_r_17, slope_r_17, f_n_r_17, a_n_r_17, ph_n_r_17 = out_17
+    # ellc model
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17b.csv')
     out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
                                            slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
@@ -1851,6 +1855,7 @@ def eclipse_analysis(tic, times, signal, signal_err, i_sectors, t_int, save_dir,
                                           i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
                                           verbose=verbose)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
+    # ellc model
     file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_18b.csv')
     out_18b = analysis_frequency_selection(times, signal, ecl_model_ellc, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
                                            noise_level_9, i_sectors, file_name=file_name, data_id=data_id,

@@ -1530,15 +1530,18 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     p_orb, const, slope, f_n, a_n, ph_n = results
     p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     # save in hdf5 format
     file_name_sl = file_name.replace(fn_ext, '.hdf5')
     desc = 'Results of multi-sine NL-LS fit with eclipse model.'
     save_results(results, errors, stats, file_name_sl, description=desc, data_id=data_id)
     # save eclipse parameters, sinusoids and linear curve in ascii format
     file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
-    data = np.array([p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio])
-    hdr = 'p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio'
-    np.savetxt(file_name_e, data, delimiter=',', header=hdr)
+    names = ['p_orb', 't_zero', 'e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio']
+    ecl_par = np.array([str(p_orb), str(t_zero), str(e), str(w), str(i), str(r_sum_sma), str(r_ratio), str(sb_ratio)])
+    data = np.column_stack((names, ecl_par))
+    hdr = f'{file_id}, {data_id}\nname, value'
+    np.savetxt(file_name_e, data, delimiter=',', fmt='%s', header=hdr)
     file_name_s = file_name.replace(fn_ext, '_sinusoid.csv')
     data = np.column_stack((f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err))
     hdr = 'f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err'
@@ -1590,7 +1593,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
     results, errors, stats = read_results(file_name_sl, verbose=verbose)
     # eclipse model
     file_name_e = file_name.replace(fn_ext, '_eclipse_par.csv')
-    ecl_res = np.loadtxt(file_name_e, delimiter=',', unpack=True)
+    ecl_res = np.loadtxt(file_name_e, usecols=(1,), delimiter=',', unpack=True)
     p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = ecl_res
     return results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
