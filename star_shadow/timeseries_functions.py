@@ -932,9 +932,9 @@ def quadratic_pars(times, signal):
 
 
 @nb.njit(cache=True)
-def quadratic_pars_two_points(x1, y1, x2, y2):
+def quadratic_pars_two_points(x1, y1, x2):
     """Calculate the parameters of a parabola defined by the top (1) and one
-    random point (2), y = a*x**2 + b*x + c
+    random point (2) (only x), y = a*x**2 + b*x + c
 
     Parameters
     ----------
@@ -944,8 +944,6 @@ def quadratic_pars_two_points(x1, y1, x2, y2):
         The y-coordinate of the top point(s)
     x2: float, numpy.ndarray[float]
         The x-coordinate of the other point(s)
-    y2: float, numpy.ndarray[float]
-        The y-coordinate of the other point(s)
 
     Returns
     -------

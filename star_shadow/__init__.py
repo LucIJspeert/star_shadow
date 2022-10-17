@@ -1,4 +1,4 @@
-"""STAR_SHADOW __init__ file
+"""STAR SHADOW __init__ file
 
 Code written by: Luc IJspeert
 """

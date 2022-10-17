@@ -434,7 +434,7 @@ def find_combinations(f_n, f_n_err, sigma=1.):
     f_n: list[float], numpy.ndarray[float]
         The frequencies of a number of sine waves
     f_n_err: numpy.ndarray[float]
-        Formal errors in the frequencies
+        Formal errors on the frequencies
     sigma: float
         Number of times the error to use for check of significance
     
@@ -477,7 +477,7 @@ def find_unknown_harmonics(f_n, f_n_err, sigma=1., n_max=5, f_tol=None):
     f_n: list[float], numpy.ndarray[float]
         The frequencies of a number of sine waves
     f_n_err: numpy.ndarray[float]
-        Formal errors in the frequencies
+        Formal errors on the frequencies
     sigma: float
         Number of times the error to use for check of significance
     n_max: int
@@ -765,7 +765,7 @@ def curve_explorer_root_angle(func, x0, walk_sign, args):
 
     Parameters
     ----------
-    func: numpy.ndarray[float]
+    func: function
         Function that generates the curve to walk along.
     x0: numpy.ndarray[float]
         The starting positions
@@ -803,7 +803,7 @@ def curve_explorer_root_angle(func, x0, walk_sign, args):
         cur_x[check] = try_x[check]
         cur_y[check] = try_y[check]
         # try the next steps
-        try_x[check] = (cur_x[check] + step * walk_sign[check] * check[check])
+        try_x[check] = cur_x[check] + step * walk_sign[check]
         try_y[check] = func(try_x[check], *args)
         # check whether the sign stays the same
         check[check] = (np.sign(cur_y[check]) == np.sign(try_y[check]))
@@ -1505,7 +1505,7 @@ def minima_phase_angles_2(e, w, i):
         cur_x[check] = try_x[check]
         cur_y[check] = try_y[check]
         # try the next steps
-        try_x[check] = cur_x[check] + step * walk_sign[check] * check[check]
+        try_x[check] = cur_x[check] + step * walk_sign[check]
         try_y[check] = delta_deriv(try_x[check], e, w, i)
         # check whether the sign stays the same
         check[check] = (np.sign(cur_y[check]) == np.sign(try_y[check]))
@@ -1559,7 +1559,7 @@ def contact_angles(phi, e, w, i, phi_0, ecl=1, contact=1):
     elif (ecl == 2) & (contact == 2):
         eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2) * (1 - e * np.sin(w - phi))
     else:
-        print(f'ecl={ecl} and contact={contact} are not valid choises.')
+        print(f'ecl={ecl} and contact={contact} are not valid choices.')
         eqn = term_1 - np.sqrt(1 - sin_i_2 * np.cos(phi_0)**2)
     return eqn
 
@@ -1688,13 +1688,13 @@ def root_contact_phase_angles_2(e, w, i, phi_0):
     step = 0.001  # step in rad (does not determine final precision)
     # repeat for all phis
     phis = []
-    for l, m in [[1, 1], [1, 2], [2, 1], [2, 2]]:
+    for m, n in [[1, 1], [1, 2], [2, 1], [2, 2]]:
         cur_x = 0
-        cur_y = contact_angles(0, e, w, i, phi_0, l, m)
+        cur_y = contact_angles(0, e, w, i, phi_0, m, n)
         f_sign_x0 = int(np.sign(cur_y))  # sign of delta_deriv at initial position
         # step in the desired direction
         try_x = cur_x + step
-        try_y = contact_angles(try_x, e, w, i, phi_0, l, m)
+        try_y = contact_angles(try_x, e, w, i, phi_0, m, n)
         # check whether the sign stays the same
         check = (np.sign(cur_y) == np.sign(try_y))
         # if we take this many steps, we should have found the root
@@ -1706,7 +1706,7 @@ def root_contact_phase_angles_2(e, w, i, phi_0):
             cur_y = try_y
             # try the next steps
             try_x = cur_x + step
-            try_y = contact_angles(try_x, e, w, i, phi_0, l, m)
+            try_y = contact_angles(try_x, e, w, i, phi_0, m, n)
             # check whether the sign stays the same
             check = (np.sign(cur_y) == np.sign(try_y))
         # interpolate for better precision than the angle step
@@ -1985,6 +1985,10 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
         Radius ratio r_2/r_1
     sb_ratio: float
         Surface brightness ratio sb_2/sb_1
+    theta_3: float
+        Phase angle of maximum separation between 1 and 2
+    theta_4: float
+        Phase angle of maximum separation between 2 and 1
     
     Returns
     -------
@@ -2432,8 +2436,8 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s
 
 
-def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h, timings, depths,
-                        timings_err, depths_err, verbose=False):
+def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, timings_err, depths_err,
+                        verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2452,14 +2456,6 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_
         Surface brightness ratio sb_2/sb_1
     p_orb: float
         Orbital period of the eclipsing binary in days
-    f_h: numpy.ndarray[float]
-        The frequencies of a number of harmonic sine waves
-    a_h: numpy.ndarray[float]
-        The amplitudes of a number of harmonic sine waves
-    ph_h: numpy.ndarray[float]
-        The phases of a number of harmonic sine waves
-    t_zero: float
-        Time of deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Timings of the possible flat bottom (internal tangency),

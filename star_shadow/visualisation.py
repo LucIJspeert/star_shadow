@@ -24,7 +24,6 @@ from . import timeseries_fitting as tsfit
 from . import analysis_functions as af
 from . import utility as ut
 
-
 # mpl style sheet
 script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
 plt.style.use(script_dir.replace('star_shadow/star_shadow', 'star_shadow/data/mpl_stylesheet.dat'))
@@ -64,7 +63,7 @@ def plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_s
         ax0.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, err[2][i]], yerr=[0, err[3][i]],
                      linestyle=':', capsize=2, c='tab:red')
         if annotate:
-            ax0.annotate(f'{i+1}', (f_n[i], a_n[i] + 1.1 * err[3][i]), alpha=0.6)
+            ax0.annotate(f'{i + 1}', (f_n[i], a_n[i] + 1.1 * err[3][i]), alpha=0.6)
         if (i == len(f_n) - 1):
             ax0.arrow(f_n[i], -0.02 * a_height, 0, 0, head_length=0.01 * a_height, head_width=0.005 * a_width,
                       width=0.005 * a_width, color='blue', head_starts_at_zero=False)
@@ -123,7 +122,6 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     if (len(f_n) > 0):
         ax.plot(freqs_r, ampls_r, label='residual')
     if (p_orb > 0):
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(ampls)], xerr=[0, p_err / p_orb**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(len(f_n)):
@@ -187,10 +185,10 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
         ax.plot(freqs_9, ampls_9, label='third NL-LS fit residual with harmonics')
     # period
     if (p_orb_i[8] > 0):
-        ax.errorbar([1/p_orb_i[8], 1/p_orb_i[8]], [0, np.max(ampls)], xerr=[0, p_err_i[8]/p_orb_i[8]**2],
+        ax.errorbar([1 / p_orb_i[8], 1 / p_orb_i[8]], [0, np.max(ampls)], xerr=[0, p_err_i[8] / p_orb_i[8]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
     elif (p_orb_i[2] > 0):
-        ax.errorbar([1/p_orb_i[2], 1/p_orb_i[2]], [0, np.max(ampls)], xerr=[0, p_err_i[2]/p_orb_i[2]**2],
+        ax.errorbar([1 / p_orb_i[2], 1 / p_orb_i[2]], [0, np.max(ampls)], xerr=[0, p_err_i[2] / p_orb_i[2]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[2]:1.4f}d)')
     # frequencies
     for i in range(len(f_n_i[0])):
@@ -220,7 +218,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     for i in range(len(f_n_i[8])):
         ax.errorbar([f_n_i[8][i], f_n_i[8][i]], [0, a_n_i[8][i]], xerr=[0, err_9[2][i]], yerr=[0, err_9[3][i]],
                     linestyle=':', capsize=2, c='tab:cyan')
-        ax.annotate(f'{i+1}', (f_n_i[8][i], a_n_i[8][i]))
+        ax.annotate(f'{i + 1}', (f_n_i[8][i], a_n_i[8][i]))
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -297,16 +295,16 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     fig, ax = plt.subplots()
     ax.plot(freqs_nh, ampls_nh, label='residuals after harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.plot([1/p_orb, 1/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5,
+    ax.plot([1 / p_orb, 1 / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5,
             label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i/p_orb, i/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
+        ax.plot([i / p_orb, i / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
     for i in range(len(f_n[non_harm])):
         ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]],
                     xerr=[0, errors[2][non_harm][i]], yerr=[0, errors[3][non_harm][i]],
                     linestyle=':', capsize=2, c='tab:red')
         if annotate:
-            ax.annotate(f'{i+1}', (f_n[non_harm][i], a_n[non_harm][i]))
+            ax.annotate(f'{i + 1}', (f_n[non_harm][i], a_n[non_harm][i]))
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -325,16 +323,16 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     fig, ax = plt.subplots()
     ax.plot(freqs_h, ampls_h, label='residuals after non-harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.errorbar([1/p_orb, 1/p_orb], [0, np.max(a_n)], xerr=[0, p_err/p_orb**2],
+    ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(a_n)], xerr=[0, p_err / p_orb**2],
                 linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i/p_orb, i/p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
+        ax.plot([i / p_orb, i / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
     for i in range(len(f_n[harmonics])):
         ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]],
                     xerr=[0, errors[2][harmonics][i]], yerr=[0, errors[3][harmonics][i]],
                     linestyle=':', capsize=2, c='tab:red')
         if annotate:
-            ax.annotate(f'{i+1}', (f_n[harmonics][i], a_n[harmonics][i]))
+            ax.annotate(f'{i + 1}', (f_n[harmonics][i], a_n[harmonics][i]))
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -419,23 +417,23 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + depths_err[1], h_bot_2 + depths_err[1]],
                     y2=[h_bot_2 - depths_err[1], h_bot_2 - depths_err[1]], color='tab:pink', alpha=0.3)
     # 3 sigma errors
-    ax.fill_between([t_1 - 3*t_1_err, t_1 + 3*t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1 - 3 * t_1_err, t_1 + 3 * t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
-    ax.fill_between([t_2 - 3*t_2_err, t_2 + 3*t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2 - 3 * t_2_err, t_2 + 3 * t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
-    ax.fill_between([t_1_1 - 3*t_1_1_err, t_1_1 + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_1 - 3 * t_1_1_err, t_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_1_2 - 3*t_1_2_err, t_1_2 + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_1_2 - 3 * t_1_2_err, t_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_1 - 3*t_2_1_err, t_2_1 + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_1 - 3 * t_2_1_err, t_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_2 - 3*t_2_2_err, t_2_2 + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_2 - 3 * t_2_2_err, t_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.2)
-    ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + 3*depths_err[0], h_bot_1 + 3*depths_err[0]],
-                    y2=[h_bot_1 - 3*depths_err[0], h_bot_1 - 3*depths_err[0]],
+    ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + 3 * depths_err[0], h_bot_1 + 3 * depths_err[0]],
+                    y2=[h_bot_1 - 3 * depths_err[0], h_bot_1 - 3 * depths_err[0]],
                     color='tab:pink', alpha=0.2)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + 3*depths_err[1], h_bot_2 + 3*depths_err[1]],
-                    y2=[h_bot_2 - 3*depths_err[1], h_bot_2 - 3*depths_err[1]],
+    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + 3 * depths_err[1], h_bot_2 + 3 * depths_err[1]],
+                    y2=[h_bot_2 - 3 * depths_err[1], h_bot_2 - 3 * depths_err[1]],
                     color='tab:pink', alpha=0.2)
     # flat bottom
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1):
@@ -447,9 +445,9 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
         ax.fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax.fill_between([t_b_1_1 - 3*t_1_1_err, t_b_1_1 + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax.fill_between([t_b_1_1 - 3 * t_1_1_err, t_b_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_1_2 - 3*t_1_2_err, t_b_1_2 + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax.fill_between([t_b_1_2 - 3 * t_1_2_err, t_b_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.2)
     if ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax.plot([t_b_2_1, t_b_2_1], s_minmax, '--', c='tab:brown')
@@ -460,9 +458,9 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
         ax.fill_between([t_b_2_2 - t_2_2_err, t_b_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax.fill_between([t_b_2_1 - 3*t_2_1_err, t_b_2_1 + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax.fill_between([t_b_2_1 - 3 * t_2_1_err, t_b_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_2_2 - 3*t_2_2_err, t_b_2_2 + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax.fill_between([t_b_2_2 - 3 * t_2_2_err, t_b_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                         color='tab:brown', alpha=0.2)
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1) | ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax.plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
@@ -592,7 +590,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
         ax[1].scatter(minimum_0, h1e_minimum_0, c='tab:brown', marker='|')
     ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$')
     ax[2].plot(t_model, deriv_2e)
-    ax[2].plot(t_model, deriv_2,  c='grey', alpha=0.4)
+    ax[2].plot(t_model, deriv_2, c='grey', alpha=0.4)
     ax[2].plot(t_model, np.zeros(len(t_model)), '--', c='tab:grey')
     if eclipses:
         ax[2].scatter(peaks_1_l, h2e_peaks_1_l, c='tab:blue', marker='o')
@@ -666,12 +664,12 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     resid_full = np.concatenate((resid_full[ext_left], resid_full, resid_full[ext_right]))
     # some plotting parameters
     s_minmax = np.array([np.min(signal), np.max(signal)])
-    s_minmax_r =  np.array([np.min(resid_ecl), np.max(resid_ecl)])
+    s_minmax_r = np.array([np.min(resid_ecl), np.max(resid_ecl)])
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(t_extended, s_extended, marker='.', label='original signal')
     ax[0].plot(t_extended[sorter], model_ecl_sin_lin[sorter] + 1, c='tab:grey', alpha=0.8,
-            label='final (linear + sinusoid + simple empirical eclipse) model')
+               label='final (linear + sinusoid + simple empirical eclipse) model')
     ax[0].plot(t_model, model_ecl_init + 1, c='tab:orange', label='initial simple empirical eclipse model')
     ax[0].plot(t_model, model_ecl + 1, c='tab:red', label='final simple empirical eclipse model')
     ax[0].plot([t_1_1, t_1_1], s_minmax, ':', c='tab:grey', label=r'old eclipse edges (low harmonics)')
@@ -688,59 +686,63 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax[0].plot([t_2_1_em, t_2_2_em], [1 - depth_em_2, 1 - depth_em_2], '--', c='tab:pink')
     # 1 sigma errors
     ax[0].fill_between([t_1_1_em - t_1_1_err, t_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
+                       color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
     ax[0].fill_between([t_1_2_em - t_1_2_err, t_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.3)
+                       color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_2_1_em - t_2_1_err, t_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.3)
+                       color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_2_2_em - t_2_2_err, t_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.3)
+                       color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + depth_1_err, 1 - depth_em_1 + depth_1_err],
-                    y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:pink', alpha=0.3)
+                       y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:pink', alpha=0.3)
     ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + depth_2_err, 1 - depth_em_2 + depth_2_err],
-                    y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:pink', alpha=0.3)
+                       y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:pink', alpha=0.3)
     # 3 sigma errors
-    ax[0].fill_between([t_1_1_em - 3*t_1_1_err, t_1_1_em + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_1_2_em - 3*t_1_2_err, t_1_2_em + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_1_em - 3*t_2_1_err, t_2_1_em + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_2_em - 3*t_2_2_err, t_2_2_em + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + 3*depth_1_err, 1 - depth_em_1 + 3*depth_1_err],
-                    y2=[1 - depth_em_1 - 3*depth_1_err, 1 - depth_em_1 - 3*depth_1_err],
-                    color='tab:pink', alpha=0.2)
-    ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + 3*depth_2_err, 1 - depth_em_2 + 3*depth_2_err],
-                    y2=[1 - depth_em_2 - 3*depth_2_err, 1 - depth_em_2 - 3*depth_2_err],
-                    color='tab:pink', alpha=0.2)
+    ax[0].fill_between([t_1_1_em - 3 * t_1_1_err, t_1_1_em + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                       color='tab:purple', alpha=0.2)
+    ax[0].fill_between([t_1_2_em - 3 * t_1_2_err, t_1_2_em + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                       color='tab:purple', alpha=0.2)
+    ax[0].fill_between([t_2_1_em - 3 * t_2_1_err, t_2_1_em + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                       color='tab:purple', alpha=0.2)
+    ax[0].fill_between([t_2_2_em - 3 * t_2_2_err, t_2_2_em + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+                       color='tab:purple', alpha=0.2)
+    ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + 3 * depth_1_err, 1 - depth_em_1 + 3 * depth_1_err],
+                       y2=[1 - depth_em_1 - 3 * depth_1_err, 1 - depth_em_1 - 3 * depth_1_err],
+                       color='tab:pink', alpha=0.2)
+    ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + 3 * depth_2_err, 1 - depth_em_2 + 3 * depth_2_err],
+                       y2=[1 - depth_em_2 - 3 * depth_2_err, 1 - depth_em_2 - 3 * depth_2_err],
+                       color='tab:pink', alpha=0.2)
     # flat bottom
     if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1):
         ax[0].plot([t_b_1_1_em, t_b_1_1_em], s_minmax, '--', c='tab:brown')
         ax[0].plot([t_b_1_2_em, t_b_1_2_em], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
         ax[0].fill_between([t_b_1_1_em - t_1_1_err, t_b_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+                           color='tab:brown', alpha=0.3)
         ax[0].fill_between([t_b_1_2_em - t_1_2_err, t_b_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+                           color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_1_1_em - 3*t_1_1_err, t_b_1_1_em + 3*t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_1_2_em - 3*t_1_2_err, t_b_1_2_em + 3*t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_1_1_em - 3 * t_1_1_err, t_b_1_1_em + 3 * t_1_1_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]],
+                           color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_1_2_em - 3 * t_1_2_err, t_b_1_2_em + 3 * t_1_2_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]],
+                           color='tab:brown', alpha=0.2)
     if ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
         ax[0].plot([t_b_2_1_em, t_b_2_1_em], s_minmax, '--', c='tab:brown')
         ax[0].plot([t_b_2_2_em, t_b_2_2_em], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
         ax[0].fill_between([t_b_2_1_em - t_2_1_err, t_b_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+                           color='tab:brown', alpha=0.3)
         ax[0].fill_between([t_b_2_2_em - t_2_2_err, t_b_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+                           color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_2_1_em - 3*t_2_1_err, t_b_2_1_em + 3*t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_2_2_em - 3*t_2_2_err, t_b_2_2_em + 3*t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_2_1_em - 3 * t_2_1_err, t_b_2_1_em + 3 * t_2_1_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]],
+                           color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_2_2_em - 3 * t_2_2_err, t_b_2_2_em + 3 * t_2_2_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]],
+                           color='tab:brown', alpha=0.2)
     if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1) | ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
         ax[0].plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax[0].set_ylabel('normalised flux')
@@ -798,9 +800,9 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
     # make the simple model
-    ecl_model = simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_1 = simple_eclipse_lc(t_extended[mask_1], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_2 = simple_eclipse_lc(t_extended[mask_2], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_model = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_1 = tsfit.simple_eclipse_lc(t_extended[mask_1], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_2 = tsfit.simple_eclipse_lc(t_extended[mask_2], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -823,7 +825,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     return
 
 
-def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals, w_vals, i_vals, rsumsma_vals,
+def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals, w_vals, i_vals, rsumsma_vals,
                                   rratio_vals, sbratio_vals):
     """Shows the histograms resulting from the input distributions
     and the hdi_prob=0.683 and hdi_prob=0.997 bounds resulting from the HDIs
@@ -836,14 +838,14 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
     i_interval = arviz.hdi(i_vals, hdi_prob=0.683)
     i_bounds = arviz.hdi(i_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
-    hist = ax.hist(i_vals/np.pi*180, bins=50, label='vary fit input')
-    ax.plot([i/np.pi*180, i/np.pi*180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
-    ax.plot([i_interval[0]/np.pi*180, i_interval[0]/np.pi*180], [0, np.max(hist[0])], c='tab:orange',
+    hist = ax.hist(i_vals / np.pi * 180, bins=50, label='vary fit input')
+    ax.plot([i / np.pi * 180, i / np.pi * 180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
+    ax.plot([i_interval[0] / np.pi * 180, i_interval[0] / np.pi * 180], [0, np.max(hist[0])], c='tab:orange',
             label='hdi_prob=0.683')
-    ax.plot([i_interval[1]/np.pi*180, i_interval[1]/np.pi*180], [0, np.max(hist[0])], c='tab:orange')
-    ax.plot([i_bounds[0]/np.pi*180, i_bounds[0]/np.pi*180], [0, np.max(hist[0])], c='tab:grey', linestyle='--',
+    ax.plot([i_interval[1] / np.pi * 180, i_interval[1] / np.pi * 180], [0, np.max(hist[0])], c='tab:orange')
+    ax.plot([i_bounds[0] / np.pi * 180, i_bounds[0] / np.pi * 180], [0, np.max(hist[0])], c='tab:grey', linestyle='--',
             label='hdi_prob=0.997')
-    ax.plot([i_bounds[1]/np.pi*180, i_bounds[1]/np.pi*180], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
+    ax.plot([i_bounds[1] / np.pi * 180, i_bounds[1] / np.pi * 180], [0, np.max(hist[0])], c='tab:grey', linestyle='--')
     ax.set_xlabel('inclination (deg)')
     ax.set_ylabel('N')
     ax.legend()
@@ -863,11 +865,11 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
     ax.legend()
     plt.show()
     # e*np.cos(w)
-    ecosw_interval = arviz.hdi(e_vals*np.cos(w_vals), hdi_prob=0.683)
-    ecosw_bounds = arviz.hdi(e_vals*np.cos(w_vals), hdi_prob=0.997)
+    ecosw_interval = arviz.hdi(e_vals * np.cos(w_vals), hdi_prob=0.683)
+    ecosw_bounds = arviz.hdi(e_vals * np.cos(w_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
-    hist = ax.hist(e_vals*np.cos(w_vals), bins=50, label='vary fit input')
-    ax.plot([e*cos_w, e*cos_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
+    hist = ax.hist(e_vals * np.cos(w_vals), bins=50, label='vary fit input')
+    ax.plot([e * cos_w, e * cos_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
     ax.plot([ecosw_interval[0], ecosw_interval[0]], [0, np.max(hist[0])], c='tab:orange',
             label='hdi_prob=0.683')
     ax.plot([ecosw_interval[1], ecosw_interval[1]], [0, np.max(hist[0])], c='tab:orange')
@@ -879,11 +881,11 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
     ax.legend()
     plt.show()
     # e*np.sin(w)
-    esinw_interval = arviz.hdi(e_vals*np.sin(w_vals), hdi_prob=0.683)
-    esinw_bounds = arviz.hdi(e_vals*np.sin(w_vals), hdi_prob=0.997)
+    esinw_interval = arviz.hdi(e_vals * np.sin(w_vals), hdi_prob=0.683)
+    esinw_bounds = arviz.hdi(e_vals * np.sin(w_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
-    hist = ax.hist(e_vals*np.sin(w_vals), bins=50, label='vary fit input')
-    ax.plot([e*sin_w, e*sin_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
+    hist = ax.hist(e_vals * np.sin(w_vals), bins=50, label='vary fit input')
+    ax.plot([e * sin_w, e * sin_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
     ax.plot([esinw_interval[0], esinw_interval[0]], [0, np.max(hist[0])], c='tab:orange',
             label='hdi_prob=0.683')
     ax.plot([esinw_interval[1], esinw_interval[1]], [0, np.max(hist[0])], c='tab:orange')
@@ -895,7 +897,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
     ax.legend()
     plt.show()
     # omega (use same logic as in error_estimates_hdi)
-    if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
         if (len(w_interval) == 1):
@@ -921,47 +923,53 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma,  r_ratio, sb_ratio, e_vals
         #                    min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
     # plot
     fig, ax = plt.subplots()
-    hist = ax.hist(w_vals/np.pi*180, bins=50, label='vary fit input')
-    ax.plot([w/np.pi*180, w/np.pi*180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
-    if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
-        ax.plot([(2*np.pi-w)/np.pi*180, (2*np.pi-w)/np.pi*180], [0, np.max(hist[0])], c='tab:pink',
+    hist = ax.hist(w_vals / np.pi * 180, bins=50, label='vary fit input')
+    ax.plot([w / np.pi * 180, w / np.pi * 180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
+        ax.plot([(2 * np.pi - w) / np.pi * 180, (2 * np.pi - w) / np.pi * 180], [0, np.max(hist[0])], c='tab:pink',
                 label='mirrored best fit value')
     if (len(np.shape(w_interval)) > 1):
         w_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == -1)
         w_not_in_interval = (np.sign((w - w_interval)[:, 0] * (w - w_interval)[:, 1]) == 1)
-        ax.plot([w_interval[w_in_interval, 0]/np.pi*180, w_interval[w_in_interval, 0]/np.pi*180], [0, np.max(hist[0])],
+        ax.plot([w_interval[w_in_interval, 0] / np.pi * 180, w_interval[w_in_interval, 0] / np.pi * 180],
+                [0, np.max(hist[0])],
                 c='tab:orange', label='hdi_prob=0.683')
-        ax.plot([w_interval[w_in_interval, 1]/np.pi*180, w_interval[w_in_interval, 1]/np.pi*180], [0, np.max(hist[0])],
+        ax.plot([w_interval[w_in_interval, 1] / np.pi * 180, w_interval[w_in_interval, 1] / np.pi * 180],
+                [0, np.max(hist[0])],
                 c='tab:orange')
-        ax.plot([w_interval[w_not_in_interval, 0]/np.pi*180, w_interval[w_not_in_interval, 0]/np.pi*180],
+        ax.plot([w_interval[w_not_in_interval, 0] / np.pi * 180, w_interval[w_not_in_interval, 0] / np.pi * 180],
                 [0, np.max(hist[0])], c='tab:orange', linestyle='--', label='hdi_prob=0.683')
-        ax.plot([w_interval[w_not_in_interval, 1]/np.pi*180, w_interval[w_not_in_interval, 1]/np.pi*180],
+        ax.plot([w_interval[w_not_in_interval, 1] / np.pi * 180, w_interval[w_not_in_interval, 1] / np.pi * 180],
                 [0, np.max(hist[0])], c='tab:orange', linestyle='--')
     else:
-        mask_int = (np.sign((w/np.pi*180 - 180) * (w_interval/np.pi*180 - 180)) < 0)
+        mask_int = (np.sign((w / np.pi * 180 - 180) * (w_interval / np.pi * 180 - 180)) < 0)
         w_interval_plot = np.copy(w_interval)
-        w_interval_plot[mask_int] = w_interval[mask_int] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
-        ax.plot([w_interval_plot[0]/np.pi*180, w_interval_plot[0]/np.pi*180], [0, np.max(hist[0])], c='tab:orange',
+        w_interval_plot[mask_int] = w_interval[mask_int] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
+        ax.plot([w_interval_plot[0] / np.pi * 180, w_interval_plot[0] / np.pi * 180], [0, np.max(hist[0])],
+                c='tab:orange',
                 label='hdi_prob=0.683')
-        ax.plot([w_interval_plot[1]/np.pi*180, w_interval_plot[1]/np.pi*180], [0, np.max(hist[0])], c='tab:orange')
+        ax.plot([w_interval_plot[1] / np.pi * 180, w_interval_plot[1] / np.pi * 180], [0, np.max(hist[0])],
+                c='tab:orange')
     if (len(np.shape(w_bounds)) > 1):
         w_in_interval = (np.sign((w - w_bounds)[:, 0] * (w - w_bounds)[:, 1]) == -1)
         w_not_in_interval = (np.sign((w - w_bounds)[:, 0] * (w - w_bounds)[:, 1]) == 1)
-        ax.plot([w_bounds[w_in_interval, 0]/np.pi*180, w_bounds[w_in_interval, 0]/np.pi*180], [0, np.max(hist[0])],
+        ax.plot([w_bounds[w_in_interval, 0] / np.pi * 180, w_bounds[w_in_interval, 0] / np.pi * 180],
+                [0, np.max(hist[0])],
                 c='tab:grey', linestyle='--', label='hdi_prob=0.683')
-        ax.plot([w_bounds[w_in_interval, 1]/np.pi*180, w_bounds[w_in_interval, 1]/np.pi*180], [0, np.max(hist[0])],
+        ax.plot([w_bounds[w_in_interval, 1] / np.pi * 180, w_bounds[w_in_interval, 1] / np.pi * 180],
+                [0, np.max(hist[0])],
                 c='tab:grey', linestyle='--')
-        ax.plot([w_bounds[w_not_in_interval, 0]/np.pi*180, w_bounds[w_not_in_interval, 0]/np.pi*180],
+        ax.plot([w_bounds[w_not_in_interval, 0] / np.pi * 180, w_bounds[w_not_in_interval, 0] / np.pi * 180],
                 [0, np.max(hist[0])], c='tab:grey', linestyle=':', label='hdi_prob=0.683')
-        ax.plot([w_bounds[w_not_in_interval, 1]/np.pi*180, w_bounds[w_not_in_interval, 1]/np.pi*180],
+        ax.plot([w_bounds[w_not_in_interval, 1] / np.pi * 180, w_bounds[w_not_in_interval, 1] / np.pi * 180],
                 [0, np.max(hist[0])], c='tab:grey', linestyle=':')
     else:
-        mask_bnd = (np.sign((w/np.pi*180 - 180) * (w_bounds/np.pi*180 - 180)) < 0)
+        mask_bnd = (np.sign((w / np.pi * 180 - 180) * (w_bounds / np.pi * 180 - 180)) < 0)
         w_bounds_plot = np.copy(w_bounds)
-        w_bounds_plot[mask_bnd] = w_bounds[mask_bnd] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
-        ax.plot([w_bounds_plot[0]/np.pi*180, w_bounds_plot[0]/np.pi*180], [0, np.max(hist[0])], c='tab:grey',
+        w_bounds_plot[mask_bnd] = w_bounds[mask_bnd] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
+        ax.plot([w_bounds_plot[0] / np.pi * 180, w_bounds_plot[0] / np.pi * 180], [0, np.max(hist[0])], c='tab:grey',
                 linestyle='--', label='hdi_prob=0.683')
-        ax.plot([w_bounds_plot[1]/np.pi*180, w_bounds_plot[1]/np.pi*180], [0, np.max(hist[0])], c='tab:grey',
+        ax.plot([w_bounds_plot[1] / np.pi * 180, w_bounds_plot[1] / np.pi * 180], [0, np.max(hist[0])], c='tab:grey',
                 linestyle='--')
     ax.set_xlabel('omega (deg)')
     ax.set_ylabel('N')
@@ -1062,12 +1070,12 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
-    if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_vals = np.copy(w_vals)
     else:
         w_vals = np.copy(w_vals)
-        mask = (np.sign((w/np.pi*180 - 180) * (w_vals/np.pi*180 - 180)) < 0)
-        w_vals[mask] = w_vals[mask] + np.sign(w/np.pi*180 - 180) * 2 * np.pi
+        mask = (np.sign((w / np.pi * 180 - 180) * (w_vals / np.pi * 180 - 180)) < 0)
+        w_vals[mask] = w_vals[mask] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
     # input
     value_names = np.array([r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
                             r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
@@ -1095,7 +1103,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     # corner plot
     value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
                             r'$\frac{sb_2}{sb_1}$'])
-    values = np.array([e, w/np.pi*180, i/np.pi*180, r_sum_sma, r_ratio, sb_ratio])
+    values = np.array([e, w / np.pi * 180, i / np.pi * 180, r_sum_sma, r_ratio, sb_ratio])
     dist_data = np.column_stack((e_vals, w_vals / np.pi * 180, i_vals / np.pi * 180, rsumsma_vals, rratio_vals,
                                  sbratio_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
@@ -1293,7 +1301,7 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     # stack dists and plot
     value_names = np.array([r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
                             r'$\frac{r_2}{r_1}$', r'$\frac{sb_2}{sb_1}$'])
-    dist_data = np.column_stack((ecosw_vals, esinw_vals, i_vals/np.pi*180, rsumsma_vals, rratio_vals, sbratio_vals))
+    dist_data = np.column_stack((ecosw_vals, esinw_vals, i_vals / np.pi * 180, rsumsma_vals, rratio_vals, sbratio_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
@@ -1345,7 +1353,7 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='residual after eclipse model subtraction')
     ax.plot(freqs_1, ampls_1, label='final residual')
-    ax.plot(freqs[[0, -1]], [snr_threshold*noise_level, snr_threshold*noise_level], c='tab:grey', alpha=0.6,
+    ax.plot(freqs[[0, -1]], [snr_threshold * noise_level, snr_threshold * noise_level], c='tab:grey', alpha=0.6,
             label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
         if k in passed_r_i:
@@ -1432,12 +1440,12 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     model_sinusoid_r = tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
     model_linear_r = tsf.linear_curve(times, const_r, slope_r, i_sectors)
     # candidate harmonics in the disentangled frequencies
-    harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r, p_orb, f_tol=freq_res/2)
+    harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r, p_orb, f_tol=freq_res / 2)
     model_r_h = tsf.sum_sines(times, f_n_r[harm_r], a_n_r[harm_r], ph_n_r[harm_r])
     model_r_h = np.concatenate((model_r_h[ext_left], model_r_h, model_r_h[ext_right]))
     # model of passed frequencies
     if np.any(passed_r):
-        harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r[passed_r], p_orb, f_tol=freq_res/2)
+        harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r[passed_r], p_orb, f_tol=freq_res / 2)
         model_r_p_h = tsf.sum_sines(times, f_n_r[passed_r][harm_r], a_n_r[passed_r][harm_r], ph_n_r[passed_r][harm_r])
         model_r_p_h = np.concatenate((model_r_p_h[ext_left], model_r_p_h, model_r_p_h[ext_right]))
     else:
@@ -1463,7 +1471,7 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     resid_full = np.concatenate((resid_full[ext_left], resid_full, resid_full[ext_right]))
     # some plotting parameters
     s_minmax = np.array([np.min(signal), np.max(signal)])
-    s_minmax_r =  np.array([np.min(resid_ecl), np.max(resid_ecl)])
+    s_minmax_r = np.array([np.min(resid_ecl), np.max(resid_ecl)])
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(t_extended, s_extended, marker='.', label='original signal')
@@ -1516,7 +1524,7 @@ def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, 
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = tsf.calc_bic(resid/signal_err, n_param)
+    bic = tsf.calc_bic(resid / signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1552,7 +1560,7 @@ def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, 
         model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
-        bic = tsf.calc_bic(resid/signal_err, n_param)
+        bic = tsf.calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1580,7 +1588,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
     n_param = 2 * n_sectors
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = tsf.calc_bic(resid/signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
+    bic = tsf.calc_bic(resid / signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -1616,7 +1624,7 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model
         n_param = 2 * n_sectors + 3 * len(f_n_temp)
-        bic = tsf.calc_bic(resid/signal_err, n_param)
+        bic = tsf.calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1627,11 +1635,11 @@ def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=T
     return const, slope, f_n, a_n, ph_n
 
 
-def visualise_frequency_analysis(tic, times, signal, signal_err, i_sectors, i_half_s, save_dir, verbose=False):
+def visualise_frequency_analysis(times, signal, signal_err, i_sectors, i_half_s, target_id, save_dir, verbose=False):
     """Visualise the whole frequency analysis process."""
     # make the directory
-    sub_dir = f'tic_{tic}_analysis'
-    file_id = f'TIC {tic}'
+    sub_dir = f'{target_id}_analysis'
+    file_id = f'{target_id}'
     if (not os.path.isdir(os.path.join(save_dir, sub_dir))):
         os.mkdir(os.path.join(save_dir, sub_dir))  # create the subdir
     save_dir = os.path.join(save_dir, sub_dir)  # this is what we will use from now on
@@ -1643,9 +1651,8 @@ def visualise_frequency_analysis(tic, times, signal, signal_err, i_sectors, i_ha
         file.create_dataset('signal', data=signal)
         file.create_dataset('i_sectors', data=i_sectors)
         file.create_dataset('i_half_s', data=i_half_s)
-    # now do the extraction
-    out = extract_all_visual(times, signal, signal_err, i_half_s, save_dir, verbose=verbose)
-    # const, slope, f_n, a_n, ph_n = out
+    # now do the extraction and save results
+    extract_all_visual(times, signal, signal_err, i_half_s, save_dir, verbose=verbose)
     freq_res = 1.5 / np.ptp(times)
     # make the images (step 1)
     step_1_files = []

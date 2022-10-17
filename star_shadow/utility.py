@@ -149,7 +149,7 @@ def bounds_multiplicity_check(bounds, value):
 
 @nb.njit(cache=True)
 def signal_to_noise_threshold(n_points):
-    """Determine the signal to noise threshold for accepting frequencies
+    """Determine the signal-to-noise threshold for accepting frequencies
     based on the number of points
     
     Parameters
@@ -489,7 +489,7 @@ def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
     
     Notes
     -----
-    To make the task of fitting more managable, the free parameters are binned into groups,
+    To make the task of fitting more manageable, the free parameters are binned into groups,
     in which the remaining parameters are kept fixed. Frequencies of similar amplitude are
     grouped together, and the group cut-off is determined by the biggest gaps in amplitude
     between frequencies, but group size is always kept between g_min and g_max. g_min < g_max.
@@ -1663,15 +1663,12 @@ def read_results_fselect(file_name):
     return passed_sigma, passed_snr, passed_b
 
 
-def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, show=False):
+def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=None, show=False):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
     
     Parameters
     ----------
-    tic: int
-        The TESS Input Catalog number for later reference
-        Use any number (or even str) as reference if not available.
     times: numpy.ndarray[float]
         Timestamps of the time-series
     signal: numpy.ndarray[float]
@@ -1682,6 +1679,9 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
+    target_id: int
+        The TESS Input Catalog number for later reference
+        Use any number (or even str) as reference if not available.
     load_dir: str
         Path to a directory for loading analysis results.
     save_dir: str, None
@@ -1694,7 +1694,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     None
     """
     # open all the data
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_1.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_1, const_1, slope_1, f_n_1, a_n_1, ph_n_1 = results
@@ -1709,7 +1709,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         # p_err_1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1 = np.array([[], [], [], [], [], []])
         # n_param_1, bic_1, noise_level_1 = 0, 0, 0
         model_1 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_2.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = results
@@ -1724,7 +1724,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         # p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = np.array([[], [], [], [], [], []])
         # n_param_2, bic_2, noise_level_2 = 0, 0, 0
         model_2 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_3.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
@@ -1739,22 +1739,22 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = np.array([[], [], [], [], [], []])
         # n_param_3, bic_3, noise_level_3 = 0, 0, 0
         model_3 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_4.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = results
         # p_orb_4 = p_orb_4[0]  # must be a float
-        p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
+        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
         # n_param_4, bic_4, noise_level_4 = stats
         model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
         model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
     else:
         p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = np.array([[], [], [], [], [], []])
         # p_orb_4 = 0
-        p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
+        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
         # n_param_4, bic_4, noise_level_4 = 0, 0, 0
         model_4 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_5.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = results
@@ -1769,22 +1769,22 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = np.array([[], [], [], [], [], []])
         # n_param_5, bic_5, noise_level_5 = 0, 0, 0
         model_5 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_6.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = results
         # p_orb_6 = p_orb_6[0]  # must be a float
-        p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
+        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
         # n_param_6, bic_6, noise_level_6 = stats
         model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
         model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
     else:
         p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = np.array([[], [], [], [], [], []])
         # p_orb_6 = 0
-        p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
+        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
         # n_param_6, bic_6, noise_level_6 = 0, 0, 0
         model_6 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_7.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results
@@ -1799,22 +1799,22 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = np.array([[], [], [], [], [], []])
         # n_param_7, bic_7, noise_level_7 = 0, 0, 0
         model_7 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_8.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
         # p_orb_8 = p_orb_8[0]  # must be a float
-        p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
+        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
         # n_param_8, bic_8, noise_level_8 = stats
         model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
         model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
     else:
         p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], [], []])
         # p_orb_8 = 0
-        p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
+        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
         # n_param_8, bic_8, noise_level_8 = 0, 0, 0
         model_8 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_9.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results, errors, stats = read_results(file_name, verbose=False)
         p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
@@ -1845,7 +1845,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
             low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
             f_hl_9, a_hl_9, ph_hl_9 = f_n_9[harmonics[low_h]], a_n_9[harmonics[low_h]], ph_n_9[harmonics[low_h]]
     # open some more data - timings, harmonic separation, eclipse parameters
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_10.csv')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.csv')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
@@ -1857,44 +1857,44 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         ecl_indices_10 = np.atleast_2d(ecl_indices_10)
         if (len(ecl_indices_10) == 0):
             del ecl_indices_10  # delete the empty array to not do the plot
-    # file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_11.csv')  # 11 not used
+    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')  # 11 not used
     # if os.path.isfile(file_name):
     #     results_11 = read_results_cubics(file_name)
     #     t_zero_11, timings_11, depths_11 = results_11
-    # file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_12.hdf5')  # 12 not used
+    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_12.hdf5')  # 12 not used
     # if os.path.isfile(file_name):
     #     results, errors, stats = read_results(file_name, verbose=False)
     #     p_orb_12, const_12, slope_12, f_n_12, a_n_12, ph_n_12 = results
     #     p_orb_12 = p_orb_12[0]  # must be a float
     #     p_err_12, c_err_12, sl_err_12, f_n_err_12, a_n_err_12, ph_n_err_12 = errors
     #     n_param_12, bic_12, noise_level_12 = stats
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_13.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.hdf5')
     if os.path.isfile(file_name):
         results_13 = read_results_cubics_sin_lin(file_name)
         results, errors, stats, t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13 = results_13
         p_orb_13, const_13, slope_13, f_n_13, a_n_13, ph_n_13 = results
         # p_err_13, c_err_13, sl_err_13, f_n_err_13, a_n_err_13, ph_n_err_13 = errors
         # n_param_13, bic_13, noise_level_13 = stats
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_14.csv')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
     if os.path.isfile(file_name):
         results_14 = read_results_elements(file_name)
         e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = results_14[:6]
         errors_14, bounds_14, formal_errors_14, dists_in_14, dists_out_14 = results_14[6:]
         # intervals_w #? for when the interval is disjoint
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_15.csv')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.csv')
     if os.path.isfile(file_name):
         par_init_14, par_opt_15, par_opt_15b = read_results_lc_fit(file_name)
-    # file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16_2.hdf5')  # 16 not used
+    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_16_2.hdf5')  # 16 not used
     # if os.path.isfile(file_name):
     #     results_16 = read_results(file_name, verbose=False)
     #     results, errors, stats = results_16
     #     _, const_16, slope_16, f_n_16, a_n_16, ph_n_16 = results
-    # file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_16b_2.hdf5')  # 16b not used
+    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b_2.hdf5')  # 16b not used
     # if os.path.isfile(file_name):
     #     results_16b = read_results(file_name, verbose=False)
     #     results, errors, stats = results_16b
     #     _, const_16b, slope_16b, f_n_16b, a_n_16b, ph_n_16b = results
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.hdf5')
     if os.path.isfile(file_name):
         results_17 = read_results_ecl_sin_lin(file_name, verbose=False)
         results, errors, stats, t_zero_17, e_17, w_17, i_17, r_sum_sma_17, r_ratio_17, sb_ratio_17 = results_17
@@ -1903,7 +1903,7 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         # p_err_17, c_err_17, sl_err_17, f_n_err_17, a_n_err_17, ph_n_err_17 = errors
         # n_param_17, bic_17, noise_level_17 = stats
         par_opt_17 = np.array([e_17, w_17, i_17, r_sum_sma_17, r_ratio_17, sb_ratio_17])
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_17b.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.hdf5')
     if os.path.isfile(file_name):
         results_17b = read_results_ecl_sin_lin(file_name, verbose=False)
         results, errors, stats, t_zero_17b, e_17b, w_17b, i_17b, r_sum_sma_17b, r_ratio_17b, sb_ratio_17b = results_17b
@@ -1912,29 +1912,29 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         # p_err_17b, c_err_17b, sl_err_17b, f_n_err_17b, a_n_err_17b, ph_n_err_17b = errors
         # n_param_17b, bic_17b, noise_level_17b = stats
         par_opt_17b = np.array([e_17b, w_17b, i_17b, r_sum_sma_17b, r_ratio_17b, sb_ratio_17b])
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_18.csv')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
     if os.path.isfile(file_name):
         results_18 = read_results_fselect(file_name)
         pass_sigma_18, pass_snr_18, passed_b_18 = results_18
-    file_name = os.path.join(load_dir, f'tic_{tic}_analysis', f'tic_{tic}_analysis_18b.csv')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
     if os.path.isfile(file_name):
         results_18b = read_results_fselect(file_name)
         pass_sigma_18b, pass_snr_18b, passed_b_18b = results_18b
     # frequency_analysis
     if save_dir is not None:
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_frequency_analysis_pd_full.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_frequency_analysis_pd_full.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
                                     save_file=file_name, show=False)
             if np.any([len(fs) != 0 for fs in f_n_i]):
                 plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
                 plot_data = [eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'), eval(f'f_n_{plot_nr}'),
                              eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                         f'tic_{tic}_frequency_analysis_lc_output_{plot_nr}.png')
+                file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                         f'{target_id}_frequency_analysis_lc_output_{plot_nr}.png')
                 vis.plot_lc_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
-                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                         f'tic_{tic}_frequency_analysis_pd_output_{plot_nr}.png')
+                file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                         f'{target_id}_frequency_analysis_pd_output_{plot_nr}.png')
                 plot_data = [eval(f'model_{plot_nr}'), p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1],
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}')]
                 vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
@@ -1943,8 +1943,8 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
                 plot_data = [p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1],
                              eval(f'const_{plot_nr}'), eval(f'slope_{plot_nr}'),
                              eval(f'f_n_{plot_nr}'), eval(f'a_n_{plot_nr}'), eval(f'ph_n_{plot_nr}')]
-                file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                         f'tic_{tic}_frequency_analysis_harmonics_{plot_nr}.png')
+                file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                         f'{target_id}_frequency_analysis_harmonics_{plot_nr}.png')
                 vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -1971,27 +1971,30 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     # eclipse_analysis
     if save_dir is not None:
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_derivatives_lh.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_eclipse_analysis_derivatives_lh.png')
             vis.plot_lc_derivatives(p_orb_9, f_h_9, a_h_9, ph_h_9, f_hl_9, a_hl_9, ph_hl_9, ecl_indices_10,
                                     save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_lh.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_eclipse_analysis_timestamps_lh.png')
             vis.plot_lc_eclipse_timestamps(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, timings_err_10,
                                            depths_err_10, const_9, slope_9, f_n_9, a_n_9, ph_n_9, f_hl_9, a_hl_9,
                                            ph_hl_9, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_timestamps_em.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_eclipse_analysis_timestamps_em.png')
             vis.plot_lc_empirical_model(times, signal, p_orb_9, t_zero_10, timings_10, depths_10, const_13, slope_13,
                                         f_n_13, a_n_13, ph_n_13, t_zero_13, timings_13, depths_13,
                                         timings_err_13, depths_err_13, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_eclipse_analysis_corner.png')
             vis.plot_corner_eclipse_parameters(timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
                                                r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14,
                                                save_file=file_name, show=False)
@@ -2000,14 +2003,15 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
         except ValueError:
             pass  # no dynamic range for some variable
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_lc_fit.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_eclipse_analysis_lc_fit.png')
             vis.plot_lc_light_curve_fit(times, signal, p_orb_9, t_zero_13, timings_13, const_9, slope_9,
                                         f_n_9, a_n_9, ph_n_9, par_init_14, par_opt_15, par_opt_15b, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis', f'tic_{tic}_eclipse_analysis_corner_lc_fit.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_eclipse_analysis_corner_lc_fit.png')
             vis.plot_corner_lc_fit_pars(par_init_14, par_opt_15, par_opt_15b, dists_out_14,
                                         save_file=file_name, show=False)
         except NameError:
@@ -2065,48 +2069,48 @@ def sequential_plotting(tic, times, signal, i_sectors, load_dir, save_dir=None, 
     # pulsation_analysis
     if save_dir is not None:
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_lc_disentangled_simple_model.png')
             vis.plot_lc_disentangled_freqs(times, signal, p_orb_17, t_zero_17, const_17, slope_17, f_n_17, a_n_17,
                                            ph_n_17, i_sectors, passed_b_18, par_opt_17, model='simple',
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_lc_disentangled_ellc_model.png')
             vis.plot_lc_disentangled_freqs(times, signal, p_orb_17, t_zero_17, const_17b, slope_17b, f_n_17b, a_n_17b,
                                            ph_n_17b, i_sectors, passed_b_18b, par_opt_17b, model='ellc',
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_simple_model_h.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_lc_disentangled_simple_model_h.png')
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17, t_zero_17, timings_13, const_17, slope_17,
                                              f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, par_opt_17,
                                              model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17b, t_zero_17b, timings_13, const_17b, slope_17b,
                                              f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, par_opt_17b,
                                              model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_pd_disentangled_simple_model.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_pd_disentangled_simple_model.png')
             vis.plot_pd_disentangled_freqs(times, signal, p_orb_17, t_zero_17, noise_level_9, const_17, slope_17,
                                            f_n_17, a_n_17, ph_n_17, passed_b_18, par_opt_17, i_sectors,
                                            model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'tic_{tic}_analysis',
-                                     f'tic_{tic}_pulsation_analysis_pd_disentangled_ellc_model.png')
+            file_name = os.path.join(save_dir, f'{target_id}_analysis',
+                                     f'{target_id}_pulsation_analysis_pd_disentangled_ellc_model.png')
             vis.plot_pd_disentangled_freqs(times, signal, p_orb_17b, t_zero_17b, noise_level_9, const_17b, slope_17b,
                                            f_n_17b, a_n_17b, ph_n_17b, passed_b_18b, par_opt_17b, i_sectors,
                                            model='ellc', save_file=file_name, show=False)
