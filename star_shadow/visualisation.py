@@ -116,17 +116,19 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model - np.all(model == 0) * np.mean(signal))
     # get error values
     errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
+    # max plot value
+    y_max = max(np.max(ampls), np.max(a_n))
     # plot
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='signal')
     if (len(f_n) > 0):
         ax.plot(freqs_r, ampls_r, label='residual')
     if (p_orb > 0):
-        ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(ampls)], xerr=[0, p_err / p_orb**2],
-                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
+        ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
+                    linestyle='--', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(len(f_n)):
         ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
-                    linestyle=':', capsize=2, c='tab:red')
+                    linestyle='--', capsize=2, c='tab:red')
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -162,6 +164,8 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_half_s)
     err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_half_s)
     err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_half_s)
+    # max plot value
+    y_max = max(np.max(ampls), np.max(a_n_i[8]))
     # plot
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='signal')
@@ -185,10 +189,10 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
         ax.plot(freqs_9, ampls_9, label='third NL-LS fit residual with harmonics')
     # period
     if (p_orb_i[8] > 0):
-        ax.errorbar([1 / p_orb_i[8], 1 / p_orb_i[8]], [0, np.max(ampls)], xerr=[0, p_err_i[8] / p_orb_i[8]**2],
+        ax.errorbar([1 / p_orb_i[8], 1 / p_orb_i[8]], [0, y_max], xerr=[0, p_err_i[8] / p_orb_i[8]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
     elif (p_orb_i[2] > 0):
-        ax.errorbar([1 / p_orb_i[2], 1 / p_orb_i[2]], [0, np.max(ampls)], xerr=[0, p_err_i[2] / p_orb_i[2]**2],
+        ax.errorbar([1 / p_orb_i[2], 1 / p_orb_i[2]], [0, y_max], xerr=[0, p_err_i[2] / p_orb_i[2]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[2]:1.4f}d)')
     # frequencies
     for i in range(len(f_n_i[0])):
@@ -238,8 +242,8 @@ def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s,
     model += tsf.sum_sines(times, f_n, a_n, ph_n)
     # plot the full model light curve
     fig, ax = plt.subplots(nrows=2, sharex=True)
-    ax[0].scatter(times, signal, label='signal')
-    ax[0].plot(times, model, marker='.', c='tab:orange', label='full model (linear + sinusoidal)')
+    ax[0].scatter(times, signal, marker='.', label='signal')
+    ax[0].plot(times, model, c='tab:orange', label='full model (linear + sinusoidal)')
     ax[1].scatter(times, signal - model, marker='.')
     ax[0].set_ylabel('signal/model')
     ax[0].legend()
@@ -269,9 +273,9 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     # plot the harmonic model and non-harmonic model
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonics')
-    ax[0].plot(times, model_line + model_h, marker='.', c='tab:orange', label='linear + harmonic model')
+    ax[0].plot(times, model_line + model_h, c='tab:orange', label='linear + harmonic model')
     ax[1].scatter(times, signal - model_h, marker='.', c='tab:blue', label='signal - harmonics')
-    ax[1].plot(times, model_line + model_nh, marker='.', c='tab:orange', label='linear + non-harmonic model')
+    ax[1].plot(times, model_line + model_nh, c='tab:orange', label='linear + non-harmonic model')
     ax[0].set_ylabel('residual/model')
     ax[0].legend()
     ax[1].set_ylabel('residual/model')
@@ -292,17 +296,18 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     freqs_nh, ampls_nh = tsf.astropy_scargle(times, signal - model_h - model_line)
     freqs, ampls = tsf.astropy_scargle(times, signal - model)
+    # max plot value
+    y_max = max(np.max(ampls_nh), np.max(a_n))
     fig, ax = plt.subplots()
     ax.plot(freqs_nh, ampls_nh, label='residuals after harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.plot([1 / p_orb, 1 / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5,
+    ax.plot([1 / p_orb, 1 / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3,
             label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i / p_orb, i / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
+        ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
     for i in range(len(f_n[non_harm])):
-        ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]],
-                    xerr=[0, errors[2][non_harm][i]], yerr=[0, errors[3][non_harm][i]],
-                    linestyle=':', capsize=2, c='tab:red')
+        ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]], xerr=[0, errors[2][non_harm][i]],
+                    yerr=[0, errors[3][non_harm][i]], linestyle='--', capsize=2, c='tab:red')
         if annotate:
             ax.annotate(f'{i + 1}', (f_n[non_harm][i], a_n[non_harm][i]))
     plt.xlabel('frequency (1/d)')
@@ -320,17 +325,18 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
         plt.close()
     # periodogram harmonics
     freqs_h, ampls_h = tsf.astropy_scargle(times, signal - model_nh - model_line)
+    # max plot value
+    y_max = max(np.max(ampls_h), np.max(a_n))
     fig, ax = plt.subplots()
     ax.plot(freqs_h, ampls_h, label='residuals after non-harmonic removal')
     ax.plot(freqs, ampls, label='final residuals')
-    ax.errorbar([1 / p_orb, 1 / p_orb], [0, np.max(a_n)], xerr=[0, p_err / p_orb**2],
-                linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb:1.4f}d)')
+    ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
+                linestyle='--', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
     for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i / p_orb, i / p_orb], [0, np.max(a_n)], linestyle='--', c='grey', alpha=0.5)
+        ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
     for i in range(len(f_n[harmonics])):
-        ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]],
-                    xerr=[0, errors[2][harmonics][i]], yerr=[0, errors[3][harmonics][i]],
-                    linestyle=':', capsize=2, c='tab:red')
+        ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]], xerr=[0, errors[2][harmonics][i]],
+                    yerr=[0, errors[3][harmonics][i]], linestyle='--', capsize=2, c='tab:red')
         if annotate:
             ax.annotate(f'{i + 1}', (f_n[harmonics][i], a_n[harmonics][i]))
     plt.xlabel('frequency (1/d)')
@@ -388,17 +394,17 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.scatter(t_extended, s_extended, marker='.', label='original folded signal')
     ax.scatter(t_extended, ecl_signal + offset, marker='.', c='tab:orange',
                label='(non-harmonics + linear) model residual')
-    ax.plot(t_model, model_h + offset, c='tab:green', label='harmonics')
-    ax.plot([t_1, t_1], s_minmax, '--', c='tab:red', label='eclipse minimum')
-    ax.plot([t_2, t_2], s_minmax, '--', c='tab:red')
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges')
+    ax.plot(t_model, model_h + offset, c='tab:red', label='harmonics')
+    ax.plot([t_1, t_1], s_minmax, '--', c='tab:pink')
+    ax.plot([t_2, t_2], s_minmax, '--', c='tab:pink')
+    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges/minima/depths')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
-    ax.plot([t_1_1, t_1_2], [h_bot_1, h_bot_1], '--', c='tab:pink')
-    ax.plot([t_2_1, t_2_2], [h_bot_2, h_bot_2], '--', c='tab:pink')
-    ax.plot([t_1_1, t_1_2], [h_top_1, h_top_1], '--', c='tab:pink')
-    ax.plot([t_2_1, t_2_2], [h_top_2, h_top_2], '--', c='tab:pink')
+    ax.plot([t_1_1, t_1_2], [h_bot_1, h_bot_1], '--', c='tab:purple')
+    ax.plot([t_2_1, t_2_2], [h_bot_2, h_bot_2], '--', c='tab:purple')
+    ax.plot([t_1_1, t_1_2], [h_top_1, h_top_1], '--', c='tab:purple')
+    ax.plot([t_2_1, t_2_2], [h_top_2, h_top_2], '--', c='tab:purple')
     # 1 sigma errors
     ax.fill_between([t_1 - t_1_err, t_1 + t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.3)
@@ -413,9 +419,9 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.fill_between([t_2_2 - t_2_2_err, t_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
     ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + depths_err[0], h_bot_1 + depths_err[0]],
-                    y2=[h_bot_1 - depths_err[0], h_bot_1 - depths_err[0]], color='tab:pink', alpha=0.3)
+                    y2=[h_bot_1 - depths_err[0], h_bot_1 - depths_err[0]], color='tab:purple', alpha=0.3)
     ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + depths_err[1], h_bot_2 + depths_err[1]],
-                    y2=[h_bot_2 - depths_err[1], h_bot_2 - depths_err[1]], color='tab:pink', alpha=0.3)
+                    y2=[h_bot_2 - depths_err[1], h_bot_2 - depths_err[1]], color='tab:purple', alpha=0.3)
     # 3 sigma errors
     ax.fill_between([t_1 - 3 * t_1_err, t_1 + 3 * t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
@@ -431,10 +437,10 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
                     color='tab:purple', alpha=0.2)
     ax.fill_between([t_1_1, t_1_2], y1=[h_bot_1 + 3 * depths_err[0], h_bot_1 + 3 * depths_err[0]],
                     y2=[h_bot_1 - 3 * depths_err[0], h_bot_1 - 3 * depths_err[0]],
-                    color='tab:pink', alpha=0.2)
+                    color='tab:purple', alpha=0.2)
     ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + 3 * depths_err[1], h_bot_2 + 3 * depths_err[1]],
                     y2=[h_bot_2 - 3 * depths_err[1], h_bot_2 - 3 * depths_err[1]],
-                    color='tab:pink', alpha=0.2)
+                    color='tab:purple', alpha=0.2)
     # flat bottom
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1):
         ax.plot([t_b_1_1, t_b_1_1], s_minmax, '--', c='tab:brown')
@@ -680,10 +686,10 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax[0].plot([t_1_2_em, t_1_2_em], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_1_em, t_2_1_em], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_2_em, t_2_2_em], s_minmax, '--', c='tab:purple')
-    ax[0].plot([t_1_1_em, t_1_2_em], [1, 1], '--', c='tab:pink')
-    ax[0].plot([t_1_1_em, t_1_2_em], [1 - depth_em_1, 1 - depth_em_1], '--', c='tab:pink')
-    ax[0].plot([t_2_1_em, t_2_2_em], [1, 1], '--', c='tab:pink')
-    ax[0].plot([t_2_1_em, t_2_2_em], [1 - depth_em_2, 1 - depth_em_2], '--', c='tab:pink')
+    ax[0].plot([t_1_1_em, t_1_2_em], [1, 1], '--', c='tab:purple')
+    ax[0].plot([t_1_1_em, t_1_2_em], [1 - depth_em_1, 1 - depth_em_1], '--', c='tab:purple')
+    ax[0].plot([t_2_1_em, t_2_2_em], [1, 1], '--', c='tab:purple')
+    ax[0].plot([t_2_1_em, t_2_2_em], [1 - depth_em_2, 1 - depth_em_2], '--', c='tab:purple')
     # 1 sigma errors
     ax[0].fill_between([t_1_1_em - t_1_1_err, t_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
@@ -694,9 +700,9 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax[0].fill_between([t_2_2_em - t_2_2_err, t_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + depth_1_err, 1 - depth_em_1 + depth_1_err],
-                       y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:pink', alpha=0.3)
+                       y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + depth_2_err, 1 - depth_em_2 + depth_2_err],
-                       y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:pink', alpha=0.3)
+                       y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:purple', alpha=0.3)
     # 3 sigma errors
     ax[0].fill_between([t_1_1_em - 3 * t_1_1_err, t_1_1_em + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
@@ -708,10 +714,10 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
                        color='tab:purple', alpha=0.2)
     ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + 3 * depth_1_err, 1 - depth_em_1 + 3 * depth_1_err],
                        y2=[1 - depth_em_1 - 3 * depth_1_err, 1 - depth_em_1 - 3 * depth_1_err],
-                       color='tab:pink', alpha=0.2)
+                       color='tab:purple', alpha=0.2)
     ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + 3 * depth_2_err, 1 - depth_em_2 + 3 * depth_2_err],
                        y2=[1 - depth_em_2 - 3 * depth_2_err, 1 - depth_em_2 - 3 * depth_2_err],
-                       color='tab:pink', alpha=0.2)
+                       color='tab:purple', alpha=0.2)
     # flat bottom
     if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1):
         ax[0].plot([t_b_1_1_em, t_b_1_1_em], s_minmax, '--', c='tab:brown')
@@ -749,7 +755,7 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax[0].legend()
     # residuals subplot
     ax[1].scatter(t_extended, resid_ecl, marker='.', label='(linear + sinusoid) model residual')
-    ax[1].scatter(t_extended, resid_full, marker='.', c='k', label='(linear + sinusoid + eclipse) model residual')
+    ax[1].scatter(t_extended, resid_full, marker='.', label='(linear + sinusoid + eclipse) model residual')
     ax[1].plot(t_extended[sorter], model_sin_lin[sorter], c='tab:grey', alpha=0.8, label='(linear + sinusoid) model')
     ax[1].plot([t_1_1, t_1_1], s_minmax_r, ':', c='tab:grey', label=r'old eclipse edges (low harmonics)')
     ax[1].plot([t_1_2, t_1_2], s_minmax_r, ':', c='tab:grey')
@@ -1167,9 +1173,8 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     # plot the simple model
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter], model_simple_init[sorter], c='tab:orange', label='initial values from formulae')
-    ax.plot(t_extended[sorter], model_opt1[sorter], c='tab:green',
-            label='simple model fit for ecosw, esinw, i, r_sum, r_rat, sb_rat')
+    ax.plot(t_extended[sorter], model_simple_init[sorter], c='tab:orange', label='initial simple eclipse model')
+    ax.plot(t_extended[sorter], model_opt1[sorter], c='tab:red', label='final simple eclipse model')
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
@@ -1190,9 +1195,8 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     # plot the ellc model
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial values from simple fit')
-    ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:green',
-            label='ellc fit for f_c, f_s, i, r_sum, r_rat, sb_rat')
+    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial ellc eclipse model')
+    ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:red', label='final ellc eclipse model')
     if np.all(model_opt2 == 1):
         ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt2_i:2.4} rad)', (0, 1))
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
@@ -1353,15 +1357,15 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='residual after eclipse model subtraction')
     ax.plot(freqs_1, ampls_1, label='final residual')
-    ax.plot(freqs[[0, -1]], [snr_threshold * noise_level, snr_threshold * noise_level], c='tab:grey', alpha=0.6,
+    ax.plot(freqs[[0, -1]], [snr_threshold * noise_level, snr_threshold * noise_level], c='tab:grey', alpha=0.7,
             label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
         if k in passed_r_i:
-            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:green')
-        else:
             ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:red')
-    ax.plot([], [], linestyle='--', c='tab:red', label='disentangled harmonics, failed criteria')
-    ax.plot([], [], linestyle='--', c='tab:green', label='disentangled harmonics, passed criteria')
+        else:
+            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:brown')
+    ax.plot([], [], linestyle='--', c='tab:red', label='disentangled sinusoids passing criteria')
+    ax.plot([], [], linestyle='--', c='tab:brown', label='disentangled sinusoids')
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -1399,15 +1403,15 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, const_r, slope_r, f
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(times, signal, marker='.', label='original signal')
-    ax[0].plot(times, model_full, c='tab:orange', label='(linear + sinusoid + eclipse) model')
+    ax[0].plot(times, model_full, c='tab:grey', label='(linear + sinusoid + eclipse) model')
     ax[0].plot(times, ecl_model, c='tab:red', label='eclipse model')
     ax[0].set_ylabel('normalised flux/model')
     ax[0].legend()
     # residuals
     ax[1].scatter(times, signal - ecl_model, marker='.', label='eclipse model residuals')
-    ax[1].scatter(times, signal - model_full, marker='.', c='k', label='(linear + sinusoid + eclipse) model residuals')
-    ax[1].plot(times, model_sin_lin, c='tab:orange', label='(linear + sinusoid) model')
-    ax[1].plot(times, model_r_p, c='tab:green', label='(linear + sinusoid) model, passed criteria')
+    ax[1].scatter(times, signal - model_full, marker='.', label='(linear + sinusoid + eclipse) model residuals')
+    ax[1].plot(times, model_sin_lin, c='tab:grey', label='(linear + sinusoid) model')
+    ax[1].plot(times, model_r_p, c='tab:red', label='sinusoids passing criteria')
     ax[1].set_ylabel('residual/model')
     ax[1].set_xlabel('time (d)')
     ax[1].legend()
@@ -1486,10 +1490,10 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     ax[0].legend()
     # residuals
     ax[1].scatter(t_extended, resid_ecl, marker='.', label='(linear + sinusoid) model residual')
-    ax[1].scatter(t_extended, resid_full, marker='.', c='k', label='(linear + sinusoid + eclipse) model residual')
+    ax[1].scatter(t_extended, resid_full, marker='.', label='(linear + sinusoid + eclipse) model residual')
     ax[1].plot(t_extended[sorter], model_sin_lin[sorter], c='tab:grey', alpha=0.8, label='(linear + sinusoid) model')
-    ax[1].plot(t_extended[sorter], model_r_h[sorter], c='tab:orange', label='candidate harmonics')
-    ax[1].plot(t_extended[sorter], model_r_p_h[sorter], c='tab:green', label='candidate harmonics, passed criteria')
+    ax[1].plot(t_extended[sorter], model_r_h[sorter], c='tab:brown', alpha=0.8, label='candidate harmonics')
+    ax[1].plot(t_extended[sorter], model_r_p_h[sorter], c='tab:red', label='candidate harmonics passing criteria')
     ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='previous eclipse edges')
     ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='grey')
     ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='grey')
