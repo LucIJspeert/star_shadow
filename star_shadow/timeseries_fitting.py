@@ -677,16 +677,23 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     The timings are deduced from the cubic curves in case the discriminant
     is positive and the slope at the inflection point has the right sign.
     """
-    # get the parameters for the cubics from the fit parameters
-    t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)  # do not surpass middle
-    c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
-    c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
-    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
+    # edges must not surpass middle
+    t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)
     # fold the time series
     t_folded = (times - t_zero) % p_orb
     t_folded_adj = np.copy(t_folded)
     t_folded_adj[t_folded > p_orb + t_c1_1] -= p_orb  # stick eclipse 1 back together
+    # get the parameters for the cubics from the fit parameters
+    dur_1 = t_c1_2 - t_c1_1  # check for zero duration eclipse
+    if (dur_1 == 0):
+        return np.zeros(len(t_folded))
+    c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
+    dur_2 = t_c3_2 - t_c3_1  # check for zero duration eclipse
+    if (dur_2 == 0):
+        return np.zeros(len(t_folded))
+    c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
+    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
     # make masks for the right time intervals
     mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < min(t_c1_2, mid_1))
     mask_2 = (t_folded_adj > max(t_c2_2, mid_1)) & (t_folded_adj <= t_c2_1)
