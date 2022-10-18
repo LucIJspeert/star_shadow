@@ -2016,6 +2016,93 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     return light_lost
 
 
+def eclipse_times(p_orb, t_zero, e, w, i, r_sum_sma, r_ratio):
+    """Theoretical eclipse timings
+
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    
+    Returns
+    -------
+    t_1: float
+        Time of primary minimum in domain [0, p_orb)
+    t_2: float
+        Time of secondary minimum in domain [0, p_orb)
+    t_1_1: float
+        Duration of primary first contact to minimum
+    t_1_2: float
+        Duration of primary minimum to last contact
+    t_2_1: float
+        Duration of secondary first contact to minimum
+    t_2_2: float
+        Duration of secondary minimum to last contact
+    t_b_1_1: float
+        Time of primary first internal tangency to minimum
+    t_b_1_2: float
+        Time of primary minimum to second internal tangency
+    t_b_2_1: float
+        Time of secondary first internal tangency to minimum
+    t_b_2_2: float
+        Time of secondary minimum to second internal tangency
+    """
+    # minimise for the phases of minima (theta)
+    theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
+    if (theta_2 == 0):
+        # if no solution is possible (no opposite signs), return infinite
+        return 10**9
+    # minimise for the contact angles
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum_sma)
+    # minimise for the internal tangency angles
+    r_dif_sma = abs(r_sum_sma * (1 - r_ratio) / (1 + r_ratio))
+    psi_1_1, psi_1_2, psi_2_1, psi_2_2 = root_contact_phase_angles_radii(e, w, i, r_dif_sma)
+    # calculate the true anomaly of minima
+    nu_1 = true_anomaly(theta_1, w)
+    nu_2 = true_anomaly(theta_2, w)
+    nu_conj_1 = true_anomaly(0, w)
+    nu_conj_2 = true_anomaly(np.pi, w)
+    # calculate the integrals (displacement, durations, asymmetries)
+    n = 2 * np.pi / p_orb  # the average daily motion
+    disp = integral_kepler_2(nu_1, nu_2, e) / n
+    integral_conj_1 = integral_kepler_2(nu_conj_1, nu_1, e) / n  # - if nu_conj_1 > nu_1, else +
+    integral_conj_2 = integral_kepler_2(nu_conj_2, nu_2, e) / n  # - if nu_conj_2 > nu_2, else +
+    # phi angles are measured from conjunction (theta = 0 or 180 deg)
+    integral_tau_1_1 = integral_kepler_2(nu_conj_1 - phi_1_1, nu_conj_1, e) / n
+    integral_tau_1_2 = integral_kepler_2(nu_conj_1, nu_conj_1 + phi_1_2, e) / n
+    integral_tau_2_1 = integral_kepler_2(nu_conj_2 - phi_2_1, nu_conj_2, e) / n
+    integral_tau_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + phi_2_2, e) / n
+    # psi angles are for internal tangency
+    integral_bottom_1_1 = integral_kepler_2(nu_conj_1 - psi_1_1, nu_conj_1, e) / n
+    integral_bottom_1_2 = integral_kepler_2(nu_conj_1, nu_conj_1 + psi_1_2, e) / n
+    integral_bottom_2_1 = integral_kepler_2(nu_conj_2 - psi_2_1, nu_conj_2, e) / n
+    integral_bottom_2_2 = integral_kepler_2(nu_conj_2, nu_conj_2 + psi_2_2, e) / n
+    # convert intervals to times (adjust for difference between minimum and conjunction)
+    t_1 = t_zero
+    t_2 = t_zero + disp
+    t_1_1 = t_1 - integral_conj_1 - integral_tau_1_1
+    t_1_2 = t_1 - integral_conj_1 + integral_tau_1_2
+    t_2_1 = t_2 - integral_conj_2 - integral_tau_2_1
+    t_2_2 = t_2 - integral_conj_2 + integral_tau_2_2
+    t_b_1_1 = t_1 - integral_conj_1 - integral_bottom_1_1
+    t_b_1_2 = t_1 - integral_conj_1 + integral_bottom_1_2
+    t_b_2_1 = t_2 - integral_conj_2 - integral_bottom_2_1
+    t_b_2_2 = t_2 - integral_conj_2 + integral_bottom_2_2
+    return t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+
+
 def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, t_1_err, t_2_err,
                           t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
@@ -2128,9 +2215,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     Parameters
     ----------
     params: array-like[float]
-        i, r_ratio
-        Inclination of the orbit
-        Radius ratio r_2/r_1
+        ecosw, esinw, i, r_sum_sma, r_ratio
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_1: float
