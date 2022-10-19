@@ -1258,6 +1258,42 @@ def formal_timing_uncertainty(p_orb, p_err, t_tot, t_int):
     return t_err
 
 
+def lin_reg_uncertainty(p_orb, t_tot, sigma_t=1):
+    """Calculates the linear regression errors on period and t_zero
+
+    Parameters
+    ---------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_tot: float
+        Total time base of observations
+    sigma_t: float
+        Error in the individual time measurements
+
+    Returns
+    -------
+    p_err: float
+        Error in the period
+    t_err: float
+        Error in t_zero
+    p_t_cov: float
+        Covariance between the period and t_zero
+    """
+    # number of observed eclipses (technically contiguous)
+    n = int(abs(t_tot // p_orb)) + 1
+    # M
+    matrix = np.column_stack((np.ones(n, dtype=int), np.arange(n, dtype=int)))
+    # M^-1
+    matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
+    # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
+    var_matrix = matrix_inv @ matrix_inv.T
+    # errors in the period and t_zero
+    t_err = sigma_t**2 * var_matrix[0, 0]
+    p_t_cov = sigma_t**2 * var_matrix[0, 1]  # or [1, 0]
+    p_err = sigma_t**2 * var_matrix[1, 1]
+    return p_err, t_err, p_t_cov
+
+
 @nb.njit(cache=True)
 def true_anomaly(theta, w):
     """True anomaly in terms of the phase angle and argument of periastron
