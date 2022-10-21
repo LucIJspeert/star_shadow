@@ -1221,8 +1221,8 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     return t_zero_em, timings_em, depths_em, timings_err, depths_err, p_t_corr, const, slope, f_n, a_n, ph_n
 
 
-def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, f_h, a_h,
-                              ph_h, file_name, data_id=None, overwrite=False, verbose=False):
+def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, p_t_corr, file_name,
+                              data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
     Parameters
@@ -1245,12 +1245,8 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
-    f_h: numpy.ndarray[float]
-        The frequencies of a number of harmonic sine waves
-    a_h: numpy.ndarray[float]
-        The amplitudes of a number of harmonic sine waves
-    ph_h: numpy.ndarray[float]
-        The phases of a number of harmonic sine waves
+    p_t_corr: float
+        Correlation between period and t_zero
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
@@ -1322,8 +1318,8 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
         output = af.eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err)
         e, w, i, r_sum_sma, r_ratio, sb_ratio = output
         # calculate the errors
-        output_2 = af.error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, t_zero, f_h, a_h, ph_h,
-                                          timings, depths, timings_err, depths_err, verbose=verbose)
+        output_2 = af.error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, p_err,
+                                          timings_err, depths_err, p_t_corr, verbose=verbose)
         intervals, bounds, errors, dists_in, dists_out = output_2
         i_sym_err = max(errors[2])  # take the maximum as pessimistic estimate of the symmetric error
         formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timings_err)
@@ -1811,10 +1807,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         return (None,) * 10  # unphysical parameters
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
-    f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
     out_14 = analysis_eclipse_elements(p_orb_9, t_zero_13, timings_13, depths_13, p_err_9, timings_err_13,
-                                       depths_err_13, f_h_9, a_h_9, ph_h_9, file_name=file_name, data_id=data_id,
+                                       depths_err_13, p_t_corr_13, file_name=file_name, data_id=data_id,
                                        overwrite=overwrite, verbose=verbose)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
