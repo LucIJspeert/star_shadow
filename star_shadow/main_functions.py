@@ -1106,10 +1106,10 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         full_results = ut.read_results_cubics_sin_lin(file_name)
-        results, errors, stats, t_zero_em, timings_em, depths_em, timings_err, depths_err = full_results
-        # results, errors, stats, t_zero_em, timings_em, depths_em, timings_err, depths_err, p_t_corr = full_results
+        results, errors, stats, t_zero_em, timings_em, depths_em, timings_err, depths_err, p_t_corr = full_results
         p_orb, const, slope, f_n, a_n, ph_n = results
         p_orb = p_orb[0]  # must be float
+        p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     else:
         if verbose:
             print(f'Full fit of cubic model and sinusoids')
