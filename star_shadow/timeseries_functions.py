@@ -1288,10 +1288,9 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
 
 
 @nb.njit(cache=True)
-def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, depths, noise_level,
-                               i_sectors):
-    """Estimate the error in the timing measurements based on the
-    noise level and the eclipse slopes.
+def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, depths, noise_level,
+                          i_sectors):
+    """Determine the noise level crossing time of the eclipse slopes
 
     Parameters
     ----------
@@ -1331,19 +1330,11 @@ def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, 
 
     Returns
     -------
-    t_1_1_err: float
-        Error in the time of primary first contact
-    t_1_2_err: float
-        Error in the time of primary last contact
-    t_2_1_err: float
-        Error in the time of secondary first contact
-    t_2_2_err: float
-        Error in the time of secondary last contact
-    depth_1_err: float
-        Error in the depth of primary minimum
-    depth_2_err: float
-        Error in the depth of secondary minimum
-    
+    t_1_i_err: float
+        Noise crossing time of primary first/last contact
+    t_2_i_err: float
+        Noise crossing time of secondary first/last contact
+
     Notes
     -----
     The given sinusoids must be those from after disentangling,
@@ -1382,6 +1373,74 @@ def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, 
     else:
         slope = np.array([depth_2 / (t_2_2 - t_b_2_2)])
     t_2_2_err = abs(noise_level / slope[0])
+    # assume the slopes to be the same on both sides, so average them
+    t_1_i_err = (t_1_1_err + t_1_2_err) / 2
+    t_2_i_err = (t_2_1_err + t_2_2_err) / 2
+    return t_1_i_err, t_2_i_err
+
+
+@nb.njit(cache=True)
+def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, timings_err, noise_level,
+                        i_sectors):
+    """Estimate the error in the depth measurements based on the noise level.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of deepest minimum modulo p_orb
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        Timings of the possible flat bottom (internal tangency),
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+
+    Returns
+    -------
+    depth_1_err: float
+        Error in the depth of primary minimum
+    depth_2_err: float
+        Error in the depth of secondary minimum
+    
+    Notes
+    -----
+    The given sinusoids must be those from after disentangling,
+    so that they don't contain the eclipses anymore.
+    """
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
+    model_sines = sum_sines(times, f_n, a_n, ph_n)
+    model_line = linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_sines - model_line
+    # use the eclipse model to find the derivative peaks
+    t_folded = (times - t_zero) % p_orb
     # determine depth errors
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
@@ -1414,7 +1473,7 @@ def measure_timing_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, 
     # calculate depths
     depth_1_err = np.sqrt(height_1_1_err**2/4 + height_1_2_err**2/4 + height_b_1_err**2)
     depth_2_err = np.sqrt(height_2_1_err**2/4 + height_2_2_err**2/4 + height_b_2_err**2)
-    return t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
+    return depth_1_err, depth_2_err
 
 
 def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors):

@@ -778,8 +778,7 @@ def read_results(file_name, verbose=False):
     with h5py.File(file_name, 'r') as file:
         identifier = file.attrs['identifier']
         description = file.attrs['description']
-        # data_id = file.attrs['data_id']  # todo: commented for compatibility, uncomment later
-        data_id = ''
+        data_id = file.attrs['data_id']
         date_time = file.attrs['date_time']
         # stats
         n_param = file.attrs['n_param']
@@ -1052,7 +1051,7 @@ def read_results_cubics(file_name):
 
 
 def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, depths_em, timings_err, depths_err,
-                                i_sectors, file_name, data_id='none'):
+                                p_t_corr, i_sectors, file_name, data_id='none'):
     """Save the results of the cubics model fit with sinusoids
     
     Parameters
@@ -1080,6 +1079,8 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    p_t_corr: float
+        correlation between period and t_zero
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
@@ -1116,7 +1117,8 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
     # make var names and descriptions
     var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
-                 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err', 'd_1_err', 'd_2_err']
+                 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
+                 'd_1_err', 'd_2_err', 'p_t_corr']
     var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
@@ -1132,11 +1134,12 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
                 'error in time of primary last contact (t_1_2)',
                 'error in time of secondary first contact (t_2_1)',
                 'error in time of secondary last contact (t_2_2)',
-                'error in depth of primary minimum', 'error in depth of secondary minimum']
+                'error in depth of primary minimum', 'error in depth of secondary minimum',
+                'correlation between period and t_zero']
     values = [str(p_orb), str(t_zero_em), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2),
               str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
-              str(d_1_err), str(d_2_err)]
+              str(d_1_err), str(d_2_err), str(p_t_corr)]
     table = np.column_stack((var_names, values, var_desc))
     file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     file_name_c = file_name.replace(fn_ext, '_cubics.csv')
@@ -1192,7 +1195,8 @@ def read_results_cubics_sin_lin(file_name):
     depths = values[12:14]
     timings_err = values[14:20]
     depths_err = values[20:22]
-    return results, errors, stats, t_zero, timings, depths, timings_err, depths_err
+    p_t_corr = values[22]
+    return results, errors, stats, t_zero, timings, depths, timings_err, depths_err, p_t_corr
 
 
 def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
@@ -1871,7 +1875,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.hdf5')
     if os.path.isfile(file_name):
         results_13 = read_results_cubics_sin_lin(file_name)
-        results, errors, stats, t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13 = results_13
+        results, errors, stats = results_13[:3]
+        t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13, p_t_corr_13 = results_13[3:]
         p_orb_13, const_13, slope_13, f_n_13, a_n_13, ph_n_13 = results
         # p_err_13, c_err_13, sl_err_13, f_n_err_13, a_n_err_13, ph_n_err_13 = errors
         # n_param_13, bic_13, noise_level_13 = stats

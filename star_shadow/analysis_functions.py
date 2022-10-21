@@ -691,6 +691,77 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
 @nb.njit(cache=True)
 def curve_walker(signal, peaks, slope_sign, mode='up'):
     """Walk up or down a slope to approach zero or to reach an extremum.
+
+    Parameters
+    ----------
+    signal: numpy.ndarray[float]
+        The curve to walk along
+    peaks: numpy.ndarray[float]
+        The starting points
+    slope_sign: numpy.ndarray[float]
+        Sign of the slope of the curve at the peak locations
+    mode: str
+        mode='up': walk in the slope sign direction to reach a
+            minimum (minus is left)
+        mode='down': walk against the slope sign direction to reach
+            a maximum (minus is right)
+        mode='up_to_zero'/'down_to_zero': same as above, but approaching zero
+            as closely as possible without changing direction.
+        mode='zero': continue until the sign changes
+
+    Returns
+    -------
+    cur_i: numpy.ndarray[float]
+        End positions of all the walkers
+
+    Notes
+    -----
+    Assumes a circular curve, so that it can walk from one end
+    back onto the other end.
+    """
+    if 'down' in mode:
+        steps = -slope_sign
+    else:
+        steps = slope_sign
+    len_s = len(signal)
+    
+    def check_condition(prev_signal, cur_signal):
+        if 'up' in mode:
+            condition = (prev_signal < cur_signal)
+        elif 'down' in mode:
+            condition = (prev_signal > cur_signal)
+        else:
+            condition = np.ones(len(cur_signal), dtype=np.bool_)
+        if 'zero' in mode:
+            condition &= (np.sign(prev_signal) == np.sign(cur_signal))
+        return condition
+    
+    # start at the peaks
+    prev_i = peaks
+    prev_s = signal[prev_i]
+    # step in the desired direction
+    cur_i = (prev_i + steps)
+    cur_s = signal[cur_i]
+    # check that we fulfill the condition
+    check = check_condition(prev_s, cur_s) & (cur_i != -1) & (cur_i != len_s)
+    # define the indices to be optimized
+    cur_i = (prev_i + steps * check)
+    while np.any(check):
+        prev_i = cur_i
+        prev_s = signal[prev_i]
+        # step in the desired direction
+        cur_i = (prev_i + steps)
+        cur_s = signal[cur_i]
+        # and check that we fulfill the condition
+        check = check_condition(prev_s, cur_s) & (cur_i != -1) & (cur_i != len_s)
+        # finally, make the actual approved steps
+        cur_i = (prev_i + steps * check)
+    return cur_i
+
+
+@nb.njit(cache=True)
+def curve_walker_circular(signal, peaks, slope_sign, mode='up'):
+    """Walk up or down a slope to approach zero or to reach an extremum.
     
     Parameters
     ----------
@@ -1184,81 +1255,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
 
 
-@nb.njit(cache=True)
-def formal_period_uncertainty(p_orb, t_tot, t_int):
-    """Calculates a formal error for the orbital period
-
-    Parameters
-    ----------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_tot: float
-        Total time base of observations
-    t_int: float
-        Integration time of the observations
-
-    Returns
-    -------
-    p_err: float
-        Uncertainty in the orbital period
-
-    Notes
-    -----
-    Computes the error using the prescription in:
-    https://ui.adsabs.harvard.edu/abs/2013AJ....145..148M/abstract
-    """
-    # half the bin width (integration time) of the observations
-    sigma = t_int / 2
-    # number of cycles
-    m = int(abs(t_tot // p_orb))
-    # error is the minimal value of the following computation
-    p_err = np.zeros(m)
-    for i in range(1, m + 1):
-        for j in range(1, i + 1):
-            p_err[i - 1] += (2 * sigma**2) / (j * (m - (j - 1))**2)
-        p_err[i - 1] /= i
-    p_err = np.min(np.sqrt(p_err))
-    return p_err
-
-
-@nb.njit(cache=True)
-def formal_timing_uncertainty(p_orb, p_err, t_tot, t_int):
-    """Calculates a formal error for folded timing measurements
-
-    Parameters
-    ----------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    p_err: float
-        Uncertainty in the orbital period
-    t_tot: float
-        Total time base of observations
-    t_int: float
-        Integration time of the observations
-
-    Returns
-    -------
-    t_err: float
-        Uncertainty in the orbital period
-
-    Notes
-    -----
-    Computes an approximation of the propagated error in a
-    timing measurement of a folded time-series (like a phase)
-    assuming all eclipse cycles are present and the time-series
-    is zeroed at its start.
-    """
-    # half the bin width (integration time) of the observations
-    sigma = t_int / 2
-    # number of cycles
-    m = int(abs(t_tot // p_orb))
-    # error is the sum of squared single-time-point error and period error with a factor
-    factor = ((m + 1) * (2 * m + 1) / (6 * m))
-    t_err = np.sqrt(sigma**2 / m + factor * p_err**2)
-    return t_err
-
-
-def lin_reg_uncertainty(p_orb, t_tot, sigma_t=1):
+def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):
     """Calculates the linear regression errors on period and t_zero
 
     Parameters
@@ -1278,6 +1275,14 @@ def lin_reg_uncertainty(p_orb, t_tot, sigma_t=1):
         Error in t_zero
     p_t_cov: float
         Covariance between the period and t_zero
+    
+    Notes
+    -----
+    The number of eclipses, computed from the period and
+    time base, is taken to be a contiguous set.
+    var_matrix:
+    [[std[0]**2          , std[0]*std[1]*corr],
+     [std[0]*std[1]*corr,           std[1]**2]]
     """
     # number of observed eclipses (technically contiguous)
     n = int(abs(t_tot // p_orb)) + 1
@@ -1287,11 +1292,12 @@ def lin_reg_uncertainty(p_orb, t_tot, sigma_t=1):
     matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
     # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
     var_matrix = matrix_inv @ matrix_inv.T
+    var_matrix = var_matrix * sigma_t**2
     # errors in the period and t_zero
-    t_err = sigma_t**2 * var_matrix[0, 0]
-    p_t_cov = sigma_t**2 * var_matrix[0, 1]  # or [1, 0]
-    p_err = sigma_t**2 * var_matrix[1, 1]
-    return p_err, t_err, p_t_cov
+    t_err = np.sqrt(var_matrix[0, 0])
+    p_err = np.sqrt(var_matrix[1, 1])
+    p_t_corr = var_matrix[0, 1] / (t_err * p_err) # or [1, 0]
+    return p_err, t_err, p_t_corr
 
 
 @nb.njit(cache=True)
@@ -2557,8 +2563,8 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s
 
 
-def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, timings_err, depths_err,
-                        verbose=False):
+def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, p_err, timings_err, depths_err,
+                        p_t_corr, verbose=False):
     """Estimate errors using the highest density interval (HDI)
     
     Parameters
@@ -2584,11 +2590,15 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Primary and secondary eclipse depth
+    p_err: float
+        Error in the orbital period
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    p_t_corr: float
+        Correlation between orbital period and t_zero/t_1/t_2
     verbose: bool
         If set to True, this function will print some information
     
@@ -2619,6 +2629,8 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     depth_1, depth_2 = depths
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     depth_1_err, depth_2_err = depths_err
+    # variance matrix of t_zero and period
+    # todo: add covariance and period dist
     # generate input distributions
     rng = np.random.default_rng()
     n_gen = 10**3  # 10**4
