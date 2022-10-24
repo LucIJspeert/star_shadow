@@ -12,7 +12,10 @@ legend.fontsize: 12
 
 ## Figure
 figure.figsize: 16, 9
-figure.autolayout: True    # When True, automatically adjust subplot parameters to
-                           # make the plot fit the figure using `tight_layout`
-figure.constrained_layout.hspace: 0.0     # Space between subplot groups. Float representing
-figure.constrained_layout.wspace: 0.0     # a fraction of the subplot widths being separated.
+#figure.subplot.wspace: 0.0    # the amount of width reserved for space between subplots
+#figure.subplot.hspace: 0.0    # the amount of height reserved for space between subplots
+#figure.autolayout: True    # When True, automatically adjust subplot parameters to
+                           # make the plot fit the figure using `tight_layout` [does not behave]
+#figure.constrained_layout.hspace: 0.0     # Space between subplot groups. Float representing
+#figure.constrained_layout.wspace: 0.0     # a fraction of the subplot widths being separated.
+

@@ -100,6 +100,7 @@ def plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_s
         if model_text is not '':
             ax0.text(0.5, 0.95, model_text, ha='center', va='center',
                      transform=ax0.transAxes)
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -132,6 +133,7 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -165,7 +167,10 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_half_s)
     err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_half_s)
     # max plot value
-    y_max = max(np.max(ampls), np.max(a_n_i[8]))
+    if (len(f_n_i[8]) > 0):
+        y_max = max(np.max(ampls), np.max(a_n_i[8]))
+    else:
+        y_max = np.max(ampls)
     # plot
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='signal')
@@ -226,6 +231,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -249,6 +255,7 @@ def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s,
     ax[0].legend()
     ax[1].set_ylabel('residual')
     ax[1].set_xlabel('time (d)')
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
@@ -281,6 +288,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     ax[1].set_ylabel('residual/model')
     ax[1].set_xlabel('time (d)')
     ax[1].legend()
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         if save_file.endswith('.png'):
@@ -313,6 +321,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_2.png')
@@ -342,6 +351,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_3.png')
@@ -473,6 +483,7 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     ax.set_xlabel(r'$(time - t_0)\ mod\ P_{orb}$ (d)')
     ax.set_ylabel('normalised flux')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -613,6 +624,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
         ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
         ax[2].scatter(minimum_0, h2e_minimum_0, c='tab:brown', marker='|')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$')
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
@@ -768,6 +780,7 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     ax[1].set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax[1].set_ylabel('normalised flux')
     ax[1].legend()
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
@@ -822,6 +835,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax.set_ylabel('normalised flux')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -855,6 +869,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('inclination (deg)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # eccentricity
     e_interval = arviz.hdi(e_vals, hdi_prob=0.683)
@@ -869,6 +884,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('eccentricity')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # e*np.cos(w)
     ecosw_interval = arviz.hdi(e_vals * np.cos(w_vals), hdi_prob=0.683)
@@ -885,6 +901,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('e cos(w)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # e*np.sin(w)
     esinw_interval = arviz.hdi(e_vals * np.sin(w_vals), hdi_prob=0.683)
@@ -901,6 +918,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('e sin(w)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # omega (use same logic as in error_estimates_hdi)
     if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
@@ -980,6 +998,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('omega (deg)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # r_sum_sma
     rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
@@ -996,6 +1015,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('(r1+r2)/a')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # r_ratio
     rratio_interval = arviz.hdi(rratio_vals, hdi_prob=0.683)
@@ -1012,6 +1032,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('r_ratio')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # log(r_ratio)
     log_rratio_interval = arviz.hdi(np.log10(rratio_vals), hdi_prob=0.683)
@@ -1029,6 +1050,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('log(r_ratio)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # sb_ratio
     sbratio_interval = arviz.hdi(sbratio_vals, hdi_prob=0.683)
@@ -1045,6 +1067,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('sb_ratio')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     # log(sb_ratio)
     log_sbratio_interval = arviz.hdi(np.log10(sbratio_vals), hdi_prob=0.683)
@@ -1062,6 +1085,7 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     ax.set_xlabel('log(sb_ratio)')
     ax.set_ylabel('N')
     ax.legend()
+    plt.tight_layout()
     plt.show()
     return
 
@@ -1096,6 +1120,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         fig.suptitle(f'Input distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
     else:
         fig.suptitle('Input distributions')
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_in.png')
@@ -1120,6 +1145,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         fig.suptitle(f'Output distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
     else:
         fig.suptitle('Output distributions')
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_out.png')
@@ -1182,6 +1208,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax.set_ylabel('normalised flux')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_1.png')
@@ -1206,6 +1233,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax.set_ylabel('normalised flux')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_2.png')
@@ -1271,6 +1299,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     ax.set_ylabel('normalised flux')
     ax.set_title(f'{par_names[par_i]} = {par_ellc[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -1320,6 +1349,7 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
                      f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
     else:
         fig.suptitle('Output distributions and lc fit outcome')
+    plt.tight_layout()
     if save_file is not None:
         fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -1369,6 +1399,7 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
+    plt.tight_layout()
     if save_file is not None:
         fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
@@ -1415,6 +1446,7 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, const_r, slope_r, f
     ax[1].set_ylabel('residual/model')
     ax[1].set_xlabel('time (d)')
     ax[1].legend()
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
@@ -1501,6 +1533,7 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     ax[1].set_ylabel('residual/model')
     ax[1].set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax[1].legend()
+    plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
