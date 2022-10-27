@@ -1372,7 +1372,7 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
 
 
 def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                           i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                           i_sectors, file_name, fit_ellc=False, data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclispe timings
 
     Parameters
@@ -1409,6 +1409,8 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
+    fit_ellc: bool
+        Whether to also fit ellc eclipse light curve models to the data
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
@@ -1455,28 +1457,41 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
         opt1_w = np.arctan2(opt1_esinw, opt1_ecosw) % (2 * np.pi)
         par_opt_simple = (opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio)
         # use results of first fit as initial values for the second fit
-        par_init_ellc = (opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w), *par_opt_simple[2:])
-        
-        output = tsfit.fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
-                                   f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
-        # get e and w from fitting parameters f_c and f_s
-        opt_f_c, opt_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = output.x
-        opt2_e = opt_f_c**2 + opt_f_s**2
-        opt2_w = np.arctan2(opt_f_s, opt_f_c) % (2 * np.pi)
+        if fit_ellc:
+            par_init_ellc = (opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w), *par_opt_simple[2:])
+            
+            output = tsfit.fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
+                                       f_n, a_n, ph_n, par_init_ellc, i_sectors, verbose=verbose)
+            # get e and w from fitting parameters f_c and f_s
+            opt_f_c, opt_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = output.x
+            opt2_e = opt_f_c**2 + opt_f_s**2
+            opt2_w = np.arctan2(opt_f_s, opt_f_c) % (2 * np.pi)
+        else:
+            opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = None, None, None, None, None, None
         par_opt_ellc = (opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio)
         # save
         ut.save_results_lc_fit(par_init, par_opt_simple, par_opt_ellc, file_name, data_id)
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mOptimisation of the light curve parameters complete.\033[0m')
-        print(f'\033[0;32;48mInitial - e: {par_init[0]:2.4}, w: {par_init[1] / np.pi * 180:2.4} deg, '
-              f'i: {par_init[2] / np.pi * 180:2.4} deg, (r1+r2)/a: {par_init[3]:2.4}, r2/r1: {par_init[4]:2.4}, '
-              f'sb2/sb1: {par_init[5]:2.4}. \n'
-              f'Simple fit - e: {opt1_e:2.4}, w: {opt1_w / np.pi * 180:2.4} deg, i: {opt1_i / np.pi * 180:2.4} deg, '
-              f'(r1+r2)/a: {opt1_r_sum_sma:2.4}, r2/r1: {opt1_r_ratio:2.4}, sb2/sb1: {opt1_sb_ratio:2.4}. \n'
-              f'ellc fit - e: {opt2_e:2.4}, w: {opt2_w / np.pi * 180:2.4} deg, i: {opt2_i / np.pi * 180:2.4} deg, '
-              f'(r1+r2)/a: {opt2_r_sum_sma:2.4}, r2/r1: {opt2_r_ratio:2.4}, sb2/sb1: {opt2_sb_ratio:2.4}. \n'
-              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        if fit_ellc:
+            print(f'\033[0;32;48mInitial - e: {par_init[0]:2.4}, w: {par_init[1] / np.pi * 180:2.4} deg, '
+                  f'i: {par_init[2] / np.pi * 180:2.4} deg, (r1+r2)/a: {par_init[3]:2.4}, r2/r1: {par_init[4]:2.4}, '
+                  f'sb2/sb1: {par_init[5]:2.4}. \n'
+                  f'Simple fit - e: {opt1_e:2.4}, w: {opt1_w / np.pi * 180:2.4} deg, i: {opt1_i / np.pi * 180:2.4} deg,'
+                  f' (r1+r2)/a: {opt1_r_sum_sma:2.4}, r2/r1: {opt1_r_ratio:2.4}, sb2/sb1: {opt1_sb_ratio:2.4}. \n'
+                  f'ellc fit - e: {opt2_e:2.4}, w: {opt2_w / np.pi * 180:2.4} deg, i: {opt2_i / np.pi * 180:2.4} deg, '
+                  f'(r1+r2)/a: {opt2_r_sum_sma:2.4}, r2/r1: {opt2_r_ratio:2.4}, sb2/sb1: {opt2_sb_ratio:2.4}. \n'
+                  f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        else:
+            print(f'\033[0;32;48mInitial - e: {par_init[0]:2.4}, w: {par_init[1] / np.pi * 180:2.4} deg, '
+                  f'i: {par_init[2] / np.pi * 180:2.4} deg, (r1+r2)/a: {par_init[3]:2.4}, r2/r1: {par_init[4]:2.4}, '
+                  f'sb2/sb1: {par_init[5]:2.4}. \n'
+                  f'Simple fit - e: {opt1_e:2.4}, w: {opt1_w / np.pi * 180:2.4} deg, i: {opt1_i / np.pi * 180:2.4} deg,'
+                  f' (r1+r2)/a: {opt1_r_sum_sma:2.4}, r2/r1: {opt1_r_ratio:2.4}, sb2/sb1: {opt1_sb_ratio:2.4}. \n'
+                  f'ellc fit - e: {opt2_e}, w: {opt2_w} deg, i: {opt2_i} deg, '
+                  f'(r1+r2)/a: {opt2_r_sum_sma}, r2/r1: {opt2_r_ratio}, sb2/sb1: {opt2_sb_ratio}. \n'
+                  f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return par_opt_simple, par_opt_ellc
 
 
@@ -1686,8 +1701,8 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, data_id=None, overwrite=False,
-                     verbose=False):
+def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, fit_ellc=False, data_id=None,
+                     overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
 
@@ -1713,6 +1728,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    fit_ellc: bool
+        Whether to also fit ellc eclipse light curve models to the data
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -1818,8 +1835,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.csv')
     par_init_14 = (e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14)
     out_15 = analysis_eclipse_model(times, signal, signal_err, par_init_14, p_orb_9, t_zero_13, timings_13[:6], const_9,
-                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name, data_id=data_id,
-                                    overwrite=overwrite, verbose=verbose)
+                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, fit_ellc=fit_ellc, file_name=file_name,
+                                    data_id=data_id, overwrite=overwrite, verbose=verbose)
     par_opt_15, par_opt_15b = out_15  # used to be par_opt_simple and par_opt_ellc
     # --- [16] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16.csv')
@@ -1830,15 +1847,18 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # const_16_1, slope_16_1, f_n_16_1, a_n_16_1, ph_n_16_1 = out_16[:5]
     const_16_2, slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2 = out_16[5:]
     # ellc model (convert optimised parameters)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.csv')
-    f_c, f_s = par_opt_15b[0]**0.5 * np.cos(par_opt_15b[1]), par_opt_15b[0]**0.5 * np.sin(par_opt_15b[1])
-    par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
-    ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
-    residual = signal - ecl_model_ellc
-    out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
-                                              overwrite=overwrite, verbose=verbose)
-    # const_16b_1, slope_16b_1, f_n_16b_1, a_n_16b_1, ph_n_16b_1 = out_16b[:5]
-    const_16b_2, slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2 = out_16b[5:]
+    if fit_ellc:
+        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.csv')
+        f_c, f_s = par_opt_15b[0]**0.5 * np.cos(par_opt_15b[1]), par_opt_15b[0]**0.5 * np.sin(par_opt_15b[1])
+        par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
+        ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
+        residual = signal - ecl_model_ellc
+        out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
+                                                  overwrite=overwrite, verbose=verbose)
+        # const_16b_1, slope_16b_1, f_n_16b_1, a_n_16b_1, ph_n_16b_1 = out_16b[:5]
+        const_16b_2, slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2 = out_16b[5:]
+    else:
+        out_16b = None
     # --- [17] --- Full model fit
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.csv')
     out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16_2,
@@ -1846,11 +1866,14 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
     t_zero_r_17, ecl_par_r_17, const_r_17, slope_r_17, f_n_r_17, a_n_r_17, ph_n_r_17 = out_17
     # ellc model
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
-    out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
-                                           slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
-                                           file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
-    t_zero_r_17b, ecl_par_r_17b, const_r_17b, slope_r_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b = out_17b
+    if fit_ellc:
+        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
+        out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
+                                               slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
+                                               file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+        t_zero_r_17b, ecl_par_r_17b, const_r_17b, slope_r_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b = out_17b
+    else:
+        out_17b = None
     # --- [18] --- Frequency selection [pulsation analysis from here on]
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
     out_18 = analysis_frequency_selection(times, signal, ecl_model_simple, f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9,
@@ -1858,16 +1881,19 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
                                           verbose=verbose)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
     # ellc model
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
-    out_18b = analysis_frequency_selection(times, signal, ecl_model_ellc, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
-                                           noise_level_9, i_sectors, file_name=file_name, data_id=data_id,
-                                           overwrite=overwrite, verbose=verbose)
+    if fit_ellc:
+        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
+        out_18b = analysis_frequency_selection(times, signal, ecl_model_ellc, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
+                                               noise_level_9, i_sectors, file_name=file_name, data_id=data_id,
+                                               overwrite=overwrite, verbose=verbose)
+    else:
+        out_18b = None
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b
     # --- [19] --- Harmonics in the residuals
     # determine which residual frequencies are consistent with harmonics (already done in plotting)
     # --- [20] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
-    return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_17, out_17b, out_18, out_18b
+    return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_16b, out_17, out_17b, out_18, out_18b
 
 
 def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=None, overwrite=False, verbose=False):
