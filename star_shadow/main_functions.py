@@ -6,9 +6,9 @@ This Python module contains the main functions that link together all functional
 
 Code written by: Luc IJspeert
 """
-
 import os
 import time
+import logging
 import numpy as np
 import functools as fct
 import multiprocessing as mp
@@ -172,9 +172,10 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
         hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
         np.savetxt(file_name_l, data, delimiter=',', header=hdr)
     if (len(f_n_2) == 0):
+        message = 'No frequencies found.'
+        logging.info(message)
         if verbose:
-            print(f'No frequencies found.')
-        np.savetxt(file_name.replace(fn_ext, '.txt'), ['No frequencies found'], fmt='%s')
+            print(message)
     return const_1, slope_1, f_n_1, a_n_1, ph_n_1, const_2, slope_2, f_n_2, a_n_2, ph_n_2
 
 
@@ -302,9 +303,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         frequencies at a time. Fitting in groups is a trade-off between accuracy and
         drastically reduced time taken.
     3) Measure the orbital period and couple the harmonic frequencies
-        Find the orbital period from the longest series of harmonics.
-        Find the harmonics with the orbital period, measure a better period
-        from the harmonics and set the frequencies of the harmonics to their new values.
+        Global search done with combined phase dispersion, Lomb-Scargle and length/filling factor
+        of harmonic series in the list of frequencies. The period is refined by minimising distance
+        from frequencies to theoretical series of harmonics. Set the frequencies of the harmonics
+        to their new values, coupling them to the orbital period.
         [Note: it is possible to provide a fixed period if it is already well known. It will
         still be included as a free parameter in the fits]
     4) Attempt to extract a few more orbital harmonics
@@ -330,9 +332,6 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     t_tot = np.ptp(times)  # total time base of observations
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
-    # for saving, make a folder if not there yet
-    if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
-        os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
     # ----------------------------------------------------------------------------------------
     # [1 and 2] --- initial iterative extraction of frequencies and first multi-sine NL-LS fit
     # ----------------------------------------------------------------------------------------
@@ -360,60 +359,26 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
         model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
         if verbose:
-            print(f'Step 3: Loaded existing results\n')
-    elif os.path.isfile(file_name_3.replace(fn_ext, '.txt')) & (not overwrite):  # p_orb too long last time
-        p_orb_i = [0, 0]
-        const_i = [const_1, const_2]
-        slope_i = [slope_1, slope_2]
-        f_n_i = [f_n_1, f_n_2]
-        a_n_i = [a_n_1, a_n_2]
-        ph_n_i = [ph_n_1, ph_n_2]
-        if verbose:
-            print(f'Step 3: Period over time-base is less than two\n')
-        return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_3))[0]}')
     else:
         if verbose:
-            print(f'Step 3: Coupling the harmonic frequencies to the orbital frequency.')
+            print(f'Coupling the harmonic frequencies to the orbital frequency.')
         t_3a = time.time()
         if (p_orb == 0):
             p_orb_3 = analysis_orbital_period(times, signal, f_n_2)
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
+        # if time-series too short, or no harmonics found, log and warn and maybe cut off the analysis
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
-        # if time-series too short, or no harmonics found, warn and cut off the analysis
-        if (t_tot / p_orb_3 < 2):
-            if verbose:
-                print(f'Period over time-base is less than two: {t_tot / p_orb_3}')
-            # save
-            col1 = ['Period over time-base is less than two:', 'period (days)', 'time-base (days)']
-            col2 = [t_tot / p_orb_3, p_orb_3, t_tot]
-            np.savetxt(file_name_3.replace(fn_ext, '.txt'), np.column_stack((col1, col2)), fmt='%s')
-            # return
-            if (t_tot / p_orb_3 < 1.1):
-                p_orb_i = [0, 0, p_orb_3]
-                const_i = [const_1, const_2, const_2]
-                slope_i = [slope_1, slope_2, slope_2]
-                f_n_i = [f_n_1, f_n_2, f_n_2]
-                a_n_i = [a_n_1, a_n_2, a_n_2]
-                ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
-                return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+        if (t_tot / p_orb_3 < 1.1):
+            out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2  # return previous results
         elif (len(harmonics) < 2):
-            if verbose:
-                print(f'Not enough harmonics found: {len(harmonics)}')
-            # save and return
-            col1 = ['Not enough harmonics found:', 'period (days)', 'time-base (days)']
-            col2 = [len(harmonics), p_orb_3, t_tot]
-            np.savetxt(file_name_3.replace(fn_ext, '.txt'), np.column_stack((col1, col2)), fmt='%s')
-            p_orb_i = [0, 0, p_orb_3]
-            const_i = [const_1, const_2, const_2]
-            slope_i = [slope_1, slope_2, slope_2]
-            f_n_i = [f_n_1, f_n_2, f_n_2]
-            a_n_i = [a_n_1, a_n_2, a_n_2]
-            ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
-            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
-        # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
-        out_3 = tsf.fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors)
+            out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2  # return previous results
+        else:
+            # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
+            out_3 = tsf.fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2,
+                                               i_sectors)
         t_3b = time.time()
         # main function done, do the rest for this step
         const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
@@ -437,6 +402,37 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
         desc = 'Harmonic frequencies coupled.'
         ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    # return in the following cases (and log message)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
+    if (t_tot / p_orb_3 < 1.1):
+        message = (f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+        logging.info(message)
+        if verbose:
+            print(message)
+        # return previous results
+        out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2
+    elif (len(harmonics) < 2):
+        message = (f'Not enough harmonics found: {len(harmonics)}; '
+                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+        logging.info(message)
+        if verbose:
+            print(message)
+        # return previous results
+    elif (t_tot / p_orb_3 < 2):
+        message = (f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+        logging.info(message)
+        if verbose:
+            print(message)
+    if (t_tot / p_orb_3 < 1.1) | (len(harmonics) < 2):
+        p_orb_i = [0, 0, p_orb_3]
+        const_i = [const_1, const_2, const_2]
+        slope_i = [slope_1, slope_2, slope_2]
+        f_n_i = [f_n_1, f_n_2, f_n_2]
+        a_n_i = [a_n_1, a_n_2, a_n_2]
+        ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
+        return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
     # ----------------------------------------------------------------------
     # [4] --- attempt to extract more harmonics knowing where they should be
     # ----------------------------------------------------------------------
@@ -448,10 +444,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
         model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
         if verbose:
-            print(f'Step 4: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_4))[0]}')
     else:
         if verbose:
-            print(f'Step 4: Looking for additional harmonics.')
+            print(f'Looking for additional harmonics.')
         t_4a = time.time()
         out_4 = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb_3, const_3, slope_3,
                                                  f_n_3, a_n_3, ph_n_3, i_sectors, verbose=verbose)
@@ -489,10 +485,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
         model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
         if verbose:
-            print(f'Step 5: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_5))[0]}')
     else:
         if verbose:
-            print(f'Step 5: Starting multi-sine NL-LS fit with harmonics.')
+            print(f'Starting multi-sine NL-LS fit with harmonics.')
         t_5a = time.time()
         out_5 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_3, const_4, slope_4,
                                                              f_n_4, a_n_4, ph_n_4, i_sectors, verbose=verbose)
@@ -528,10 +524,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
         model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
         if verbose:
-            print(f'Step 6: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_6))[0]}')
     else:
         if verbose:
-            print(f'Step 6: Looking for additional frequencies.')
+            print(f'Looking for additional frequencies.')
         t_6a = time.time()
         out_6 = tsf.extract_additional_frequencies(times, signal, signal_err, p_orb_5, const_5, slope_5,
                                                    f_n_5, a_n_5, ph_n_5, i_sectors, verbose=verbose)
@@ -569,11 +565,11 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
         model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
         if verbose:
-            print(f'Step 7: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_7))[0]}')
     else:
         if (len(f_n_5) < len(f_n_6)):
             if verbose:
-                print(f'Step 7: Starting multi-sine NL-LS fit with harmonics.')
+                print(f'Starting multi-sine NL-LS fit with harmonics.')
             t_7a = time.time()
             out_7 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_5, const_6, slope_6,
                                                                  f_n_6, a_n_6, ph_n_6, i_sectors, verbose=verbose)
@@ -602,7 +598,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
             p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5
             model_7 = np.copy(model_5)
             if verbose:
-                print(f'\033[1;32;48mNo frequencies added, so no additional fit needed.\033[0m')
+                print(f'\033[1;32;48mNo frequencies added, so no additional fit needed.\033[0m\n')
     # ----------------------------------------------------------------------
     # [8] --- try to reduce the number of frequencies after the fit was done
     # ----------------------------------------------------------------------
@@ -613,10 +609,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
         model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
         if verbose:
-            print(f'Step 8: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_8))[0]}')
     else:
         if verbose:
-            print(f'Step 8: Attempting to reduce the number of frequencies.')
+            print(f'Attempting to reduce the number of frequencies.')
         t_8a = time.time()
         out_8 = tsf.reduce_frequencies_harmonics(times, signal, signal_err, p_orb_7, const_7, slope_7,
                                                  f_n_7, a_n_7, ph_n_7, i_sectors, verbose=verbose)
@@ -654,11 +650,11 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
         model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
         if verbose:
-            print(f'Step 9: Loaded existing results\n')
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_9))[0]}')
     else:
         if (len(f_n_7) > len(f_n_8)):
             if verbose:
-                print(f'Step 9: Starting second multi-sine NL-LS fit with harmonics.')
+                print(f'Starting second multi-sine NL-LS fit with harmonics.')
             t_9a = time.time()
             out_9 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_7, const_8, slope_8,
                                                                  f_n_8, a_n_8, ph_n_8, i_sectors, verbose=verbose)
@@ -681,7 +677,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
             model_9 = np.copy(model_7)
             bic_9 = tsf.calc_bic((signal - model_9)/signal_err, n_param_9)
             if verbose:
-                print(f'\033[1;32;48mNo frequencies removed, so no additional fit needed.\033[0m')
+                print(f'\033[1;32;48mNo frequencies removed, so no additional fit needed.\033[0m\n')
         # save
         results = (p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9)
         f_errors = tsf.formal_uncertainties(times, signal - model_9, a_n_9, i_sectors)
@@ -704,8 +700,10 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         np.savetxt(file_name, data, delimiter=',', header=hdr)
     # final timing and message
     t_0b = time.time()
+    message = f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s.'
+    logging.info(message)
     if verbose:
-        print(f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s.\n')
+        print(message + '\n')
     # make lists
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_7, p_orb_9]
     const_i = [const_1, const_2, const_3, const_4, const_5, const_6, const_7, const_8, const_9]
@@ -771,15 +769,14 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
     t_a = time.time()
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
-    file_name_3 = file_name.replace(fn_ext, '.txt')
     if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_timings(file_name)
         t_zero, timings, depths, timings_err, depths_err, ecl_indices = results
-    elif os.path.isfile(file_name_3) & (not overwrite):
+    elif (not os.path.isfile(file_name)) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
-            print(f'Not enough eclipses found last time (see {os.path.splitext(os.path.basename(file_name_3))[0]})')
+            print('Not enough eclipses found last time (see log)')
         return (None,) * 6
     else:
         if verbose:
@@ -806,16 +803,19 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         # account for not finding eclipses
         if np.all([item is None for item in output]):
             message = f'No eclipse signatures found above the noise level of {noise_level}'
-            np.savetxt(file_name.replace(fn_ext, '.txt'), [message], fmt='%s')
+            logging.info(message)
             if verbose:
                 print(message)
+            # save only indices file
+            ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
             return (None,) * 6
         elif np.any([item is None for item in output]):
             message = 'No two eclipses found passing the criteria'
-            np.savetxt(file_name.replace(fn_ext, '.txt'), [message], fmt='%s')
-            ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
+            logging.info(message)
             if verbose:
                 print(message)
+            # save only indices file
+            ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
             return (None,) * 5 + (ecl_indices,)
         # minima and first/last contact and internal tangency
         timings = np.array([t_1, t_2, *t_contacts, *t_tangency])
@@ -1110,6 +1110,10 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         p_orb, const, slope, f_n, a_n, ph_n = results
         p_orb = p_orb[0]  # must be float
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
+        mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_em
+        d_1, d_2 = depths_em
+        t_1_err, t_2_err, t_1_i_err, t_1_i_err, t_2_i_err, t_2_i_err = timings_err
+        depth_1_err, depth_2_err = depths_err
     else:
         if verbose:
             print(f'Full fit of cubic model and sinusoids')
@@ -1164,22 +1168,22 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         stats = (n_param, bic, noise_level)
         ut.save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, depths_em, timings_err,
                                        depths_err, p_t_corr, i_sectors, file_name, data_id=data_id)
-        # check eclipse significance
-        dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
-        dur_1_err, dur_2_err = np.sqrt(t_1_i_err**2 + t_1_i_err**2), np.sqrt(t_2_i_err**2 + t_2_i_err**2)
-        dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
-        depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)
-        dur_insig = (dur_1 < dur_1_err) | (dur_2 < dur_2_err)
-        if dur_diff | depth_insig | dur_insig:
-            if depth_insig:
-                line = [f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}']
-            elif dur_insig:
-                line = [f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}']
-            elif dur_diff:
-                line = [f'One of the eclipses too narrow compared to the other, durations: {dur_1}, {dur_2}']
-            if verbose:
-                print(line[0])
-            np.savetxt(file_name.replace(fn_ext, '.txt'), line, fmt='%s')
+    # check eclipse significance
+    dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
+    dur_1_err, dur_2_err = np.sqrt(t_1_i_err**2 + t_1_i_err**2), np.sqrt(t_2_i_err**2 + t_2_i_err**2)
+    dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
+    depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)
+    dur_insig = (dur_1 < dur_1_err) | (dur_2 < dur_2_err)
+    if dur_diff | depth_insig | dur_insig:
+        if depth_insig:
+            message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}'
+        elif dur_insig:
+            message = f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}'
+        elif dur_diff:
+            message = f'One of the eclipses too narrow compared to the other, durations: {dur_1}, {dur_2}'
+        logging.info(message)
+        if verbose:
+            print(message)
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
@@ -1326,11 +1330,11 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
         # save
         ut.save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
                                  dists_in, dists_out, file_name, data_id)
-        if (e > 0.99):
-            line1 = [f'Unphysically large eccentricity found: {e}']
-            if verbose:
-                print(line1)
-            np.savetxt(file_name.replace(fn_ext, '.txt'), line1, fmt='%s')
+    if (e > 0.99):
+        message = f'Unphysically large eccentricity found: {e}'
+        logging.info(message)
+        if verbose:
+            print(message)
     t_b = time.time()
     if verbose:
         e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
@@ -1931,9 +1935,18 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
     -----
     Results are saved in the same directory as the given file
     """
-    # load the data
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
     save_dir = os.path.dirname(file_name)
+    # for saving, make a folder if not there yet
+    if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
+        os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
+    # create log file/start logging
+    logname = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}.log')
+    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    logging.info('Start of analysis')
+    # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
     # if sectors not given, take full length
@@ -1951,6 +1964,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
         out_b = eclipse_analysis(times, signal, signal_err, i_half_s, t_int, target_id, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(times, signal, signal_err, i_half_s, target_id, **kw_args)
+    logging.info('End of analysis')
     if verbose:
         print('done.')
     return None
@@ -1989,9 +2003,18 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     -----
     Results are saved in the same directory as the given file
     """
-    # load the data
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
     save_dir = os.path.dirname(file_name)
+    # for saving, make a folder if not there yet
+    if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
+        os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
+    # create log file/start logging
+    logname = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}.log')
+    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    logging.info('Start of analysis')
+    # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
     t_tot = np.ptp(times)  # total time base of observations
@@ -2018,6 +2041,7 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
     col2 = [p_orb, p_err, t_tot, len(f_n_1)]
     np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s')
+    logging.info('End of analysis')
     if verbose:
         print(f'P_orb = {p_orb}, done.')
     return p_orb
@@ -2053,6 +2077,15 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
     -------
     None
     """
+    # for saving, make a folder if not there yet
+    if not os.path.isdir(os.path.join(save_dir, f'{tic}_analysis')):
+        os.mkdir(os.path.join(save_dir, f'{tic}_analysis'))  # create the subdir
+    # create log file/start logging
+    logname = os.path.join(save_dir, f'{tic}_analysis', f'{tic}.log')
+    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    logging.info('Start of analysis')
     # load the data
     lc_data = ut.load_tess_lc(tic, all_files, apply_flags=True)
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
@@ -2070,6 +2103,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
         out_b = eclipse_analysis(times, signal, signal_err, i_half_s, t_int, tic, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(times, signal, signal_err, i_half_s, tic, **kw_args)
+    logging.info('End of analysis')
     if verbose:
         print('done.')
     return None
