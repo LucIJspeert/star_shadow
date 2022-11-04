@@ -19,8 +19,8 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, data_id=None, overwrite=False,
-                                    verbose=False):
+def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, logger, data_id=None,
+                                    overwrite=False, verbose=False):
     """Iterative prewhitening of the input signal in the form of
     sine waves and a piece-wise linear curve
 
@@ -41,6 +41,8 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -172,10 +174,7 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
         hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
         np.savetxt(file_name_l, data, delimiter=',', header=hdr)
     if (len(f_n_2) == 0):
-        message = 'No frequencies found.'
-        logging.info(message)
-        if verbose:
-            print(message)
+        logger.info('No frequencies found.')
     return const_1, slope_1, f_n_1, a_n_1, ph_n_1, const_2, slope_2, f_n_2, a_n_2, ph_n_2
 
 
@@ -238,7 +237,7 @@ def analysis_orbital_period(times, signal, f_n):
     return p_orb
 
 
-def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, target_id, save_dir, data_id=None,
+def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, target_id, save_dir, logger, data_id=None,
                        overwrite=False, verbose=False):
     """Recipe for analysis of EB light curves.
 
@@ -268,6 +267,8 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -405,24 +406,17 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     # return in the following cases (and log message)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
     if (t_tot / p_orb_3 < 1.1):
-        message = (f'Period over time-base is less than two: {t_tot / p_orb_3}; '
-                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-        logging.info(message)
-        if verbose:
-            print(message)
+        logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
         # return previous results
         out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2
     elif (len(harmonics) < 2):
-        message = (f'Not enough harmonics found: {len(harmonics)}; '
-                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-        logging.info(message)
-        if verbose:
-            print(message)
+        logger.info(f'Not enough harmonics found: {len(harmonics)}; '
+                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
         # return previous results
     elif (t_tot / p_orb_3 < 2):
-        message = (f'Period over time-base is less than two: {t_tot / p_orb_3}; '
-                   f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-        logging.info(message)
+        logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
         if verbose:
             print(message)
     if (t_tot / p_orb_3 < 1.1) | (len(harmonics) < 2):
@@ -700,10 +694,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         np.savetxt(file_name, data, delimiter=',', header=hdr)
     # final timing and message
     t_0b = time.time()
-    message = f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s.'
-    logging.info(message)
-    if verbose:
-        print(message + '\n')
+    logger.info(f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s.')
     # make lists
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_7, p_orb_9]
     const_i = [const_1, const_2, const_3, const_4, const_5, const_6, const_7, const_8, const_9]
@@ -714,7 +705,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name, data_id=None,
+def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name, logger, data_id=None,
                              overwrite=False, verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
@@ -738,6 +729,8 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -802,18 +795,12 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
             t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
         # account for not finding eclipses
         if np.all([item is None for item in output]):
-            message = f'No eclipse signatures found above the noise level of {noise_level}'
-            logging.info(message)
-            if verbose:
-                print(message)
+            logger.info(f'No eclipse signatures found above the noise level of {noise_level}')
             # save only indices file
             ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
             return (None,) * 6
         elif np.any([item is None for item in output]):
-            message = 'No two eclipses found passing the criteria'
-            logging.info(message)
-            if verbose:
-                print(message)
+            logger.info('No two eclipses found passing the criteria')
             # save only indices file
             ut.save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
             return (None,) * 5 + (ecl_indices,)
@@ -1007,7 +994,7 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
 
 
 def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                                i_sectors, t_int, file_name, data_id=None, overwrite=False, verbose=False):
+                                i_sectors, t_int, file_name, logger, data_id=None, overwrite=False, verbose=False):
     """Refine the eclipse timings using an empirical model of cubic functions
 
     Parameters
@@ -1051,6 +1038,8 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -1181,9 +1170,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
             message = f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}'
         elif dur_diff:
             message = f'One of the eclipses too narrow compared to the other, durations: {dur_1}, {dur_2}'
-        logging.info(message)
-        if verbose:
-            print(message)
+        logger.info(message)
     t_b = time.time()
     if verbose:
         # determine decimals to print for two significant figures
@@ -1226,7 +1213,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
 
 
 def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, p_t_corr, file_name,
-                              data_id=None, overwrite=False, verbose=False):
+                              logger, data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
     Parameters
@@ -1254,6 +1241,8 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -1331,10 +1320,7 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
         ut.save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
                                  dists_in, dists_out, file_name, data_id)
     if (e > 0.99):
-        message = f'Unphysically large eccentricity found: {e}'
-        logging.info(message)
-        if verbose:
-            print(message)
+        logger.info(f'Unphysically large eccentricity found: {e}')
     t_b = time.time()
     if verbose:
         e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
@@ -1705,8 +1691,8 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
 
-def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, fit_ellc=False, data_id=None,
-                     overwrite=False, verbose=False):
+def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, logger, fit_ellc=False,
+                     data_id=None, overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
 
@@ -1732,6 +1718,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
     fit_ellc: bool
         Whether to also fit ellc eclipse light curve models to the data
     data_id: int, str, None
@@ -1770,6 +1758,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         output of analysis_frequency_selection for ellc model
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
+    kwargs_1 = {'file_name':file_name, 'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
+    kwargs_2 = {'file_name':file_name, 'logger':logger, 'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
@@ -1784,16 +1774,14 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     n_param_9, bic_9, noise_level_9 = stats
     # --- [10] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.csv')
-    out_10 = analysis_eclipse_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9,
-                                      file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+    out_10 = analysis_eclipse_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, **kwargs_2)
     t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = out_10
     if np.any([item is None for item in out_10]):
         return (None,) * 10  # could still not find eclipses for some reason
     # --- [11] --- Initial cubics model timings
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')
     out_11 = analysis_cubics_model(times, signal, signal_err, p_orb_9, t_zero_10, timings_10, depths_10, const_9,
-                                   slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name, data_id=data_id,
-                                   overwrite=overwrite, verbose=verbose)
+                                   slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, **kwargs_1)
     t_zero_11, timings_11, depths_11 = out_11
     # --- [12] --- Disentangling with cubics
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12.csv')
@@ -1802,16 +1790,14 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     model_cubics = 1 + tsfit.eclipse_cubics_model(times, p_orb_9, t_zero_11, mid_1, mid_2, t_c1_1, t_c3_1,
                                                   t_c1_2, t_c3_2, depth_1, depth_2)
     residual = signal - model_cubics
-    out_12 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
-                                             overwrite=overwrite, verbose=verbose)
+    out_12 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
     # const_12_1, slope_12_1, f_n_12_1, a_n_12_1, ph_n_12_1 = out_12[:5]
     const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2 = out_12[5:]
     # --- [13] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.csv')
     out_13 = analysis_cubics_sines_model(times, signal, signal_err, p_orb_9, t_zero_11, timings_11, depths_11,
-                                         const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2, i_sectors,
-                                         t_int, file_name=file_name, data_id=data_id, overwrite=overwrite,
-                                         verbose=verbose)
+                                         const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2, i_sectors, t_int,
+                                         **kwargs_2)
     t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13, p_t_corr_13 = out_13[:6]
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[6:]
     # check for significance
@@ -1829,8 +1815,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
     out_14 = analysis_eclipse_elements(p_orb_9, t_zero_13, timings_13, depths_13, p_err_9, timings_err_13,
-                                       depths_err_13, p_t_corr_13, file_name=file_name, data_id=data_id,
-                                       overwrite=overwrite, verbose=verbose)
+                                       depths_err_13, p_t_corr_13, **kwargs_2)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
         return (None,) * 10  # unphysical parameters
@@ -1839,15 +1824,13 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.csv')
     par_init_14 = (e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14)
     out_15 = analysis_eclipse_model(times, signal, signal_err, par_init_14, p_orb_9, t_zero_13, timings_13[:6], const_9,
-                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, fit_ellc=fit_ellc, file_name=file_name,
-                                    data_id=data_id, overwrite=overwrite, verbose=verbose)
+                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, fit_ellc=fit_ellc, **kwargs_1)
     par_opt_15, par_opt_15b = out_15  # used to be par_opt_simple and par_opt_ellc
     # --- [16] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16.csv')
     ecl_model_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *par_opt_15)
     residual = signal - ecl_model_simple
-    out_16 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
-                                             overwrite=overwrite, verbose=verbose)
+    out_16 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
     # const_16_1, slope_16_1, f_n_16_1, a_n_16_1, ph_n_16_1 = out_16[:5]
     const_16_2, slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2 = out_16[5:]
     # ellc model (convert optimised parameters)
@@ -1857,8 +1840,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
         ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
         residual = signal - ecl_model_ellc
-        out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name, data_id=data_id,
-                                                  overwrite=overwrite, verbose=verbose)
+        out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
         # const_16b_1, slope_16b_1, f_n_16b_1, a_n_16b_1, ph_n_16b_1 = out_16b[:5]
         const_16b_2, slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2 = out_16b[5:]
     else:
@@ -1867,29 +1849,27 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.csv')
     out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16_2,
                                           slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2, i_sectors, model='simple',
-                                          file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+                                          **kwargs_1)
     t_zero_r_17, ecl_par_r_17, const_r_17, slope_r_17, f_n_r_17, a_n_r_17, ph_n_r_17 = out_17
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
         out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
                                                slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
-                                               file_name=file_name, data_id=data_id, overwrite=overwrite, verbose=verbose)
+                                               **kwargs_1)
         t_zero_r_17b, ecl_par_r_17b, const_r_17b, slope_r_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b = out_17b
     else:
         out_17b = None
     # --- [18] --- Frequency selection [pulsation analysis from here on]
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
     out_18 = analysis_frequency_selection(times, signal, ecl_model_simple, f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9,
-                                          i_sectors, file_name=file_name, data_id=data_id, overwrite=overwrite,
-                                          verbose=verbose)
+                                          i_sectors, **kwargs_1)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
         out_18b = analysis_frequency_selection(times, signal, ecl_model_ellc, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
-                                               noise_level_9, i_sectors, file_name=file_name, data_id=data_id,
-                                               overwrite=overwrite, verbose=verbose)
+                                               noise_level_9, i_sectors, **kwargs_1)
     else:
         out_18b = None
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b
@@ -1898,6 +1878,47 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # --- [20] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
     return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_16b, out_17, out_17b, out_18, out_18b
+
+
+def custom_logger(save_dir, target_id, verbose):
+    """Create a custom logger for logging to file and to stdout
+    
+    Parameters
+    ----------
+    save_dir: str
+        folder to save the log file
+    target_id: str
+        Identifier to use for the log file
+    verbose: bool
+        If set to True, information will be printed by the logger
+    
+    Returns
+    -------
+    logger: object
+        Logging logger object for logging, prints and/or saves information.
+    """
+    # create a custom logger
+    logname = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}.log')
+    logger = logging.getLogger(f'{target_id}')
+    logger.setLevel(logging.INFO)  # set base activation level for logger
+    # make formatters for the handlers
+    s_format = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    f_format = logging.Formatter(fmt='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
+                                 datefmt='%Y-%m-%d %H:%M:%S')
+    # remove existing handlers to avoid duplicate messages
+    if (logger.hasHandlers()):
+        logger.handlers.clear()
+    # make handlers
+    if verbose:
+        s_handler = logging.StreamHandler()  # for printing
+        s_handler.setLevel(logging.INFO)  # print everything with level 20 or above
+        s_handler.setFormatter(s_format)
+        logger.addHandler(s_handler)
+    f_handler = logging.FileHandler(logname, mode='a')  # for saving
+    f_handler.setLevel(logging.INFO)  # save everything with level 20 or above
+    f_handler.setFormatter(f_format)
+    logger.addHandler(f_handler)
+    return logger
 
 
 def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=None, overwrite=False, verbose=False):
@@ -1940,12 +1961,8 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
     # for saving, make a folder if not there yet
     if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
         os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
-    # create log file/start logging
-    logname = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}.log')
-    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
-                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-    logging.info('Start of analysis')
+    logger = custom_logger(save_dir, target_id, verbose)  # log stuff
+    logger.info('Start of analysis')  # warning to save to log
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
@@ -1953,7 +1970,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
     if i_sectors is None:
         i_sectors = np.array([[0, len(times)]])  # no sector information
     i_half_s = i_sectors  # in this case no differentiation between half or full sectors
-    kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
+    kw_args = {'save_dir': save_dir, 'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # if not t_int given, estimate as the median time step
     if t_int is None:
         t_int = np.median(np.diff(times))
@@ -1964,9 +1981,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
         out_b = eclipse_analysis(times, signal, signal_err, i_half_s, t_int, target_id, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(times, signal, signal_err, i_half_s, target_id, **kw_args)
-    logging.info('End of analysis')
-    if verbose:
-        print('done.')
+    logger.info('End of analysis')  # warning to save to log
     return None
 
 
@@ -2008,17 +2023,13 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     # for saving, make a folder if not there yet
     if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
         os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
-    # create log file/start logging
-    logname = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}.log')
-    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
-                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-    logging.info('Start of analysis')
+    logger = custom_logger(save_dir, target_id, verbose)  # log stuff
+    logger.info('Start of analysis')
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     times = times - times[0]  # translate time array to start at zero
     t_tot = np.ptp(times)  # total time base of observations
-    kw_args = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
+    kw_args = {'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # if sectors not given, take full length
     if i_sectors is None:
         i_sectors = np.array([[0, len(times)]])  # no sector information
@@ -2041,7 +2052,7 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
     col2 = [p_orb, p_err, t_tot, len(f_n_1)]
     np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s')
-    logging.info('End of analysis')
+    logger.info('End of analysis')
     if verbose:
         print(f'P_orb = {p_orb}, done.')
     return p_orb
@@ -2080,19 +2091,15 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
     # for saving, make a folder if not there yet
     if not os.path.isdir(os.path.join(save_dir, f'{tic}_analysis')):
         os.mkdir(os.path.join(save_dir, f'{tic}_analysis'))  # create the subdir
-    # create log file/start logging
-    logname = os.path.join(save_dir, f'{tic}_analysis', f'{tic}.log')
-    logging.basicConfig(filename=logname, filemode='a', level=logging.INFO,
-                        format='%(asctime)s %(levelname)s %(module)s - %(funcName)s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-    logging.info('Start of analysis')
+    logger = custom_logger(save_dir, target_id, verbose)  # log stuff
+    logger.info('Start of analysis')
     # load the data
     lc_data = ut.load_tess_lc(tic, all_files, apply_flags=True)
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
-    kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
+    kw_args = {'save_dir': save_dir, 'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # if not t_int given, estimate as the median time step
     if t_int is None:
         t_int = np.median(np.diff(times))
@@ -2103,7 +2110,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
         out_b = eclipse_analysis(times, signal, signal_err, i_half_s, t_int, tic, **kw_args)
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(times, signal, signal_err, i_half_s, tic, **kw_args)
-    logging.info('End of analysis')
+    logger.info('End of analysis')
     if verbose:
         print('done.')
     return None
