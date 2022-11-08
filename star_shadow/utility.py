@@ -1230,8 +1230,8 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
         Formal (symmetric) errors in the parameters:
         e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
     dists_in: tuple[numpy.ndarray[float]]
-        Full input distributions for: t_1, t_2,
-        tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bot_1, bot_2
+        Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
     file_name: str, None
@@ -1324,8 +1324,8 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
     file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
     description = 'Prior and posterior distributions (not MCMC).'
     hdr = (f'{file_id}, {data_id}, {description}\n'
-           't_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, '
-           't_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
+           'p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, '
+           't_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
            'e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals')
     np.savetxt(file_name_2, data, delimiter=',', header=hdr)
     return None
@@ -1372,8 +1372,8 @@ def read_results_elements(file_name):
         Formal (symmetric) errors in the parameters:
         e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
     dists_in: tuple[numpy.ndarray[float]]
-        Full input distributions for: t_1, t_2,
-        tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, bot_1, bot_2
+        Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
     """
@@ -1386,8 +1386,8 @@ def read_results_elements(file_name):
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
-    dists_in = all_dists[:12]
-    dists_out = all_dists[12:]
+    dists_in = all_dists[:13]
+    dists_out = all_dists[13:]
     return e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out
 
 
@@ -1953,6 +1953,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
                 vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no frequencies?
     if show:
         try:
             vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
@@ -1973,6 +1975,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
                 vis.plot_lc_pd_harmonic_output(times, signal, *plot_data, i_sectors, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
+        except ValueError:
+            pass  # no frequencies?
     # eclipse_analysis
     if save_dir is not None:
         try:
@@ -2000,7 +2004,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_eclipse_analysis_corner.png')
-            vis.plot_corner_eclipse_parameters(timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
+            vis.plot_corner_eclipse_parameters(p_orb_9, timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
                                                r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14,
                                                save_file=file_name, show=False)
         except NameError:
@@ -2052,7 +2056,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_eclipse_parameters(timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
+            vis.plot_corner_eclipse_parameters(p_orb_9, timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
                                                r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14,
                                                save_file=None, show=True)
         except NameError:

@@ -1090,8 +1090,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     return
 
 
-def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals,
-                                   t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals,
+def plot_corner_eclipse_parameters(p_orb, timings, depths, p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals,
+                                   t_2_1_vals, t_2_2_vals, t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals,
                                    d_1_vals, d_2_vals, e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals, w_vals, i_vals,
                                    rsumsma_vals, rratio_vals, sbratio_vals, save_file=None, show=True):
     """Shows the corner plots resulting from the input distributions
@@ -1100,6 +1100,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
+    # for if the w-distribution crosses over at 2 pi
     if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_vals = np.copy(w_vals)
     else:
@@ -1107,10 +1108,10 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
         mask = (np.sign((w / np.pi * 180 - 180) * (w_vals / np.pi * 180 - 180)) < 0)
         w_vals[mask] = w_vals[mask] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
     # input
-    value_names = np.array([r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
+    value_names = np.array([r'$p_{orb}$', r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
                             r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
-    values = np.array([t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
-    dist_data = np.column_stack((t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
+    values = np.array([p_orb, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
+    dist_data = np.column_stack((p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
                                  t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
@@ -1121,6 +1122,7 @@ def plot_corner_eclipse_parameters(timings, depths, t_1_vals, t_2_vals, t_1_1_va
     else:
         fig.suptitle('Input distributions')
     plt.tight_layout()
+    fig.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
         if save_file.endswith('.png'):
             fig_save_file = save_file.replace('.png', '_in.png')
@@ -1313,37 +1315,48 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     """Corner plot of the distributions and the given 'truths' indicated
     using the parametrisation of ellc
     """
+    r2d = 180 / np.pi  # radians to degrees
     e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals = distributions
     # transform some params - initial
     e, w, i_rad, r_sum_sma, r_ratio, sb_ratio = par_init
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
-    i = i_rad / np.pi * 180
-    par_init = np.array([ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio])
+    i = i_rad * r2d
+    par_init_a = np.array([ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio])
+    par_init_b = np.array([e, w * r2d, i, r_sum_sma, r_ratio, sb_ratio])
+    # for if the w-distribution crosses over at 2 pi
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
+        w_vals = np.copy(w_vals)
+    else:
+        w_vals = np.copy(w_vals)
+        mask = (np.sign((w / np.pi * 180 - 180) * (w_vals / np.pi * 180 - 180)) < 0)
+        w_vals[mask] = w_vals[mask] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
     # simple fit params
     opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
     opt1_ecosw, opt1_esinw = opt1_e * np.cos(opt1_w), opt1_e * np.sin(opt1_w)
-    opt1_i = opt1_i_rad / np.pi * 180
-    par_opt1 = np.array([opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
+    opt1_i = opt1_i_rad * r2d
+    par_opt1_a = np.array([opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
+    par_opt1_b = np.array([opt1_e, opt1_w * r2d, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
     # ellc fit params
     opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
     opt2_ecosw, opt2_esinw = opt2_e * np.cos(opt2_w), opt2_e * np.sin(opt2_w)
-    opt2_i = opt2_i_rad / np.pi * 180
-    par_opt2 = np.array([opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
+    opt2_i = opt2_i_rad * r2d
+    par_opt2_a = np.array([opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
+    par_opt2_b = np.array([opt2_e, opt2_w * r2d, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
     ecosw_vals = e_vals * np.cos(w_vals)
     esinw_vals = e_vals * np.sin(w_vals)
     # stack dists and plot
     value_names = np.array([r'$e\cdot cos(w)$', r'$e\cdot sin(w)$', 'i (deg)', r'$\frac{r_1+r_2}{a}$',
                             r'$\frac{r_2}{r_1}$', r'$\frac{sb_2}{sb_1}$'])
-    dist_data = np.column_stack((ecosw_vals, esinw_vals, i_vals / np.pi * 180, rsumsma_vals, rratio_vals, sbratio_vals))
+    dist_data = np.column_stack((ecosw_vals, esinw_vals, i_vals * r2d, rsumsma_vals, rratio_vals, sbratio_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
-    corner.overplot_lines(fig, par_init[nonzero_range], color='tab:blue')
-    corner.overplot_points(fig, [par_init[nonzero_range]], marker='s', color='tab:blue')
-    corner.overplot_lines(fig, par_opt1[nonzero_range], color='tab:orange')
-    corner.overplot_points(fig, [par_opt1[nonzero_range]], marker='s', color='tab:orange')
-    corner.overplot_lines(fig, par_opt2[nonzero_range], color='tab:green')
-    corner.overplot_points(fig, [par_opt2[nonzero_range]], marker='s', color='tab:green')
+    corner.overplot_lines(fig, par_init_a[nonzero_range], color='tab:blue')
+    corner.overplot_points(fig, [par_init_a[nonzero_range]], marker='s', color='tab:blue')
+    corner.overplot_lines(fig, par_opt1_a[nonzero_range], color='tab:orange')
+    corner.overplot_points(fig, [par_opt1_a[nonzero_range]], marker='s', color='tab:orange')
+    corner.overplot_lines(fig, par_opt2_a[nonzero_range], color='tab:green')
+    corner.overplot_points(fig, [par_opt2_a[nonzero_range]], marker='s', color='tab:green')
     if not np.all(nonzero_range):
         fig.suptitle('Output distributions and lc fit outcome'
                      f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
@@ -1352,6 +1365,35 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     plt.tight_layout()
     if save_file is not None:
         fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    # also make the other parameterisation corner plot
+    value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
+                            r'$\frac{sb_2}{sb_1}$'])
+    dist_data = np.column_stack((e_vals, w_vals * r2d, i_vals * r2d, rsumsma_vals, rratio_vals, sbratio_vals))
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
+    corner.overplot_lines(fig, par_init_b[nonzero_range], color='tab:blue')
+    corner.overplot_points(fig, [par_init_b[nonzero_range]], marker='s', color='tab:blue')
+    corner.overplot_lines(fig, par_opt1_b[nonzero_range], color='tab:orange')
+    corner.overplot_points(fig, [par_opt1_b[nonzero_range]], marker='s', color='tab:orange')
+    corner.overplot_lines(fig, par_opt2_b[nonzero_range], color='tab:green')
+    corner.overplot_points(fig, [par_opt2_b[nonzero_range]], marker='s', color='tab:green')
+    if not np.all(nonzero_range):
+        fig.suptitle('Output distributions and lc fit outcome'
+                     f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
+    else:
+        fig.suptitle('Output distributions and lc fit outcome')
+    plt.tight_layout()
+    if save_file is not None:
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_out_b.png')
+        else:
+            fig_save_file = save_file + '_out.png'
+        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:

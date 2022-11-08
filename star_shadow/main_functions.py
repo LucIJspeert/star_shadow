@@ -337,8 +337,8 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     # [1 and 2] --- initial iterative extraction of frequencies and first multi-sine NL-LS fit
     # ----------------------------------------------------------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis.hdf5')
-    out_1_2 = analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, data_id=data_id,
-                                              overwrite=overwrite, verbose=verbose)
+    out_1_2 = analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, logger=logger,
+                                              data_id=data_id, overwrite=overwrite, verbose=verbose)
     const_1, slope_1, f_n_1, a_n_1, ph_n_1, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_1_2
     if (len(f_n_2) == 0):
         p_orb_i = [0, 0]
@@ -1479,8 +1479,6 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
                   f'sb2/sb1: {par_init[5]:2.4}. \n'
                   f'Simple fit - e: {opt1_e:2.4}, w: {opt1_w / np.pi * 180:2.4} deg, i: {opt1_i / np.pi * 180:2.4} deg,'
                   f' (r1+r2)/a: {opt1_r_sum_sma:2.4}, r2/r1: {opt1_r_ratio:2.4}, sb2/sb1: {opt1_sb_ratio:2.4}. \n'
-                  f'ellc fit - e: {opt2_e}, w: {opt2_w} deg, i: {opt2_i} deg, '
-                  f'(r1+r2)/a: {opt2_r_sum_sma}, r2/r1: {opt2_r_ratio}, sb2/sb1: {opt2_sb_ratio}. \n'
                   f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return par_opt_simple, par_opt_ellc
 
@@ -1686,7 +1684,7 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mNon-harmonic frequencies selected.\033[0m')
-        print(f'\033[0;32;48mNumber of frequencies passed: {len(passed_nh_b)} of {len(f_n)}.'
+        print(f'\033[0;32;48mNumber of frequencies passed: {len(passed_nh_b)} of {len(f_n)}. '
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
 
@@ -1758,8 +1756,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         output of analysis_frequency_selection for ellc model
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
-    kwargs_1 = {'file_name':file_name, 'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
-    kwargs_2 = {'file_name':file_name, 'logger':logger, 'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
+    kwargs_1 = {'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
+    kwargs_2 = {'logger':logger, 'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
@@ -1774,14 +1772,15 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     n_param_9, bic_9, noise_level_9 = stats
     # --- [10] --- Initial eclipse timings
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.csv')
-    out_10 = analysis_eclipse_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, **kwargs_2)
+    out_10 = analysis_eclipse_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, file_name=file_name,
+                                      **kwargs_2)
     t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = out_10
     if np.any([item is None for item in out_10]):
         return (None,) * 10  # could still not find eclipses for some reason
     # --- [11] --- Initial cubics model timings
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')
     out_11 = analysis_cubics_model(times, signal, signal_err, p_orb_9, t_zero_10, timings_10, depths_10, const_9,
-                                   slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, **kwargs_1)
+                                   slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name, **kwargs_1)
     t_zero_11, timings_11, depths_11 = out_11
     # --- [12] --- Disentangling with cubics
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12.csv')
@@ -1790,14 +1789,14 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     model_cubics = 1 + tsfit.eclipse_cubics_model(times, p_orb_9, t_zero_11, mid_1, mid_2, t_c1_1, t_c3_1,
                                                   t_c1_2, t_c3_2, depth_1, depth_2)
     residual = signal - model_cubics
-    out_12 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
+    out_12 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name, **kwargs_2)
     # const_12_1, slope_12_1, f_n_12_1, a_n_12_1, ph_n_12_1 = out_12[:5]
     const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2 = out_12[5:]
     # --- [13] --- Improvement of timings with cubics
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.csv')
     out_13 = analysis_cubics_sines_model(times, signal, signal_err, p_orb_9, t_zero_11, timings_11, depths_11,
                                          const_12_2, slope_12_2, f_n_12_2, a_n_12_2, ph_n_12_2, i_sectors, t_int,
-                                         **kwargs_2)
+                                         file_name=file_name, **kwargs_2)
     t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13, p_t_corr_13 = out_13[:6]
     # const_13, slope_13, f_h_13, a_h_13, ph_h_13 = out_13[6:]
     # check for significance
@@ -1815,7 +1814,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
     out_14 = analysis_eclipse_elements(p_orb_9, t_zero_13, timings_13, depths_13, p_err_9, timings_err_13,
-                                       depths_err_13, p_t_corr_13, **kwargs_2)
+                                       depths_err_13, p_t_corr_13, file_name=file_name, **kwargs_2)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
         return (None,) * 10  # unphysical parameters
@@ -1824,13 +1823,14 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.csv')
     par_init_14 = (e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14)
     out_15 = analysis_eclipse_model(times, signal, signal_err, par_init_14, p_orb_9, t_zero_13, timings_13[:6], const_9,
-                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, fit_ellc=fit_ellc, **kwargs_1)
+                                    slope_9, f_n_9, a_n_9, ph_n_9, i_sectors, file_name=file_name, fit_ellc=fit_ellc,
+                                    **kwargs_1)
     par_opt_15, par_opt_15b = out_15  # used to be par_opt_simple and par_opt_ellc
     # --- [16] --- Eclipse model disentangling
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16.csv')
     ecl_model_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *par_opt_15)
     residual = signal - ecl_model_simple
-    out_16 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
+    out_16 = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name, **kwargs_2)
     # const_16_1, slope_16_1, f_n_16_1, a_n_16_1, ph_n_16_1 = out_16[:5]
     const_16_2, slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2 = out_16[5:]
     # ellc model (convert optimised parameters)
@@ -1840,7 +1840,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
         ecl_model_ellc = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
         residual = signal - ecl_model_ellc
-        out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, **kwargs_2)
+        out_16b = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name,
+                                                  **kwargs_2)
         # const_16b_1, slope_16b_1, f_n_16b_1, a_n_16b_1, ph_n_16b_1 = out_16b[:5]
         const_16b_2, slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2 = out_16b[5:]
     else:
@@ -1849,27 +1850,27 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.csv')
     out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16_2,
                                           slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2, i_sectors, model='simple',
-                                          **kwargs_1)
+                                          file_name=file_name, **kwargs_1)
     t_zero_r_17, ecl_par_r_17, const_r_17, slope_r_17, f_n_r_17, a_n_r_17, ph_n_r_17 = out_17
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
         out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
                                                slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
-                                               **kwargs_1)
+                                               file_name=file_name, **kwargs_1)
         t_zero_r_17b, ecl_par_r_17b, const_r_17b, slope_r_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b = out_17b
     else:
         out_17b = None
     # --- [18] --- Frequency selection [pulsation analysis from here on]
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
     out_18 = analysis_frequency_selection(times, signal, ecl_model_simple, f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9,
-                                          i_sectors, **kwargs_1)
+                                          i_sectors, file_name=file_name, **kwargs_1)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
         out_18b = analysis_frequency_selection(times, signal, ecl_model_ellc, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
-                                               noise_level_9, i_sectors, **kwargs_1)
+                                               noise_level_9, i_sectors, file_name=file_name, **kwargs_1)
     else:
         out_18b = None
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b

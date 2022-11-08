@@ -2565,7 +2565,8 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
 
 def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, p_err, timings_err, depths_err,
                         p_t_corr, verbose=False):
-    """Estimate errors using the highest density interval (HDI)
+    """Estimate errors using importance sampling and
+    the highest density interval (HDI)
     
     Parameters
     ----------
@@ -2613,7 +2614,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         The (non-symmetric) errors for the same parameters as intervals.
         These are computed from the intervals.
     dists_in: tuple[numpy.ndarray[float]]
-        Full input distributions for: t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
@@ -2629,17 +2630,30 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     depth_1, depth_2 = depths
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     depth_1_err, depth_2_err = depths_err
-    # variance matrix of t_zero and period
-    # todo: add covariance and period dist
     # generate input distributions
     rng = np.random.default_rng()
     n_gen = 10**3  # 10**4
-    # the edges are measured first so choose them from regular normal distributions
-    normal_t_1_1 = rng.normal(t_1_1, t_1_1_err, n_gen)
-    normal_t_1_2 = rng.normal(t_1_2, t_1_2_err, n_gen)
-    normal_t_2_1 = rng.normal(t_2_1, t_2_1_err, n_gen)
-    normal_t_2_2 = rng.normal(t_2_2, t_2_2_err, n_gen)
-    # if we have wide eclipses, they possibly overlap as well, fix by putting them in the middle
+    # variance matrix of t_1, t_2 and period
+    var_matrix = np.zeros((3, 3))
+    var_matrix[0, 0] = t_1_err**2
+    var_matrix[1, 1] = t_2_err**2
+    var_matrix[2, 2] = p_err**2
+    var_matrix[0, 2] = p_t_corr * t_1_err * p_err
+    var_matrix[2, 0] = var_matrix[0, 2]
+    var_matrix[1, 2] = p_t_corr * t_2_err * p_err
+    var_matrix[2, 1] = var_matrix[1, 2]
+    mvn = rng.multivariate_normal([t_1, t_2, p_orb], var_matrix, 1000)
+    normal_t_1 = mvn[:, 0]
+    normal_t_2 = mvn[:, 1]
+    normal_p = mvn[:, 2]
+    # the edges are symmetric and cannot surpass the midpoint so use truncnorm
+    normal_t_1_1 = sp.stats.truncnorm.rvs(((normal_t_2 - p_orb) - t_1_1) / t_1_1_err, (normal_t_1 - t_1_1) / t_1_1_err,
+                                            loc=t_1_1, scale=t_1_1_err, size=n_gen)
+    normal_t_1_2 = 2 * normal_t_1 - normal_t_1_1  # mirrored
+    normal_t_2_1 = sp.stats.truncnorm.rvs((normal_t_1 - t_2_1) / t_2_1_err, (normal_t_2 - t_2_1) / t_2_1_err,
+                                            loc=t_2_1, scale=t_2_1_err, size=n_gen)
+    normal_t_2_2 = 2 * normal_t_2 - normal_t_2_1  # mirrored
+    # if we have wide eclipses, they possibly overlap as well, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
         middle = (normal_t_1_2[overlap_1_2] + normal_t_2_1[overlap_1_2]) / 2
@@ -2650,27 +2664,14 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         middle = (normal_t_1_1[overlap_2_1] + p_orb + normal_t_2_2[overlap_2_1]) / 2
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
-    # unlikely to overlap, but if they do, it's bad, so fix by swapping them
-    overlap_1 = (normal_t_1_1 > normal_t_1_2)
-    if np.any(overlap_1):
-        _swap = np.copy(normal_t_1_1[overlap_1])
-        normal_t_1_1[overlap_1] = normal_t_1_2[overlap_1]
-        normal_t_1_2[overlap_1] = _swap
-    overlap_2 = (normal_t_2_1 > normal_t_2_2)
-    if np.any(overlap_2):
-        _swap = np.copy(normal_t_2_1[overlap_2])
-        normal_t_2_1[overlap_2] = normal_t_2_2[overlap_2]
-        normal_t_2_2[overlap_2] = _swap
-    # the bottom points are truncated at the edge points
+    # the bottom points are truncated at the edge points and are symmetric
     normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, (normal_t_1_2 - t_b_1_1) / t_1_1_err,
                                             loc=t_b_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_b_1_2 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_1_2_err, (normal_t_1_2 - t_b_1_2) / t_1_2_err,
-                                            loc=t_b_1_2, scale=t_1_2_err, size=n_gen)
+    normal_t_b_1_2 = 2 * normal_t_1 - normal_t_b_1_1  # mirrored
     normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_2_1_err, (normal_t_2_2 - t_b_2_1) / t_2_1_err,
                                             loc=t_b_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_b_2_2 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_2_2_err, (normal_t_2_2 - t_b_2_2) / t_2_2_err,
-                                            loc=t_b_2_2, scale=t_2_2_err, size=n_gen)
-    # likely to overlap, fixed by putting them in the middle
+    normal_t_b_2_2 = 2 * normal_t_2 - normal_t_b_2_1  # mirrored
+    # likely to overlap, fixed by putting them in the middle (this is more physical than truncating in the middle)
     overlap_b_1 = (normal_t_b_1_1 > normal_t_b_1_2)
     if np.any(overlap_b_1):
         middle = (normal_t_b_1_1[overlap_b_1] + normal_t_b_1_2[overlap_b_1]) / 2
@@ -2681,9 +2682,6 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         middle = (normal_t_b_2_1[overlap_b_2] + normal_t_b_2_2[overlap_b_2]) / 2
         normal_t_b_2_1[overlap_b_2] = middle
         normal_t_b_2_2[overlap_b_2] = middle
-    # the minima are then midway between the bottom points
-    normal_t_1 = (normal_t_b_1_1 + normal_t_b_1_2) / 2
-    normal_t_2 = (normal_t_b_2_1 + normal_t_b_2_2) / 2
     # calculate the tau
     normal_tau_1_1 = normal_t_1 - normal_t_1_1
     normal_tau_1_2 = normal_t_1_2 - normal_t_1
@@ -2709,11 +2707,11 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
                             normal_tau_1_1[k], normal_tau_1_2[k], normal_tau_2_1[k], normal_tau_2_2[k],
                             normal_tau_b_1_1[k], normal_tau_b_1_2[k], normal_tau_b_2_1[k], normal_tau_b_2_2[k])
         # if sum of tau happens to be larger than p_orb, skip and delete
-        if (np.sum(timings_tau_dist[2:6]) > p_orb) | (normal_d_1[k] < 0) | (normal_d_2[k] < 0):
+        if (np.sum(timings_tau_dist[2:6]) > normal_p[k]) | (normal_d_1[k] < 0) | (normal_d_2[k] < 0):
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        out = eclipse_parameters(p_orb, timings_tau_dist, depths_k, timings_err, depths_err)
+        out = eclipse_parameters(normal_p[k], timings_tau_dist, depths_k, timings_err, depths_err)
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]
@@ -2797,7 +2795,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
               ecosw_bounds, esinw_bounds, f_c_bounds, f_s_bounds)
     errors = (e_errs, w_errs, i_errs, rsumsma_errs, rratio_errs, sbratio_errs,
               ecosw_errs, esinw_errs, f_c_errs, f_s_errs)
-    dists_in = (normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
+    dists_in = (normal_p, normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
                 normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
     dists_out = (e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals)
     return intervals, bounds, errors, dists_in, dists_out
