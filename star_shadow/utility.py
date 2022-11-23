@@ -10,6 +10,7 @@ Code written by: Luc IJspeert
 
 import os
 import datetime
+import fnmatch
 import h5py
 import numpy as np
 import numba as nb
@@ -276,7 +277,7 @@ def load_tess_data(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -674,8 +675,8 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
-    file_name: str, None
+        Some statistics: n_param, bic, noise_level
+    file_name: str
         File name (including path) for saving the results.
     description: str
         Optional description of the saved results
@@ -742,7 +743,7 @@ def load_results(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -759,7 +760,7 @@ def read_results(file_name, verbose=False):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     verbose: bool
         If set to True, this function will print some information
@@ -773,7 +774,7 @@ def read_results(file_name, verbose=False):
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
+        Some statistics: n_param, bic, noise_level
     """
     with h5py.File(file_name, 'r') as file:
         identifier = file.attrs['identifier']
@@ -816,11 +817,11 @@ def save_results_ecl_indices(ecl_indices, file_name, data_id='none'):
     ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         as generated here (see function for details)
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
         This name is altered slightly to not interfere with another
         save file (from save_results_timings).
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
 
     Returns
@@ -828,11 +829,11 @@ def save_results_ecl_indices(ecl_indices, file_name, data_id='none'):
     None
     """
     split_name = os.path.splitext(os.path.basename(file_name))
-    file_id = split_name[0]  # the file name without extension
+    target_id = split_name[0]  # the file name without extension
     fn_ext = split_name[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     description = 'Eclipse indices (see function measure_eclipses_dt).'
-    hdr = (f'{file_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p, zeros_1_in, '
+    hdr = (f'{target_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p, zeros_1_in, '
            f'minimum_0, zeros_1_in, p_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
     np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
     return None
@@ -861,9 +862,9 @@ def save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_i
     ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         as generated here (see function for details)
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
     
     Returns
@@ -897,9 +898,9 @@ def save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_i
               str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
               str(d_1_err), str(d_2_err)]
     table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = 'Eclipse timings and depths.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save eclipse indices separately
     save_results_ecl_indices(ecl_indices, file_name, data_id=data_id)
@@ -911,7 +912,7 @@ def read_results_ecl_indices(file_name):
 
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
 
     Returns
@@ -931,7 +932,7 @@ def read_results_timings(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -987,9 +988,9 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id='none
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float]
         Cubic curve primary and secondary eclipse depth
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
 
     Returns
@@ -1014,9 +1015,9 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id='none
     values = [str(p_orb), str(t_zero), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
               str(t_b_1_1), str(t_b_1_2), str(t_b_2_1), str(t_b_2_2), str(d_1), str(d_2)]
     table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = 'Eclipse timings and depths for cubics model.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     return None
 
@@ -1026,7 +1027,7 @@ def read_results_cubics(file_name):
 
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
 
     Returns
@@ -1063,7 +1064,7 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
+        Some statistics: n_param, bic, noise_level
     t_zero_em: float
         Time of the deepest minimum modulo p_orb
     timings_em: numpy.ndarray[float]
@@ -1084,9 +1085,9 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
     
     Returns
@@ -1141,10 +1142,10 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
               str(t_1_err), str(t_2_err), str(t_1_1_err), str(t_1_2_err), str(t_2_1_err), str(t_2_2_err),
               str(d_1_err), str(d_2_err), str(p_t_corr)]
     table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     file_name_c = file_name.replace(fn_ext, '_cubics.csv')
     description = 'Eclipse timings and depths with error estimates.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name_c, table, delimiter=',', fmt='%s', header=hdr)
     return None
 
@@ -1154,7 +1155,7 @@ def read_results_cubics_sin_lin(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -1166,7 +1167,7 @@ def read_results_cubics_sin_lin(file_name):
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
+        Some statistics: n_param, bic, noise_level
     t_zero: float
         Time of the deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
@@ -1234,9 +1235,9 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
     
     Returns
@@ -1313,9 +1314,9 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
         var_desc_ext = ['second upper bound in w (hdi_prob=.997)', 'second lower bound in w (hdi_prob=.997)']
         values_ext = [str(w_bds_2[1]), str(w_bds_2[0])]
         table = np.vstack((table, np.column_stack((var_names_ext, values_ext, var_desc_ext))))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = 'Determination of orbital elements.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save the distributions separately
     data = np.column_stack((*dists_in, *dists_out))
@@ -1323,7 +1324,7 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
     description = 'Prior and posterior distributions (not MCMC).'
-    hdr = (f'{file_id}, {data_id}, {description}\n'
+    hdr = (f'{target_id}, {data_id}, {description}\n'
            'p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, '
            't_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
            'e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals')
@@ -1336,7 +1337,7 @@ def read_results_elements(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -1409,9 +1410,9 @@ def save_results_lc_fit(par_init, par_fit_1, par_fit_2, file_name, data_id='none
         e, w, i, r_sum_sma, r_ratio, sb_ratio, offset
         The offset is a constant added to the model to match
         the light level of the data
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
     
     Returns
@@ -1433,9 +1434,9 @@ def save_results_lc_fit(par_init, par_fit_1, par_fit_2, file_name, data_id='none
               str(par_fit_1[4]), str(par_fit_1[5]), str(par_fit_2[0]), str(par_fit_2[1]), str(par_fit_2[2]),
               str(par_fit_2[3]), str(par_fit_2[4]), str(par_fit_2[5])]
     table = np.column_stack((var_names, values, var_desc))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Fit for the light curve parameters. Fit uses the eclipses only.'
-    hdr = f'{file_id}, {data_id}, {description}\nname, value, description'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     return None
 
@@ -1445,7 +1446,7 @@ def read_results_lc_fit(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -1504,7 +1505,7 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
+        Some statistics: n_param, bic, noise_level
     t_zero: float
         Time of the deepest minimum modulo p_orb
     e: float
@@ -1522,9 +1523,9 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
 
     Returns
@@ -1534,7 +1535,7 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     p_orb, const, slope, f_n, a_n, ph_n = results
     p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     # save in hdf5 format
     file_name_sl = file_name.replace(fn_ext, '.hdf5')
     desc = 'Results of multi-sine NL-LS fit with eclipse model.'
@@ -1544,7 +1545,7 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     names = ['p_orb', 't_zero', 'e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio']
     ecl_par = np.array([str(p_orb), str(t_zero), str(e), str(w), str(i), str(r_sum_sma), str(r_ratio), str(sb_ratio)])
     data = np.column_stack((names, ecl_par))
-    hdr = f'{file_id}, {data_id}\nname, value'
+    hdr = f'{target_id}, {data_id}\nname, value'
     np.savetxt(file_name_e, data, delimiter=',', fmt='%s', header=hdr)
     file_name_s = file_name.replace(fn_ext, '_sinusoid.csv')
     data = np.column_stack((f_n, f_n_err, a_n, a_n_err, ph_n, ph_n_err))
@@ -1562,7 +1563,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
 
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     verbose: bool
         If set to True, this function will print some information
@@ -1576,7 +1577,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
     stats: tuple[numpy.ndarray[float]]
-        Statistic parameters: n_param, bic, noise_level
+        Some statistics: n_param, bic, noise_level
     t_zero: float
         Time of the deepest minimum modulo p_orb
     e: float
@@ -1617,9 +1618,9 @@ def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, da
         Frequencies that passed the sigma check
     passed_snr: numpy.ndarray[bool]
         Frequencies that passed the signal-to-noise check
-    file_name: str, None
+    file_name: str
         File name (including path) for saving the results.
-    data_id: int, str, None
+    data_id: str
         Identification for the dataset used
     
     Returns
@@ -1630,9 +1631,9 @@ def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, da
     passed_b = (passed_sigma & passed_snr)
     # stick together
     table = np.column_stack((np.arange(1, len(f_n)+1), f_n, a_n, ph_n, passed_sigma, passed_snr, passed_b))
-    file_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Selection of credible (non-)harmonic frequencies'
-    hdr = f'{file_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
+    hdr = f'{target_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
     np.savetxt(file_name, table, delimiter=',', header=hdr)
     return None
 
@@ -1642,7 +1643,7 @@ def read_results_fselect(file_name):
     
     Parameters
     ----------
-    file_name: str, None
+    file_name: str
         File name (including path) for loading the results.
     
     Returns
@@ -1665,6 +1666,147 @@ def read_results_fselect(file_name):
     else:
         passed_sigma, passed_snr, passed_b = np.array([[], [], []])
     return passed_sigma, passed_snr, passed_b
+
+
+def save_summary(t_tot, target_id, save_dir, data_id='none'):
+    """Create a summary file from the results of the analysis
+    
+    Parameters
+    ----------
+    t_tot: float
+        Total time base of observations
+    target_id: int, str
+        Target identifier
+    save_dir: str
+        Path to a directory for saving the results. Also used to load
+        previous analysis results.
+    data_id: str
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    
+    Notes
+    -----
+    Meant both as a quick overview of the results and to facilitate
+    the compilation of a catalogue of a set of results
+    """
+    prew_par = -np.ones(5)
+    timings_par = -np.ones(25)
+    form_par = -np.ones(21)
+    fit_par_init = -np.ones(12)
+    fit_par = -np.ones(18)
+    freqs_par = -np.ones(8, dtype=int)
+    # read results
+    data_dir = os.path.join(save_dir, f'{target_id}_analysis')
+    # get period from last prewhitening step
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_9.hdf5')):
+        results, errors, stats = read_results(os.path.join(data_dir, f'{target_id}_analysis_9.hdf5'))
+        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
+        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
+        n_param, bic, noise_level = stats
+        prew_par = [p_orb_9[0], p_err_9, n_param, bic, noise_level]
+    elif os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_3.hdf5')):
+        results, errors, stats = read_results(os.path.join(data_dir, f'{target_id}_analysis_3.hdf5'))
+        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
+        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
+        n_param, bic, noise_level = stats
+        prew_par = [p_orb_3[0], p_err_3, n_param, bic, noise_level]
+    elif os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_3.txt')):
+        with open(os.path.join(data_dir, f'{target_id}_analysis_3.txt')) as txt_file:
+            lines = txt_file.readlines()
+            prew_par[0] = float(lines[1].split()[2])
+    # load timing results (13)
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_13.hdf5')):
+        results_13 = read_results_cubics_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_13.hdf5'))
+        results, errors, stats, t_zero, timings, depths, timings_err, depths_err, p_t_corr = results_13
+        p_err_13, c_err_13, sl_err_13, f_n_err_13, a_n_err_13, ph_n_err_13 = errors
+        n_param, bic, noise_level = stats
+        timings_par = [t_zero, *timings, *depths, *timings_err, *depths_err, p_t_corr, n_param, bic, noise_level]
+    # load parameter results from formulae (14)
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_14.csv')):
+        results_14 = read_results_elements(os.path.join(data_dir, f'{target_id}_analysis_14.csv'))
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out = results_14
+        e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
+        e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
+        sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
+        elem = [e, e_err[1], e_err[0], sigma_e, w, w_err[1], w_err[0], sigma_w, i, i_err[1], i_err[0],
+                r_sum_sma, r_sum_sma_err[1], r_sum_sma_err[0], sigma_r_sum_sma, r_ratio, r_ratio_err[1],
+                r_ratio_err[0],
+                sb_ratio, sb_ratio_err[1], sb_ratio_err[0]]
+        form_par = elem
+    # load parameter results from initial fit (15)
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_15.csv')):
+        results_15 = read_results_lc_fit(os.path.join(data_dir, f'{target_id}_analysis_15.csv'))
+        param_init, par_opt_simple, par_opt_ellc = results_15
+        opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt_simple
+        opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt_ellc
+        fit_par_init = [*par_opt_simple, *par_opt_ellc]
+    # load parameter results from full fit (17)
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_17.hdf5')):
+        results_17 = read_results_ecl_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_17.hdf5'))
+        results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = results_17
+        ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        n_param, bic, noise_level = stats
+        fit_par[:9] = [*ecl_par, n_param, bic, noise_level]
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_17b.hdf5')):
+        results_17b = read_results_ecl_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_17b.hdf5'))
+        results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = results_17b
+        ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        n_param, bic, noise_level = stats
+        fit_par[9:] = [*ecl_par, n_param, bic, noise_level]
+    # include n_freqs/n_freqs_passed (18)
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18.csv')):
+        results_18 = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18.csv'))
+        passed_sigma, passed_snr, passed_b = results_18
+        freqs_par[:4] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18b.csv')):
+        results_18b = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18b.csv'))
+        passed_sigma, passed_snr, passed_b = results_18b
+        freqs_par[4:] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
+    # file header with all variable names
+    hdr = ['id', 'stage', 't_tot', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
+           't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
+           'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
+           'd_1_err', 'd_2_err', 'p_t_corr', 'n_param_cubics', 'bic_cubics', 'noise_level_cubics',
+           'e_form', 'e_low', 'e_upp', 'e_sig', 'w_form', 'w_low', 'w_upp', 'w_sig', 'i_form', 'i_low', 'i_upp',
+           'r_sum_sma_form', 'r_sum_sma_low', 'r_sum_sma_upp', 'r_sum_sma_sig', 'r_ratio_form',
+           'r_ratio_low', 'r_ratio_upp', 'sb_ratio_form', 'sb_ratio_low', 'sb_ratio_upp',
+           'e_fit_h', 'w_fit_h', 'i_fit_h', 'r_sum_sma_fit_h', 'r_ratio_fit_h', 'sb_ratio_fit_h',
+           'e_ellc_h', 'w_ellc_h', 'i_ellc_h', 'r_sum_sma_ellc_h', 'r_ratio_ellc_h', 'sb_ratio_ellc_h',
+           'e_fit', 'w_fit', 'i_fit', 'r_sum_sma_fit', 'r_ratio_fit', 'sb_ratio_fit',
+           'n_param_fit', 'bic_fit', 'noise_level_fit',
+           'e_ellc', 'w_ellc', 'i_ellc', 'r_sum_sma_ellc', 'r_ratio_ellc', 'sb_ratio_ellc',
+           'n_param_ellc', 'bic_ellc', 'noise_level_ellc',
+           'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both',
+           'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc']
+    # record the stage where the analysis finished
+    files_in_dir = []
+    for root, dirs, files in os.walk(data_dir):
+        for file_i in files:
+            files_in_dir.append(os.path.join(root, file_i))
+    for i in range(18, 0, -1):
+        match_b = [fnmatch.fnmatch(file_i, f'*_analysis_{i}b*') for file_i in files_in_dir]
+        if np.any(match_b):
+            stage = str(i) + 'b'  # b variant
+            break
+        else:
+            match_a = [fnmatch.fnmatch(file_i, f'*_analysis_{i}*') for file_i in files_in_dir]
+            if np.any(match_a):
+                stage = str(i)
+                break
+    stage = stage.rjust(3)  # make the string 3 long
+    # compile all results
+    obs_par = np.concatenate(([target_id], [stage], [t_tot], prew_par, timings_par, form_par, fit_par_init,
+                              fit_par, freqs_par)).reshape((-1, 1))
+    data = np.column_stack((hdr, obs_par))
+    file_hdr = f'{target_id}, {data_id}\nname, value'  # the actual header used for numpy savetxt
+    save_name = os.path.join(data_dir, f'{target_id}_analysis_summary.csv')
+    np.savetxt(save_name, data, delimiter=',', fmt='%s', header=file_hdr)
+    return None
 
 
 def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=None, show=False):
