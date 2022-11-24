@@ -1610,7 +1610,7 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
     return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
-def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise_level, i_sectors, file_name,
+def analysis_frequency_selection(times, signal, model_ecl, f_n, a_n, ph_n, noise_level, i_sectors, file_name,
                                  data_id=None, overwrite=False, verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
@@ -1621,7 +1621,7 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
         Timestamps of the time-series
     signal: numpy.ndarray[float]
         Measurement values of the time-series
-    ecl_model: numpy.ndarray[float]
+    model_ecl: numpy.ndarray[float]
         Model of the eclipses at the same times
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
@@ -1667,7 +1667,7 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
             print(f'Selecting credible frequencies')
         n_points = len(times)
         # obtain the errors on the sine waves (residual and thus model dependent)
-        errors = tsf.formal_uncertainties(times, signal - ecl_model, a_n, i_sectors)
+        errors = tsf.formal_uncertainties(times, signal - model_ecl, a_n, i_sectors)
         const_err, slope_err, f_n_err, a_n_err, ph_n_err = errors
         # find the insignificant frequencies
         remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1.)
@@ -1688,6 +1688,132 @@ def analysis_frequency_selection(times, signal, ecl_model, f_n, a_n, ph_n, noise
         print(f'\033[0;32;48mNumber of frequencies passed: {len(passed_nh_b)} of {len(f_n)}. '
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_nh_sigma, passed_nh_snr, passed_nh_b
+
+
+def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, depths,
+                                    file_name, data_id=None, overwrite=False, verbose=False):
+    """Determine several levels of variability
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time-series
+    signal: numpy.ndarray[float]
+        Measurement values of the time-series
+    model_ecl: numpy.ndarray[float]
+        Model of the eclipses at the same times
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    depths: numpy.ndarray[float]
+        Eclipse depth of the primary and secondary, depth_1, depth_2
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    std_1: float
+        Standard deviation of the residuals of the
+        linear, sinusoid and eclipse model
+    std_2: float
+        Standard deviation of the residuals of the
+        linear and eclipse model
+    std_3: float
+        Standard deviation of the residuals of the
+        linear, harmonic 1 and 2 and eclipse model
+    std_4: float
+        Standard deviation of the residuals of the
+        linear, non-harmonic sinusoid and eclipse model
+    ratios_1: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_1
+    ratios_2: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_2
+    ratios_3: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_3
+    ratios_4: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_4
+    flag_1: bool
+        If True, an indication that the true error in the period
+        might be larger that the estimated error
+    flag_2: bool
+        If True, an indication that the true error in the
+        eccentricity (and other orbital parameters)
+        might be larger that the estimated error
+    """
+    t_a = time.time()
+    if os.path.isfile(file_name) & (not overwrite):
+        if verbose:
+            print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        results = ut.read_results_var_level(file_name)
+        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = results
+    else:
+        if verbose:
+            print(f'Determining variability levels')
+        freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
+        # [maybe this can go in f select anyway, and then also compute std of passing sines]
+        # make the linear and sinusoid models
+        model_lin = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
+        # get the 2 lowest harmonic frequencies
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
+        non_harm = np.delete(np.arange(len(f_n)), harmonics)
+        mask_low_h = (harmonic_n == 1) | (harmonic_n == 2)
+        low_h = harmonics[mask_low_h]
+        model_sin_lh = tsf.sum_sines(times, f_n[low_h], a_n[low_h], ph_n[low_h])
+        model_sin_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+        # add models to other models
+        model_lin_ecl = model_lin + model_ecl
+        model_lin_lh_ecl = model_lin + model_sin_lh + model_ecl
+        model_lin_nh_ecl = model_lin + model_sin_nh + model_ecl
+        model_lin_sin_ecl = model_lin + model_sin + model_ecl
+        # determine amplitudes of leftover variability
+        std_1 = np.std(signal - model_lin_sin_ecl)
+        std_2 = np.std(signal - model_lin_ecl)
+        std_3 = np.std(signal - model_lin_lh_ecl)
+        std_4 = np.std(signal - model_lin_nh_ecl)
+        levels = (std_1, std_2, std_3, std_4)
+        # calculate some ratios with eclipse depths
+        ratios_1 = depths / std_1
+        ratios_2 = depths / std_2
+        ratios_3 = depths / std_3
+        ratios_4 = depths / std_4
+        # flags in case the levels are low
+        flag_1 = False  # (np.max(ratios_1) < 1)  some criterion possibly bad period
+        flag_2 = False  # (np.max(ratios_3) < 1)  some criterion possibly bad eccentricity
+        # save
+        ut.save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2,
+                                 file_name, data_id)
+    t_b = time.time()
+    if verbose:
+        print(f'\033[1;32;48mVariability levels calculated.\033[0m')
+        print(f'\033[0;32;48mRatios of eclipse depth to leftover variability: {ratios_3[0]:2.3}, {ratios_3[1]:2.3}. \n'
+              f'Need to be careful with the period determination: {flag_1}. \n'
+              f'Need to be careful with the eccentricity determination: {flag_2}. \n'
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2
 
 
 def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, logger, fit_ellc=False,
@@ -1755,6 +1881,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         output of analysis_frequency_selection
     out_18b: tuple
         output of analysis_frequency_selection for ellc model
+    out_19: tuple
+        output of analysis_variability_amplitudes
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     kwargs_1 = {'data_id':data_id, 'overwrite':overwrite, 'verbose':verbose}
@@ -1878,24 +2006,17 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
                                                noise_level_9, i_sectors, file_name=file_name, **kwargs_1)
     else:
         out_18b = None
-    
-    # [put this somewhere better] perhaps also save a bunch more amplitudes/levels
-    # [maybe this can go in f select anyway, and then also compute std of passing sines]
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_19.csv')
-    model_lin = tsf.linear_curve(times, const_r_17, slope_r_17, i_sectors)
-    low_f = (f_n_r_17 < 2.5 / p_orb)
-    model_sin_lf = tsf.sum_sines(times, f_n_r_17[low_f], a_n_r_17[low_f], ph_n_r_17[low_f])
-    # determine amplitudes of leftover variability
-    std_1 = np.std(signal - model_lin - model_ecl_17_simple)
-    std_2 = np.std(signal - model_lin - model_sin_lf - model_ecl_17_simple)
-    np.savetxt(file_name, [std_1, std_2])
-    
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b
-    # --- [19] --- Harmonics in the residuals
+    # --- [19] --- Variability amplitudes
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_19.csv')
+    out_19 = analysis_variability_amplitudes(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
+                                             f_n_r_17, a_n_r_17, ph_n_r_17, i_sectors, depths_13, file_name, **kwargs_1)
+    # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = out_19
+    # --- [20] --- Harmonics in the residuals
     # determine which residual frequencies are consistent with harmonics (already done in plotting)
-    # --- [20] --- Amplitude modulation
+    # --- [21] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
-    return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_16b, out_17, out_17b, out_18, out_18b
+    return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_16b, out_17, out_17b, out_18, out_18b, out_19
 
 
 def custom_logger(save_dir, target_id, verbose):

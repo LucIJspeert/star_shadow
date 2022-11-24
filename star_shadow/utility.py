@@ -1668,6 +1668,121 @@ def read_results_fselect(file_name):
     return passed_sigma, passed_snr, passed_b
 
 
+def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2,
+                          file_name, data_id='none'):
+    """Save the results of the variability level calculation
+
+    Parameters
+    ----------
+    std_1: float
+        Standard deviation of the residuals of the
+        linear, sinusoid and eclipse model
+    std_2: float
+        Standard deviation of the residuals of the
+        linear and eclipse model
+    std_3: float
+        Standard deviation of the residuals of the
+        linear, harmonic 1 and 2 and eclipse model
+    std_4: float
+        Standard deviation of the residuals of the
+        linear, non-harmonic sinusoid and eclipse model
+    ratios_1: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_1
+    ratios_2: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_2
+    ratios_3: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_3
+    ratios_4: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_4
+    flag_1: bool
+        If True, an indication that the true error in the period
+        might be larger that the estimated error
+    flag_2: bool
+        If True, an indication that the true error in the
+        eccentricity (and other orbital parameters)
+        might be larger that the estimated error
+    file_name: str
+        File name (including path) for saving the results.
+    data_id: str
+        Identification for the dataset used
+
+    Returns
+    -------
+    None
+    """
+    # stick together
+    names = ['std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
+             'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2', 'flag_1', 'flag_2']
+    data = np.array([str(std_1), str(std_2), str(std_3), str(std_4), str(ratios_1[0]), str(ratios_1[1]),
+                     str(ratios_2[0]), str(ratios_2[1]), str(ratios_3[0]), str(ratios_3[1]),
+                     str(ratios_4[0]), str(ratios_4[1]), str(flag_1), str(flag_2)])
+    desc = ['Standard deviation of the residuals of the linear+sinusoid+eclipse model',
+            'Standard deviation of the residuals of the linear+eclipse model',
+            'Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model',
+            'Standard deviation of the residuals of the linear+non-harmonic sinusoid+eclipse model',
+            'Ratio of the first eclipse depth to std_1', 'Ratio of the second eclipse depth to std_1',
+            'Ratio of the first eclipse depth to std_2', 'Ratio of the second eclipse depth to std_2',
+            'Ratio of the first eclipse depth to std_3', 'Ratio of the second eclipse depth to std_3',
+            'Ratio of the first eclipse depth to std_4', 'Ratio of the second eclipse depth to std_4',
+            'Indication that the true error in the period might be larger that the estimated error',
+            'Indication that the true error in the eccentricity (and other orbital parameters) '
+            'might be larger that the estimated error']
+    table = np.column_stack((names, data, desc))
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+    description = f'Variability levels of different model residuals'
+    hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
+    np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
+    return None
+
+
+def read_results_var_level(file_name):
+    """Read in the results of the variability level calculation
+
+    Parameters
+    ----------
+    file_name: str
+        File name (including path) for loading the results.
+
+    Returns
+    -------
+    std_1: float
+        Standard deviation of the residuals of the
+        linear, sinusoid and eclipse model
+    std_2: float
+        Standard deviation of the residuals of the
+        linear and eclipse model
+    std_3: float
+        Standard deviation of the residuals of the
+        linear, harmonic 1 and 2 and eclipse model
+    std_4: float
+        Standard deviation of the residuals of the
+        linear, non-harmonic sinusoid and eclipse model
+    ratios_1: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_1
+    ratios_2: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_2
+    ratios_3: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_3
+    ratios_4: numpy.ndarray[float]
+        Ratios of the eclipse depths to std_4
+    flag_1: bool
+        If True, an indication that the true error in the period
+        might be larger that the estimated error
+    flag_2: bool
+        If True, an indication that the true error in the
+        eccentricity (and other orbital parameters)
+        might be larger that the estimated error
+    """
+    results = np.loadtxt(file_name, usecols=(1,), delimiter=',', dtype=str, unpack=True)
+    std_1, std_2, std_3, std_4 = results[:4].astype(float)
+    ratios_1 = results[4:6].astype(float)
+    ratios_2 = results[6:8].astype(float)
+    ratios_3 = results[8:10].astype(float)
+    ratios_4 = results[10:12].astype(float)
+    flag_1, flag_2 = results[12:14] == 'True'  # conversion with astype fails
+    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2
+
+
 def save_summary(t_tot, target_id, save_dir, data_id='none'):
     """Create a summary file from the results of the analysis
     
