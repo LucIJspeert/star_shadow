@@ -1813,6 +1813,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
     fit_par_init = -np.ones(12)
     fit_par = -np.ones(18)
     freqs_par = -np.ones(8, dtype=int)
+    level_par = -np.ones(14)
     # read results
     data_dir = os.path.join(save_dir, f'{target_id}_analysis')
     # get period from last prewhitening step
@@ -1882,6 +1883,10 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
         results_18b = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18b.csv'))
         passed_sigma, passed_snr, passed_b = results_18b
         freqs_par[4:] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
+    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_19.csv')):
+        results_19 = read_results_var_level(os.path.join(data_dir, f'{target_id}_analysis_19.csv'))
+        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = results_19
+        level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4, flag_1, flag_2]
     # file header with all variable names
     hdr = ['id', 'stage', 't_tot', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
            't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
@@ -1897,13 +1902,15 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
            'e_ellc', 'w_ellc', 'i_ellc', 'r_sum_sma_ellc', 'r_ratio_ellc', 'sb_ratio_ellc',
            'n_param_ellc', 'bic_ellc', 'noise_level_ellc',
            'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both',
-           'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc']
+           'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc',
+           'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
+           'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2', 'flag_1', 'flag_2']
     # record the stage where the analysis finished
     files_in_dir = []
     for root, dirs, files in os.walk(data_dir):
         for file_i in files:
             files_in_dir.append(os.path.join(root, file_i))
-    for i in range(18, 0, -1):
+    for i in range(19, 0, -1):
         match_b = [fnmatch.fnmatch(file_i, f'*_analysis_{i}b*') for file_i in files_in_dir]
         if np.any(match_b):
             stage = str(i) + 'b'  # b variant
@@ -1916,7 +1923,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
     stage = stage.rjust(3)  # make the string 3 long
     # compile all results
     obs_par = np.concatenate(([target_id], [stage], [t_tot], prew_par, timings_par, form_par, fit_par_init,
-                              fit_par, freqs_par)).reshape((-1, 1))
+                              fit_par, freqs_par, level_par)).reshape((-1, 1))
     data = np.column_stack((hdr, obs_par))
     file_hdr = f'{target_id}, {data_id}\nname, value'  # the actual header used for numpy savetxt
     save_name = os.path.join(data_dir, f'{target_id}_analysis_summary.csv')
