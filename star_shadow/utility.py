@@ -1668,8 +1668,8 @@ def read_results_fselect(file_name):
     return passed_sigma, passed_snr, passed_b
 
 
-def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2,
-                          file_name, data_id='none'):
+def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, file_name,
+                          data_id='none'):
     """Save the results of the variability level calculation
 
     Parameters
@@ -1694,13 +1694,6 @@ def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios
         Ratios of the eclipse depths to std_3
     ratios_4: numpy.ndarray[float]
         Ratios of the eclipse depths to std_4
-    flag_1: bool
-        If True, an indication that the true error in the period
-        might be larger that the estimated error
-    flag_2: bool
-        If True, an indication that the true error in the
-        eccentricity (and other orbital parameters)
-        might be larger that the estimated error
     file_name: str
         File name (including path) for saving the results.
     data_id: str
@@ -1712,10 +1705,10 @@ def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios
     """
     # stick together
     names = ['std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
-             'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2', 'flag_1', 'flag_2']
+             'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2']
     data = np.array([str(std_1), str(std_2), str(std_3), str(std_4), str(ratios_1[0]), str(ratios_1[1]),
                      str(ratios_2[0]), str(ratios_2[1]), str(ratios_3[0]), str(ratios_3[1]),
-                     str(ratios_4[0]), str(ratios_4[1]), str(flag_1), str(flag_2)])
+                     str(ratios_4[0]), str(ratios_4[1])])
     desc = ['Standard deviation of the residuals of the linear+sinusoid+eclipse model',
             'Standard deviation of the residuals of the linear+eclipse model',
             'Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model',
@@ -1723,10 +1716,7 @@ def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios
             'Ratio of the first eclipse depth to std_1', 'Ratio of the second eclipse depth to std_1',
             'Ratio of the first eclipse depth to std_2', 'Ratio of the second eclipse depth to std_2',
             'Ratio of the first eclipse depth to std_3', 'Ratio of the second eclipse depth to std_3',
-            'Ratio of the first eclipse depth to std_4', 'Ratio of the second eclipse depth to std_4',
-            'Indication that the true error in the period might be larger that the estimated error',
-            'Indication that the true error in the eccentricity (and other orbital parameters) '
-            'might be larger that the estimated error']
+            'Ratio of the first eclipse depth to std_4', 'Ratio of the second eclipse depth to std_4']
     table = np.column_stack((names, data, desc))
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Variability levels of different model residuals'
@@ -1765,13 +1755,6 @@ def read_results_var_level(file_name):
         Ratios of the eclipse depths to std_3
     ratios_4: numpy.ndarray[float]
         Ratios of the eclipse depths to std_4
-    flag_1: bool
-        If True, an indication that the true error in the period
-        might be larger that the estimated error
-    flag_2: bool
-        If True, an indication that the true error in the
-        eccentricity (and other orbital parameters)
-        might be larger that the estimated error
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', dtype=str, unpack=True)
     std_1, std_2, std_3, std_4 = results[:4].astype(float)
@@ -1779,8 +1762,7 @@ def read_results_var_level(file_name):
     ratios_2 = results[6:8].astype(float)
     ratios_3 = results[8:10].astype(float)
     ratios_4 = results[10:12].astype(float)
-    flag_1, flag_2 = results[12:14] == 'True'  # conversion with astype fails
-    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2
+    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
 
 
 def save_summary(t_tot, target_id, save_dir, data_id='none'):
@@ -1813,7 +1795,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
     fit_par_init = -np.ones(12)
     fit_par = -np.ones(18)
     freqs_par = -np.ones(8, dtype=int)
-    level_par = -np.ones(14)
+    level_par = -np.ones(12)
     # read results
     data_dir = os.path.join(save_dir, f'{target_id}_analysis')
     # get period from last prewhitening step
@@ -1885,8 +1867,8 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
         freqs_par[4:] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
     if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_19.csv')):
         results_19 = read_results_var_level(os.path.join(data_dir, f'{target_id}_analysis_19.csv'))
-        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = results_19
-        level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4, flag_1, flag_2]
+        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results_19
+        level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4]
     # file header with all variable names
     hdr = ['id', 'stage', 't_tot', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
            't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
@@ -1904,7 +1886,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
            'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both',
            'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc',
            'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
-           'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2', 'flag_1', 'flag_2']
+           'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2']
     # record the stage where the analysis finished
     files_in_dir = []
     for root, dirs, files in os.walk(data_dir):

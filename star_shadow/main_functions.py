@@ -1755,20 +1755,13 @@ def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slop
         Ratios of the eclipse depths to std_3
     ratios_4: numpy.ndarray[float]
         Ratios of the eclipse depths to std_4
-    flag_1: bool
-        If True, an indication that the true error in the period
-        might be larger that the estimated error
-    flag_2: bool
-        If True, an indication that the true error in the
-        eccentricity (and other orbital parameters)
-        might be larger that the estimated error
     """
     t_a = time.time()
     if os.path.isfile(file_name) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
         results = ut.read_results_var_level(file_name)
-        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = results
+        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results
     else:
         if verbose:
             print(f'Determining variability levels')
@@ -1800,20 +1793,14 @@ def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slop
         ratios_2 = depths / std_2
         ratios_3 = depths / std_3
         ratios_4 = depths / std_4
-        # flags in case the levels are low
-        flag_1 = False  # (np.max(ratios_1) < 1)  some criterion possibly bad period
-        flag_2 = False  # (np.max(ratios_3) < 1)  some criterion possibly bad eccentricity
         # save
-        ut.save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2,
-                                 file_name, data_id)
+        ut.save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, file_name, data_id)
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mVariability levels calculated.\033[0m')
         print(f'\033[0;32;48mRatios of eclipse depth to leftover variability: {ratios_3[0]:2.3}, {ratios_3[1]:2.3}. \n'
-              f'Need to be careful with the period determination: {flag_1}. \n'
-              f'Need to be careful with the eccentricity determination: {flag_2}. \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2
+    return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
 
 
 def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, save_dir, logger, fit_ellc=False,
@@ -2011,7 +1998,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_19.csv')
     out_19 = analysis_variability_amplitudes(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
                                              f_n_r_17, a_n_r_17, ph_n_r_17, i_sectors, depths_13, file_name, **kwargs_1)
-    # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, flag_1, flag_2 = out_19
+    # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_19
     # --- [20] --- Harmonics in the residuals
     # determine which residual frequencies are consistent with harmonics (already done in plotting)
     # --- [21] --- Amplitude modulation
