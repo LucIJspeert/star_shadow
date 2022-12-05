@@ -1457,7 +1457,7 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
             opt2_e = opt_f_c**2 + opt_f_s**2
             opt2_w = np.arctan2(opt_f_s, opt_f_c) % (2 * np.pi)
         else:
-            opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = 0, 0, 0, 0, 0, 0
+            opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = -1, -1, -1, -1, -1, -1
         par_opt_ellc = (opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio)
         # save
         ut.save_results_lc_fit(par_init, par_opt_simple, par_opt_ellc, file_name, data_id)
