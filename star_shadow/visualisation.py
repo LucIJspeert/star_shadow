@@ -1196,8 +1196,9 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
                                          opt1_sb_ratio)
     model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
                                          opt1_r_ratio, opt1_sb_ratio, 0)
-    model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
-                                    opt2_sb_ratio, 0)
+    if not np.all(par_opt2 == -1):
+        model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
+                                        opt2_sb_ratio, 0)
     # plot the simple model
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -1225,9 +1226,11 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
     ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial ellc eclipse model')
-    ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:red', label='final ellc eclipse model')
-    if np.all(model_opt2 == 1):
-        ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination ({opt2_i:2.4} rad)', (0, 1))
+    if not np.all(par_opt2 == -1):
+        ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:red', label='final ellc eclipse model')
+        if np.all(model_opt2 == 1):
+            ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination '
+                        f'({opt2_i:2.4} rad)', (0, 1))
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
