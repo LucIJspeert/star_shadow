@@ -18,9 +18,9 @@ As of version 0.1.0 (August 2022), it is possible to install STAR SHADOW with pi
 
     pip install git+https://github.com/LucIJspeert/star_shadow@v0.1.0
 
-Or install the master branch by leaving out the version number. One can then import the package from the python environment it was installed in. Of course one can always still manually download it or make a fork on GitHub. It is recommended to get the latest release from the GitHub page. To use it, simply import the folder containing STAR SHADOW into your own script.
+Or install the master branch by leaving out the version number. One can then import the package from the python environment it was installed in. Of course one can always still manually download it or make a fork on GitHub. It is recommended to get the latest release from the GitHub page. 
 
-**STAR SHADOW has only been tested in Python 3.8**. Using older versions could result in unexpected errors, although any Python version >3.6 is expected to work.
+**STAR SHADOW has only been tested in Python 3.7**. Using older versions could result in unexpected errors, although any Python version >3.6 is expected to work.
 
 
 **Package dependencies:** The following package versions have been used in the development of this code, meaning older versions can in principle work, but this is not guaranteed. NumPy 1.21.5, SciPy 1.7.3, Numba 0.55.1, Matplotlib 3.5.1, Astropy 4.3.1 (mainly for .fits functionality), h5py 1.10.6 (for saving results). Newer versions are expected to work, and it is considered a bug if this is not the case.
