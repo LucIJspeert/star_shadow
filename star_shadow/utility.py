@@ -1419,6 +1419,9 @@ def save_results_lc_fit(par_init, par_fit_1, par_fit_2, file_name, data_id='none
     -------
     None
     """
+    # if ellc not done, save Nones as zeros
+    if np.all(par_fit_2 == None):
+        par_fit_2 = np.zeros(len(par_fit_2))
     var_names = ['e_0', 'w_0', 'i_0', 'r_sum_0', 'r_rat_0', 'sb_rat_0',
                  'e_1', 'w_1', 'i_1', 'r_sum_1', 'r_rat_1', 'sb_rat_1',
                  'e_2', 'w_2', 'i_2', 'r_sum_2', 'r_rat_2', 'sb_rat_2']
@@ -1489,6 +1492,9 @@ def read_results_lc_fit(file_name):
     param_init = results[:6]
     param_opt1 = results[6:12]
     param_opt2 = results[12:]
+    # if ellc not done, convert zeros back to Nones
+    if np.all(param_opt2 == 0):
+        param_opt2 = (None, None, None, None, None, None)
     return param_init, param_opt1, param_opt2
 
 
