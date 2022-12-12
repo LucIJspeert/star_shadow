@@ -366,8 +366,8 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     
     Notes
     -----
-    A frequency is only accepted as harmonic if it is within 1e-9 of the pattern.
-    This can now be user defined for more flexibility.
+    A frequency is only accepted as harmonic if it is within 1e-9 of the pattern
+    (by default). This can now be user defined for more flexibility.
     """
     # make the pattern of harmonics
     domain = (0, np.max(f_n) + 0.5 / p_orb)
@@ -383,7 +383,7 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     # get the distances to nearest neighbours
     d_nn = np.abs(f_n[i_nn] - harmonic_pattern)
     # check that the closest neighbours are reasonably close to the harmonic
-    m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance must be smaller than tolerance
+    m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance must be smaller than tolerance (and never larger than 1/2P)
     return sorter[i_nn[m_cn]], harmonic_n[m_cn]
 
 
@@ -423,6 +423,51 @@ def find_harmonics_tolerance(f_n, p_orb, f_tol):
     harmonics = np.arange(len(f_n))[m_cn]
     harmonic_n = harmonic_n[m_cn].astype(np.int_)
     return harmonics, harmonic_n
+
+
+@nb.njit(cache=True)
+def select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol, sigma_f=3):
+    """Selects only those frequencies that are probably harmonics
+
+    Parameters
+    ----------
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    f_n_err: numpy.ndarray[float]
+        Formal errors in the frequencies
+    p_orb: float
+        The orbital period
+    f_tol: float
+        Tolerance in the frequency for accepting harmonics
+    sigma_f: float
+        Number of times the error to use for check of significant
+        frequency separation
+    
+    Returns
+    -------
+     harmonics_passed: numpy.ndarray[int]
+        Indices of the frequencies in f_n that are harmonics
+     harmonic_n: numpy.ndarray[int]
+        Corresponding harmonic numbers (base frequency is 1)
+
+    Notes
+    -----
+    A frequency is only accepted as harmonic if it is within the
+    frequency resolution of the pattern, and if it is within <sigma_f> sigma
+    of the frequency uncertainty
+    """
+    # get the harmonics within f_tol
+    harmonics, harm_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=f_tol)
+    # frequency error overlaps with theoretical harmonic
+    passed_h = np.zeros(len(harmonics), dtype=np.bool_)
+    for i, j in enumerate(harmonics):
+        f_theo = harm_n[j] / p_orb
+        overlap_h = (f_n[j] + sigma_f * f_n_err[j] > f_theo) & (f_n[j] - sigma_f * f_n_err[j] < f_theo)
+        if overlap_h:
+            passed_h[i] = True
+    harmonics_passed = harmonics[passed_h]
+    harmonic_n = harm_n[passed_h]
+    return harmonics_passed, harmonic_n
 
 
 # @nb.njit()  # won't work due to itertools

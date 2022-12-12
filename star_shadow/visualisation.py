@@ -1503,7 +1503,7 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, const_r, slope_r, f
 
 
 def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r, slope_r, f_n_r, a_n_r, ph_n_r,
-                                 i_sectors, passed_r, param_lc, model='simple', save_file=None, show=True):
+                                 i_sectors, passed_r, passed_h, param_lc, model='simple', save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1520,17 +1520,6 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     # sinusoid and linear models
     model_sinusoid_r = tsf.sum_sines(times, f_n_r, a_n_r, ph_n_r)
     model_linear_r = tsf.linear_curve(times, const_r, slope_r, i_sectors)
-    # candidate harmonics in the disentangled frequencies
-    harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r, p_orb, f_tol=freq_res / 2)
-    model_r_h = tsf.sum_sines(times, f_n_r[harm_r], a_n_r[harm_r], ph_n_r[harm_r])
-    model_r_h = np.concatenate((model_r_h[ext_left], model_r_h, model_r_h[ext_right]))
-    # model of passed frequencies
-    if np.any(passed_r):
-        harm_r, harmonic_n_r = af.find_harmonics_from_pattern(f_n_r[passed_r], p_orb, f_tol=freq_res / 2)
-        model_r_p_h = tsf.sum_sines(times, f_n_r[passed_r][harm_r], a_n_r[passed_r][harm_r], ph_n_r[passed_r][harm_r])
-        model_r_p_h = np.concatenate((model_r_p_h[ext_left], model_r_p_h, model_r_p_h[ext_right]))
-    else:
-        model_r_p_h = np.zeros(len(t_extended))
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = param_lc
     f_c, f_s = np.sqrt(e) * np.cos(w), np.sqrt(e) * np.sin(w)
@@ -1550,6 +1539,16 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     resid_ecl = np.concatenate((resid_ecl[ext_left], resid_ecl, resid_ecl[ext_right]))
     resid_full = signal - model_ecl - model_sinusoid_r - model_linear_r
     resid_full = np.concatenate((resid_full[ext_left], resid_full, resid_full[ext_right]))
+    # candidate harmonics in the disentangled frequencies
+    model_r_h = tsf.sum_sines(times, f_n_r[passed_h], a_n_r[passed_h], ph_n_r[passed_h])
+    model_r_h = np.concatenate((model_r_h[ext_left], model_r_h, model_r_h[ext_right]))
+    # model of passed frequencies
+    if np.any(passed_r):
+        passed_hr = passed_r & passed_h
+        model_r_p_h = tsf.sum_sines(times, f_n_r[passed_hr], a_n_r[passed_hr], ph_n_r[passed_hr])
+        model_r_p_h = np.concatenate((model_r_p_h[ext_left], model_r_p_h, model_r_p_h[ext_right]))
+    else:
+        model_r_p_h = np.zeros(len(t_extended))
     # some plotting parameters
     s_minmax = np.array([np.min(signal), np.max(signal)])
     s_minmax_r = np.array([np.min(resid_ecl), np.max(resid_ecl)])

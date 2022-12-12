@@ -1126,7 +1126,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
         timings_em = timings_em - mid_1
         # errors for sines
-        model_ecl = 1 + tsfit.eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2,
+        model_ecl = tsfit.eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2,
                                                    d_1, d_2)
         model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         model_sines = tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
@@ -1588,8 +1588,7 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
             model_ecl = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
         else:
             model_ecl = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-        model_full = model_lin + model_sin + model_ecl
-        residuals = signal - model_full
+        residuals = signal - (model_lin + model_sin + model_ecl)
         noise_level = np.std(residuals)
         f_errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
         c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
@@ -1610,8 +1609,8 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
     return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
-def analysis_frequency_selection(times, signal, model_ecl, f_n, a_n, ph_n, noise_level, i_sectors, file_name,
-                                 data_id=None, overwrite=False, verbose=False):
+def analysis_frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, noise_level, i_sectors,
+                                 file_name, data_id=None, overwrite=False, verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
 
@@ -1623,6 +1622,12 @@ def analysis_frequency_selection(times, signal, model_ecl, f_n, a_n, ph_n, noise
         Measurement values of the time-series
     model_ecl: numpy.ndarray[float]
         Model of the eclipses at the same times
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1650,44 +1655,53 @@ def analysis_frequency_selection(times, signal, model_ecl, f_n, a_n, ph_n, noise
 
     Returns
     -------
-    passed_nh_sigma: numpy.ndarray[bool]
+    passed_sigma: numpy.ndarray[bool]
         Non-harmonic frequencies that passed the sigma check
-    passed_nh_snr: numpy.ndarray[bool]
+    passed_snr: numpy.ndarray[bool]
         Non-harmonic frequencies that passed the signal-to-noise check
-    passed_nh_b: numpy.ndarray[bool]
+    passed_both: numpy.ndarray[bool]
         Non-harmonic frequencies that passed both checks
+    
     """
     t_a = time.time()
     if os.path.isfile(file_name) & (not overwrite):
         if verbose:
             print(f'Loading existing results {os.path.splitext(os.path.basename(file_name))[0]}')
-        passed_nh_sigma, passed_nh_snr, passed_nh_b = ut.read_results_fselect(file_name)
+        passed_sigma, passed_snr, passed_both, passed_h = ut.read_results_fselect(file_name)
     else:
         if verbose:
             print(f'Selecting credible frequencies')
         n_points = len(times)
-        # obtain the errors on the sine waves (residual and thus model dependent)
-        errors = tsf.formal_uncertainties(times, signal - model_ecl, a_n, i_sectors)
+        # obtain the errors on the sine waves (dependends on residual and thus model)
+        model_lin = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
+        residuals = signal - (model_lin + model_sin + model_ecl)
+        errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
         const_err, slope_err, f_n_err, a_n_err, ph_n_err = errors
         # find the insignificant frequencies
         remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1.)
         remove_snr = af.remove_insignificant_snr(a_n, noise_level, n_points)
         # frequencies that pass sigma criteria
-        passed_nh_sigma = np.ones(len(f_n), dtype=bool)
-        passed_nh_sigma[remove_sigma] = False
+        passed_sigma = np.ones(len(f_n), dtype=bool)
+        passed_sigma[remove_sigma] = False
         # frequencies that pass S/N criteria
-        passed_nh_snr = np.ones(len(f_n), dtype=bool)
-        passed_nh_snr[remove_snr] = False
+        passed_snr = np.ones(len(f_n), dtype=bool)
+        passed_snr[remove_snr] = False
         # passing both
-        passed_nh_b = (passed_nh_sigma & passed_nh_snr)
+        passed_both = (passed_sigma & passed_snr)
+        # candidate harmonic frequencies
+        freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
+        harmonics, harmonic_n = af.select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol=freq_res / 2, sigma_f=3)
+        passed_h = np.zeros(len(f_n), dtype=bool)
+        passed_h[harmonics] = True
         # save
-        ut.save_results_fselect(f_n, a_n, ph_n, passed_nh_sigma, passed_nh_snr, file_name, data_id)
+        ut.save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, passed_h, file_name, data_id)
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mNon-harmonic frequencies selected.\033[0m')
-        print(f'\033[0;32;48mNumber of frequencies passed: {len(passed_nh_b)} of {len(f_n)}. '
-              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return passed_nh_sigma, passed_nh_snr, passed_nh_b
+        print(f'\033[0;32;48mNumber of frequencies passed: {np.sum(passed_both)} of {len(f_n)}. '
+              f'Candidate harmonics: {np.sum(passed_h)}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    return passed_sigma, passed_snr, passed_both, passed_h
 
 
 def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, depths,
@@ -1981,16 +1995,18 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         model_ecl_17b = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *ecl_par_r_17b_ellc, 0)
     else:
         out_17b = None
-    # --- [18] --- Frequency selection [pulsation analysis from here on]
+    # --- [18] --- Frequency and harmonic selection [pulsation analysis from here on]
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
-    out_18 = analysis_frequency_selection(times, signal, model_ecl_17_simple, f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9,
-                                          i_sectors, file_name=file_name, **kwargs_1)
+    out_18 = analysis_frequency_selection(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
+                                          f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9, i_sectors,
+                                          file_name=file_name, **kwargs_1)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
-        out_18b = analysis_frequency_selection(times, signal, model_ecl_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b,
-                                               noise_level_9, i_sectors, file_name=file_name, **kwargs_1)
+        out_18b = analysis_frequency_selection(times, signal, model_ecl_17b, p_orb_9, const_r_17, slope_r_17,
+                                               f_n_r_17b, a_n_r_17b, ph_n_r_17b, noise_level_9, i_sectors,
+                                               file_name=file_name, **kwargs_1)
     else:
         out_18b = None
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b
@@ -1999,9 +2015,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     out_19 = analysis_variability_amplitudes(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
                                              f_n_r_17, a_n_r_17, ph_n_r_17, i_sectors, depths_13, file_name, **kwargs_1)
     # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_19
-    # --- [20] --- Harmonics in the residuals
-    # determine which residual frequencies are consistent with harmonics (already done in plotting)
-    # --- [21] --- Amplitude modulation
+    # --- [20] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating
     return out_10, out_11, out_12, out_13, out_14, out_15, out_16, out_16b, out_17, out_17b, out_18, out_18b, out_19
 

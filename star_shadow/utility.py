@@ -1603,7 +1603,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
     return results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
-def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, data_id='none'):
+def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, passed_h, file_name, data_id='none'):
     """Save the results of the frequency selection
     
     Parameters
@@ -1618,6 +1618,8 @@ def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, da
         Frequencies that passed the sigma check
     passed_snr: numpy.ndarray[bool]
         Frequencies that passed the signal-to-noise check
+    passed_h: numpy.ndarray[bool]
+        Frequencies that passed the checks for being harmonics
     file_name: str
         File name (including path) for saving the results.
     data_id: str
@@ -1630,10 +1632,11 @@ def save_results_fselect(f_n, a_n, ph_n, passed_sigma, passed_snr, file_name, da
     # passing both
     passed_b = (passed_sigma & passed_snr)
     # stick together
-    table = np.column_stack((np.arange(1, len(f_n)+1), f_n, a_n, ph_n, passed_sigma, passed_snr, passed_b))
+    table = np.column_stack((np.arange(1, len(f_n)+1), f_n, a_n, ph_n, passed_sigma, passed_snr, passed_b, passed_h))
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
     description = f'Selection of credible (non-)harmonic frequencies'
-    hdr = f'{target_id}, {data_id}, {description}\nn, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_all'
+    hdr = (f'{target_id}, {data_id}, {description}\n'
+           f'n, f_n, a_n, ph_n, pass_sigma_check, pass_snr_check, pass_both, passed_h')
     np.savetxt(file_name, table, delimiter=',', header=hdr)
     return None
 
@@ -1652,20 +1655,23 @@ def read_results_fselect(file_name):
         Frequencies that passed the sigma check
     passed_snr: numpy.ndarray[bool]
         Frequencies that passed the signal-to-noise check
-    passed_b: numpy.ndarray[bool]
+    passed_both: numpy.ndarray[bool]
         Frequencies that passed both checks
+    passed_h: numpy.ndarray[bool]
+        Frequencies that passed the checks for being harmonics
     """
-    results = np.loadtxt(file_name, usecols=(4, 5, 6), delimiter=',', unpack=True)
+    results = np.loadtxt(file_name, usecols=(4, 5, 6, 7), delimiter=',', unpack=True)
     if (len(np.shape(results)) == 2):
-        passed_sigma, passed_snr, passed_b = results
+        passed_sigma, passed_snr, passed_both, passed_h = results
         passed_sigma = passed_sigma.astype(int).astype(bool)  # stored as floats
         passed_snr = passed_snr.astype(int).astype(bool)  # stored as floats
-        passed_b = passed_b.astype(int).astype(bool)  # stored as floats
+        passed_both = passed_both.astype(int).astype(bool)  # stored as floats
+        passed_h = passed_h.astype(int).astype(bool)  # stored as floats
     elif (len(np.shape(results)) == 1):
-        passed_sigma, passed_snr, passed_b = results.astype(int).astype(bool).reshape(3, 1)
+        passed_sigma, passed_snr, passed_both, passed_h = results.astype(int).astype(bool).reshape(4, 1)
     else:
-        passed_sigma, passed_snr, passed_b = np.array([[], [], []])
-    return passed_sigma, passed_snr, passed_b
+        passed_sigma, passed_snr, passed_both, passed_h = np.array([[], [], [], []])
+    return passed_sigma, passed_snr, passed_both, passed_h
 
 
 def save_result_var_level(std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4, file_name,
@@ -1794,7 +1800,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
     form_par = -np.ones(21)
     fit_par_init = -np.ones(12)
     fit_par = -np.ones(18)
-    freqs_par = -np.ones(8, dtype=int)
+    freqs_par = -np.ones(10, dtype=int)
     level_par = -np.ones(12)
     # read results
     data_dir = os.path.join(save_dir, f'{target_id}_analysis')
@@ -1859,12 +1865,14 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
     # include n_freqs/n_freqs_passed (18)
     if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18.csv')):
         results_18 = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18.csv'))
-        passed_sigma, passed_snr, passed_b = results_18
-        freqs_par[:4] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
+        passed_sigma, passed_snr, passed_both, passed_h = results_18
+        freqs_par[:5] = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
+                         np.sum(passed_h)]
     if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18b.csv')):
         results_18b = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18b.csv'))
-        passed_sigma, passed_snr, passed_b = results_18b
-        freqs_par[4:] = [len(passed_b), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_b)]
+        passed_sigma, passed_snr, passed_both, passed_h = results_18b
+        freqs_par[5:] = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
+                         np.sum(passed_h)]
     if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_19.csv')):
         results_19 = read_results_var_level(os.path.join(data_dir, f'{target_id}_analysis_19.csv'))
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results_19
@@ -1883,8 +1891,8 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
            'n_param_fit', 'bic_fit', 'noise_level_fit',
            'e_ellc', 'w_ellc', 'i_ellc', 'r_sum_sma_ellc', 'r_ratio_ellc', 'sb_ratio_ellc',
            'n_param_ellc', 'bic_ellc', 'noise_level_ellc',
-           'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both',
-           'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc',
+           'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both', 'passed_harmonics',
+           'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc', 'passed_harmonics_ellc',
            'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
            'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2']
     # record the stage where the analysis finished
@@ -2166,11 +2174,11 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
     if os.path.isfile(file_name):
         results_18 = read_results_fselect(file_name)
-        pass_sigma_18, pass_snr_18, passed_b_18 = results_18
+        pass_sigma_18, pass_snr_18, passed_b_18, passed_h_18 = results_18
     file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
     if os.path.isfile(file_name):
         results_18b = read_results_fselect(file_name)
-        pass_sigma_18b, pass_snr_18b, passed_b_18b = results_18b
+        pass_sigma_18b, pass_snr_18b, passed_b_18b, passed_h_18b = results_18b
     # frequency_analysis
     if save_dir is not None:
         try:
@@ -2343,16 +2351,16 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_pulsation_analysis_lc_disentangled_simple_model_h.png')
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17, t_zero_17, timings_13, const_17, slope_17,
-                                             f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, par_opt_17,
-                                             model='simple', save_file=file_name, show=False)
+                                             f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, passed_h_18,
+                                             par_opt_17, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17b, t_zero_17b, timings_13, const_17b, slope_17b,
-                                             f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, par_opt_17b,
-                                             model='ellc', save_file=file_name, show=False)
+                                             f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, passed_h_18b,
+                                             par_opt_17b, model='ellc', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
@@ -2386,15 +2394,14 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17, t_zero_17, timings_13, const_17, slope_17,
-                                             f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, par_opt_17,
-                                             model='simple', save_file=None, show=True)
+                                             f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, passed_h_18,
+                                             par_opt_17, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17b, t_zero_17b, timings_13, const_17b, slope_17b,
-                                             f_n_17b,
-                                             a_n_17b, ph_n_17b, i_sectors, passed_b_18b, par_opt_17b,
-                                             model='ellc', save_file=None, show=True)
+                                             f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, passed_h_18b,
+                                             par_opt_17b, model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
