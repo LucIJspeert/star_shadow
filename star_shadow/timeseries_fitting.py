@@ -12,8 +12,11 @@ import numpy as np
 import numba as nb
 import scipy as sp
 import scipy.optimize
-import ellc
 import pymc3 as pm
+try:
+    import ellc  # optional functionality
+except ImportError:
+    ellc = None
 
 from . import timeseries_functions as tsf
 from . import analysis_functions as af

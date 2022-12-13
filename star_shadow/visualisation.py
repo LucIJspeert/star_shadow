@@ -1194,9 +1194,9 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     model_simple_init = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_opt1 = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio,
                                          opt1_sb_ratio)
-    model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
-                                         opt1_r_ratio, opt1_sb_ratio, 0)
     if not np.all(par_opt2 == -1):
+        model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
+                                             opt1_r_ratio, opt1_sb_ratio, 0)
         model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
                                         opt2_sb_ratio, 0)
     # plot the simple model
@@ -1223,32 +1223,32 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     else:
         plt.close()
     # plot the ellc model
-    fig, ax = plt.subplots()
-    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial ellc eclipse model')
     if not np.all(par_opt2 == -1):
+        fig, ax = plt.subplots()
+        ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
+        ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial ellc eclipse model')
         ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:red', label='final ellc eclipse model')
         if np.all(model_opt2 == 1):
             ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination '
                         f'({opt2_i:2.4} rad)', (0, 1))
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
-    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
-    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
-    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
-    ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
-    ax.set_ylabel('normalised flux')
-    plt.legend()
-    plt.tight_layout()
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_2.png')
+        ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
+        ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
+        ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
+        ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
+        ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
+        ax.set_ylabel('normalised flux')
+        plt.legend()
+        plt.tight_layout()
+        if save_file is not None:
+            if save_file.endswith('.png'):
+                fig_save_file = save_file.replace('.png', '_2.png')
+            else:
+                fig_save_file = save_file + '_2.png'
+            plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        if show:
+            plt.show()
         else:
-            fig_save_file = save_file + '_2.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
+            plt.close()
     return
 
 
