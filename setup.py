@@ -24,4 +24,7 @@ setup(name="star_shadow",
       package_dir={'star_shadow': 'star_shadow'},
       package_data={'star_shadow': ['star_shadow/data/tess_sectors.dat', 'star_shadow/data/mpl_stylesheet.dat']},
       include_package_data=True,
-      install_requires=['numpy', 'scipy', 'numba', 'astropy', 'ellc', 'arviz', 'h5py', 'matplotlib', 'corner'])
+      python_requires='>=3.6',
+      install_requires=['numpy', 'scipy', 'numba', 'astropy', 'arviz', 'h5py', 'matplotlib', 'corner']
+      extras_require={'ellc': ['ellc']}
+     )
