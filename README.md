@@ -23,7 +23,7 @@ Or install the master branch by leaving out the version number. One can then imp
 **STAR SHADOW has only been tested in Python 3.7**. Using older versions could result in unexpected errors, although any Python version >3.6 is expected to work.
 
 
-**Package dependencies:** The following package versions have been used in the development of this code, meaning older versions can in principle work, but this is not guaranteed. NumPy 1.21.5, SciPy 1.7.3, Numba 0.55.1, Matplotlib 3.5.1, Astropy 4.3.1 (mainly for .fits functionality), h5py 1.10.6 (for saving results). Newer versions are expected to work, and it is considered a bug if this is not the case.
+**Package dependencies:** The following package versions have been used in the development of this code, meaning older versions can in principle work, but this is not guaranteed. NumPy 1.20.3, SciPy 1.7.3, Numba 0.55.1, Matplotlib 3.5.3, Arviz 0.11.4, corner 2.2.1, Astropy 4.3.1 (mainly for .fits functionality), h5py 3.7.0 (for saving results), ellc 1.8.5 (for additional light curve model). Newer versions are expected to work, and it is considered a bug if this is not the case.
 
 ### Example use
 
@@ -46,11 +46,11 @@ Either function can be used for a set of light curves by using:
 
 ### Explanation of output
 
-Results are saved in a combination of hdf5, csv and sometimes txt files. Always read the messages saved in txt files as these contain important information about the operation of the algorithm.
+Results are saved in a combination of hdf5 and csv files. A log file keeps track of the start and end time of the analysis and can contain important information about the operation of the algorithm.
 
-Currently, there are a total of 16 analysis steps. Normal operation can terminate at several stages: 3, 9 and 16. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. A text file is saved if this is the case, specifying what happened. If stage 9 is reached, but nothing further, this means that the algorithm wasn't able to detect two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis. A text file specifying what happened is saved in this case.
+Currently, there are a total of 19 analysis steps. Normal operation can terminate at several intermediate stages: 2, 3, 10, 13 and 14. A log entry is made when this happens containing further information. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. If stage 10 is reached, but nothing further, this means that the algorithm wasn't able to detect the two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis.
 
-In normal operation, the eight first steps produce .hdf5 files with all the model parameters at that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of the eight prewhitening steps for easy access. All following steps produce one or more .csv files with the results.
+In normal operation, the nine first steps produce .hdf5 files with all the model parameters at that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of these nine prewhitening steps for easy access. All following steps produce one or more .csv files with the results.
 
 ### Diagnostic plots
 
