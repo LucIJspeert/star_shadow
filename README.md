@@ -23,7 +23,7 @@ Or install the master branch by leaving out the version number. One can then imp
 **STAR SHADOW has only been tested in Python 3.7**. Using older versions could result in unexpected errors, although any Python version >3.6 is expected to work.
 
 
-**Package dependencies:** The following package versions have been used in the development of this code, meaning older versions can in principle work, but this is not guaranteed. NumPy 1.20.3, SciPy 1.7.3, Numba 0.55.1, Matplotlib 3.5.3, Arviz 0.11.4, Astropy 4.3.1 (mainly for .fits functionality), h5py 3.7.0 (for saving results). Newer versions are expected to work, and it is considered a bug if this is not the case.
+**Package dependencies:** The following package versions have been used in the development of this code, meaning older versions can in principle work, but this is not guaranteed. NumPy 1.20.3, SciPy 1.7.3, Numba 0.55.1, Matplotlib 3.5.3, Arviz 0.11.4, corner 2.2.1, Astropy 4.3.1 (mainly for .fits functionality), h5py 3.7.0 (for saving results). Newer versions are expected to work, and it is considered a bug if this is not the case.
 
 ### Example use
 
