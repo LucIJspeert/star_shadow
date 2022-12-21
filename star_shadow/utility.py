@@ -459,8 +459,8 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     # median normalise
     signal, medians, signal_err = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
     # zero the timeseries
-    times_0 = times[0]
-    times -= times_0
+    times_0 = np.mean(times)
+    times = times - times_0  # mean-center the time array to reduce correlations
     # times of sector mid-point and resulting half-sectors
     dt = np.median(np.diff(times))
     t_start = times[i_sectors[:, 0]] - dt/2

@@ -2103,7 +2103,8 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     logger.info('Start of analysis')
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    times = times - times[0]  # translate time array to start at zero
+    times_0 = np.mean(times)
+    times = times - times_0  # mean-center the time array to reduce correlations
     t_tot = np.ptp(times)  # total time base of observations
     kw_args = {'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # if sectors not given, take full length
@@ -2235,7 +2236,8 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
     save_dir = os.path.dirname(file_name)
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    times = times - times[0]  # translate time array to start at zero
+    times_0 = np.mean(times)
+    times = times - times_0  # mean-center the time array to reduce correlations
     # if sectors not given, take full length
     if i_sectors is None:
         i_sectors = np.array([[0, len(times)]])  # no sector information
