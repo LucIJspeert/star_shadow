@@ -46,7 +46,7 @@ Either function can be used for a set of light curves by using:
 
 ### Explanation of output
 
-Results are saved in a combination of hdf5 and csv files. A log file keeps track of the start and end time of the analysis and can contain important information about the operation of the algorithm.
+Results are saved in a combination of hdf5 and csv files. A log file keeps track of the start and end time of the analysis and can contain important information about the operation of the algorithm, like a reason for terminating early.
 
 Currently, there are a total of 19 analysis steps. Normal operation can terminate at several intermediate stages: 2, 3, 10, 13 and 14. A log entry is made when this happens containing further information. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. If stage 10 is reached, but nothing further, this means that the algorithm wasn't able to detect the two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis.
 
