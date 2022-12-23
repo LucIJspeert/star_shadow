@@ -790,10 +790,16 @@ def linear_curve(times, const, slope, i_sectors):
     -------
     curve: numpy.ndarray[float]
         The model time-series of a (set of) straight line(s)
+    
+    Notes
+    -----
+    Assumes the constants and slopes are determined with respect
+    to the sector mean time.
     """
     curve = np.zeros(len(times))
     for co, sl, s in zip(const, slope, i_sectors):
-        curve[s[0]:s[1]] = co + sl * times[s[0]:s[1]]
+        t_sector_mean = np.mean(times[s[0]:s[1]])
+        curve[s[0]:s[1]] = co + sl * (times[s[0]:s[1]] - t_sector_mean)
     return curve
 
 
@@ -821,6 +827,7 @@ def linear_pars(times, signal, i_sectors):
     
     Notes
     -----
+    Determines the constants and slopes with respect to the sector mean time.
     Source: https://towardsdatascience.com/linear-regression-91eeae7d6a2e
     """
     y_inter = np.zeros(len(i_sectors))
@@ -836,7 +843,8 @@ def linear_pars(times, signal, i_sectors):
         s_xy = np.sum(x_ms * y_ms)
         # parameters
         slope[i] = s_xy / s_xx
-        y_inter[i] = y_m - slope[i] * x_m
+        # y_inter[i] = y_m - slope[i] * x_m  # original non-mean-centered formula
+        y_inter[i] = y_m  # mean-centered value
     return y_inter, slope
 
 
