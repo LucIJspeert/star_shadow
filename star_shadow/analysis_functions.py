@@ -2820,7 +2820,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
     w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
     # w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
-    w_errs = np.array([w - w_inter[0], w_inter[1] - w])
+    w_errs = np.array([w - w_inter[0], (w_inter[1] - w) % (2 * np.pi)])  # %2pi for if w_inter wrapped around
     # r_sum_sma
     rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
     rsumsma_bounds = arviz.hdi(rsumsma_vals, hdi_prob=0.997)
