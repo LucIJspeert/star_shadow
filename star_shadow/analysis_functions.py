@@ -1577,7 +1577,7 @@ def minima_phase_angles_2(e, w, i):
     step = 0.001  # step in rad (does not determine final precision)
     # start at x0
     cur_x = x0
-    cur_y = delta_deriv(x0, e, w, i)
+    cur_y = delta_deriv(cur_x, e, w, i)
     f_sign_x0 = np.sign(cur_y).astype(np.int_)  # sign of delta_deriv at initial position
     # step in the desired direction
     try_x = cur_x + step * walk_sign
@@ -1597,10 +1597,11 @@ def minima_phase_angles_2(e, w, i):
         # check whether the sign stays the same
         check[check] = (np.sign(cur_y[check]) == np.sign(try_y[check]))
     # interpolate for better precision than the angle step
-    xp1 = cur_y * (f_sign_x0 == -1) + try_y * (f_sign_x0 == 1)
-    yp1 = cur_x * (f_sign_x0 == -1) + try_x * (f_sign_x0 == 1)
-    xp2 = cur_y * (f_sign_x0 == 1) + try_y * (f_sign_x0 == -1)
-    yp2 = cur_x * (f_sign_x0 == 1) + try_x * (f_sign_x0 == -1)
+    condition = (f_sign_x0 == 1)
+    xp1 = np.where(condition, try_y, cur_y)
+    yp1 = np.where(condition, try_x, cur_x)
+    xp2 = np.where(condition, cur_y, try_y)
+    yp2 = np.where(condition, cur_x, try_x)
     thetas_interp = ut.interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
     thetas_interp = thetas_interp % two_pi
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance

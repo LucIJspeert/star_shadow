@@ -1099,7 +1099,8 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
         ecl_model[k] = 1 - af.eclipse_depth(e, w, i, thetas[k], r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # determine the model times
     nu_1 = af.true_anomaly(theta_1, w)  # zero to good approximation
-    t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, af.true_anomaly(theta_1 + thetas, w), e)
+    nu_2 = true_anomaly(theta_1 + thetas, w)  # integral endpoints
+    t_model = p_orb / (2 * np.pi) * integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
     t_folded = (times - t_zero) % p_orb
     interp_model = np.interp(t_folded, t_model, ecl_model)
