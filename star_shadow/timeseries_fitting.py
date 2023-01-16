@@ -1,8 +1,8 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
-This Python module contains functions for time-series analysis;
+This Python module contains functions for time series analysis;
 specifically for the fitting of stellar oscillations and eclipses.
 
 Code written by: Luc IJspeert
@@ -35,9 +35,9 @@ def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=Fa
         [constant1, constant2, ..., slope1, slope2, ...,
          freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -81,9 +81,9 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     const: numpy.ndarray[float]
@@ -154,9 +154,9 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     const: numpy.ndarray[float]
@@ -243,9 +243,9 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
          ampl_h1, ampl_h2, ..., phase_h1, phase_h2, ...]
         where _hi indicates harmonics.
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     harmonic_n: numpy.ndarray[int]
@@ -302,9 +302,9 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -387,9 +387,9 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -504,9 +504,9 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
         Has to be ordered in the following way:
         [third_light1, third_light2, ..., stretch]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -568,9 +568,9 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -645,7 +645,7 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -749,9 +749,9 @@ def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
         Has to be ordered in the following way:
         [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -787,9 +787,9 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -836,7 +836,7 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
-    # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
+    # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
     ext_right = (t_extended < t_1_2)
@@ -886,9 +886,9 @@ def objective_cubics_sinusoids_lc(params, times, signal, signal_err, p_orb, t_ze
         [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2,
          const, a_h_1, a_h_2, ..., ph_h_1, ph_h_2, ...]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -946,9 +946,9 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1067,7 +1067,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1094,13 +1094,11 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)
     # make the simple model
-    ecl_model = np.zeros(len(thetas))
-    for k in range(len(thetas)):
-        ecl_model[k] = 1 - af.eclipse_depth(e, w, i, thetas[k], r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    ecl_model = 1 - af.eclipse_depth(e, w, i, thetas, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # determine the model times
     nu_1 = af.true_anomaly(theta_1, w)  # zero to good approximation
-    nu_2 = true_anomaly(theta_1 + thetas, w)  # integral endpoints
-    t_model = p_orb / (2 * np.pi) * integral_kepler_2(nu_1, nu_2, e)
+    nu_2 = af.true_anomaly(theta_1 + thetas, w)  # integral endpoints
+    t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
     t_folded = (times - t_zero) % p_orb
     interp_model = np.interp(t_folded, t_model, ecl_model)
@@ -1118,9 +1116,9 @@ def objective_eclipse_lc(params, times, signal, signal_err, p_orb):
         Has to be ordered in the following way:
         [ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1156,9 +1154,9 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1204,7 +1202,7 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
+    # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
     ext_right = (t_extended < t_1_2)
@@ -1242,7 +1240,7 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1304,9 +1302,9 @@ def objective_ellc_lc(params, times, signal, signal_err, p_orb):
         Has to be ordered in the following way:
         [f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1340,9 +1338,9 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1388,7 +1386,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    # make a time-series spanning a full orbital eclipse from primary first contact to primary last contact
+    # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended = (times - t_zero) % p_orb
     ext_left = (t_extended > p_orb + t_1_1)
     ext_right = (t_extended < t_1_2)
@@ -1435,9 +1433,9 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
         constant1, constant2, ..., slope1, slope2, ...,
          freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1499,9 +1497,9 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
         constant1, constant2, ..., slope1, slope2, ...,
          freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1557,9 +1555,9 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float

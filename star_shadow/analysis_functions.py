@@ -1,5 +1,5 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This Python module contains functions for data analysis;
@@ -1968,7 +1968,7 @@ def covered_area(d, r_1, r_2):
     
     Parameters
     ----------
-    d: float
+    d: float, numpy.ndarray[float]
         Separation between the centres of the two circles
     r_1: float
         Radius of circle 1
@@ -1987,15 +1987,22 @@ def covered_area(d, r_1, r_2):
            + r_2^2 * arccos((d^2 + r_2^2 - r_1^2)/(2 d r_2))
            - r_1 r_2 sqrt(1 - ((r_1^2 + r_2^2 - d^2)/(2 r_1 r_2))^2)
     """
-    if (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2)):
-        term_1 = r_1**2 * np.arccos((d**2 + r_1**2 - r_2**2) / (2 * d * r_1))
-        term_2 = r_2**2 * np.arccos((d**2 + r_2**2 - r_1**2) / (2 * d * r_2))
-        term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d**2) / (2 * r_1 * r_2))**2)
-        area = term_1 + term_2 + term_3
-    elif (d <= 1.00001*abs(r_1 - r_2)):
-        area = np.pi * min(r_1**2, r_2**2)
-    else:
-        area = 0
+    # make sure it is an array
+    d = np.atleast_1d(d)
+    # define conditions for separating parameter space
+    cond_1 = (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2))
+    cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & np.invert(cond_1)
+    cond_3 = np.invert(cond_1) & np.invert(cond_2)
+    area = np.zeros(len(d))
+    # formula for condition 1
+    term_1 = r_1**2 * np.arccos((d[cond_1]**2 + r_1**2 - r_2**2) / (2 * d[cond_1] * r_1))
+    term_2 = r_2**2 * np.arccos((d[cond_1]**2 + r_2**2 - r_1**2) / (2 * d[cond_1] * r_2))
+    term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d[cond_1]**2) / (2 * r_1 * r_2))**2)
+    area[cond_1] = term_1 + term_2 + term_3
+    # value for condition 2
+    area[cond_2] = np.pi * min(r_1**2, r_2**2)
+    # value for condition 3
+    area[cond_3] = 0
     return area
 
 
@@ -2063,7 +2070,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
         Argument of periastron
     i: float
         Inclination of the orbit
-    theta: float
+    theta: float, numpy.ndarray[float]
         Phase angle (0 or pi degrees at conjunction)
         Around 0, the light of the primary is blocked,
         around pi, the light of the secondary is blocked.
@@ -2088,19 +2095,21 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     light_lost(1) = covered_area / (pi r_1^2 + pi r_2^2 sb_ratio)
     light_lost(2) = covered_area sb_ratio / (pi r_1^2 + pi r_2^2 sb_ratio)
     """
+    # make sure theta is an array
+    theta = np.atleast_1d(theta)
     # calculate radii and projected separation
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     sep = projected_separation(e, w, i, theta)
     # with those, calculate the covered area and light lost due to that
     if (r_sum_sma == 0):
-        light_lost = 0
+        light_lost = np.zeros(len(theta))
     else:
         area = covered_area(sep, r_1, r_2)
         light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
     # factor sb_ratio depends on primary or secondary, theta ~ 180 is secondary
-    if (theta > theta_3) & (theta < theta_4):
-        light_lost = light_lost * sb_ratio
+    cond_1 = (theta > theta_3) & (theta < theta_4)
+    light_lost[cond_1] = light_lost[cond_1] * sb_ratio
     return light_lost
 
 

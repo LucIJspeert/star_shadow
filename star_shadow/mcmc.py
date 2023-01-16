@@ -1,5 +1,5 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This module contains functions for the use in and to perform
@@ -40,7 +40,7 @@ def linear_pars_two_points(x1, y1, x2, y2):
     
     Notes
     -----
-    Taken directly from timeseries_functions, but without JIT-ting
+    Taken from timeseries_functions, but without JIT-ting
     """
     slope = (y2 - y1) / (x2 - x1)
     y_inter = y1 - slope * x1  # take point 1 to calculate y intercept
@@ -71,10 +71,39 @@ def interp_two_points(x, xp1, yp1, xp2, yp2):
     
     Notes
     -----
-    Taken directly from utility, but without JIT-ting
+    Taken from utility, but without JIT-ting
     """
-    print(xp1.dtype, yp1.dtype, xp2.dtype, yp2.dtype, x.dtype)
     y_inter, slope = linear_pars_two_points(xp1, yp1, xp2, yp2)
+    y = y_inter + slope * x
+    return y
+
+
+def interp(x, xp, yp):
+    """Linear interpolation for a 1d array
+
+    Parameters
+    ----------
+    x: numpy.ndarray[float]
+        The x-coordinates at which to interpolate.
+    xp: float, numpy.ndarray[float]
+        The x-coordinates of the interpolation grid
+    yp: float, numpy.ndarray[float]
+        The y-coordinate of the interpolation grid
+
+    Returns
+    -------
+    y: numpy.ndarray[float]
+        The interpolated values, same shape as x.
+    """
+    # obtain indices of the points to either side of x
+    insert_points = tt.extra_ops.searchsorted(xp, x, side='left')
+    xp1 = xp[insert_points - 1]
+    yp1 = yp[insert_points - 1]
+    xp2 = xp[insert_points]
+    yp2 = yp[insert_points]
+    # convert to slopes and y intercepts
+    y_inter, slope = linear_pars_two_points(xp1, yp1, xp2, yp2)
+    # calculate lines
     y = y_inter + slope * x
     return y
 
@@ -96,7 +125,7 @@ def true_anomaly(theta, w):
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     ν = π / 2 - ω + θ
     """
@@ -123,7 +152,7 @@ def integral_kepler_2(nu_1, nu_2, e):
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     Returns the quantity 2π(t2 - t1)/P given an eccentricity (e) and
     corresponding true anomaly values ν1 and ν2.
@@ -132,7 +161,7 @@ def integral_kepler_2(nu_1, nu_2, e):
     """
     
     def indefinite_integral(nu, ecc):
-        term_1 = 2 * np.arctan2(np.sqrt(1 - ecc) * np.sin(nu / 2), np.sqrt(1 + ecc) * np.cos(nu / 2))
+        term_1 = 2 * tt.arctan2(np.sqrt(1 - ecc) * np.sin(nu / 2), np.sqrt(1 + ecc) * np.cos(nu / 2))
         term_2 = - ecc * np.sqrt(1 - ecc**2) * np.sin(nu) / (1 + ecc * np.cos(nu))
         mod_term = 4 * np.pi * ((nu // (2 * np.pi) + 1) // 2)  # correction term for going over 2pi
         return term_1 + term_2 + mod_term
@@ -164,7 +193,7 @@ def delta_deriv(theta, e, w, i):
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     For circular orbits, delta has minima at 0 and 180 degrees, but this will deviate for
     eccentric *and* inclined orbits due to conjunction no longer lining up with the minimum
@@ -202,7 +231,7 @@ def delta_deriv_2(theta, e, w, i):
         
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     """
     sin_i_2 = np.sin(i)**2
     deriv = -e * np.cos(w) * (1 - sin_i_2) * np.sin(theta) + e * np.sin(w) * np.cos(theta) + sin_i_2 * np.cos(2 * theta)
@@ -273,18 +302,15 @@ def minima_phase_angles_2(e, w, i):
         # check whether the sign stays the same
         check[check] = (tt.sgn(cur_y[check]) == tt.sgn(try_y[check]))
     # interpolate for better precision than the angle step
-    condition = tt.as_tensor_variable(f_sign_x0 == 1)  # todo: https://theano-pymc.readthedocs.io/en/latest/library/tensor/basic.html
+    condition = tt.eq(f_sign_x0, 1)
     xp1 = tt.switch(condition, try_y, cur_y)
     yp1 = tt.switch(condition, try_x, cur_x)
     xp2 = tt.switch(condition, cur_y, try_y)
     yp2 = tt.switch(condition, cur_x, try_x)
-    print(xp1)
-    print(try_y, cur_y)
-    print(xp1.dtype, yp1.dtype, xp2.dtype, yp2.dtype, np.zeros(len(x0)).dtype)
     thetas_interp = interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
     thetas_interp = thetas_interp % two_pi
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
-    theta_1, theta_3, theta_2, theta_4 = thetas_interp
+    theta_1, theta_3, theta_2, theta_4 = thetas_interp[0], thetas_interp[1], thetas_interp[2], thetas_interp[3]
     return theta_1, theta_2, theta_3, theta_4
 
 
@@ -311,7 +337,7 @@ def projected_separation(e, w, i, theta):
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     delta^2 = a^2 (1-e^2)^2(1 - sin^2(i)cos^2(theta))/(1 - e sin(theta - w))^2
     sep = delta/a
@@ -327,7 +353,7 @@ def covered_area(d, r_1, r_2):
 
     Parameters
     ----------
-    d: float
+    d: float, numpy.ndarray[float]
         Separation between the centres of the two circles
     r_1: float
         Radius of circle 1
@@ -341,22 +367,27 @@ def covered_area(d, r_1, r_2):
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     For d between |r_1 - r_2| and r_1 + r_2:
     area = r_1^2 * arccos((d^2 + r_1^2 - r2^2)/(2 d r_1))
            + r_2^2 * arccos((d^2 + r_2^2 - r_1^2)/(2 d r_2))
            - r_1 r_2 sqrt(1 - ((r_1^2 + r_2^2 - d^2)/(2 r_1 r_2))^2)
     """
-    if (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2)):
-        term_1 = r_1**2 * np.arccos((d**2 + r_1**2 - r_2**2) / (2 * d * r_1))
-        term_2 = r_2**2 * np.arccos((d**2 + r_2**2 - r_1**2) / (2 * d * r_2))
-        term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d**2) / (2 * r_1 * r_2))**2)
-        area = term_1 + term_2 + term_3
-    elif (d <= 1.00001 * abs(r_1 - r_2)):
-        area = np.pi * min(r_1**2, r_2**2)
-    else:
-        area = 0
+    # define conditions for separating parameter space
+    cond_1 = (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2))
+    cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & np.invert(cond_1)
+    cond_3 = np.invert(cond_1) & np.invert(cond_2)
+    area = tt.zeros_like(d)
+    # formula for condition 1
+    term_1 = r_1**2 * np.arccos((d[cond_1]**2 + r_1**2 - r_2**2) / (2 * d[cond_1] * r_1))
+    term_2 = r_2**2 * np.arccos((d[cond_1]**2 + r_2**2 - r_1**2) / (2 * d[cond_1] * r_2))
+    term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d[cond_1]**2) / (2 * r_1 * r_2))**2)
+    area = tt.set_subtensor(area[cond_1], term_1 + term_2 + term_3)
+    # value for condition 2
+    area = tt.set_subtensor(area[cond_2], np.pi * tt.minimum(r_1**2, r_2**2))
+    # value for condition 3
+    area = tt.set_subtensor(area[cond_3], 0)
     return area
 
 
@@ -371,7 +402,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
         Argument of periastron
     i: float
         Inclination of the orbit
-    theta: float
+    theta: float, numpy.ndarray[float]
         Phase angle (0 or pi degrees at conjunction)
         Around 0, the light of the primary is blocked,
         around pi, the light of the secondary is blocked.
@@ -393,7 +424,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
 
     Notes
     -----
-    Taken directly from analysis_functions, but without JIT-ting
+    Taken from analysis_functions, but without JIT-ting
     
     light_lost(1) = covered_area / (pi r_1^2 + pi r_2^2 sb_ratio)
     light_lost(2) = covered_area sb_ratio / (pi r_1^2 + pi r_2^2 sb_ratio)
@@ -404,13 +435,13 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     sep = projected_separation(e, w, i, theta)
     # with those, calculate the covered area and light lost due to that
     if (r_sum_sma == 0):
-        light_lost = 0
+        light_lost = tt.zeros_like(theta)
     else:
         area = covered_area(sep, r_1, r_2)
         light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
     # factor sb_ratio depends on primary or secondary, theta ~ 180 is secondary
-    if (theta > theta_3) & (theta < theta_4):
-        light_lost = light_lost * sb_ratio
+    cond_1 = (theta > theta_3) & (theta < theta_4)
+    light_lost = tt.set_subtensor(light_lost[cond_1], light_lost[cond_1] * sb_ratio)
     return light_lost
 
 
@@ -420,7 +451,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -445,20 +476,19 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     
     Notes
     -----
-    Taken directly from timeseries_fitting, but without JIT-ting
+    Taken from timeseries_fitting, but without JIT-ting
     """
-    thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
+    thetas = np.linspace(0, 2 * np.pi, 6284)  # position angle along the orbit (step just over 0.001)
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = minima_phase_angles_2(e, w, i)
     # make the simple model
-    ecl_model = np.zeros(len(thetas))
-    for k in range(len(thetas)):
-        ecl_model[k] = 1 - eclipse_depth(e, w, i, thetas[k], r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    ecl_model = 1 - eclipse_depth(e, w, i, thetas, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # determine the model times
     nu_1 = true_anomaly(theta_1, w)  # zero to good approximation
     nu_2 = true_anomaly(theta_1 + thetas, w)  # integral endpoints
     t_model = p_orb / (2 * np.pi) * integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
     t_folded = (times - t_zero) % p_orb
-    interp_model = np.interp(t_folded, t_model, ecl_model)
+    # interp_model = np.interp(t_folded, t_model, ecl_model)
+    interp_model = interp(t_folded, t_model, ecl_model)
     return interp_model

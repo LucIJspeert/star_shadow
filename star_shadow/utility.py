@@ -1,5 +1,5 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This module contains utility functions for data processing, unit conversions
@@ -156,7 +156,7 @@ def signal_to_noise_threshold(n_points):
     Parameters
     ----------
     n_points: int
-        Number of data points in the time-series
+        Number of data points in the time series
     
     Returns
     -------
@@ -181,7 +181,7 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
     Parameters
     ----------
     flux_counts: numpy.ndarray[float]
-        Flux measurement values in counts of the time-series
+        Flux measurement values in counts of the time series
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
@@ -217,12 +217,12 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
 
 def get_tess_sectors(times, bjd_ref=2457000.0):
     """Load the times of the TESS sectors from a file and return a set of
-    indices indicating the separate sectors in the time-series.
+    indices indicating the separate sectors in the time series.
     
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     bjd_ref: float
         BJD reference date
         
@@ -255,7 +255,7 @@ def convert_tess_t_sectors(times, t_sectors):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     t_sectors: numpy.ndarray[float]
         Pair(s) of times indicating the timespans of each sector
     
@@ -272,6 +272,31 @@ def convert_tess_t_sectors(times, t_sectors):
     return i_sectors
 
 
+@nb.njit(cache=True)
+def time_zero_points(times, i_sectors):
+    """Determines the time reference points to zero the time series
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the TESS observing sectors
+    
+    Returns
+    -------
+    times_fzp: float
+        Zero point of the full time series
+    times_szp: numpy.ndarray[float]
+        Zero point(s) of the time series per observing sector
+    """
+    times_fzp = np.mean(times)
+    times_szp = np.zeros(len(i_sectors))
+    for i, s in enumerate(i_sectors):
+        times_szp[i] = np.mean(times[s[0]:s[1]])
+    return times_fzp, times_szp
+
+
 def load_tess_data(file_name):
     """Load in the data from a single fits file, TESS specific.
     
@@ -283,11 +308,11 @@ def load_tess_data(file_name):
     Returns
     -------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     sap_flux: numpy.ndarray[float]
         Raw measurement values of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     errors: numpy.ndarray[float]
         Errors in the measurement values
     qual_flags: numpy.ndarray[int]
@@ -305,7 +330,7 @@ def load_tess_data(file_name):
     """
     if ((file_name[-5:] != '.fits') & (file_name[-4:] != '.fit')):
         file_name += '.fits'
-    # grab the time-series data, sector number, start and stop time
+    # grab the time series data, sector number, start and stop time
     with fits.open(file_name, mode='readonly') as hdul:
         sector = hdul[0].header['SECTOR']
         times = hdul[1].data['TIME']
@@ -345,16 +370,16 @@ def load_tess_lc(tic, all_files, apply_flags=True):
         A list of file names (including path) for loading the results.
         This list is searched for files with the correct tic number.
     apply_flags: bool
-        Whether to apply the quality flags to the time-series data
+        Whether to apply the quality flags to the time series data
         
     Returns
     -------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     sap_signal: numpy.ndarray[float]
         Raw measurement values of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     sectors: list[int]
@@ -422,9 +447,9 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -433,15 +458,17 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     Returns
     -------
     times: numpy.ndarray[float]
-        Timestamps of the time-series (shifted start at zero)
+        Timestamps of the time series (shifted start at zero)
     signal: numpy.ndarray[float]
-        Measurement values of the time-series (normalised)
+        Measurement values of the time series (normalised)
     signal_err: numpy.ndarray[float]
         Errors in the measurement values (normalised)
     medians: numpy.ndarray[float]
         Median flux counts per sector
-    times_0: float
-        Original starting point of the time-series
+    times_fzp: float
+        Zero point of the full time series
+    times_szp: numpy.ndarray[float]
+        Zero point(s) of the time series per observing sector
     t_combined: numpy.ndarray[float]
         Pair(s) of times indicating the timespans of each half sector
     i_half_s: numpy.ndarray[int]
@@ -459,8 +486,8 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     # median normalise
     signal, medians, signal_err = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
     # zero the timeseries
-    times_0 = np.mean(times)
-    times = times - times_0  # mean-center the time array to reduce correlations
+    times_fzp, times_szp = time_zero_points(times, i_sectors)
+    times = times - times_fzp  # mean-center the time array to reduce correlations
     # times of sector mid-point and resulting half-sectors
     dt = np.median(np.diff(times))
     t_start = times[i_sectors[:, 0]] - dt/2
@@ -468,7 +495,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     t_mid = (t_start + t_end) / 2
     t_combined = np.column_stack((np.append(t_start, t_mid + dt/2), np.append(t_mid - dt/2, t_end)))
     i_half_s = convert_tess_t_sectors(times, t_combined)
-    return times, signal, signal_err, medians, times_0, t_combined, i_half_s
+    return times, signal, signal_err, medians, times_fzp, times_szp, t_combined, i_half_s
 
 
 def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
@@ -521,7 +548,7 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
     Parameters
     ----------
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     crowdsap: list[float], numpy.ndarray[float]
         Light contamination parameter (1-third_light) listed per sector
     i_sectors: list[int], numpy.ndarray[int]
@@ -533,7 +560,7 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
     Returns
     -------
     cor_signal: numpy.ndarray[float]
-        Measurement values of the time-series corrected for
+        Measurement values of the time series corrected for
         contaminating light
     
     Notes
@@ -558,7 +585,7 @@ def model_crowdsap(signal, crowdsap, i_sectors):
     Parameters
     ----------
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     crowdsap: list[float], numpy.ndarray[float]
         Light contamination parameter (1-third_light) listed per sector
     i_sectors: list[int], numpy.ndarray[int]
@@ -731,7 +758,7 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
         file.create_dataset('ph_n', data=[f'ph_{i + 1}' for i in range(len(f_n))])
         file['ph_n'].attrs['unit'] = 'radians'
         file['ph_n'].attrs['sinusoid'] = 'sine function'
-        file['ph_n'].attrs['phase_zero_point'] = 'times[0] (time-series start)'
+        file['ph_n'].attrs['phase_zero_point'] = 'times[0] (time series start)'
         file.create_dataset('phase', data=ph_n)
         file.create_dataset('ph_n_err', data=ph_n_err)
     return None
@@ -1928,9 +1955,9 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS

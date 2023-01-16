@@ -1,8 +1,8 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
-This Python module contains functions for time-series analysis;
+This Python module contains functions for time series analysis;
 specifically for the analysis of stellar oscillations and eclipses.
 
 Code written by: Luc IJspeert
@@ -19,14 +19,14 @@ from . import analysis_functions as af
 
 @nb.njit(cache=True)
 def fold_time_series(times, p_orb, zero=None):
-    """Fold the given time-series over the orbital period to transform to phase space.
+    """Fold the given time series over the orbital period to transform to phase space.
     
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
-        The orbital period with which the time-series is folded
+        The orbital period with which the time series is folded
     zero: float, None
         Reference zero point in time when the phase equals zero
     
@@ -47,9 +47,9 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     Parameters
     ----------
     phases: numpy.ndarray[float]
-        The phase-folded timestamps of the time-series, between -0.5 and 0.5.
+        The phase-folded timestamps of the time series, between -0.5 and 0.5.
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     bins: int, numpy.ndarray[float]
         Either the number of bins or a set of bin edges to be used
     midpoints: bool
@@ -85,7 +85,7 @@ def mark_folded_gaps(times, width):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     width: float
         Minimum width for a gap (in time units)
     
@@ -111,7 +111,7 @@ def mask_timestamps(times, stamps):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     stamps: numpy.ndarray[float]
         Pairs of timestamps
 
@@ -133,9 +133,9 @@ def phase_dispersion(phases, signal, n_bins):
     Parameters
     ----------
     phases: numpy.ndarray[float]
-        The phase-folded timestamps of the time-series, between -0.5 and 0.5.
+        The phase-folded timestamps of the time series, between -0.5 and 0.5.
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     n_bins: int
         The number of bins over the orbital phase
     
@@ -174,9 +174,9 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     local: bool
@@ -221,9 +221,9 @@ def noise_spectrum(times, signal, window_width=1.):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     window_width: float
         The width of the window used to compute the noise spectrum,
         in inverse unit of the times array (i.e. 1/d if time is in d).
@@ -257,9 +257,9 @@ def noise_at_freq(fs, times, signal, window_width=0.5):
     fs: numpy.ndarray[float]
         The frequencies at which to calculate the noise
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     window_width: float
         The width of the window used to compute the noise spectrum,
         in inverse unit of the times array (i.e. 1/d if time is in d).
@@ -283,7 +283,7 @@ def spectral_window(times, freqs):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     freqs: numpy.ndarray[float]
         Frequency points to calculate the window. Inverse unit of 'times'
         
@@ -315,9 +315,9 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -411,9 +411,9 @@ def scargle_ampl_single(times, signal, f):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f: float
         A single frequency
     
@@ -468,9 +468,9 @@ def scargle_ampl(times, signal, fs):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     fs: numpy.ndarray[float]
         A set of frequencies
 
@@ -481,7 +481,7 @@ def scargle_ampl(times, signal, fs):
     s1: numpy.ndarray[float]
         The periodogram spectrum in the chosen units
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     fs: numpy.ndarray[float]
         A set of frequencies
     
@@ -535,9 +535,9 @@ def scargle_phase_single(times, signal, f):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f: float
         A single frequency
     
@@ -586,9 +586,9 @@ def scargle_phase(times, signal, fs):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     fs: numpy.ndarray[float]
         A set of frequencies
     
@@ -643,9 +643,9 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -776,7 +776,7 @@ def linear_curve(times, const, slope, i_sectors):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -789,7 +789,7 @@ def linear_curve(times, const, slope, i_sectors):
     Returns
     -------
     curve: numpy.ndarray[float]
-        The model time-series of a (set of) straight line(s)
+        The model time series of a (set of) straight line(s)
     
     Notes
     -----
@@ -810,9 +810,9 @@ def linear_pars(times, signal, i_sectors):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -882,7 +882,7 @@ def quadratic_curve(times, a, b, c):
     Parameters
     ----------
     times: float, numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     a: float
         The quadratic coefficient
     b: float
@@ -893,7 +893,7 @@ def quadratic_curve(times, a, b, c):
     Returns
     -------
     curve: numpy.ndarray[float]
-        The model time-series of a (set of) straight line(s)
+        The model time series of a (set of) straight line(s)
     """
     curve = a * times**2 + b * times + c
     return curve
@@ -906,9 +906,9 @@ def quadratic_pars(times, signal):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
 
     Returns
     -------
@@ -976,7 +976,7 @@ def cubic_curve(times, a, b, c, d):
     Parameters
     ----------
     times: float, numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     a: float
         The cubic coefficient
     b: float
@@ -989,7 +989,7 @@ def cubic_curve(times, a, b, c, d):
     Returns
     -------
     curve: numpy.ndarray[float]
-        The model time-series of a (set of) straight line(s)
+        The model time series of a (set of) straight line(s)
     """
     curve = a * times**3 + b * times**2 + c * times + d
     return curve
@@ -1002,9 +1002,9 @@ def cubic_pars(times, signal):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
 
     Returns
     -------
@@ -1121,7 +1121,7 @@ def sum_sines(times, f_n, a_n, ph_n):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     f_n: list[float], numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: list[float], numpy.ndarray[float]
@@ -1132,7 +1132,7 @@ def sum_sines(times, f_n, a_n, ph_n):
     Returns
     -------
     model_sines: numpy.ndarray[float]
-        Model time-series of a sum of sine waves. Varies around 0.
+        Model time series of a sum of sine waves. Varies around 0.
     """
     model_sines = np.zeros(len(times))
     for f, a, ph in zip(f_n, a_n, ph_n):
@@ -1151,7 +1151,7 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     f_n: list[float], numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: list[float], numpy.ndarray[float]
@@ -1164,7 +1164,7 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     Returns
     -------
     model_sines: numpy.ndarray[float]
-        Model time-series of a sum of sine wave derivatives. Varies around 0.
+        Model time series of a sum of sine wave derivatives. Varies around 0.
     """
     model_sines = np.zeros(len(times))
     mod_2 = deriv % 2
@@ -1184,7 +1184,7 @@ def sum_sines_damped(times, f_n, a_n, lifetimes, t_zeros):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     f_n: float, list[float], numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: float, list[float], numpy.ndarray[float]
@@ -1197,7 +1197,7 @@ def sum_sines_damped(times, f_n, a_n, lifetimes, t_zeros):
     Returns
     -------
     model_sines: numpy.ndarray[float]
-        Model time-series of a sum of damped sine waves. Varies around 0.
+        Model time series of a sum of damped sine waves. Varies around 0.
     """
     # with η1 the damping rate of the mode, which is the inverse of the mode lifetime
     times = np.ascontiguousarray(np.atleast_1d(times)).reshape(-1, 1)  # reshape to enable the vector product in the sum
@@ -1223,7 +1223,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     residuals: numpy.ndarray[float]
         Residual is signal - model
     a_n: numpy.ndarray[float]
@@ -1303,9 +1303,9 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1395,9 +1395,9 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1491,9 +1491,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -1566,15 +1566,15 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
 
 
 def extract_single(times, signal, f0=0, fn=0, verbose=True):
-    """Extract a single frequency from a time-series using oversampling
+    """Extract a single frequency from a time series using oversampling
     of the periodogram.
     
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -1632,15 +1632,15 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
 
 
 def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
-    """Extract a single frequency from a time-series using oversampling
+    """Extract a single frequency from a time series using oversampling
     of the periodogram and avoiding harmonics.
     
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     f0: float
@@ -1717,9 +1717,9 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     close_f: list[int], numpy.ndarray[int]
@@ -1815,9 +1815,9 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     close_f: list[int], numpy.ndarray[int]
@@ -1921,9 +1921,9 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -2022,9 +2022,9 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -2132,9 +2132,9 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -2237,9 +2237,9 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     const: numpy.ndarray[float]
@@ -2379,9 +2379,9 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float

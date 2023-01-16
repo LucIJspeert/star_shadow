@@ -1,5 +1,5 @@
 """STAR SHADOW
-Satellite Time-series Analysis Routine using
+Satellite Time series Analysis Routine using
 Sinusoids and Harmonics in an Automated way for Double stars with Occultations and Waves
 
 This Python module contains the main functions that link together all functionality.
@@ -27,9 +27,9 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -184,9 +184,9 @@ def analysis_orbital_period(times, signal, f_n):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     
@@ -244,9 +244,9 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -370,7 +370,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         else:
             # else we use the input p_orb at face value
             p_orb_3 = p_orb
-        # if time-series too short, or no harmonics found, log and warn and maybe cut off the analysis
+        # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
         if (t_tot / p_orb_3 < 1.1):
             out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2  # return previous results
@@ -713,7 +713,7 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_n: numpy.ndarray[float]
@@ -869,9 +869,9 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1000,9 +1000,9 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1368,9 +1368,9 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     par_init: tuple[float], list[float], numpy.ndarray[float]
@@ -1491,9 +1491,9 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -1617,9 +1617,9 @@ def analysis_frequency_selection(times, signal, model_ecl, p_orb, const, slope, 
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     model_ecl: numpy.ndarray[float]
         Model of the eclipses at the same times
     p_orb: float
@@ -1711,9 +1711,9 @@ def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slop
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     model_ecl: numpy.ndarray[float]
         Model of the eclipses at the same times
     p_orb: float
@@ -1825,9 +1825,9 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     i_sectors: list[int], numpy.ndarray[int]
@@ -2135,16 +2135,16 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     return p_orb
 
 
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, t_int, target_id, save_dir, data_id=None,
-               overwrite=False, verbose=False):
+def analyse_eb(times, signal, signal_err, p_orb, i_sectors, times_fzp, times_szp, t_int, target_id, save_dir,
+               data_id=None, overwrite=False, verbose=False):
     """Do all steps of the analysis
 
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the time-series
+        Timestamps of the time series
     signal: numpy.ndarray[float]
-        Measurement values of the time-series
+        Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
@@ -2155,6 +2155,10 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, t_int, target_id, sa
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
+    times_fzp: float
+        Zero point of the full time series
+    times_szp: numpy.ndarray[float]
+        Zero point(s) of the time series per observing sector
     t_int: float
         Integration time of observations
     target_id: int, str
@@ -2286,12 +2290,12 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
-    times, signal, signal_err, sector_medians, times_0, t_combined, i_half_s = lc_processed
+    times, signal, signal_err, sector_medians, times_fzp, times_szp, t_combined, i_half_s = lc_processed
     # if not t_int given, estimate as the median time step
     if t_int is None:
         t_int = np.median(np.diff(times))
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, t_int, tic, save_dir, data_id=data_id,
+    analyse_eb(times, signal, signal_err, p_orb, i_half_s, times_fzp, times_szp, t_int, tic, save_dir, data_id=data_id,
                overwrite=overwrite, verbose=verbose)
     return None
 
