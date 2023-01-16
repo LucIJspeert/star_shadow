@@ -377,17 +377,16 @@ def covered_area(d, r_1, r_2):
     # define conditions for separating parameter space
     cond_1 = (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2))
     cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & np.invert(cond_1)
-    cond_3 = np.invert(cond_1) & np.invert(cond_2)
-    area = tt.zeros_like(d)
     # formula for condition 1
-    term_1 = r_1**2 * np.arccos((d[cond_1]**2 + r_1**2 - r_2**2) / (2 * d[cond_1] * r_1))
-    term_2 = r_2**2 * np.arccos((d[cond_1]**2 + r_2**2 - r_1**2) / (2 * d[cond_1] * r_2))
-    term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d[cond_1]**2) / (2 * r_1 * r_2))**2)
-    area = tt.set_subtensor(area[cond_1], term_1 + term_2 + term_3)
+    term_1 = r_1**2 * np.arccos((d**2 + r_1**2 - r_2**2) / (2 * d * r_1))
+    term_2 = r_2**2 * np.arccos((d**2 + r_2**2 - r_1**2) / (2 * d * r_2))
+    term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d**2) / (2 * r_1 * r_2))**2)
+    formula = term_1 + term_2 + term_3
     # value for condition 2
-    area = tt.set_subtensor(area[cond_2], np.pi * tt.minimum(r_1**2, r_2**2))
-    # value for condition 3
-    area = tt.set_subtensor(area[cond_3], 0)
+    value = np.pi * tt.minimum(r_1**2, r_2**2)
+    # decision between the values
+    area = tt.switch(cond_1, formula, 0)
+    area = tt.switch(cond_2, value, area)
     return area
 
 
@@ -434,11 +433,9 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
     sep = projected_separation(e, w, i, theta)
     # with those, calculate the covered area and light lost due to that
-    if (r_sum_sma == 0):
-        light_lost = tt.zeros_like(theta)
-    else:
-        area = covered_area(sep, r_1, r_2)
-        light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
+    area = covered_area(sep, r_1, r_2)
+    light_lost = area / (np.pi * r_1**2 + np.pi * r_2**2 * sb_ratio)
+    light_lost = tt.switch(tt.eq(r_sum_sma, 0), tt.zeros_like(theta), light_lost)
     # factor sb_ratio depends on primary or secondary, theta ~ 180 is secondary
     cond_1 = (theta > theta_3) & (theta < theta_4)
     light_lost = tt.set_subtensor(light_lost[cond_1], light_lost[cond_1] * sb_ratio)
@@ -478,7 +475,8 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     -----
     Taken from timeseries_fitting, but without JIT-ting
     """
-    thetas = np.linspace(0, 2 * np.pi, 6284)  # position angle along the orbit (step just over 0.001)
+    # position angle along the orbit (step just over 0.001)
+    thetas = tt.as_tensor_variable(np.linspace(0, 2 * np.pi, 6284))
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = minima_phase_angles_2(e, w, i)
     # make the simple model

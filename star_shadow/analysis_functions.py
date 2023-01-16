@@ -1968,7 +1968,7 @@ def covered_area(d, r_1, r_2):
     
     Parameters
     ----------
-    d: float, numpy.ndarray[float]
+    d: numpy.ndarray[float]
         Separation between the centres of the two circles
     r_1: float
         Radius of circle 1
@@ -1987,8 +1987,6 @@ def covered_area(d, r_1, r_2):
            + r_2^2 * arccos((d^2 + r_2^2 - r_1^2)/(2 d r_2))
            - r_1 r_2 sqrt(1 - ((r_1^2 + r_2^2 - d^2)/(2 r_1 r_2))^2)
     """
-    # make sure it is an array
-    d = np.atleast_1d(d)
     # define conditions for separating parameter space
     cond_1 = (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2))
     cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & np.invert(cond_1)
@@ -2070,7 +2068,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
         Argument of periastron
     i: float
         Inclination of the orbit
-    theta: float, numpy.ndarray[float]
+    theta: numpy.ndarray[float]
         Phase angle (0 or pi degrees at conjunction)
         Around 0, the light of the primary is blocked,
         around pi, the light of the secondary is blocked.
@@ -2095,8 +2093,6 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     light_lost(1) = covered_area / (pi r_1^2 + pi r_2^2 sb_ratio)
     light_lost(2) = covered_area sb_ratio / (pi r_1^2 + pi r_2^2 sb_ratio)
     """
-    # make sure theta is an array
-    theta = np.atleast_1d(theta)
     # calculate radii and projected separation
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
