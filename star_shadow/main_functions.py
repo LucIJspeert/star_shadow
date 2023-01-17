@@ -1905,7 +1905,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     out_10 = analysis_eclipse_timings(times, p_orb_9, f_n_9, a_n_9, ph_n_9, p_err_9, noise_level_9, file_name=file_name,
                                       **kwargs_2)
     t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = out_10
-    if np.any([item is None for item in out_10]):
+    if np.any([item is None for item in out_10]) | np.any(depths_10 <= 0):
         return (None,) * 10  # could still not find eclipses for some reason
     # --- [11] --- Initial cubics model timings
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')

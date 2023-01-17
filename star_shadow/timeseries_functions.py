@@ -344,16 +344,27 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         Computation of Scargles periodogram without explicit tau
         calculation, with iteration (Method Cuypers)
         (is this the same: https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract ?)
+    
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
+    
     Useful extra information: VanderPlas 2018,
-        https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
     """
-    n = len(signal)
-    t_tot = np.ptp(times)
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
+    n = len(signal_ms)
+    t_tot = np.ptp(times_ms)
     f0 = max(f0, 0.01 / t_tot)  # don't go lower than T/100
     if (df == 0):
         df = 0.1 / t_tot
     if (fn == 0):
-        fn = 1 / (2 * np.min(times[1:] - times[:-1]))
+        fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
     nf = int((fn - f0) / df + 0.001) + 1
     # pre-assign some memory
     ss = np.zeros(nf)
@@ -363,20 +374,20 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     # here is the actual calculation:
     two_pi = 2 * np.pi
     for i in range(n):
-        t_f0 = (times[i] * two_pi * f0) % two_pi
+        t_f0 = (times_ms[i] * two_pi * f0) % two_pi
         sin_f0 = np.sin(t_f0)
         cos_f0 = np.cos(t_f0)
         mc_1_a = 2 * sin_f0 * cos_f0
         mc_1_b = cos_f0 * cos_f0 - sin_f0 * sin_f0
 
-        t_df = (times[i] * two_pi * df) % two_pi
+        t_df = (times_ms[i] * two_pi * df) % two_pi
         sin_df = np.sin(t_df)
         cos_df = np.cos(t_df)
         mc_2_a = 2 * sin_df * cos_df
         mc_2_b = cos_df * cos_df - sin_df * sin_df
         
-        sin_f0_s = sin_f0 * signal[i]
-        cos_f0_s = cos_f0 * signal[i]
+        sin_f0_s = sin_f0 * signal_ms[i]
+        cos_f0_s = cos_f0 * signal_ms[i]
         for j in range(nf):
             ss[j] = ss[j] + sin_f0_s
             sc[j] = sc[j] + cos_f0_s
@@ -396,7 +407,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         s1[0] = 0  # sometimes there can be a nan value
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
-        s1 /= np.var(signal)
+        s1 /= np.var(signal_ms)
     elif norm == 'amplitude':  # amplitude spectrum
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
@@ -425,34 +436,46 @@ def scargle_ampl_single(times, signal, f):
     See Also
     --------
     scargle_ampl, scargle_phase, scargle_phase_single
+    
+    Notes
+    -----
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
     """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # multiples of pi
     two_pi = 2 * np.pi
     four_pi = 4 * np.pi
     # define tau
     cos_tau = 0
     sin_tau = 0
-    for j in range(len(times)):
-        cos_tau += np.cos(four_pi * f * times[j])
-        sin_tau += np.sin(four_pi * f * times[j])
+    for j in range(len(times_ms)):
+        cos_tau += np.cos(four_pi * f * times_ms[j])
+        sin_tau += np.sin(four_pi * f * times_ms[j])
     tau = 1 / (four_pi * f) * np.arctan2(sin_tau, cos_tau)  # tau(f)
     # define the general cos and sin functions
     s_cos = 0
     cos_2 = 0
     s_sin = 0
     sin_2 = 0
-    for j in range(len(times)):
-        cos = np.cos(two_pi * f * (times[j] - tau))
-        sin = np.sin(two_pi * f * (times[j] - tau))
-        s_cos += signal[j] * cos
+    for j in range(len(times_ms)):
+        cos = np.cos(two_pi * f * (times_ms[j] - tau))
+        sin = np.sin(two_pi * f * (times_ms[j] - tau))
+        s_cos += signal_ms[j] * cos
         cos_2 += cos**2
-        s_sin += signal[j] * sin
+        s_sin += signal_ms[j] * sin
         sin_2 += sin**2
     # final calculations
     a_cos_2 = s_cos**2 / cos_2
     b_sin_2 = s_sin**2 / sin_2
     # amplitude
     ampl = (a_cos_2 + b_sin_2) / 2
-    ampl = np.sqrt(4 / len(times)) * np.sqrt(ampl)  # conversion to amplitude
+    ampl = np.sqrt(4 / len(times_ms)) * np.sqrt(ampl)  # conversion to amplitude
     return ampl
 
 
@@ -493,38 +516,49 @@ def scargle_ampl(times, signal, fs):
     See Also
     --------
     scargle_phase
+    
+    Notes
+    -----
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
     """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # multiples of pi
     two_pi = 2 * np.pi
     four_pi = 4 * np.pi
     fs = np.atleast_1d(fs)
-
     ampl = np.zeros(len(fs))
     for i in range(len(fs)):
         # define tau
         cos_tau = 0
         sin_tau = 0
-        for j in range(len(times)):
-            cos_tau += np.cos(four_pi * fs[i] * times[j])
-            sin_tau += np.sin(four_pi * fs[i] * times[j])
+        for j in range(len(times_ms)):
+            cos_tau += np.cos(four_pi * fs[i] * times_ms[j])
+            sin_tau += np.sin(four_pi * fs[i] * times_ms[j])
         tau = 1 / (four_pi * fs[i]) * np.arctan2(sin_tau, cos_tau)  # tau(f)
         # define the general cos and sin functions
         s_cos = 0
         cos_2 = 0
         s_sin = 0
         sin_2 = 0
-        for j in range(len(times)):
-            cos = np.cos(two_pi * fs[i] * (times[j] - tau))
-            sin = np.sin(two_pi * fs[i] * (times[j] - tau))
-            s_cos += signal[j] * cos
+        for j in range(len(times_ms)):
+            cos = np.cos(two_pi * fs[i] * (times_ms[j] - tau))
+            sin = np.sin(two_pi * fs[i] * (times_ms[j] - tau))
+            s_cos += signal_ms[j] * cos
             cos_2 += cos**2
-            s_sin += signal[j] * sin
+            s_sin += signal_ms[j] * sin
             sin_2 += sin**2
         # final calculations
         a_cos_2 = s_cos**2 / cos_2
         b_sin_2 = s_sin**2 / sin_2
         # amplitude
         ampl[i] = (a_cos_2 + b_sin_2) / 2
-        ampl[i] = np.sqrt(4 / len(times)) * np.sqrt(ampl[i])  # conversion to amplitude
+        ampl[i] = np.sqrt(4 / len(times_ms)) * np.sqrt(ampl[i])  # conversion to amplitude
     return ampl
 
 
@@ -549,27 +583,39 @@ def scargle_phase_single(times, signal, f):
     See Also
     --------
     scargle_phase, scargle_ampl_single
+    
+    Notes
+    -----
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
     """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # multiples of pi
     two_pi = 2 * np.pi
     four_pi = 4 * np.pi
     # define tau
     cos_tau = 0
     sin_tau = 0
-    for j in range(len(times)):
-        cos_tau += np.cos(four_pi * f * times[j])
-        sin_tau += np.sin(four_pi * f * times[j])
+    for j in range(len(times_ms)):
+        cos_tau += np.cos(four_pi * f * times_ms[j])
+        sin_tau += np.sin(four_pi * f * times_ms[j])
     tau = 1 / (four_pi * f) * np.arctan2(sin_tau, cos_tau)  # tau(f)
     # define the general cos and sin functions
     s_cos = 0
     cos_2 = 0
     s_sin = 0
     sin_2 = 0
-    for j in range(len(times)):
-        cos = np.cos(two_pi * f * (times[j] - tau))
-        sin = np.sin(two_pi * f * (times[j] - tau))
-        s_cos += signal[j] * cos
+    for j in range(len(times_ms)):
+        cos = np.cos(two_pi * f * (times_ms[j] - tau))
+        sin = np.sin(two_pi * f * (times_ms[j] - tau))
+        s_cos += signal_ms[j] * cos
         cos_2 += cos**2
-        s_sin += signal[j] * sin
+        s_sin += signal_ms[j] * sin
         sin_2 += sin**2
     # final calculations
     a_cos = s_cos / cos_2**(1/2)
@@ -603,31 +649,42 @@ def scargle_phase(times, signal, fs):
     ("Phase estimation with the Lomb-Scargle periodogram method")
     https://www.researchgate.net/publication/283359043_Phase_estimation_with_the_Lomb-Scargle_periodogram_method
     (only difference is an extra pi/2 for changing cos phase to sin phase)
+    
+    Notes
+    -----
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
     """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # multiples of pi
     two_pi = 2 * np.pi
     four_pi = 4 * np.pi
     fs = np.atleast_1d(fs)
-
     phi = np.zeros(len(fs))
     for i in range(len(fs)):
         # define tau
         cos_tau = 0
         sin_tau = 0
-        for j in range(len(times)):
-            cos_tau += np.cos(four_pi * fs[i] * times[j])
-            sin_tau += np.sin(four_pi * fs[i] * times[j])
+        for j in range(len(times_ms)):
+            cos_tau += np.cos(four_pi * fs[i] * times_ms[j])
+            sin_tau += np.sin(four_pi * fs[i] * times_ms[j])
         tau = 1 / (four_pi * fs[i]) * np.arctan2(sin_tau, cos_tau)  # tau(f)
         # define the general cos and sin functions
         s_cos = 0
         cos_2 = 0
         s_sin = 0
         sin_2 = 0
-        for j in range(len(times)):
-            cos = np.cos(two_pi * fs[i] * (times[j] - tau))
-            sin = np.sin(two_pi * fs[i] * (times[j] - tau))
-            s_cos += signal[j] * cos
+        for j in range(len(times_ms)):
+            cos = np.cos(two_pi * fs[i] * (times_ms[j] - tau))
+            sin = np.sin(two_pi * fs[i] * (times_ms[j] - tau))
+            s_cos += signal_ms[j] * cos
             cos_2 += cos**2
-            s_sin += signal[j] * sin
+            s_sin += signal_ms[j] * sin
             sin_2 += sin**2
         # final calculations
         a_cos = s_cos / cos_2**(1/2)
@@ -671,24 +728,35 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     Approximation using fft, much faster than the other scargle in mode='fast'.
     Beware of computing narrower frequency windows, as there is inconsistency
     when doing this.
+    
     Useful extra information: VanderPlas 2018,
-        https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
     """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
     n = len(signal)
-    t_tot = np.ptp(times)
+    t_tot = np.ptp(times_ms)
     f0 = max(f0, 0.01 / t_tot)  # don't go lower than T/100
     if (df == 0):
         df = 0.1 / t_tot
     if (fn == 0):
-        fn = 1 / (2 * np.min(times[1:] - times[:-1]))
+        fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
     nf = int((fn - f0) / df + 0.001) + 1
     f1 = f0 + np.arange(nf) * df
     # use the astropy fast algorithm and normalise afterward
-    ls = apy.LombScargle(times, signal, fit_mean=False, center_data=False)
+    ls = apy.LombScargle(times_ms, signal_ms, fit_mean=False, center_data=False)
     s1 = ls.power(f1, normalization='psd', method='fast')
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
-        s1 /= np.var(signal)
+        s1 /= np.var(signal_ms)
     elif norm == 'amplitude':  # amplitude spectrum
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
@@ -965,7 +1033,7 @@ def cubic_curve(times, a, b, c, d):
 
     Parameters
     ----------
-    times: float, numpy.ndarray[float]
+    times: numpy.ndarray[float]
         Timestamps of the time series
     a: float
         The cubic coefficient
@@ -1524,9 +1592,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         a_n = np.delete(a_n, remove)
         ph_n = np.delete(ph_n, remove)
         # make a model excluding the 'n' harmonics
-        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-        resid = signal - model
+        model_linear = linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+        resid = signal - model_linear - model_sinusoid
         f_n = np.append(f_n, [n / p_orb])
         a_n = np.append(a_n, [scargle_ampl_single(times, resid, n / p_orb)])
         ph_n = np.append(ph_n, [scargle_phase_single(times, resid, n / p_orb)])
@@ -1539,11 +1607,11 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     for i in non_harm:
-        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        model += sum_sines(times, np.delete(f_n, i),
-                           np.delete(a_n, i), np.delete(ph_n, i))  # the sinusoid part of the model
+        model_linear = linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = sum_sines(times, np.delete(f_n, i), np.delete(a_n, i), np.delete(ph_n, i))
+        resid = signal - model_linear - model_sinusoid
         fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
-        f_n[i], a_n[i], ph_n[i] = extract_single(times, signal - model, f0=fl, fn=fr, verbose=False)
+        f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f0=fl, fn=fr, verbose=False)
         # make sure the phase stays within + and - pi
         ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi
         # as a last model-refining step, redetermine the constant
@@ -1590,11 +1658,12 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     periodogram (over the interval where it is calculated). The highest
     peak is oversampled by a factor 100 to get a precise measurement.
     """
-    df = 0.1 / np.ptp(times)
+    df = 0.1 / np.ptp(times)  # default frequency sampling is about 1/10 of frequency resolution
+    # inconsistency with astropy_scargle for small freq intervals
     # if (f0 == 0) & (fn == 0):
     #     freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
     # else:
-    #     # inconsistency with astropy_scargle for small freq intervals
+    # full LS periodogram
     freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
@@ -1602,7 +1671,7 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
         if verbose:
             print(f'Edge of frequency range {freqs[p1]:1.6f} at position {p1} during extraction phase 1.')
     # now refine once by increasing the frequency resolution x100
-    f_left_1 = max(freqs[p1] - df, 0.01 / np.ptp(times))  # may not get too low
+    f_left_1 = max(freqs[p1] - df, df / 10)  # may not get too low
     f_right_1 = freqs[p1] + df
     f_refine_1, a_refine_1 = scargle(times, signal, f0=f_left_1, fn=f_right_1, df=df/100)
     p2 = np.argmax(a_refine_1)
@@ -1754,13 +1823,13 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
     n_sectors = len(i_sectors)
     n_f = len(f_n)
     # determine initial bic
-    model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    resid = signal - model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = calc_bic(resid/signal_err, n_param)
+    bic = calc_bic(resid / signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1771,20 +1840,19 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
             print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}')
         # remove each frequency one at a time to re-extract them
         for j in close_f:
-            model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-            model += sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j),
-                               np.delete(ph_n_temp, j))  # the sinusoid part of the model
-            resid = signal - model
+            model_linear = linear_curve(times, const, slope, i_sectors)
+            model_sinusoid = sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j), np.delete(ph_n_temp, j))
+            resid = signal - model_linear - model_sinusoid
             f_j, a_j, ph_j = extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
                                             verbose=verbose)
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
-        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_pars(times, signal - model, i_sectors)
-        model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+        const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
+        model_linear = linear_curve(times, const, slope, i_sectors)
         # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
-        bic = calc_bic(resid/signal_err, n_param)
+        resid = signal - model_linear - model_sinusoid
+        bic = calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
@@ -1855,13 +1923,13 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     n_f = len(f_n)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     # determine initial bic
-    model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    resid = signal - model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 3 * n_f
     bic_prev = np.inf
-    bic = calc_bic(resid/signal_err, n_param)
+    bic = calc_bic(resid / signal_err, n_param)
     # stop the loop when the BIC increases
     i = 0
     while (np.round(bic_prev - bic, 2) > 0):
@@ -1872,10 +1940,9 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
             print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}')
         # remove each frequency one at a time to re-extract them
         for j in close_f:
-            model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-            model += sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j),
-                               np.delete(ph_n_temp, j))  # the sinusoid part of the model
-            resid = signal - model
+            model_linear = linear_curve(times, const, slope, i_sectors)
+            model_sinusoid = sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j), np.delete(ph_n_temp, j))
+            resid = signal - model_linear - model_sinusoid
             # if f is a harmonic, don't shift the frequency
             if j in harmonics:
                 f_j = f_n_temp[j]
@@ -1886,19 +1953,19 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
                                                 verbose=verbose)
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
         # as a last model-refining step, redetermine the constant and slope
-        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_pars(times, signal - model, i_sectors)
-        model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+        const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
+        model_linear = linear_curve(times, const, slope, i_sectors)
         # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
-        bic = calc_bic(resid/signal_err, n_param)
+        resid = signal - model_linear - model_sinusoid
+        bic = calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration of changes
-    resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_pars(times, resid, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -1956,7 +2023,6 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     best approach, it is also a very (very!) time-consuming one and this
     algorithm aims to be fast while approaching the optimal solution.
     """
-    times -= times[0]  # shift reference time to times[0]
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     # constant term (or y-intercept) and slope
@@ -1966,7 +2032,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
     n_param = 2 * n_sectors
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = calc_bic(resid/signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
+    bic = calc_bic(resid / signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -1985,20 +2051,20 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
                                        i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
-        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_pars(times, signal - model, i_sectors)
-        model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+        const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
+        model_linear = linear_curve(times, const, slope, i_sectors)
         # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
+        resid = signal - model_linear - model_sinusoid
         n_param = 2 * n_sectors + 3 * len(f_n_temp)
-        bic = calc_bic(resid/signal_err, n_param)
+        bic = calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration frequencies
-    resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_pars(times, resid, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -2070,13 +2136,13 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     n_sectors = len(i_sectors)
     n_harmonics = len(harmonics)
     # constant term (or y-intercept) and slope
-    model = linear_curve(times, const, slope, i_sectors)
-    model += sum_sines(times, f_n, a_n, ph_n)
-    resid = signal - model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 1 + 2 * n_harmonics + 3 * (len(f_n) - n_harmonics)
     bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = calc_bic(resid/signal_err, n_param)  # current BIC
+    bic = calc_bic(resid / signal_err, n_param)  # current BIC
     # stop the loop when the BIC decreases by less than 2 (or increases)
     i = 0
     while (bic_prev - bic > 2):
@@ -2095,20 +2161,20 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
                                                  a_n_temp, ph_n_temp, i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
-        model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = linear_pars(times, signal - model, i_sectors)
-        model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+        const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
+        model_linear = linear_curve(times, const, slope, i_sectors)
         # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
+        resid = signal - model_linear - model_sinusoid
         n_param = 2 * n_sectors + 1 + 2 * n_harmonics + 3 * (len(f_n_temp) - n_harmonics)
-        bic = calc_bic(resid/signal_err, n_param)
+        bic = calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
         print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
               f'delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration frequencies
-    resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_pars(times, resid, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -2177,11 +2243,11 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     h_candidate = np.arange(1, p_orb * f_max, dtype=int)
     h_candidate = np.delete(h_candidate, harmonic_n - 1)  # harmonic_n minus one is the position
     # initial residuals
-    model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    resid = signal - model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     n_param_orig = 3 * len(f_n) + 2 - len(harmonics) + 1  # harmonics have 1 less free parameter
-    bic_prev = calc_bic(resid/signal_err, n_param_orig)
+    bic_prev = calc_bic(resid / signal_err, n_param_orig)
     # loop over candidates and try to extract
     n_accepted = 0
     for h_c in h_candidate:
@@ -2196,11 +2262,11 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
         model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
         const, slope = linear_pars(times, signal - model, i_sectors)
         # determine new BIC and whether it improved
-        model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        model += sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        resid = signal - model
+        model_linear = linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+        resid = signal - model_linear - model_sinusoid
         n_param = n_param_orig + 2 * (n_accepted + 1)
-        bic = calc_bic(resid/signal_err, n_param)
+        bic = calc_bic(resid / signal_err, n_param)
         if (np.round(bic_prev - bic, 2) > 2):
             # h_c is accepted, add it to the final list and continue
             bic_prev = bic
@@ -2210,11 +2276,10 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
                 print(f'Successfully extracted harmonic {h_c}, BIC= {bic:1.2f}')
         else:
             # h_c is rejected, revert to previous residual
-            resid = signal - sum_sines(times, f_n, a_n, ph_n)
-            const, slope = linear_pars(times, resid, i_sectors)
-            model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-            model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-            resid = signal - model
+            model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+            const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
+            model_linear = linear_curve(times, const, slope, i_sectors)
+            resid = signal - model_linear - model_sinusoid
     return const, slope, f_n, a_n, ph_n
 
 
@@ -2271,10 +2336,11 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     # first check if any frequency can be left out (after the fit, this may be possible)
     remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
     # determine initial bic
-    model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     n_param = 2 * n_sectors + 3 * len(f_n)
-    bic_init = calc_bic((signal - model)/signal_err, n_param)
+    bic_init = calc_bic(resid / signal_err, n_param)
     bic_prev = bic_init
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2288,11 +2354,12 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 a_n_temp = np.delete(a_n, remove)
                 ph_n_temp = np.delete(ph_n, remove)
                 # make a model not including the freq of this iteration
-                model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
-                bic = calc_bic((signal - model)/signal_err, n_param)
+                bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed freqs
                     remove_single = np.append(remove_single, [i])
@@ -2322,20 +2389,22 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 a_n_temp = np.append(np.delete(a_n, remove), a_new)
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
-                model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # extract a single freq to try replacing the pair (set)
                 edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
-                f_i, a_i, ph_i = extract_single(times, signal - model, f0=edges[0], fn=edges[1], verbose=verbose)
+                f_i, a_i, ph_i = extract_single(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
                 # make a model including the new freq
-                model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
-                                  np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
+                                           np.append(ph_n_temp, ph_i))
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # calculate bic
                 n_param = 2 * n_sectors + 3 * len(f_n_temp)
-                bic = calc_bic((signal - model)/signal_err, n_param)
+                bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
@@ -2353,8 +2422,8 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
         print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_f_removed} frequencies). '
               f'BIC= {bic_prev:1.2f}')
     # lastly re-determine slope and const
-    model = sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    const, slope = linear_pars(times, signal - model, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
     return const, slope, f_n, a_n, ph_n
 
 
@@ -2418,10 +2487,11 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     # first check if any frequency can be left out (after the fit, this may be possible)
     remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
     # determine initial bic
-    model = linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
     n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n) - n_harm)
-    bic_init = calc_bic((signal - model)/signal_err, n_param)
+    bic_init = calc_bic(resid / signal_err, n_param)
     bic_prev = bic_init
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2435,11 +2505,12 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 a_n_temp = np.delete(a_n, remove)
                 ph_n_temp = np.delete(ph_n, remove)
                 # make a model not including the freq of this iteration
-                model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm)
-                bic = calc_bic((signal - model)/signal_err, n_param)
+                bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed freqs
                     remove_single = np.append(remove_single, [i])
@@ -2473,20 +2544,22 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 a_n_temp = np.append(np.delete(a_n, remove), a_new)
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
-                model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # extract a single freq to try replacing the pair (set)
                 edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
-                f_i, a_i, ph_i = extract_single(times, signal - model, f0=edges[0], fn=edges[1], verbose=verbose)
+                f_i, a_i, ph_i = extract_single(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
                 # make a model including the new freq
-                model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
-                                  np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
+                                           np.append(ph_n_temp, ph_i))
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm + 1)
-                bic = calc_bic((signal - model)/signal_err, n_param)
+                bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
@@ -2524,22 +2597,24 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 a_n_temp = np.append(np.delete(a_n, remove), a_new)
                 ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
                 # make a model not including the freqs of this iteration
-                model = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # extract the amplitude and phase of the harmonic(s)
                 harm_i = [h for h in set_i if h in harmonics]
                 f_i = f_n[harm_i]  # fixed f
-                a_i = scargle_ampl(times, signal - model, f_n[harm_i])
-                ph_i = scargle_phase(times, signal - model, f_n[harm_i])
+                a_i = scargle_ampl(times, resid, f_n[harm_i])
+                ph_i = scargle_phase(times, resid, f_n[harm_i])
                 # make a model including the new freq
-                model = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
-                                  np.append(ph_n_temp, ph_i))  # the sinusoid part of the model
-                const, slope = linear_pars(times, signal - model, i_sectors)  # redetermine const and slope
-                model += linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+                model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
+                                           np.append(ph_n_temp, ph_i))
+                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
+                model_linear = linear_curve(times, const, slope, i_sectors)
+                resid = signal - model_linear - model_sinusoid
                 # calculate bic
                 n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) + len(f_i) - n_harm)
-                bic = calc_bic((signal - model)/signal_err, n_param)
+                bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
                     remove_sets = np.append(remove_sets, [i])
@@ -2557,6 +2632,6 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
         print(f'Frequency sets replaced by just harmonic(s): {len(remove_sets)} ({n_f_removed} frequencies). '
               f'BIC= {bic_prev:1.2f}')
     # lastly re-determine slope and const
-    model = sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    const, slope = linear_pars(times, signal - model, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
     return const, slope, f_n, a_n, ph_n

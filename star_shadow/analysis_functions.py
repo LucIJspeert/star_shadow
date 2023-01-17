@@ -927,10 +927,11 @@ def curve_explorer_root_angle(func, x0, walk_sign, args):
     try_x = (cur_x + step * walk_sign)
     try_y = func(try_x, *args)
     # interpolate for better precision than the angle step
-    xp1 = cur_y * (f_sign_x0 == -1) + try_y * (f_sign_x0 == 1)
-    yp1 = cur_x * (f_sign_x0 == -1) + try_x * (f_sign_x0 == 1)
-    xp2 = cur_y * (f_sign_x0 == 1) + try_y * (f_sign_x0 == -1)
-    yp2 = cur_x * (f_sign_x0 == 1) + try_x * (f_sign_x0 == -1)
+    condition = (f_sign_x0 == 1)
+    xp1 = np.where(condition, try_y, cur_y)
+    yp1 = np.where(condition, try_x, cur_x)
+    xp2 = np.where(condition, cur_y, try_y)
+    yp2 = np.where(condition, cur_x, try_x)
     x_interp = ut.interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
     x_interp = x_interp % two_pi
     return x_interp

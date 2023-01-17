@@ -65,9 +65,10 @@ def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=Fa
     ampls = params[2 * n_sect + n_sin:2 * n_sect + 2 * n_sin]
     phases = params[2 * n_sect + 2 * n_sin:2 * n_sect + 3 * n_sin]
     # make the model and calculate the likelihood
-    model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model = model + tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
-    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
+    resid = signal - model_linear - model_sinusoid
+    ln_likelihood = tsf.calc_likelihood(resid / signal_err)  # need minus the likelihood for minimisation
     # to keep track, sometimes print the value
     if verbose:
         if np.random.randint(10000) == 0:
@@ -140,9 +141,10 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     res_ampls = result.x[2 * n_sect + n_sin:2 * n_sect + 2 * n_sin]
     res_phases = result.x[2 * n_sect + 2 * n_sin:2 * n_sect + 3 * n_sin]
     if verbose:
-        model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-        model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-        bic = tsf.calc_bic((signal - model) / signal_err, 2 * n_sect + 3 * n_sin)
+        model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+        resid = signal - model_linear - model_sinusoid
+        bic = tsf.calc_bic(resid / signal_err, 2 * n_sect + 3 * n_sin)
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return res_const, res_slope, res_freqs, res_ampls, res_phases
 
@@ -212,7 +214,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
             print(f'Starting fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
-                                       np.delete(res_phases, group))  # the sinusoid part of the model
+                                       np.delete(res_phases, group))
         # fit only the frequencies in this group (constant and slope are also fitted still)
         output = fit_multi_sinusoid(times, resid, signal_err, res_const, res_slope, res_freqs[group],
                                     res_ampls[group], res_phases[group], i_sectors, verbose=verbose)
@@ -221,9 +223,10 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
-            model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            bic = tsf.calc_bic((signal - model) / signal_err, 2 * n_sect + 3 * n_sin)
+            model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+            model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+            resid = signal - model_linear - model_sinusoid
+            bic = tsf.calc_bic(resid / signal_err, 2 * n_sect + 3 * n_sin)
             print(f'BIC in fit convergence message above invalid. Actual BIC: {bic:1.2f}')
     return res_const, res_slope, res_freqs, res_ampls, res_phases
 
@@ -285,8 +288,8 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
     phases[:n_sin] = params[1 + 2 * n_sect + 2 * n_sin:1 + 2 * n_sect + 3 * n_sin]
     phases[n_sin:] = params[1 + 2 * n_sect + 3 * n_sin + n_harm:1 + 2 * n_sect + 3 * n_sin + 2 * n_harm]
     # finally, make the model and calculate the likelihood
-    model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model = model + tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
+    model = tsf.linear_curve(times, const, slope, i_sectors)
+    model = model + tsf.sum_sines(times, freqs, ampls, phases)
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     # to keep track, sometimes print the value
     if verbose:
@@ -372,9 +375,10 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     res_phases[non_harm] = result.x[1 + 2 * n_sect + 2 * n_sin:1 + 2 * n_sect + 3 * n_sin]
     res_phases[harmonics] = result.x[1 + 2 * n_sect + 3 * n_sin + n_harm:1 + 2 * n_sect + 3 * n_sin + 2 * n_harm]
     if verbose:
-        model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-        model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-        bic = tsf.calc_bic((signal - model) / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
+        model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+        resid = signal - model_linear - model_sinusoid
+        bic = tsf.calc_bic(resid / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
@@ -452,8 +456,9 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     # fit the harmonics (first group)
     if verbose:
         print(f'Starting fit of orbital harmonics')
+    # remove harmonic frequencies
     resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
-                                   np.delete(res_phases, harmonics))  # the sinusoid part of the model without harmonics
+                                   np.delete(res_phases, harmonics))
     par_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
     arguments = (times, resid, signal_err, harmonic_n, i_sectors, verbose)
     output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
@@ -466,9 +471,10 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     res_ampls[harmonics] = output.x[1 + 2 * n_sect:1 + 2 * n_sect + n_harm]
     res_phases[harmonics] = output.x[1 + 2 * n_sect + n_harm:1 + 2 * n_sect + 2 * n_harm]
     if verbose:
-        model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-        model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-        bic = tsf.calc_bic((signal - model) / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
+        model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+        resid = signal - model_linear - model_sinusoid
+        bic = tsf.calc_bic(resid / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
         print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
     # update the parameters for each group
     for i, group in enumerate(f_groups):
@@ -476,7 +482,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
             print(f'Starting fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
-                                       np.delete(res_phases, group))  # the sinusoid part of the model without group
+                                       np.delete(res_phases, group))
         # fit only the frequencies in this group (constant and slope are also fitted still)
         output = fit_multi_sinusoid(times, resid, signal_err, res_const, res_slope, res_freqs[group],
                                     res_ampls[group], res_phases[group], i_sectors, verbose=verbose)
@@ -485,9 +491,10 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
-            model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            bic = tsf.calc_bic((resid - model) / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
+            model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+            model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+            resid_new = resid - model_linear - model_sinusoid
+            bic = tsf.calc_bic(resid_new / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
             print(f'BIC in fit convergence message above invalid. Actual BIC: {bic:1.2f}')
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
@@ -540,10 +547,10 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
     stretch = params[-1]
     freqs = harmonic_n / p_orb
     # finally, make the model and calculate the likelihood
-    model = tsf.sum_sines(times, freqs, a_h * stretch, ph_h)  # the sinusoid part of the model
+    model = tsf.sum_sines(times, freqs, a_h * stretch, ph_h)
     # stretching the harmonic model is equivalent to multiplying the amplitudes (to get the right eclipse depth)
     const, slope = tsf.linear_pars(times, signal - model, i_sectors)
-    model = model + tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
+    model = model + tsf.linear_curve(times, const, slope, i_sectors)
     model = ut.model_crowdsap(model, 1 - light_3, i_sectors)  # incorporate third light
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     # to keep track, sometimes print the value
@@ -614,9 +621,10 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = len(non_harm)  # each independent sine has freq, ampl and phase
     n_harm = len(harmonics)
-    model_init = tsf.sum_sines(times, f_n, a_n, ph_n)
-    model_init += tsf.linear_curve(times, const, slope, i_sectors)
-    bic_init = tsf.calc_bic((signal - model_init) / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
+    model_linear = linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    bic_init = tsf.calc_bic(resid / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
     # start off at third light of 0.01 and stretch parameter of 1.01
     par_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
     par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
@@ -627,13 +635,15 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     # separate results
     res_light_3 = result.x[:n_sect]
     res_stretch = result.x[-1]
-    model = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics] * res_stretch, ph_n[harmonics])
-    model += tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    model_sinusoid_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics] * res_stretch, ph_n[harmonics])
+    model_sinusoid_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    resid = signal - model_sinusoid_nh - model_sinusoid_h
     const, slope = tsf.linear_pars(times, signal - model, i_sectors)
     if verbose:
-        model = tsf.linear_curve(times, const, slope, i_sectors)
-        model += ut.model_crowdsap(model, 1 - res_light_3, i_sectors)
-        bic = tsf.calc_bic((signal - model_init) / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
+        model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+        model_crowdsap = ut.model_crowdsap(model_linear + model_sinusoid, 1 - res_light_3, i_sectors)
+        bic = tsf.calc_bic((signal - model_crowdsap) / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. Old BIC: {bic_init:1.2f}. New BIC: {bic:1.2f}')
     return res_light_3, res_stretch, const, slope
 
@@ -708,10 +718,10 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d)
     cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d)
     # maxima and minima
-    max_1 = tsf.cubic_curve(t_c1_1, c1_a, c1_b, c1_c, c1_d)
-    min_1 = tsf.cubic_curve(min(t_c1_2, mid_1), c1_a, c1_b, c1_c, c1_d)
-    max_3 = tsf.cubic_curve(t_c3_1, c3_a, c3_b, c3_c, c3_d)
-    min_3 = tsf.cubic_curve(min(t_c3_2, mid_2), c3_a, c3_b, c3_c, c3_d)
+    max_1 = tsf.cubic_curve(np.array([t_c1_1]), c1_a, c1_b, c1_c, c1_d)[0]
+    min_1 = tsf.cubic_curve(np.array([min(t_c1_2, mid_1)]), c1_a, c1_b, c1_c, c1_d)[0]
+    max_3 = tsf.cubic_curve(np.array([t_c3_1]), c3_a, c3_b, c3_c, c3_d)[0]
+    min_3 = tsf.cubic_curve(np.array([min(t_c3_2, mid_2)]), c3_a, c3_b, c3_c, c3_d)[0]
     # make connecting lines
     mask_12 = (t_folded > t_c2_1) & (t_folded < t_c3_1)  # from 1 to 2
     mask_21 = (t_folded > t_c4_1) & (t_folded < t_c1_1 + p_orb)  # from 2 to 1
@@ -862,6 +872,8 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
     par_bounds = np.array([(t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
                            (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None)])
+    print(par_init)
+    print(par_bounds)
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
     result = sp.optimize.minimize(objective_cubics_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
@@ -926,8 +938,8 @@ def objective_cubics_sinusoids_lc(params, times, signal, signal_err, p_orb, t_ze
     # the model
     model_ecl = 1 + eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # make the sinusoid model
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sines = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
@@ -1053,9 +1065,10 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
-            model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            bic = tsf.calc_bic((resid - model) / signal_err, 2 * n_sect + 3 * n_sin)
+            model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+            model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+            resid_new = resid - model_linear - model_sinusoid
+            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin)
             print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
     return res_cubics, res_const, res_slope, res_freqs, res_ampls, res_phases
 
@@ -1467,8 +1480,8 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
     ampls = params[7 + 2 * n_sect + n_sin:7 + 2 * n_sect + 2 * n_sin]
     phases = params[7 + 2 * n_sect + 2 * n_sin:7 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sines = tsf.sum_sines(times, freqs, ampls, phases)
     # eclipse model
     e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
     model_ecl = simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
@@ -1531,8 +1544,8 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
     ampls = params[7 + 2 * n_sect + n_sin:7 + 2 * n_sect + 2 * n_sin]
     phases = params[7 + 2 * n_sect + 2 * n_sin:7 + 2 * n_sect + 3 * n_sin]
     # make the sinusoid model
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model_sines = tsf.sum_sines(times, freqs, ampls, phases)  # the sinusoid part of the model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sines = tsf.sum_sines(times, freqs, ampls, phases)
     # eclipse model
     e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
@@ -1651,9 +1664,10 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
-            model = tsf.linear_curve(times, res_const, res_slope, i_sectors)
-            model += tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            bic = tsf.calc_bic((resid - model) / signal_err, 2 * n_sect + 3 * n_sin)
+            model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
+            model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
+            resid_new = resid - model_linear - model_sinusoid
+            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin)
             print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
     res_t_zero = res_ecl_par[0]
     res_ecl_par = res_ecl_par[1:]
