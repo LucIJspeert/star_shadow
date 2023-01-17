@@ -794,7 +794,7 @@ def linear_curve(times, const, slope, i_sectors):
     Notes
     -----
     Assumes the constants and slopes are determined with respect
-    to the sector mean time.
+    to the sector mean time as zero point.
     """
     curve = np.zeros(len(times))
     for co, sl, s in zip(const, slope, i_sectors):
@@ -827,8 +827,9 @@ def linear_pars(times, signal, i_sectors):
     
     Notes
     -----
-    Determines the constants and slopes with respect to the sector mean time.
     Source: https://towardsdatascience.com/linear-regression-91eeae7d6a2e
+    Determines the constants and slopes with respect to the sector mean time
+    as zero point to avoid correlations.
     """
     y_inter = np.zeros(len(i_sectors))
     slope = np.zeros(len(i_sectors))
@@ -869,9 +870,14 @@ def linear_pars_two_points(x1, y1, x2, y2):
         The y-intercept(s) of a piece-wise linear curve
     slope: float, numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
+    
+    Notes
+    -----
+    Determines the slope and y-intercept with respect to the center
+    between the two x-values.
     """
     slope = (y2 - y1) / (x2 - x1)
-    y_inter = y1 - slope * x1  # take point 1 to calculate y intercept
+    y_inter = (y1 + y2) / 2  # halfway point is y-intercept for mean-centered x
     return y_inter, slope
 
 
@@ -894,8 +900,15 @@ def quadratic_curve(times, a, b, c):
     -------
     curve: numpy.ndarray[float]
         The model time series of a (set of) straight line(s)
+    
+    Notes
+    -----
+    Assumes the parameters are determined with respect
+    to the mean time as zero point.
     """
-    curve = a * times**2 + b * times + c
+    mean_t = np.mean(times)
+    t_mean_sub = times - mean_t  # mean subtracted times
+    curve = a * t_mean_sub**2 + b * t_mean_sub + c
     return curve
 
 
@@ -918,12 +931,19 @@ def quadratic_pars(times, signal):
         The linear coefficient
     c: float
         The constant coefficient
+    
+    Notes
+    -----
+    Determines the parameters with respect to the mean time
+    as zero point to reduce correlations.
     """
+    mean_t = np.mean(times)
+    t_mean_sub = times - mean_t  # mean subtracted times
     # mean and mean subtracted quantities
-    x_m = np.mean(times)
-    x2_m = np.mean(times**2)
-    x_ms = (times - x_m)
-    x2_ms = (times**2 - x2_m)
+    x_m = np.mean(t_mean_sub)
+    x2_m = np.mean(t_mean_sub**2)
+    x_ms = (t_mean_sub - x_m)
+    x2_ms = (t_mean_sub**2 - x2_m)
     y_m = np.mean(signal)
     y_ms = (signal - y_m)
     # sums
@@ -936,36 +956,6 @@ def quadratic_pars(times, signal):
     a = (s_x2y * s_xx - s_xy * s_x2x) / (s_x2x2 * s_xx - s_x2x**2)
     b = (s_xy - a * s_x2x) / s_xx
     c = y_m - a * x2_m - b * x_m
-    return a, b, c
-
-
-@nb.njit(cache=True)
-def quadratic_pars_two_points(x1, y1, x2):
-    """Calculate the parameters of a parabola defined by the top (1) and one
-    random point (2) (only x), y = a*x**2 + b*x + c
-
-    Parameters
-    ----------
-    x1: float, numpy.ndarray[float]
-        The x-coordinate of the top point(s)
-    y1: float, numpy.ndarray[float]
-        The y-coordinate of the top point(s)
-    x2: float, numpy.ndarray[float]
-        The x-coordinate of the other point(s)
-
-    Returns
-    -------
-    a: float, numpy.ndarray[float]
-        The quadratic coefficient(s)
-    b: float, numpy.ndarray[float]
-        The linear coefficient(s)
-    c: float, numpy.ndarray[float]
-        The constant coefficient(s)
-    """
-    sqr_dif = (x1 - x2)**2
-    a = -y1 / sqr_dif
-    b = 2 * x1 * y1 / sqr_dif
-    c = y1 * (1 - x1**2 / sqr_dif)
     return a, b, c
 
 
@@ -990,8 +980,15 @@ def cubic_curve(times, a, b, c, d):
     -------
     curve: numpy.ndarray[float]
         The model time series of a (set of) straight line(s)
+
+    Notes
+    -----
+    Assumes the parameters are determined with respect
+    to the mean time as zero point.
     """
-    curve = a * times**3 + b * times**2 + c * times + d
+    mean_t = np.mean(times)
+    t_mean_sub = times - mean_t  # mean subtracted times
+    curve = a * t_mean_sub**3 + b * t_mean_sub**2 + c * t_mean_sub + d
     return curve
 
 
@@ -1016,14 +1013,21 @@ def cubic_pars(times, signal):
         The linear coefficient
     d: float
         The constant coefficient
+    
+    Notes
+    -----
+    Determines the parameters with respect to the mean time
+    as zero point to reduce correlations.
     """
+    mean_t = np.mean(times)
+    t_mean_sub = times - mean_t  # mean subtracted times
     # mean and mean subtracted quantities
-    x_m = np.mean(times)
-    x2_m = np.mean(times**2)
-    x3_m = np.mean(times**3)
-    x_ms = (times - x_m)
-    x2_ms = (times**2 - x2_m)
-    x3_ms = (times**3 - x3_m)
+    x_m = np.mean(t_mean_sub)
+    x2_m = np.mean(t_mean_sub**2)
+    x3_m = np.mean(t_mean_sub**3)
+    x_ms = (t_mean_sub - x_m)
+    x2_ms = (t_mean_sub**2 - x2_m)
+    x3_ms = (t_mean_sub**3 - x3_m)
     y_m = np.mean(signal)
     y_ms = (signal - y_m)
     # sums
@@ -1081,7 +1085,7 @@ def cubic_pars_from_quadratic(x1, a_q, b_q, c_q):
 
 @nb.njit(cache=True)
 def cubic_pars_two_points(x1, y1, x2, y2):
-    """Calculate the parameters of a cubic formula defined by its extrema,
+    """Calculate the parameters of a cubic formula defined by its extrema
      y = a*x**3 + b*x**2 + c*x + d
 
     Parameters
@@ -1105,12 +1109,21 @@ def cubic_pars_two_points(x1, y1, x2, y2):
         The constant coefficient(s)
     d: float, numpy.ndarray[float]
         The constant coefficient(s)
+    
+    Notes
+    -----
+    Determines the parameters with respect to the mean x
+    as zero point to reduce correlations.
     """
-    cbc_dif = (x2 - x1)**3
+    mean_x = (x1 + x2) / 2
+    x1_ms = x1 - mean_x
+    x2_ms = x2 - mean_x
+    # parameter formulae
+    cbc_dif = (x2_ms - x1_ms)**3
     a = -2 * (y2 - y1) / cbc_dif
-    b = 3 * (y2 - y1) * (x2 + x1) / cbc_dif
-    c = -3 * a * x1**2 - 2 * b * x1
-    d = y1 - a * x1**3 - b * x1**2 - c * x1
+    b = 3 * (y2 - y1) * (x2_ms + x1_ms) / cbc_dif
+    c = -3 * a * x1_ms**2 - 2 * b * x1_ms
+    d = y1 - a * x1_ms**3 - b * x1_ms**2 - c * x1_ms
     return a, b, c, d
 
 
@@ -1133,13 +1146,19 @@ def sum_sines(times, f_n, a_n, ph_n):
     -------
     model_sines: numpy.ndarray[float]
         Model time series of a sum of sine waves. Varies around 0.
+    
+    Notes
+    -----
+    Assumes the phases are determined with respect
+    to the mean time as zero point.
     """
+    mean_t = np.mean(times)
     model_sines = np.zeros(len(times))
     for f, a, ph in zip(f_n, a_n, ph_n):
-        # model_sines += a * np.sin((2 * np.pi * f * times) + ph)
-        # double loop runs a tad quicker when numba-JIT-ted
+        # model_sines += a * np.sin((2 * np.pi * f * (times - mean_t)) + ph)
+        # double loop runs a tad bit quicker when numba-JIT-ted
         for i, t in enumerate(times):
-            model_sines[i] += a * np.sin((2 * np.pi * f * t) + ph)
+            model_sines[i] += a * np.sin((2 * np.pi * f * (t - mean_t)) + ph)
     return model_sines
 
 
@@ -1165,7 +1184,13 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     -------
     model_sines: numpy.ndarray[float]
         Model time series of a sum of sine wave derivatives. Varies around 0.
+    
+    Notes
+    -----
+    Assumes the phases are determined with respect
+    to the mean time as zero point.
     """
+    mean_t = np.mean(times)
     model_sines = np.zeros(len(times))
     mod_2 = deriv % 2
     mod_4 = deriv % 4
@@ -1173,45 +1198,7 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     sign = (-1)**((mod_4 - mod_2) // 2)  # (1, -1, -1, 1, 1, -1, -1... for deriv=1, 2, 3...)
     for f, a, ph in zip(f_n, a_n, ph_n):
         for i, t in enumerate(times):
-            model_sines[i] += sign * (2 * np.pi * f)**deriv * a * np.sin((2 * np.pi * f * t) + ph + ph_cos)
-    return model_sines
-
-
-def sum_sines_damped(times, f_n, a_n, lifetimes, t_zeros):
-    """A sum of damped sine waves at times t, given the frequencies, amplitudes,
-    mode lifetimes and excitation times (t_zeros).
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    f_n: float, list[float], numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: float, list[float], numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    lifetimes: float, list[float], numpy.ndarray[float]
-        The wave lifetimes of a number of sine waves
-    t_zeros: float, list[float], numpy.ndarray[float]
-        The starting (excitation) time of a number of sine waves
-    
-    Returns
-    -------
-    model_sines: numpy.ndarray[float]
-        Model time series of a sum of damped sine waves. Varies around 0.
-    """
-    # with η1 the damping rate of the mode, which is the inverse of the mode lifetime
-    times = np.ascontiguousarray(np.atleast_1d(times)).reshape(-1, 1)  # reshape to enable the vector product in the sum
-    f_n = np.atleast_1d(f_n)
-    a_n = np.atleast_1d(a_n)
-    lifetimes = np.atleast_1d(lifetimes)
-    t_zeros = np.atleast_1d(t_zeros)
-    eta = 1 / lifetimes  # η is the damping rate of the mode, which is the inverse of the mode lifetime
-    t_shift = np.repeat(np.copy(times), len(eta), axis=1) - t_zeros  # make a separate matrix for the exponent
-    mask = (t_shift < 0)  # now need to avoid positive exponent and make the wave zero before t_zero
-    t_shift[mask] = 0
-    exponent = np.exp(-eta * t_shift)
-    exponent[mask] = 0
-    model_sines = np.sum(a_n * np.sin((2 * np.pi * f_n * t_shift)) * exponent, axis=1)
+            model_sines[i] += sign * (2 * np.pi * f)**deriv * a * np.sin((2 * np.pi * f * (t - mean_t)) + ph + ph_cos)
     return model_sines
 
 
@@ -1966,7 +1953,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     
     [Author's note] Although it is my belief that doing a non-linear
     multi-sinusoid fit at each iteration of the prewhitening is the
-    best approach, it is also a very time-consuming one and this
+    best approach, it is also a very (very!) time-consuming one and this
     algorithm aims to be fast while approaching the optimal solution.
     """
     times -= times[0]  # shift reference time to times[0]

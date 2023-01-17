@@ -65,7 +65,7 @@ def interp_two_points(x, xp1, yp1, xp2, yp2):
         The interpolated values, same shape as x.
     """
     y_inter, slope = tsf.linear_pars_two_points(xp1, yp1, xp2, yp2)
-    y = y_inter + slope * x
+    y = y_inter + slope * (x - (xp1 + xp2) / 2)  # assumes output of y_inter is for mean-centered x
     return y
 
 
@@ -289,6 +289,10 @@ def time_zero_points(times, i_sectors):
         Zero point of the full time series
     times_szp: numpy.ndarray[float]
         Zero point(s) of the time series per observing sector
+    
+    Notes
+    -----
+    Mean-center the time array to reduce correlations
     """
     times_fzp = np.mean(times)
     times_szp = np.zeros(len(i_sectors))
@@ -465,10 +469,6 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
         Errors in the measurement values (normalised)
     medians: numpy.ndarray[float]
         Median flux counts per sector
-    times_fzp: float
-        Zero point of the full time series
-    times_szp: numpy.ndarray[float]
-        Zero point(s) of the time series per observing sector
     t_combined: numpy.ndarray[float]
         Pair(s) of times indicating the timespans of each half sector
     i_half_s: numpy.ndarray[int]
@@ -485,9 +485,6 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     """
     # median normalise
     signal, medians, signal_err = normalise_counts(signal, i_sectors=i_sectors, flux_counts_err=signal_err)
-    # zero the timeseries
-    times_fzp, times_szp = time_zero_points(times, i_sectors)
-    times = times - times_fzp  # mean-center the time array to reduce correlations
     # times of sector mid-point and resulting half-sectors
     dt = np.median(np.diff(times))
     t_start = times[i_sectors[:, 0]] - dt/2
@@ -495,7 +492,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     t_mid = (t_start + t_end) / 2
     t_combined = np.column_stack((np.append(t_start, t_mid + dt/2), np.append(t_mid - dt/2, t_end)))
     i_half_s = convert_tess_t_sectors(times, t_combined)
-    return times, signal, signal_err, medians, times_fzp, times_szp, t_combined, i_half_s
+    return times, signal, signal_err, medians, t_combined, i_half_s
 
 
 def group_frequencies_for_fit(a_n, g_min=20, g_max=25):

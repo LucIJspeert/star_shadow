@@ -2103,8 +2103,6 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     logger.info('Start of analysis')
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    times_0 = np.mean(times)
-    times = times - times_0  # mean-center the time array to reduce correlations
     t_tot = np.ptp(times)  # total time base of observations
     kw_args = {'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # if sectors not given, take full length
@@ -2135,8 +2133,8 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
     return p_orb
 
 
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, times_fzp, times_szp, t_int, target_id, save_dir,
-               data_id=None, overwrite=False, verbose=False):
+def analyse_eb(times, signal, signal_err, p_orb, i_sectors, t_int, target_id, save_dir, data_id=None, overwrite=False,
+               verbose=False):
     """Do all steps of the analysis
 
     Parameters
@@ -2155,10 +2153,6 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, times_fzp, times_szp
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
-    times_fzp: float
-        Zero point of the full time series
-    times_szp: numpy.ndarray[float]
-        Zero point(s) of the time series per observing sector
     t_int: float
         Integration time of observations
     target_id: int, str
@@ -2240,8 +2234,6 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
     save_dir = os.path.dirname(file_name)
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    times_0 = np.mean(times)
-    times = times - times_0  # mean-center the time array to reduce correlations
     # if sectors not given, take full length
     if i_sectors is None:
         i_sectors = np.array([[0, len(times)]])  # no sector information
@@ -2290,12 +2282,12 @@ def analyse_from_tic(tic, all_files, p_orb=0, t_int=None, save_dir=None, data_id
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
     i_sectors = ut.convert_tess_t_sectors(times, t_sectors)
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
-    times, signal, signal_err, sector_medians, times_fzp, times_szp, t_combined, i_half_s = lc_processed
+    times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # if not t_int given, estimate as the median time step
     if t_int is None:
         t_int = np.median(np.diff(times))
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, times_fzp, times_szp, t_int, tic, save_dir, data_id=data_id,
+    analyse_eb(times, signal, signal_err, p_orb, i_half_s, t_int, tic, save_dir, data_id=data_id,
                overwrite=overwrite, verbose=verbose)
     return None
 

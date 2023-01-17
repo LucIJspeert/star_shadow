@@ -152,7 +152,7 @@ def integral_kepler_2(nu_1, nu_2, e):
 
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     Returns the quantity 2π(t2 - t1)/P given an eccentricity (e) and
     corresponding true anomaly values ν1 and ν2.
@@ -161,8 +161,8 @@ def integral_kepler_2(nu_1, nu_2, e):
     """
     
     def indefinite_integral(nu, ecc):
-        term_1 = 2 * tt.arctan2(np.sqrt(1 - ecc) * np.sin(nu / 2), np.sqrt(1 + ecc) * np.cos(nu / 2))
-        term_2 = - ecc * np.sqrt(1 - ecc**2) * np.sin(nu) / (1 + ecc * np.cos(nu))
+        term_1 = 2 * tt.arctan2(np.sqrt(1 - ecc) * tt.sin(nu / 2), tt.sqrt(1 + ecc) * tt.cos(nu / 2))
+        term_2 = - ecc * tt.sqrt(1 - ecc**2) * tt.sin(nu) / (1 + ecc * tt.cos(nu))
         mod_term = 4 * np.pi * ((nu // (2 * np.pi) + 1) // 2)  # correction term for going over 2pi
         return term_1 + term_2 + mod_term
     
@@ -193,7 +193,7 @@ def delta_deriv(theta, e, w, i):
 
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     For circular orbits, delta has minima at 0 and 180 degrees, but this will deviate for
     eccentric *and* inclined orbits due to conjunction no longer lining up with the minimum
@@ -202,11 +202,11 @@ def delta_deriv(theta, e, w, i):
     Minimize this function w.r.t. theta near zero to get the phase angle of minimum separation
     at primary eclipse (eclipse maximum), or near pi to get it for the secondary eclipse.
     """
-    sin_i_2 = np.sin(i)**2
+    sin_i_2 = tt.sin(i)**2
     # previous (identical except for a factor 1/2 which doesn't matter because it equals zero) formula, from Kopal 1959
     # term_1 = (1 - e * np.sin(theta - w)) * sin_i_2 * np.sin(2*theta)
     # term_2 = 2 * e * np.cos(theta - w) * (1 - np.cos(theta)**2 * sin_i_2)
-    minimize = e * np.cos(theta - w) + sin_i_2 * np.cos(theta) * (np.sin(theta) - e * np.cos(w))
+    minimize = e * tt.cos(theta - w) + sin_i_2 * tt.cos(theta) * (tt.sin(theta) - e * tt.cos(w))
     return minimize
 
 
@@ -231,10 +231,10 @@ def delta_deriv_2(theta, e, w, i):
         
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     """
-    sin_i_2 = np.sin(i)**2
-    deriv = -e * np.cos(w) * (1 - sin_i_2) * np.sin(theta) + e * np.sin(w) * np.cos(theta) + sin_i_2 * np.cos(2 * theta)
+    sin_i_2 = tt.sin(i)**2
+    deriv = -e * tt.cos(w) * (1 - sin_i_2) * tt.sin(theta) + e * tt.sin(w) * tt.cos(theta) + sin_i_2 * tt.cos(2 * theta)
     return deriv
 
 
@@ -263,17 +263,17 @@ def minima_phase_angles_2(e, w, i):
 
     Notes
     -----
-    Taken from analysis_functions and adapted, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     Other implementation for minima_phase_angles that can be JIT-ted.
     On its own it is 10x slower, but as part of other functions it can be faster
     if it means that other function can then also be JIT-ted
     """
+    x0 = tt.as_tensor_variable(np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2]))  # initial theta values
     if (e == 0):
         # this would break, so return the defaults for circular orbits
-        return 0, np.pi, np.pi / 2, 3 * np.pi / 2
+        return x0[0], x0[1], x0[2], x0[3]
     # use the derivative of the projected distance to get theta angles
-    x0 = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
     deriv_1 = delta_deriv(x0, e, w, i)  # value of the projected distance derivative
     deriv_2 = delta_deriv_2(x0, e, w, i)  # value of the second derivative
     walk_sign = -tt.cast(tt.sgn(deriv_1), 'int64') * tt.cast(tt.sgn(deriv_2), 'int64')
@@ -294,20 +294,21 @@ def minima_phase_angles_2(e, w, i):
         if not np.any(check):
             break
         # make the approved steps and continue if any were approved
-        cur_x[check] = try_x[check]
-        cur_y[check] = try_y[check]
+        cur_x = tt.switch(check, try_x, cur_x)  # cur_x[check] = try_x[check]
+        cur_y = tt.switch(check, try_y, cur_y)  # cur_y[check] = try_y[check]
         # try the next steps
-        try_x[check] = cur_x[check] + step * walk_sign[check]
-        try_y[check] = delta_deriv(try_x[check], e, w, i)
+        try_x = tt.switch(check, cur_x + step * walk_sign, try_x)  # try_x[check]=cur_x[check]+step*walk_sign[check]
+        try_y = tt.switch(check, delta_deriv(try_x, e, w, i), try_y)  # try_y[check]=delta_deriv(try_x[check], e, w, i)
         # check whether the sign stays the same
-        check[check] = (tt.sgn(cur_y[check]) == tt.sgn(try_y[check]))
+        # check[check] = (tt.sgn(cur_y[check]) == tt.sgn(try_y[check]))
+        check = tt.switch(check, (tt.sgn(cur_y) == tt.sgn(try_y)), check)
     # interpolate for better precision than the angle step
     condition = tt.eq(f_sign_x0, 1)
     xp1 = tt.switch(condition, try_y, cur_y)
     yp1 = tt.switch(condition, try_x, cur_x)
     xp2 = tt.switch(condition, cur_y, try_y)
     yp2 = tt.switch(condition, cur_x, try_x)
-    thetas_interp = interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
+    thetas_interp = interp_two_points(tt.zeros((4,)), xp1, yp1, xp2, yp2)
     thetas_interp = thetas_interp % two_pi
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_3, theta_2, theta_4 = thetas_interp[0], thetas_interp[1], thetas_interp[2], thetas_interp[3]
@@ -337,14 +338,14 @@ def projected_separation(e, w, i, theta):
 
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     delta^2 = a^2 (1-e^2)^2(1 - sin^2(i)cos^2(theta))/(1 - e sin(theta - w))^2
     sep = delta/a
     """
-    num = (1 - e**2)**2 * (1 - np.sin(i)**2 * np.cos(theta)**2)
-    denom = (1 - e * np.sin(theta - w))**2
-    sep = np.sqrt(num / denom)
+    num = (1 - e**2)**2 * (1 - tt.sin(i)**2 * tt.cos(theta)**2)
+    denom = (1 - e * tt.sin(theta - w))**2
+    sep = tt.sqrt(num / denom)
     return sep
 
 
@@ -367,7 +368,7 @@ def covered_area(d, r_1, r_2):
 
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     For d between |r_1 - r_2| and r_1 + r_2:
     area = r_1^2 * arccos((d^2 + r_1^2 - r2^2)/(2 d r_1))
@@ -376,11 +377,11 @@ def covered_area(d, r_1, r_2):
     """
     # define conditions for separating parameter space
     cond_1 = (d > 1.00001 * abs(r_1 - r_2)) & (d < (r_1 + r_2))
-    cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & np.invert(cond_1)
+    cond_2 = (d <= 1.00001 * abs(r_1 - r_2)) & tt.invert(cond_1)
     # formula for condition 1
-    term_1 = r_1**2 * np.arccos((d**2 + r_1**2 - r_2**2) / (2 * d * r_1))
-    term_2 = r_2**2 * np.arccos((d**2 + r_2**2 - r_1**2) / (2 * d * r_2))
-    term_3 = - r_1 * r_2 * np.sqrt(1 - ((r_1**2 + r_2**2 - d**2) / (2 * r_1 * r_2))**2)
+    term_1 = r_1**2 * tt.arccos((d**2 + r_1**2 - r_2**2) / (2 * d * r_1))
+    term_2 = r_2**2 * tt.arccos((d**2 + r_2**2 - r_1**2) / (2 * d * r_2))
+    term_3 = - r_1 * r_2 * tt.sqrt(1 - ((r_1**2 + r_2**2 - d**2) / (2 * r_1 * r_2))**2)
     formula = term_1 + term_2 + term_3
     # value for condition 2
     value = np.pi * tt.minimum(r_1**2, r_2**2)
@@ -423,7 +424,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
 
     Notes
     -----
-    Taken from analysis_functions, but without JIT-ting
+    Taken from analysis_functions and adapted, and without JIT-ting
     
     light_lost(1) = covered_area / (pi r_1^2 + pi r_2^2 sb_ratio)
     light_lost(2) = covered_area sb_ratio / (pi r_1^2 + pi r_2^2 sb_ratio)
@@ -473,7 +474,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     
     Notes
     -----
-    Taken from timeseries_fitting, but without JIT-ting
+    Taken from timeseries_fitting and adapted, and without JIT-ting
     """
     # position angle along the orbit (step just over 0.001)
     thetas = tt.as_tensor_variable(np.linspace(0, 2 * np.pi, 6284))

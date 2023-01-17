@@ -1564,11 +1564,11 @@ def minima_phase_angles_2(e, w, i):
     On its own it is 10x slower, but as part of other functions it can be faster
     if it means that other function can then also be JIT-ted
     """
+    x0 = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])  # initial theta values
     if (e == 0):
         # this would break, so return the defaults for circular orbits
         return 0, np.pi, np.pi / 2, 3 * np.pi / 2
     # use the derivative of the projected distance to get theta angles
-    x0 = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])
     deriv_1 = delta_deriv(x0, e, w, i)  # value of the projected distance derivative
     deriv_2 = delta_deriv_2(x0, e, w, i)  # value of the second derivative
     walk_sign = -np.sign(deriv_1).astype(np.int_) * np.sign(deriv_2).astype(np.int_)
