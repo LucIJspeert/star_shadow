@@ -131,9 +131,10 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     n_sin = len(f_n)  # each sine has freq, ampl and phase
     # do the fit
     par_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
+    par_bounds = [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
     arguments = (times, signal, signal_err, i_sectors, verbose)
-    result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments,
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
+    result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_const = result.x[0:n_sect]
     res_slope = result.x[n_sect:2 * n_sect]
@@ -358,9 +359,12 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     # do the fit
     par_init = np.concatenate(([p_orb], np.atleast_1d(const), np.atleast_1d(slope), np.delete(f_n, harmonics),
                                np.delete(a_n, harmonics), np.delete(ph_n, harmonics), a_n[harmonics], ph_n[harmonics]))
+    par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
+    par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, signal, signal_err, harmonic_n, i_sectors, verbose)
-    result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
+    result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_p_orb = result.x[0]
     res_const = result.x[1:1 + n_sect]
@@ -460,6 +464,8 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
                                    np.delete(res_phases, harmonics))
     par_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
+    par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
+    par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, resid, signal_err, harmonic_n, i_sectors, verbose)
     output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
                                   method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
@@ -713,10 +719,15 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     mask_2 = (t_folded_adj > max(t_c2_2, mid_1)) & (t_folded_adj <= t_c2_1)
     mask_3 = (t_folded >= t_c3_1) & (t_folded < min(t_c3_2, mid_2))
     mask_4 = (t_folded > max(t_c4_2, mid_2)) & (t_folded <= t_c4_1)
-    cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d)
-    cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d)
-    cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d)
-    cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d)
+    # compute the cubic curves if there are points left
+    if np.any(mask_1):
+        cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d)
+    if np.any(mask_2):
+        cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d)
+    if np.any(mask_3):
+        cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d)
+    if np.any(mask_4):
+        cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d)
     # maxima and minima
     max_1 = tsf.cubic_curve(np.array([t_c1_1]), c1_a, c1_b, c1_c, c1_d)[0]
     min_1 = tsf.cubic_curve(np.array([min(t_c1_2, mid_1)]), c1_a, c1_b, c1_c, c1_d)[0]
@@ -741,10 +752,14 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     model_ecl[mask_21] = line_21
     model_ecl[mask_b_1] = line_b_1
     model_ecl[mask_b_2] = line_b_2
-    model_ecl[mask_1] = cubic_1 - max_1
-    model_ecl[mask_2] = cubic_2 - max_1
-    model_ecl[mask_3] = cubic_3 - max_3
-    model_ecl[mask_4] = cubic_4 - max_3
+    if np.any(mask_1):
+        model_ecl[mask_1] = cubic_1 - max_1
+    if np.any(mask_2):
+        model_ecl[mask_2] = cubic_2 - max_1
+    if np.any(mask_3):
+        model_ecl[mask_3] = cubic_3 - max_3
+    if np.any(mask_4):
+        model_ecl[mask_4] = cubic_4 - max_3
     return model_ecl
 
 
@@ -870,10 +885,8 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     dur_1 = t_1_2 - t_1_1
     dur_2 = t_2_2 - t_2_1
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
-    par_bounds = np.array([(t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
-                           (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None)])
-    print(par_init)
-    print(par_bounds)
+    par_bounds = ((t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
+                  (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None))
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
     result = sp.optimize.minimize(objective_cubics_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
@@ -1639,19 +1652,23 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     for i, group in enumerate(f_groups):
         if verbose:
             print(f'Starting fit of group {i + 1} of {n_groups}')
+        n_sin_g = len(res_freqs[group])
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
         # fit only the frequencies in this group (and eclipse model, constant and slope)
         par_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
                                    res_phases[group]))
+        par_bounds = [(None, None), (-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000)]
+        par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
+        par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
         arguments = (times, resid, signal_err, p_orb, i_sectors, verbose)
         if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc
         else:
             obj_fun = objective_sinusoids_eclipse
         output = sp.optimize.minimize(obj_fun, x0=par_init, args=arguments, method='Nelder-Mead',
-                                      options={'maxfev': 10**4 * len(par_init)})
+                                      bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
         res_ecl_par = output.x[0:7]
