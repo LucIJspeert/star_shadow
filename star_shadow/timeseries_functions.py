@@ -18,9 +18,9 @@ from . import analysis_functions as af
 
 
 @nb.njit(cache=True)
-def fold_time_series(times, p_orb, zero=None):
+def fold_time_series_phase(times, p_orb, zero=None):
     """Fold the given time series over the orbital period to transform to phase space.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -29,7 +29,7 @@ def fold_time_series(times, p_orb, zero=None):
         The orbital period with which the time series is folded
     zero: float, None
         Reference zero point in time when the phase equals zero
-    
+
     Returns
     -------
     phases: numpy.ndarray[float]
@@ -39,6 +39,43 @@ def fold_time_series(times, p_orb, zero=None):
         zero = times[0]
     phases = ((times - zero) / p_orb + 0.5) % 1 - 0.5
     return phases
+
+
+@nb.njit(cache=True)
+def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
+    """Fold the given time series over the orbital period
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    p_orb: float
+        The orbital period with which the time series is folded
+    t_zero: float, None
+        Reference zero point in time (with respect to the
+        time series mean time) when the phase equals zero
+    t_ext_1: float
+        Negative time interval to extend the folded time series to the left.
+    t_ext_2: float
+        Positive time interval to extend the folded time series to the right.
+    
+    Returns
+    -------
+    t_extended: numpy.ndarray[float]
+        Folded time series array for all timestamps (and possible extensions).
+    ext_left: numpy.ndarray[bool]
+        Mask of points to extend time series to the left (for if t_ext_1!=0)
+    ext_right: numpy.ndarray[bool]
+        Mask of points to extend time series to the right (for if t_ext_2!=0)
+    """
+    # reference time is the mean of the times array
+    mean_t = np.mean(times)
+    t_folded = (times - mean_t - t_zero) % p_orb
+    # extend to both sides
+    ext_left = (t_folded > p_orb + t_ext_1)
+    ext_right = (t_folded < t_ext_2)
+    t_extended = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
+    return t_extended, ext_left, ext_right
 
 
 def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
@@ -79,21 +116,30 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
 
 
 @nb.njit(cache=True)
-def mark_folded_gaps(times, width):
+def mark_folded_gaps(times, p_orb, width):
     """Mark gaps in a folded series of time points.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
+    p_orb: float
+        The orbital period with which the time series is folded
     width: float
         Minimum width for a gap (in time units)
-    
+
     Returns
     -------
     gaps: numpy.ndarray[float]
         Gap timestamps in pairs
     """
+    # fold the time series
+    t_fold_edges, _, _ = fold_time_series(times, p_orb, 0, t_ext_1=0, t_ext_2=0)
+    if np.all(t_fold_edges > 0):
+        t_fold_edges = np.append([0], t_fold_edges)
+    if np.all(t_fold_edges < p_orb):
+        t_fold_edges = np.append(t_fold_edges, [p_orb])
+    # mark the gaps
     t_sorted = np.sort(times)
     t_diff = t_sorted[1:] - t_sorted[:-1]  # np.diff(a)
     gaps = (t_diff > width)
@@ -210,7 +256,7 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     # compute the dispersion measures
     pd_all = np.zeros(len(periods))
     for i, p in enumerate(periods):
-        fold = fold_time_series(times, p, 0)
+        fold = fold_time_series_phase(times, p, 0)
         pd_all[i] = phase_dispersion(fold, signal, n_bins)
     return periods, pd_all
 
@@ -1364,7 +1410,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1410,7 +1456,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_sines - model_line
     # use the eclipse model to find the derivative peaks
-    t_folded = (times - t_zero) % p_orb
+    t_folded, _, _ = fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
     mask_1_1 = (t_folded > t_1_1 + p_orb) & (t_folded < t_b_1_1 + p_orb)
     mask_1_2 = (t_folded > t_b_1_2) & (t_folded < t_1_2)
     mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
@@ -1456,7 +1502,7 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1502,13 +1548,11 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     model_sines = sum_sines(times, f_n, a_n, ph_n)
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_sines - model_line
-    # use the eclipse model to find the derivative peaks
-    t_folded = (times - t_zero) % p_orb
     # determine depth errors
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # use the full bottom if nonzero
-    t_folded = (times - t_zero) % p_orb
+    t_folded, _, _ = fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
     if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
         mask_b_1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
         mask_b_1 = mask_b_1 | ((t_folded > p_orb + t_b_1_1) & (t_folded < p_orb + t_b_1_2))

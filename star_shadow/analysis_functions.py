@@ -952,7 +952,7 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     t_1: float
         Time of primary minimum in domain [0, p_orb)
     t_2: float
@@ -1015,7 +1015,7 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     t_1_1: float
         Time of primary first contact
     t_1_2: float
@@ -1067,7 +1067,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     Returns
     -------
     t_zero: float, None
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     t_1: float, None
         Time of primary minimum in domain [0, p_orb)
         Shifted by t_zero so that deepest minimum occurs at 0
@@ -1283,7 +1283,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     ecl_mid_b = (ecl_mid_b - t_zero) % p_orb
     if ecl_mid_b[0] > (p_orb - widths[0] / 2):
         ecl_mid_b[0] = ecl_mid_b[0] - p_orb
-    t_zero = t_zero % p_orb
     # define in terms of time points
     t_1, t_2 = ecl_min[0], ecl_min[1]
     t_1_1 = ecl_mid[0] - (widths[0] / 2)  # time of primary first contact
@@ -1352,14 +1351,14 @@ def true_anomaly(theta, w):
     
     Parameters
     ----------
-    theta: float, np.ndarray[float]
+    theta: float, numpy.ndarray[float]
         Phase angle (0 or pi degrees at conjunction)
-    w: float, np.ndarray[float]
+    w: float, numpy.ndarray[float]
         Argument of periastron
     
     Returns
     -------
-    nu: float, np.ndarray[float]
+    nu: float, numpy.ndarray[float]
         True anomaly
     
     Notes
@@ -1376,14 +1375,14 @@ def eccentric_anomaly(nu, e):
     
     Parameters
     ----------
-    nu: float, np.ndarray[float]
+    nu: float, numpy.ndarray[float]
         True anomaly
-    e: float, np.ndarray[float]
+    e: float, numpy.ndarray[float]
         Eccentricity of the orbit
     
     Returns
     -------
-    : float, np.ndarray[float]
+    : float, numpy.ndarray[float]
         Eccentric anomaly
     """
     return 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu/2), np.sqrt(1 + e) * np.cos(nu/2))
@@ -1937,11 +1936,11 @@ def projected_separation(e, w, i, theta):
     
     Parameters
     ----------
-    e: float, np.ndarray[float]
+    e: float, numpy.ndarray[float]
         Eccentricity
-    w: float, np.ndarray[float]
+    w: float, numpy.ndarray[float]
         Argument of periastron
-    i: float, np.ndarray[float]
+    i: float, numpy.ndarray[float]
         Inclination of the orbit
     theta: float, numpy.ndarray[float]
         Phase angle (0 or pi at conjunction)
@@ -2044,8 +2043,8 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2
     sep_2 = projected_separation(e, w, i, theta_2)
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
-    area_1 = covered_area(sep_1, r_1, r_2)
-    area_2 = covered_area(sep_2, r_1, r_2)
+    area_1 = covered_area(np.array([sep_1]), r_1, r_2)[0]
+    area_2 = covered_area(np.array([sep_2]), r_1, r_2)[0]
     if (area_2 > 0) & (area_1 > 0):
         sb_ratio = d_ratio * area_1 / area_2
     elif (area_1 > 0):
@@ -2058,21 +2057,21 @@ def sb_ratio_from_d_ratio(d_ratio, e, w, i, r_sum_sma, r_ratio, theta_1, theta_2
 
 
 @nb.njit(cache=True)
-def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4):
+def eclipse_depth(theta, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4):
     """Theoretical eclipse depth in the assumption of uniform brightness
     
     Parameters
     ----------
+    theta: numpy.ndarray[float]
+        Phase angle (0 or pi degrees at conjunction)
+        Around 0, the light of the primary is blocked,
+        around pi, the light of the secondary is blocked.
     e: float
         Eccentricity of the orbit
     w: float
         Argument of periastron
     i: float
         Inclination of the orbit
-    theta: numpy.ndarray[float]
-        Phase angle (0 or pi degrees at conjunction)
-        Around 0, the light of the primary is blocked,
-        around pi, the light of the secondary is blocked.
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
     r_ratio: float
@@ -2118,7 +2117,7 @@ def eclipse_times(p_orb, t_zero, e, w, i, r_sum_sma, r_ratio):
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     e: float
         Eccentricity of the orbit
     w: float
@@ -2283,8 +2282,8 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
     r_ratio = 1
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
-    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
+    depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -2400,8 +2399,8 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(e, w, i, theta_1, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
-    depth_2 = eclipse_depth(e, w, i, theta_2, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
+    depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)

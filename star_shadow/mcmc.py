@@ -17,6 +17,46 @@ import arviz as az
 # fastprogress.printing = lambda: True
 
 
+def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0, return_ext=False):
+    """Fold the given time series over the orbital period
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    p_orb: float
+        The orbital period with which the time series is folded
+    t_zero: float, None
+        Reference zero point in time (with respect to the
+        time series mean time) when the phase equals zero
+    t_ext_1: float
+        Negative time interval to extend the folded time series to the left.
+    t_ext_2: float
+        Positive time interval to extend the folded time series to the right.
+    return_ext: bool
+        If True, returns the boolean masks for the left and right extensions
+
+    Returns
+    -------
+    t_extended: numpy.ndarray[float]
+        Folded time series array for all timestamps (and possible extensions).
+    
+    Notes
+    -----
+    Taken from timeseries_functions, but without JIT-ting
+    """
+    # reference time is the mean of the times array
+    mean_t = np.mean(times)
+    t_folded = (times - mean_t - t_zero) % p_orb
+    # extend to both sides
+    ext_left = (t_folded > p_orb + t_ext_1)
+    ext_right = (t_folded < t_ext_2)
+    t_extended = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
+    if return_ext:
+        return t_extended, ext_left, ext_right
+    return t_extended
+
+
 def linear_pars_two_points(x1, y1, x2, y2):
     """Calculate the slope(s) and y-intercept(s) of a linear curve defined by two points.
 
@@ -113,14 +153,14 @@ def true_anomaly(theta, w):
 
     Parameters
     ----------
-    theta: float, np.ndarray[float]
+    theta: float, numpy.ndarray[float]
         Phase angle (0 or pi degrees at conjunction)
-    w: float, np.ndarray[float]
+    w: float, numpy.ndarray[float]
         Argument of periastron
 
     Returns
     -------
-    nu: float, np.ndarray[float]
+    nu: float, numpy.ndarray[float]
         True anomaly
 
     Notes
@@ -321,11 +361,11 @@ def projected_separation(e, w, i, theta):
 
     Parameters
     ----------
-    e: float, np.ndarray[float]
+    e: float, numpy.ndarray[float]
         Eccentricity
-    w: float, np.ndarray[float]
+    w: float, numpy.ndarray[float]
         Argument of periastron
-    i: float, np.ndarray[float]
+    i: float, numpy.ndarray[float]
         Inclination of the orbit
     theta: float, numpy.ndarray[float]
         Phase angle (0 or pi at conjunction)
@@ -487,7 +527,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     nu_2 = true_anomaly(theta_1 + thetas, w)  # integral endpoints
     t_model = p_orb / (2 * np.pi) * integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
-    t_folded = (times - t_zero) % p_orb
+    t_folded = fold_time_series(times, p_orb, t_zero)
     # interp_model = np.interp(t_folded, t_model, ecl_model)
     interp_model = interp(t_folded, t_model, ecl_model)
     return interp_model

@@ -131,7 +131,8 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     n_sin = len(f_n)  # each sine has freq, ampl and phase
     # do the fit
     par_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
-    par_bounds = [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
+    par_bounds = [(None, None) for _ in range(2 * n_sect)]
+    par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
     arguments = (times, signal, signal_err, i_sectors, verbose)
     result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
@@ -289,9 +290,10 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
     phases[:n_sin] = params[1 + 2 * n_sect + 2 * n_sin:1 + 2 * n_sect + 3 * n_sin]
     phases[n_sin:] = params[1 + 2 * n_sect + 3 * n_sin + n_harm:1 + 2 * n_sect + 3 * n_sin + 2 * n_harm]
     # finally, make the model and calculate the likelihood
-    model = tsf.linear_curve(times, const, slope, i_sectors)
-    model = model + tsf.sum_sines(times, freqs, ampls, phases)
-    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
+    resid = signal - model_linear - model_sinusoid
+    ln_likelihood = tsf.calc_likelihood(resid / signal_err)  # need minus the likelihood for minimisation
     # to keep track, sometimes print the value
     if verbose:
         if np.random.randint(10000) == 0:
@@ -467,8 +469,8 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, resid, signal_err, harmonic_n, i_sectors, verbose)
-    output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments,
-                                  method='Nelder-Mead', options={'maxfev': 10**4 * len(par_init)})
+    output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_p_orb = output.x[0]
     res_const = output.x[1:1 + n_sect]
@@ -665,7 +667,7 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     mid_1: float
         Time of mid-eclipse 1
     mid_2: float
@@ -700,7 +702,7 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     # edges must not surpass middle
     t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)
     # fold the time series
-    t_folded = (times - t_zero) % p_orb
+    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
     t_folded_adj = np.copy(t_folded)
     t_folded_adj[t_folded > p_orb + t_c1_1] -= p_orb  # stick eclipse 1 back together
     # get the parameters for the cubics from the fit parameters
@@ -782,7 +784,7 @@ def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
 
     Returns
     -------
@@ -820,7 +822,7 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
@@ -862,10 +864,7 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     d_1, d_2 = depths
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     # make a mask for the eclipses, as only the eclipses will be fitted
     mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
@@ -919,7 +918,7 @@ def objective_cubics_sinusoids_lc(params, times, signal, signal_err, p_orb, t_ze
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -979,7 +978,7 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1097,7 +1096,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     e: float
         Eccentricity of the orbit
     w: float
@@ -1120,13 +1119,13 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)
     # make the simple model
-    ecl_model = 1 - af.eclipse_depth(e, w, i, thetas, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    ecl_model = 1 - af.eclipse_depth(thetas, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # determine the model times
     nu_1 = af.true_anomaly(theta_1, w)  # zero to good approximation
     nu_2 = af.true_anomaly(theta_1 + thetas, w)  # integral endpoints
     t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
-    t_folded = (times - t_zero) % p_orb
+    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
     interp_model = np.interp(t_folded, t_model, ecl_model)
     return interp_model
 
@@ -1188,7 +1187,7 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
@@ -1229,10 +1228,7 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = par_init
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     # make a mask for the eclipses, as only the eclipses will be fitted
     mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
@@ -1270,7 +1266,7 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     f_c: float
         Combination of e and w: sqrt(e)cos(w)
     f_s: float
@@ -1299,6 +1295,9 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
     incl = i / np.pi * 180  # ellc likes degrees
     r_1 = r_sum_sma / (1 + r_ratio)
     r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
+    # mean center the time array
+    mean_t = np.mean(times)
+    times_ms = times - mean_t
     # try to prevent fatal crashes from RLOF cases (or from zero radius)
     if (r_sum_sma > 0):
         d_roche_1 = 2.44 * r_2 * (r_1 / r_2)  # * (q)**(1 / 3)  # 2.44*R_M*(rho_M/rho_m)**(1/3)
@@ -1308,9 +1307,9 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
         d_roche_2 = 1
     d_peri = (1 - f_c**2 - f_s**2)  # a*(1 - e), but a=1
     if (max(d_roche_1, d_roche_2) > 0.98 * d_peri):
-        model = np.ones(len(times))  # Roche radius close to periastron distance
+        model = np.ones(len(times_ms))  # Roche radius close to periastron distance
     else:
-        model = ellc.lc(times, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
+        model = ellc.lc(times_ms, r_1, r_2, f_c=f_c, f_s=f_s, incl=incl, sbratio=sb_ratio, period=p_orb, t_zero=t_zero,
                         light_3=0, q=1, shape_1='roche', shape_2='roche',
                         ld_1='lin', ld_2='lin', ldc_1=0.5, ldc_2=0.5, gdc_1=0., gdc_2=0., heat_1=0., heat_2=0.)
     # add constant offset for light level
@@ -1372,7 +1371,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
@@ -1413,10 +1412,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 = timings
     f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio = par_init
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     # make a mask for the eclipses, as only the eclipses will be fitted
     mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
@@ -1455,7 +1451,7 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
         The parameters of the eclipse model and
         a set of sine waves and linear curve(s).
         Has to be a flat array and are ordered in the following way:
-        [p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio,
+        [t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio,
         constant1, constant2, ..., slope1, slope2, ...,
          freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
     times: numpy.ndarray[float]
@@ -1519,7 +1515,7 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
         The parameters of the eclipse model and
         a set of sine waves and linear curve(s).
         Has to be a flat array and are ordered in the following way:
-        [p_orb, t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio,
+        [t_zero, ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio,
         constant1, constant2, ..., slope1, slope2, ...,
          freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
     times: numpy.ndarray[float]
@@ -1589,7 +1585,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     ecl_par: numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio
@@ -1617,7 +1613,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     Returns
     -------
     res_t_zero: float
-        Updated time of the deepest minimum
+        Updated time of the deepest minimum with respect to the mean time
     res_ecl_par: numpy.ndarray[float]
         Updated eclipse parameters, consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio

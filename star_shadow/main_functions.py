@@ -742,7 +742,7 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
     Returns
     -------
     t_zero: float, None
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float], None
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
@@ -775,12 +775,7 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         if verbose:
             print(f'Measuring eclipse time points and depths.')
         # find any gaps in phase coverage
-        t_fold_edges = times % p_orb
-        if np.all(t_fold_edges > 0):
-            t_fold_edges = np.append([0], t_fold_edges)
-        if np.all(t_fold_edges < p_orb):
-            t_fold_edges = np.append(t_fold_edges, [p_orb])
-        t_gaps = tsf.mark_folded_gaps(t_fold_edges, p_orb/100)
+        t_gaps = tsf.mark_folded_gaps(times, p_orb, p_orb/100)
         t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
         # we use the lowest harmonics
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
@@ -793,6 +788,8 @@ def analysis_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, f
         if np.any([item is None for item in output]):
             output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
             t_zero, t_1, t_2, t_contacts, depths, t_tangency, t_i_1_err, t_i_2_err, ecl_indices = output
+        # adjust t_zero to be the first eclipse in the time series
+        t_zero = t_zero - ((t_zero - times[0]) // p_orb) * p_orb
         # account for not finding eclipses
         if np.all([item is None for item in output]):
             logger.info(f'No eclipse signatures found above the noise level of {noise_level}')
@@ -877,7 +874,7 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
@@ -915,7 +912,7 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
     Returns
     -------
     t_zero_em: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings_em: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -954,11 +951,11 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
         # get the rest of the timings of the cubic models and translate them
         t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
         t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-        t_zero_em = t_zero + mid_1  # shift everything so that mid_1 is zero
-        depths_em = np.array([d_1, d_2])
-        # adjust the parameters to more physical measures
+        # shift everything so that mid_1 is zero
+        t_zero_em = t_zero + mid_1
         timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
         timings_em = timings_em - mid_1
+        depths_em = np.array([d_1, d_2])
         # save
         ut.save_results_cubics(p_orb, t_zero_em, timings_em, depths_em, file_name, data_id=data_id)
     t_b = time.time()
@@ -1008,7 +1005,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1051,7 +1048,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     Returns
     -------
     t_zero_em: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings_em: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1120,14 +1117,14 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         # get the rest of the timings of the cubic models and translate them
         t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
         t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-        t_zero_em = t_zero + mid_1  # shift everything so that mid_1 is zero
-        depths_em = np.array([d_1, d_2])
-        # adjust the parameters to more physical measures
+        # shift everything so that mid_1 is zero
+        t_zero_em = t_zero + mid_1
         timings_em = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
         timings_em = timings_em - mid_1
+        depths_em = np.array([d_1, d_2])
         # errors for sines
         model_ecl = tsfit.eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2,
-                                                   d_1, d_2)
+                                               d_1, d_2)
         model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
         model_sines = tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
         residuals = signal - (model_linear + model_sines + model_ecl)
@@ -1212,7 +1209,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
     return t_zero_em, timings_em, depths_em, timings_err, depths_err, p_t_corr, const, slope, f_n, a_n, ph_n
 
 
-def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, p_t_corr, file_name,
+def analysis_eclipse_elements(p_orb, timings, depths, p_err, timings_err, depths_err, p_t_corr, file_name,
                               logger, data_id=None, overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
@@ -1220,8 +1217,6 @@ def analysis_eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of the deepest minimum modulo p_orb
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Timings of the possible flat bottom (internal tangency),
@@ -1379,7 +1374,7 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum modulo p_orb
+        Time of deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
@@ -1499,7 +1494,7 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     ecl_par: numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio
@@ -1535,7 +1530,7 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
     Returns
     -------
     t_zero: float
-        Time of the deepest minimum
+        Time of the deepest minimum with respect to the mean time
     ecl_par: numpy.ndarray[float]
         Eclipse parameters, consisting of:
         e, w, i, r_sum_sma, r_ratio, sb_ratio
@@ -1943,8 +1938,8 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         return (None,) * 10  # unphysical parameters
     # --- [14] --- Determination of orbital elements
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
-    out_14 = analysis_eclipse_elements(p_orb_9, t_zero_13, timings_13, depths_13, p_err_9, timings_err_13,
-                                       depths_err_13, p_t_corr_13, file_name=file_name, **kwargs_2)
+    out_14 = analysis_eclipse_elements(p_orb_9, timings_13, depths_13, p_err_9, timings_err_13, depths_err_13,
+                                       p_t_corr_13, file_name=file_name, **kwargs_2)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     if (e_14 > 0.99):
         return (None,) * 10  # unphysical parameters
@@ -1981,39 +1976,39 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     out_17 = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16_2,
                                           slope_16_2, f_n_16_2, a_n_16_2, ph_n_16_2, i_sectors, model='simple',
                                           file_name=file_name, **kwargs_1)
-    t_zero_r_17, ecl_par_r_17, const_r_17, slope_r_17, f_n_r_17, a_n_r_17, ph_n_r_17 = out_17
-    model_ecl_17_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *ecl_par_r_17)
+    t_zero_17, ecl_par_17, const_17, slope_17, f_n_17, a_n_17, ph_n_17 = out_17
+    model_ecl_17_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *ecl_par_17)
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
         out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16b_2,
                                                slope_16b_2, f_n_16b_2, a_n_16b_2, ph_n_16b_2, i_sectors, model='ellc',
                                                file_name=file_name, **kwargs_1)
-        t_zero_r_17b, ecl_par_r_17b, const_r_17b, slope_r_17b, f_n_r_17b, a_n_r_17b, ph_n_r_17b = out_17b
-        f_c, f_s = ecl_par_r_17b[0]**0.5 * np.cos(ecl_par_r_17b[1]), ecl_par_r_17b[0]**0.5 * np.sin(ecl_par_r_17b[1])
-        ecl_par_r_17b_ellc = np.array([f_c, f_s, *ecl_par_r_17b[2:]])
+        t_zero_17b, ecl_par_17b, const_17b, slope_17b, f_n_17b, a_n_17b, ph_n_17b = out_17b
+        f_c, f_s = ecl_par_17b[0]**0.5 * np.cos(ecl_par_17b[1]), ecl_par_17b[0]**0.5 * np.sin(ecl_par_17b[1])
+        ecl_par_r_17b_ellc = np.array([f_c, f_s, *ecl_par_17b[2:]])
         model_ecl_17b = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *ecl_par_r_17b_ellc, 0)
     else:
         out_17b = None
     # --- [18] --- Frequency and harmonic selection [pulsation analysis from here on]
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
-    out_18 = analysis_frequency_selection(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
-                                          f_n_r_17, a_n_r_17, ph_n_r_17, noise_level_9, i_sectors,
+    out_18 = analysis_frequency_selection(times, signal, model_ecl_17_simple, p_orb_9, const_17, slope_17,
+                                          f_n_17, a_n_17, ph_n_17, noise_level_9, i_sectors,
                                           file_name=file_name, **kwargs_1)
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
-        out_18b = analysis_frequency_selection(times, signal, model_ecl_17b, p_orb_9, const_r_17, slope_r_17,
-                                               f_n_r_17b, a_n_r_17b, ph_n_r_17b, noise_level_9, i_sectors,
+        out_18b = analysis_frequency_selection(times, signal, model_ecl_17b, p_orb_9, const_17b, slope_17b,
+                                               f_n_17b, a_n_17b, ph_n_17b, noise_level_9, i_sectors,
                                                file_name=file_name, **kwargs_1)
     else:
         out_18b = None
     # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_18b
     # --- [19] --- Variability amplitudes
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_19.csv')
-    out_19 = analysis_variability_amplitudes(times, signal, model_ecl_17_simple, p_orb_9, const_r_17, slope_r_17,
-                                             f_n_r_17, a_n_r_17, ph_n_r_17, i_sectors, depths_13, file_name, **kwargs_1)
+    out_19 = analysis_variability_amplitudes(times, signal, model_ecl_17_simple, p_orb_9, const_17, slope_17,
+                                             f_n_17, a_n_17, ph_n_17, i_sectors, depths_13, file_name, **kwargs_1)
     # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_19
     # --- [20] --- Amplitude modulation
     # use wavelet transform or smth to see which star is pulsating

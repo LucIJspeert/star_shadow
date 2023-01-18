@@ -870,7 +870,7 @@ def save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_i
     Parameters
     ----------
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the first deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
@@ -901,7 +901,7 @@ def save_results_timings(t_zero, timings, depths, timings_err, depths_err, ecl_i
     var_names = ['t_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 'depth_1', 'depth_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 't_1_err', 't_2_err',
                  't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err', 'd_1_err', 'd_2_err']
-    var_desc = ['time of primary minimum modulo the period',
+    var_desc = ['time of primary minimum with respect to the time series mean time',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -964,7 +964,7 @@ def read_results_timings(file_name):
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
@@ -1003,7 +1003,7 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id='none
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1027,7 +1027,7 @@ def save_results_cubics(p_orb, t_zero, timings, depths, file_name, data_id='none
     # make var names and descriptions
     var_names = ['p_orb', 't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2']
-    var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
+    var_desc = ['orbital period in days', 'time of primary minimum with respect to the mean time',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -1057,7 +1057,7 @@ def read_results_cubics(file_name):
     Returns
     -------
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1090,7 +1090,7 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
     stats: tuple[numpy.ndarray[float]]
         Some statistics: n_param, bic, noise_level
     t_zero_em: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings_em: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1144,7 +1144,7 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
                  't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
                  't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
                  'd_1_err', 'd_2_err', 'p_t_corr']
-    var_desc = ['orbital period in days', 'time of primary minimum modulo the period',
+    var_desc = ['orbital period in days', 'time of primary minimum with respect to the time series mean time',
                 'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
                 'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
                 'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
@@ -1153,12 +1153,9 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
                 'start of (flat) eclipse bottom left of secondary minimum',
                 'end of (flat) eclipse bottom right of secondary minimum',
                 'depth of primary eclipse', 'depth of secondary eclipse',
-                'error in time of primary minimum (t_1)',
-                'error in time of secondary minimum (t_2)',
-                'error in time of primary first contact (t_1_1)',
-                'error in time of primary last contact (t_1_2)',
-                'error in time of secondary first contact (t_2_1)',
-                'error in time of secondary last contact (t_2_2)',
+                'error in time of primary minimum (t_1)', 'error in time of secondary minimum (t_2)',
+                'error in time of primary first contact (t_1_1)', 'error in time of primary last contact (t_1_2)',
+                'error in time of secondary first contact (t_2_1)', 'error in time of secondary last contact (t_2_2)',
                 'error in depth of primary minimum', 'error in depth of secondary minimum',
                 'correlation between period and t_zero']
     values = [str(p_orb), str(t_zero_em), str(t_1), str(t_2), str(t_1_1), str(t_1_2), str(t_2_1), str(t_2_2),
@@ -1193,7 +1190,7 @@ def read_results_cubics_sin_lin(file_name):
     stats: tuple[numpy.ndarray[float]]
         Some statistics: n_param, bic, noise_level
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
@@ -1531,7 +1528,7 @@ def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma,
     stats: tuple[numpy.ndarray[float]]
         Some statistics: n_param, bic, noise_level
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     e: float
         Eccentricity of the orbit
     w: float
@@ -1603,7 +1600,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
     stats: tuple[numpy.ndarray[float]]
         Some statistics: n_param, bic, noise_level
     t_zero: float
-        Time of the deepest minimum modulo p_orb
+        Time of the deepest minimum with respect to the mean time
     e: float
         Eccentricity of the orbit
     w: float
@@ -1795,13 +1792,15 @@ def read_results_var_level(file_name):
     return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
 
 
-def save_summary(t_tot, target_id, save_dir, data_id='none'):
+def save_summary(t_tot, mean_t, target_id, save_dir, data_id='none'):
     """Create a summary file from the results of the analysis
     
     Parameters
     ----------
     t_tot: float
         Total time base of observations
+    mean_t: float
+        Time series mean time for reference
     target_id: int, str
         Target identifier
     save_dir: str
@@ -1902,7 +1901,7 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results_19
         level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4]
     # file header with all variable names
-    hdr = ['id', 'stage', 't_tot', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
+    hdr = ['id', 'stage', 't_tot', 'mean_t', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
            't_0', 't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
            'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
            'd_1_err', 'd_2_err', 'p_t_corr', 'n_param_cubics', 'bic_cubics', 'noise_level_cubics',
@@ -1919,6 +1918,66 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
            'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc', 'passed_harmonics_ellc',
            'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
            'ratio_3_1', 'ratio_3_2', 'ratio_4_1', 'ratio_4_2']
+    # descriptions of all variables
+    desc = ['target identifier', 'furthest stage the analysis reached', 'total time base of observations in days',
+            'time series mean time reference point', 'orbital period in days', 'error in the orbital period',
+            'number of free parameters after the prewhitening phase', 'BIC after the prewhitening phase',
+            'noise level after the prewhitening phase', 'time of primary minimum with respect to the mean time',
+            'time of primary minimum minus t_0', 'time of secondary minimum minus t_0',
+            'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
+            'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
+            'start of (flat) eclipse bottom left of primary minimum',
+            'end of (flat) eclipse bottom right of primary minimum',
+            'start of (flat) eclipse bottom left of secondary minimum',
+            'end of (flat) eclipse bottom right of secondary minimum',
+            'depth of primary minimum', 'depth of secondary minimum',
+            'error in time of primary minimum (t_1)', 'error in time of secondary minimum (t_2)',
+            'error in time of primary first contact (t_1_1)', 'error in time of primary last contact (t_1_2)',
+            'error in time of secondary first contact (t_2_1)', 'error in time of secondary last contact (t_2_2)',
+            'error in depth of primary minimum', 'error in depth of secondary minimum',
+            'correlation between period and t_zero', 'number of free parameters after the eclipse timing phase',
+            'BIC after the eclipse timing phase', 'noise level after the eclipse timing phase',
+            'eccentricity from timing formulae',
+            'upper error estimate in e', 'lower error estimate in e', 'formal uncorrelated error in e',
+            'argument of periastron (radians) from timing formulae',
+            'upper error estimate in w', 'lower error estimate in w', 'formal uncorrelated error in w',
+            'inclination (radians) from timing formulae',
+            'upper error estimate in i', 'lower error estimate in i',
+            'sum of radii divided by the semi-major axis of the relative orbit from timing formulae',
+            'upper error estimate in r_sum_sma', 'lower error estimate in r_sum_sma',
+            'formal uncorrelated error in r_sum_sma',
+            'upper error estimate in r_ratio', 'lower error estimate in r_ratio',
+            'radius ratio r2/r1 from timing formulae',
+            'surface brightness ratio sb2/sb1 from timing formulae',
+            'upper error estimate in sb_ratio', 'lower error estimate in sb_ratio',
+            'eccentricity fit 1 (harmonics)', 'argument of periastron fit 1 (harmonics)',
+            'orbital inclination i (radians) fit 1 (harmonics)', 'sum of fractional radii (r1+r2)/a fit 1 (harmonics)',
+            'radius ratio r2/r1 fit 1 (harmonics)', 'surface brightness ratio sb2/sb1 fit 1 (harmonics)',
+            'eccentricity fit 2 (ellc) (harmonics)', 'argument of periastron fit 2 (ellc) (harmonics)',
+            'inclination (radians) fit 2 (ellc) (harmonics)', 'sum of fractional radii fit 2 (ellc) (harmonics)',
+            'radius ratio fit 2 (ellc) (harmonics)', 'surface brightness ratio fit 2 (ellc) (harmonics)',
+            'eccentricity fit 1 (full)', 'argument of periastron fit 1 (full)',
+            'inclination (radians) fit 1 (full)', 'sum of fractional radii fit 1 (full)',
+            'radius ratio fit 1 (full)', 'surface brightness ratio fit 1 (full)',
+            'number of parameters fit 1 (full)', 'BIC fit 1 (full)', 'noise level fit 1 (full)',
+            'eccentricity fit 2 (ellc) (full)', 'argument of periastron fit 2 (ellc) (full)',
+            'inclination (radians) fit 2 (ellc) (full)', 'sum of fractional radii fit 2 (ellc) (full)',
+            'radius ratio fit 2 (ellc) (full)', 'surface brightness ratio fit 2 (ellc) (full)',
+            'number of parameters fit 2 (ellc) (full)', 'BIC fit 2 (ellc) (full)', 'noise level fit 2 (ellc) (full)',
+            'total number of frequencies', 'number of frequencies that passed the sigma test',
+            'number of frequencies that passed the S/R test', 'number of frequencies that passed both tests',
+            'number of hramonics that passed both tests',
+            'total number of frequencies (ellc)', 'number of frequencies that passed the sigma test (ellc)',
+            'number of frequencies that passed the S/R test (ellc)',
+            'number of frequencies that passed both tests (ellc)', 'number of hramonics that passed both tests (ellc)',
+            'Standard deviation of the residuals of the linear+sinusoid+eclipse model',
+            'Standard deviation of the residuals of the linear+eclipse model',
+            'Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model',
+            'Standard deviation of the residuals of the linear+non-harmonic sinusoid+eclipse model',
+            'Ratio of the first eclipse depth to std_1', 'Ratio of the second eclipse depth to std_1',
+            'Ratio of the first eclipse depth to std_2', 'Ratio of the second eclipse depth to std_2',
+            'Ratio of the first eclipse depth to std_3', 'Ratio of the second eclipse depth to std_3',
+            'Ratio of the first eclipse depth to std_4', 'Ratio of the second eclipse depth to std_4']
     # record the stage where the analysis finished
     files_in_dir = []
     for root, dirs, files in os.walk(data_dir):
@@ -1936,9 +1995,9 @@ def save_summary(t_tot, target_id, save_dir, data_id='none'):
                 break
     stage = stage.rjust(3)  # make the string 3 long
     # compile all results
-    obs_par = np.concatenate(([target_id], [stage], [t_tot], prew_par, timings_par, form_par, fit_par_init,
+    obs_par = np.concatenate(([target_id], [stage], [t_tot], [mean_t], prew_par, timings_par, form_par, fit_par_init,
                               fit_par, freqs_par, level_par)).reshape((-1, 1))
-    data = np.column_stack((hdr, obs_par))
+    data = np.column_stack((hdr, obs_par, desc))
     file_hdr = f'{target_id}, {data_id}\nname, value'  # the actual header used for numpy savetxt
     save_name = os.path.join(data_dir, f'{target_id}_analysis_summary.csv')
     np.savetxt(save_name, data, delimiter=',', fmt='%s', header=file_hdr)

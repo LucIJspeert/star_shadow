@@ -375,16 +375,13 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # plotting bounds
-    t_start = t_1_1 - 6 * t_1_1_err
-    t_end = p_orb + t_1_2 + 6 * t_1_2_err
+    t_ext_1 = t_1_1 - 6 * t_1_1_err
+    t_ext_2 = t_1_2 + 6 * t_1_2_err
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_start)
-    ext_right = (t_extended < t_end - p_orb)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_ext_1, t_ext_2=t_ext_2)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    t_model = np.arange(t_start, t_end, 0.001)
+    t_model = np.arange(t_ext_1, p_orb + t_ext_2, 0.001)
     model_h = 1 + tsf.sum_sines(t_zero + t_model, f_h, a_h, ph_h)
     model_nh = tsf.sum_sines(times, f_n, a_n, ph_n) - tsf.sum_sines(times, f_h, a_h, ph_h)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
@@ -648,20 +645,17 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # plotting bounds
-    t_start = min(t_1_1, t_1_1_em)
-    t_end = p_orb + max(t_1_2, t_1_2_em)
+    t_ext_1 = min(t_1_1, t_1_1_em)
+    t_ext_2 = max(t_1_2, t_1_2_em)
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero_em) % p_orb
-    ext_left = (t_extended > p_orb + t_start)
-    ext_right = (t_extended < t_end - p_orb)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero_em, t_ext_1=t_ext_1, t_ext_2=t_ext_2)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     sorter = np.argsort(t_extended)
     # sinusoid and linear models
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     # cubic model - get the parameters for the cubics from the fit parameters
-    t_model = np.arange(t_start, t_end, 0.001)
+    t_model = np.arange(t_ext_1, p_orb + t_ext_2, 0.001)
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
     model_ecl_init = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
@@ -798,10 +792,7 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     sorter = np.argsort(t_extended)
     mask_1 = (t_extended > t_1_1) & (t_extended < t_1_2)
     mask_2 = (t_extended > t_2_1) & (t_extended < t_2_2)
@@ -1168,10 +1159,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     sorter = np.argsort(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
@@ -1260,10 +1248,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     sorter = np.argsort(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
@@ -1511,10 +1496,7 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended = (times - t_zero) % p_orb
-    ext_left = (t_extended > p_orb + t_1_1)
-    ext_right = (t_extended < t_1_2)
-    t_extended = np.concatenate((t_extended[ext_left] - p_orb, t_extended, t_extended[ext_right] + p_orb))
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     sorter = np.argsort(t_extended)
     # sinusoid and linear models
