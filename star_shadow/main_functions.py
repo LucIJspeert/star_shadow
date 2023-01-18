@@ -2183,7 +2183,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, t_int, target_id, sa
         # if not np.all([item is None for item in out_b]):
         #     out_c = pulsation_analysis(times, signal, signal_err, i_half_s, target_id, **kw_args)
     # create summary file
-    ut.save_summary(np.ptp(times), target_id, save_dir, data_id=data_id)
+    ut.save_summary(np.ptp(times), np.mean(times), target_id, save_dir, data_id=data_id)
     logger.info('End of analysis')  # info to save to log
     if verbose:
         print('done.')
