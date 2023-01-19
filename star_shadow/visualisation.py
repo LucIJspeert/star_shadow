@@ -382,7 +382,7 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     t_model = np.arange(t_ext_1, p_orb + t_ext_2, 0.001)
-    model_h = 1 + tsf.sum_sines(t_zero + t_model, f_h, a_h, ph_h)
+    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h, t_shift=False)
     model_nh = tsf.sum_sines(times, f_n, a_n, ph_n) - tsf.sum_sines(times, f_h, a_h, ph_h)
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
@@ -516,56 +516,56 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
         zeros_1_r = t_model[ecl_indices[:, -1]]
         peaks_1_r = t_model[ecl_indices[:, -4]]
         # get the corresponding heights
-        he_peaks_1_l = tsf.sum_sines(peaks_1_l, f_he, a_he, ph_he)
-        he_zeros_1_l = tsf.sum_sines(zeros_1_l, f_he, a_he, ph_he)
-        he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_he, a_he, ph_he)
-        he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_he, a_he, ph_he)
-        he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_he, a_he, ph_he)
-        he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_he, a_he, ph_he)
-        he_minimum_0 = tsf.sum_sines(minimum_0, f_he, a_he, ph_he)
-        he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_he, a_he, ph_he)
-        he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_he, a_he, ph_he)
-        he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_he, a_he, ph_he)
-        he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_he, a_he, ph_he)
-        he_zeros_1_r = tsf.sum_sines(zeros_1_r, f_he, a_he, ph_he)
-        he_peaks_1_r = tsf.sum_sines(peaks_1_r, f_he, a_he, ph_he)
+        he_peaks_1_l = tsf.sum_sines(peaks_1_l, f_he, a_he, ph_he, t_shift=False)
+        he_zeros_1_l = tsf.sum_sines(zeros_1_l, f_he, a_he, ph_he, t_shift=False)
+        he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_he, a_he, ph_he, t_shift=False)
+        he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_he, a_he, ph_he, t_shift=False)
+        he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_he, a_he, ph_he, t_shift=False)
+        he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_he, a_he, ph_he, t_shift=False)
+        he_minimum_0 = tsf.sum_sines(minimum_0, f_he, a_he, ph_he, t_shift=False)
+        he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_he, a_he, ph_he, t_shift=False)
+        he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_he, a_he, ph_he, t_shift=False)
+        he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_he, a_he, ph_he, t_shift=False)
+        he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_he, a_he, ph_he, t_shift=False)
+        he_zeros_1_r = tsf.sum_sines(zeros_1_r, f_he, a_he, ph_he, t_shift=False)
+        he_peaks_1_r = tsf.sum_sines(peaks_1_r, f_he, a_he, ph_he, t_shift=False)
         # deriv 1
-        h1e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=1)
-        h1e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=1)
-        h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=1)
-        h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=1)
-        h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=1)
-        h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=1)
-        h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=1)
-        h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=1)
-        h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=1)
-        h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=1)
-        h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=1)
-        h1e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=1)
-        h1e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=1)
+        h1e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
+        h1e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=1, t_shift=False)
         # deriv 2
-        h2e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=2)
-        h2e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=2)
-        h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=2)
-        h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=2)
-        h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=2)
-        h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=2)
-        h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=2)
-        h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=2)
-        h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=2)
-        h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=2)
-        h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=2)
-        h2e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=2)
-        h2e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=2)
+        h2e_peaks_1_l = tsf.sum_sines_deriv(peaks_1_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_zeros_1_l = tsf.sum_sines_deriv(zeros_1_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_zeros_1_r = tsf.sum_sines_deriv(zeros_1_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
+        h2e_peaks_1_r = tsf.sum_sines_deriv(peaks_1_r, f_he, a_he, ph_he, deriv=2, t_shift=False)
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.arange(0, 2 * p_orb + 0.0001, 0.0001)  # this is 10x fewer points, thus much faster
-    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-    model_he = tsf.sum_sines(t_model, f_he, a_he, ph_he)
+    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h, t_shift=False)
+    model_he = tsf.sum_sines(t_model, f_he, a_he, ph_he, t_shift=False)
     # analytic derivatives
-    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
-    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
-    deriv_1e = tsf.sum_sines_deriv(t_model, f_he, a_he, ph_he, deriv=1)
-    deriv_2e = tsf.sum_sines_deriv(t_model, f_he, a_he, ph_he, deriv=2)
+    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1, t_shift=False)
+    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2, t_shift=False)
+    deriv_1e = tsf.sum_sines_deriv(t_model, f_he, a_he, ph_he, deriv=1, t_shift=False)
+    deriv_2e = tsf.sum_sines_deriv(t_model, f_he, a_he, ph_he, deriv=2, t_shift=False)
     fig, ax = plt.subplots(nrows=3, sharex=True)
     ax[0].plot(t_model, model_he)
     ax[0].plot(t_model, model_h, c='grey', alpha=0.4)
@@ -656,11 +656,12 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     # cubic model - get the parameters for the cubics from the fit parameters
     t_model = np.arange(t_ext_1, p_orb + t_ext_2, 0.001)
+    mean_t_m = np.mean(t_model)
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
-    model_ecl_init = tsfit.eclipse_cubics_model(t_model + t_zero, p_orb, t_zero, mid_1, mid_2, t_1_1, t_2_1,
+    model_ecl_init = tsfit.eclipse_cubics_model(t_model, p_orb, -mean_t_m, mid_1, mid_2, t_1_1, t_2_1,
                                                 t_b_1_1, t_b_2_1, depth_1, depth_2)
-    model_ecl = tsfit.eclipse_cubics_model(t_model + t_zero_em, p_orb, t_zero_em, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+    model_ecl = tsfit.eclipse_cubics_model(t_model, p_orb, -mean_t_m, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
                                            t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
     # add residual harmonic sinusoids to model
     model_ecl_2 = tsfit.eclipse_cubics_model(times, p_orb, t_zero_em, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
@@ -796,6 +797,9 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     sorter = np.argsort(t_extended)
     mask_1 = (t_extended > t_1_1) & (t_extended < t_1_2)
     mask_2 = (t_extended > t_2_1) & (t_extended < t_2_2)
+    mean_t_e = np.mean(t_extended)
+    mean_t_e1 = np.mean(t_extended[mask_1])
+    mean_t_e2 = np.mean(t_extended[mask_1])
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -810,9 +814,9 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
     # make the simple model
-    ecl_model = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_1 = tsfit.simple_eclipse_lc(t_extended[mask_1], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_2 = tsfit.simple_eclipse_lc(t_extended[mask_2], p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_model = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_1 = tsfit.simple_eclipse_lc(t_extended[mask_1], p_orb, -mean_t_e1, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_2 = tsfit.simple_eclipse_lc(t_extended[mask_2], p_orb, -mean_t_e2, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -1161,6 +1165,7 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     # make the model times array, one full period plus the primary eclipse halves
     t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     sorter = np.argsort(t_extended)
+    mean_t_e = np.mean(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -1179,14 +1184,14 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
     opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
     # make the ellc models
-    model_simple_init = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_opt1 = tsfit.simple_eclipse_lc(t_extended, p_orb, 0, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio,
-                                         opt1_sb_ratio)
+    model_simple_init = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_opt1 = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma,
+                                         opt1_r_ratio, opt1_sb_ratio)
     if not np.all(par_opt2 == -1):
-        model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
+        model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, -mean_t_e, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
                                              opt1_r_ratio, opt1_sb_ratio, 0)
-        model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma, opt2_r_ratio,
-                                        opt2_sb_ratio, 0)
+        model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, -mean_t_e, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma,
+                                        opt2_r_ratio, opt2_sb_ratio, 0)
     # plot the simple model
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -1405,9 +1410,9 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make the ellc model
     if (model == 'ellc'):
-        ecl_model = tsfit.wrap_ellc_lc(times - t_zero, p_orb, 0, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
+        ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.simple_eclipse_lc(times - t_zero, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        ecl_model = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     ecl_resid = signal - ecl_model
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, ecl_resid)

@@ -766,7 +766,7 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
 
 
 @nb.njit(cache=True)
-def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
+def objective_cubics_lc(params, times, signal, signal_err, p_orb):
     """Objective function for a set of eclipse timings
 
     Parameters
@@ -776,15 +776,13 @@ def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
         Has to be ordered in the following way:
         [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2]
     times: numpy.ndarray[float]
-        Timestamps of the time series
+        Timestamps of the time series, zero point at primary minimum
     signal: numpy.ndarray[float]
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of the deepest minimum with respect to the mean time
 
     Returns
     -------
@@ -798,7 +796,8 @@ def objective_cubics_lc(params, times, signal, signal_err, p_orb, t_zero):
     # midpoints, l.h.s. cubic time points, depths
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
     # the model
-    model = 1 + eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+    mean_t = np.mean(times)
+    model = 1 + eclipse_cubics_model(times, p_orb, - mean_t, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # determine likelihood for the model
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     # make sure we don't allow impossible stuff
@@ -886,7 +885,7 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
     par_bounds = ((t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
                   (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None))
-    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb, 0)
+    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_cubics_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
     if verbose:
@@ -1109,6 +1108,8 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
         Radius ratio r_2/r_1
     sb_ratio: float
         Surface brightness ratio sb_2/sb_1
+    t_shift: bool
+        Mean center the time axis
 
     Returns
     -------
@@ -1141,7 +1142,7 @@ def objective_eclipse_lc(params, times, signal, signal_err, p_orb):
         Has to be ordered in the following way:
         [ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio]
     times: numpy.ndarray[float]
-        Timestamps of the time series
+        Timestamps of the time series, zero point at primary minimum
     signal: numpy.ndarray[float]
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
@@ -1161,7 +1162,8 @@ def objective_eclipse_lc(params, times, signal, signal_err, p_orb):
     ecosw, esinw, i, r_sum_sma, r_ratio, sb_ratio = params
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    model = simple_eclipse_lc(times, p_orb, 0, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    mean_t = np.mean(times)
+    model = simple_eclipse_lc(times, p_orb, -mean_t, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # determine likelihood for the model
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     # check periastron distance

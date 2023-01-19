@@ -883,7 +883,7 @@ def calc_bic(residuals, n_param):
 
 
 @nb.njit(cache=True)
-def linear_curve(times, const, slope, i_sectors):
+def linear_curve(times, const, slope, i_sectors, t_shift=True):
     """Returns a piece-wise linear curve for the given time points
     with slopes and y-intercepts.
     
@@ -899,6 +899,8 @@ def linear_curve(times, const, slope, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    t_shift: bool
+        Mean center the time axis
     
     Returns
     -------
@@ -910,9 +912,13 @@ def linear_curve(times, const, slope, i_sectors):
     Assumes the constants and slopes are determined with respect
     to the sector mean time as zero point.
     """
+    
     curve = np.zeros(len(times))
     for co, sl, s in zip(const, slope, i_sectors):
-        t_sector_mean = np.mean(times[s[0]:s[1]])
+        if t_shift:
+            t_sector_mean = np.mean(times[s[0]:s[1]])
+        else:
+            t_sector_mean = 0
         curve[s[0]:s[1]] = co + sl * (times[s[0]:s[1]] - t_sector_mean)
     return curve
 
@@ -1242,7 +1248,7 @@ def cubic_pars_two_points(x1, y1, x2, y2):
 
 
 @nb.njit(cache=True)
-def sum_sines(times, f_n, a_n, ph_n):
+def sum_sines(times, f_n, a_n, ph_n, t_shift=True):
     """A sum of sine waves at times t, given the frequencies, amplitudes and phases.
     
     Parameters
@@ -1255,6 +1261,8 @@ def sum_sines(times, f_n, a_n, ph_n):
         The amplitudes of a number of sine waves
     ph_n: list[float], numpy.ndarray[float]
         The phases of a number of sine waves
+    t_shift: bool
+        Mean center the time axis
     
     Returns
     -------
@@ -1266,7 +1274,10 @@ def sum_sines(times, f_n, a_n, ph_n):
     Assumes the phases are determined with respect
     to the mean time as zero point.
     """
-    mean_t = np.mean(times)
+    if t_shift:
+        mean_t = np.mean(times)
+    else:
+        mean_t = 0
     model_sines = np.zeros(len(times))
     for f, a, ph in zip(f_n, a_n, ph_n):
         # model_sines += a * np.sin((2 * np.pi * f * (times - mean_t)) + ph)
@@ -1277,7 +1288,7 @@ def sum_sines(times, f_n, a_n, ph_n):
 
 
 @nb.njit(cache=True)
-def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
+def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1, t_shift=True):
     """The derivative of a sum of sine waves at times t,
     given the frequencies, amplitudes and phases.
     
@@ -1293,6 +1304,8 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
         The phases of a number of sine waves
     deriv: int
         Number of time derivatives taken (>= 1)
+    t_shift: bool
+        Mean center the time axis
     
     Returns
     -------
@@ -1304,7 +1317,10 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1):
     Assumes the phases are determined with respect
     to the mean time as zero point.
     """
-    mean_t = np.mean(times)
+    if t_shift:
+        mean_t = np.mean(times)
+    else:
+        mean_t = 0
     model_sines = np.zeros(len(times))
     mod_2 = deriv % 2
     mod_4 = deriv % 4

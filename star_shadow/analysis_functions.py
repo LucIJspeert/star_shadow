@@ -1038,7 +1038,7 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
     """
     # calculate the harmonic model at the eclipse time points
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h)
+    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h, t_shift=False)
     # calculate depths based on the average level at contacts and the minima
     height_1 = (model_h[0] + model_h[1]) / 2
     height_2 = (model_h[2] + model_h[3]) / 2
