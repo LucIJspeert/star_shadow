@@ -990,11 +990,11 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
         t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000)
     else:
         t_model_b_2 = np.array([t_2])
-    model_h_b_1 = tsf.sum_sines(t_model_b_1 + t_zero, f_h, a_h, ph_h)
-    model_h_b_2 = tsf.sum_sines(t_model_b_2 + t_zero, f_h, a_h, ph_h)
+    model_h_b_1 = tsf.sum_sines(t_model_b_1 + t_zero, f_h, a_h, ph_h, t_shift=False)
+    model_h_b_2 = tsf.sum_sines(t_model_b_2 + t_zero, f_h, a_h, ph_h, t_shift=False)
     # calculate the harmonic model at the eclipse edges
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h)
+    model_h = tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h, t_shift=False)
     # calculate depths based on the average level at contacts and the minima
     depth_1 = (model_h[0] + model_h[1]) / 2 - np.mean(model_h_b_1)
     depth_2 = (model_h[2] + model_h[3]) / 2 - np.mean(model_h_b_2)

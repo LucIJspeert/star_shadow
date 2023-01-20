@@ -1080,7 +1080,7 @@ def quadratic_pars(times, signal):
 
 
 @nb.njit(cache=True)
-def cubic_curve(times, a, b, c, d):
+def cubic_curve(times, a, b, c, d, t_zero):
     """Returns a parabolic curve for the given time points and parameters.
 
     Parameters
@@ -1095,6 +1095,8 @@ def cubic_curve(times, a, b, c, d):
         The linear coefficient
     d: float
         The constant coefficient
+    t_zero: float
+        Time zero point with respect to the mean time
 
     Returns
     -------
@@ -1107,7 +1109,7 @@ def cubic_curve(times, a, b, c, d):
     to the mean time as zero point.
     """
     mean_t = np.mean(times)
-    t_mean_sub = times - mean_t  # mean subtracted times
+    t_mean_sub = times - mean_t - t_zero  # mean subtracted times
     curve = a * t_mean_sub**3 + b * t_mean_sub**2 + c * t_mean_sub + d
     return curve
 

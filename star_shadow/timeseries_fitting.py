@@ -709,39 +709,47 @@ def eclipse_cubics_model(times, p_orb, t_zero, mid_1, mid_2, t_c1_1, t_c3_1, t_c
     dur_1 = t_c1_2 - t_c1_1  # check for zero duration eclipse
     if (dur_1 == 0):
         return np.zeros(len(t_folded))
+    mean_t_c1 = (t_c1_1 + t_c1_2) / 2
     c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, 0, t_c1_2, -d_1)
     dur_2 = t_c3_2 - t_c3_1  # check for zero duration eclipse
     if (dur_2 == 0):
         return np.zeros(len(t_folded))
+    mean_t_c3 = (t_c3_1 + t_c3_2) / 2
     c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, 0, t_c3_2, -d_2)
+    # the mirrored time points
     t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
     t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
     # make masks for the right time intervals
-    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < min(t_c1_2, mid_1))
-    mask_2 = (t_folded_adj > max(t_c2_2, mid_1)) & (t_folded_adj <= t_c2_1)
-    mask_3 = (t_folded >= t_c3_1) & (t_folded < min(t_c3_2, mid_2))
-    mask_4 = (t_folded > max(t_c4_2, mid_2)) & (t_folded <= t_c4_1)
+    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < t_c1_2)
+    mask_2 = (t_folded_adj > t_c2_2) & (t_folded_adj <= t_c2_1)
+    mask_3 = (t_folded >= t_c3_1) & (t_folded < t_c3_2)
+    mask_4 = (t_folded > t_c4_2) & (t_folded <= t_c4_1)
     # compute the cubic curves if there are points left
     if np.any(mask_1):
-        cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d)
+        mean_t_1 = np.mean(t_folded_adj[mask_1])
+        cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-mean_t_1)
     if np.any(mask_2):
-        cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d)
+        mean_t_2 = np.mean(2 * mid_1 - t_folded_adj[mask_2])
+        cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-mean_t_2)
     if np.any(mask_3):
-        cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d)
+        mean_t_3 = np.mean(t_folded[mask_3])
+        cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-mean_t_3)
     if np.any(mask_4):
-        cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d)
+        mean_t_4 = np.mean(2 * mid_2 - t_folded[mask_4])
+        cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-mean_t_4)
     # maxima and minima
-    max_1 = tsf.cubic_curve(np.array([t_c1_1]), c1_a, c1_b, c1_c, c1_d)[0]
-    min_1 = tsf.cubic_curve(np.array([min(t_c1_2, mid_1)]), c1_a, c1_b, c1_c, c1_d)[0]
-    max_3 = tsf.cubic_curve(np.array([t_c3_1]), c3_a, c3_b, c3_c, c3_d)[0]
-    min_3 = tsf.cubic_curve(np.array([min(t_c3_2, mid_2)]), c3_a, c3_b, c3_c, c3_d)[0]
+    max_1 = tsf.cubic_curve(np.array([t_c1_1]), c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-t_c1_1)[0]
+    min_1 = tsf.cubic_curve(np.array([t_c1_2]), c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-t_c1_2)[0]
+    max_3 = tsf.cubic_curve(np.array([t_c3_1]), c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-t_c3_1)[0]
+    min_3 = tsf.cubic_curve(np.array([t_c3_2]), c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-t_c3_2)[0]
     # make connecting lines
     mask_12 = (t_folded > t_c2_1) & (t_folded < t_c3_1)  # from 1 to 2
     mask_21 = (t_folded > t_c4_1) & (t_folded < t_c1_1 + p_orb)  # from 2 to 1
     line_12 = np.zeros(len(t_folded[mask_12]))
     line_21 = np.zeros(len(t_folded[mask_21]))
-    mask_b_1 = (t_folded_adj >= min(t_c1_2, mid_1)) & (t_folded_adj <= max(t_c2_2, mid_1))
-    mask_b_2 = (t_folded >= min(t_c3_2, mid_2)) & (t_folded <= max(t_c4_2, mid_2))
+    # and lines for the bottom of the eclipse
+    mask_b_1 = (t_folded_adj >= t_c1_2) & (t_folded_adj <= t_c2_2)
+    mask_b_2 = (t_folded >= t_c3_2) & (t_folded <= t_c4_2)
     if not np.any(mask_1):
         mask_b_1 = np.zeros(len(t_folded), dtype=np.bool_)  # if no ingress, also no bottom
     if not np.any(mask_3):
@@ -1116,6 +1124,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     model: numpy.ndarray[float]
         Eclipse light curve model for the given time points
     """
+    # position angle along the orbit
     thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)

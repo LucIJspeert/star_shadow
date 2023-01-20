@@ -17,7 +17,7 @@ import arviz as az
 # fastprogress.printing = lambda: True
 
 
-def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0, return_ext=False):
+def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
     """Fold the given time series over the orbital period
 
     Parameters
@@ -33,17 +33,15 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0, return_ext=Fals
         Negative time interval to extend the folded time series to the left.
     t_ext_2: float
         Positive time interval to extend the folded time series to the right.
-    return_ext: bool
-        If True, returns the boolean masks for the left and right extensions
 
     Returns
     -------
     t_extended: numpy.ndarray[float]
         Folded time series array for all timestamps (and possible extensions).
-    
-    Notes
-    -----
-    Taken from timeseries_functions, but without JIT-ting
+    ext_left: numpy.ndarray[bool]
+        Mask of points to extend time series to the left (for if t_ext_1!=0)
+    ext_right: numpy.ndarray[bool]
+        Mask of points to extend time series to the right (for if t_ext_2!=0)
     """
     # reference time is the mean of the times array
     mean_t = np.mean(times)
@@ -52,9 +50,7 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0, return_ext=Fals
     ext_left = (t_folded > p_orb + t_ext_1)
     ext_right = (t_folded < t_ext_2)
     t_extended = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
-    if return_ext:
-        return t_extended, ext_left, ext_right
-    return t_extended
+    return t_extended, ext_left, ext_right
 
 
 def linear_pars_two_points(x1, y1, x2, y2):
@@ -81,9 +77,12 @@ def linear_pars_two_points(x1, y1, x2, y2):
     Notes
     -----
     Taken from timeseries_functions, but without JIT-ting
+    
+    Determines the slope and y-intercept with respect to the center
+    between the two x-values.
     """
     slope = (y2 - y1) / (x2 - x1)
-    y_inter = y1 - slope * x1  # take point 1 to calculate y intercept
+    y_inter = (y1 + y2) / 2  # halfway point is y-intercept for mean-centered x
     return y_inter, slope
 
 
@@ -114,7 +113,7 @@ def interp_two_points(x, xp1, yp1, xp2, yp2):
     Taken from utility, but without JIT-ting
     """
     y_inter, slope = linear_pars_two_points(xp1, yp1, xp2, yp2)
-    y = y_inter + slope * x
+    y = y_inter + slope * (x - (xp1 + xp2) / 2)  # assumes output of y_inter is for mean-centered x
     return y
 
 
@@ -527,7 +526,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     nu_2 = true_anomaly(theta_1 + thetas, w)  # integral endpoints
     t_model = p_orb / (2 * np.pi) * integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
-    t_folded = fold_time_series(times, p_orb, t_zero)
+    t_folded, _, _ = fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
     # interp_model = np.interp(t_folded, t_model, ecl_model)
     interp_model = interp(t_folded, t_model, ecl_model)
     return interp_model
