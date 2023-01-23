@@ -114,6 +114,7 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     """Plot the periodogram with one output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freq_range = np.ptp(freqs)
     freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model - np.all(model == 0) * np.mean(signal))
     # get error values
     errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
@@ -130,6 +131,7 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     for i in range(len(f_n)):
         ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
                     linestyle='--', capsize=2, c='tab:red')
+    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -147,6 +149,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     """Plot the periodogram with the full output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freq_range = np.ptp(freqs)
     freqs_1, ampls_1 = tsf.astropy_scargle(times, signal - models[0] - np.all(models[0] == 0) * np.mean(signal))
     freqs_2, ampls_2 = tsf.astropy_scargle(times, signal - models[1] - np.all(models[1] == 0) * np.mean(signal))
     freqs_3, ampls_3 = tsf.astropy_scargle(times, signal - models[2] - np.all(models[2] == 0) * np.mean(signal))
@@ -228,6 +231,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
         ax.errorbar([f_n_i[8][i], f_n_i[8][i]], [0, a_n_i[8][i]], xerr=[0, err_9[2][i]], yerr=[0, err_9[3][i]],
                     linestyle=':', capsize=2, c='tab:cyan')
         ax.annotate(f'{i + 1}', (f_n_i[8][i], a_n_i[8][i]))
+    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -304,6 +308,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     freqs_nh, ampls_nh = tsf.astropy_scargle(times, signal - model_h - model_line)
     freqs, ampls = tsf.astropy_scargle(times, signal - model)
+    freq_range = np.ptp(freqs)
     # max plot value
     y_max = max(np.max(ampls_nh), np.max(a_n))
     fig, ax = plt.subplots()
@@ -318,6 +323,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
                     yerr=[0, errors[3][non_harm][i]], linestyle='--', capsize=2, c='tab:red')
         if annotate:
             ax.annotate(f'{i + 1}', (f_n[non_harm][i], a_n[non_harm][i]))
+    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -348,6 +354,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
                     yerr=[0, errors[3][harmonics][i]], linestyle='--', capsize=2, c='tab:red')
         if annotate:
             ax.annotate(f'{i + 1}', (f_n[harmonics][i], a_n[harmonics][i]))
+    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()
@@ -1181,8 +1188,9 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
     opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
     opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
-    opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-    opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    if not np.all(par_opt2 == -1):
+        opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
+        opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
     # make the ellc models
     model_simple_init = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_opt1 = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma,
@@ -1416,6 +1424,7 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     ecl_resid = signal - ecl_model
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, ecl_resid)
+    freq_range = np.ptp(freqs)
     freqs_1, ampls_1 = tsf.astropy_scargle(times, ecl_resid - model_r)
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
     # plot
@@ -1431,6 +1440,7 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
             ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:brown')
     ax.plot([], [], linestyle='--', c='tab:red', label='disentangled sinusoids passing criteria')
     ax.plot([], [], linestyle='--', c='tab:brown', label='disentangled sinusoids')
+    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
     plt.legend()

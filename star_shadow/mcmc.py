@@ -136,14 +136,14 @@ def interp(x, xp, yp):
     """
     # obtain indices of the points to either side of x
     insert_points = tt.extra_ops.searchsorted(xp, x, side='left')
+    # insert_points_1 = tt.clip(insert_points, 1, 6284)
     xp1 = xp[insert_points - 1]
     yp1 = yp[insert_points - 1]
+    # insert_points_2 = tt.clip(insert_points, 0, 6283)
     xp2 = xp[insert_points]
     yp2 = yp[insert_points]
-    # convert to slopes and y intercepts
-    y_inter, slope = linear_pars_two_points(xp1, yp1, xp2, yp2)
-    # calculate lines
-    y = y_inter + slope * x
+    # calculate the y
+    y = interp_two_points(x, xp1, yp1, xp2, yp2)
     return y
 
 

@@ -16,7 +16,7 @@ import scipy.optimize
 import numba as nb
 import itertools as itt
 
-import arviz
+import arviz as az
 
 from . import timeseries_functions as tsf
 from . import utility as ut
@@ -2794,50 +2794,50 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     cos_w = np.cos(w)
     sin_w = np.sin(w)
     # inclination
-    i_interval = arviz.hdi(i_vals, hdi_prob=0.683)
-    i_bounds = arviz.hdi(i_vals, hdi_prob=0.997)
+    i_interval = az.hdi(i_vals, hdi_prob=0.683)
+    i_bounds = az.hdi(i_vals, hdi_prob=0.997)
     i_errs = np.array([i - i_interval[0], i_interval[1] - i])
     # eccentricity
-    e_interval = arviz.hdi(e_vals, hdi_prob=0.683)
-    e_bounds = arviz.hdi(e_vals, hdi_prob=0.997)
+    e_interval = az.hdi(e_vals, hdi_prob=0.683)
+    e_bounds = az.hdi(e_vals, hdi_prob=0.997)
     e_errs = np.array([e - e_interval[0], e_interval[1] - e])
     # e*np.cos(w)
-    ecosw_interval = arviz.hdi(e_vals*np.cos(w_vals), hdi_prob=0.683)
-    ecosw_bounds = arviz.hdi(e_vals*np.cos(w_vals), hdi_prob=0.997)
+    ecosw_interval = az.hdi(e_vals*np.cos(w_vals), hdi_prob=0.683)
+    ecosw_bounds = az.hdi(e_vals*np.cos(w_vals), hdi_prob=0.997)
     ecosw_errs = np.array([e*cos_w - ecosw_interval[0], ecosw_interval[1] - e*cos_w])
     # e*np.sin(w)
-    esinw_interval = arviz.hdi(e_vals*np.sin(w_vals), hdi_prob=0.683)
-    esinw_bounds = arviz.hdi(e_vals*np.sin(w_vals), hdi_prob=0.997)
+    esinw_interval = az.hdi(e_vals*np.sin(w_vals), hdi_prob=0.683)
+    esinw_bounds = az.hdi(e_vals*np.sin(w_vals), hdi_prob=0.997)
     esinw_errs = np.array([e*sin_w - esinw_interval[0], esinw_interval[1] - e*sin_w])
     # sqrt(e)*np.cos(w) (== f_c)
-    f_c_interval = arviz.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.683)
-    f_c_bounds = arviz.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.997)
+    f_c_interval = az.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.683)
+    f_c_bounds = az.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.997)
     f_c_errs = np.array([np.sqrt(e)*cos_w - f_c_interval[0], f_c_interval[1] - np.sqrt(e)*cos_w])
     # sqrt(e)*np.sin(w) (== f_s)
-    f_s_interval = arviz.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.683)
-    f_s_bounds = arviz.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.997)
+    f_s_interval = az.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.683)
+    f_s_bounds = az.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.997)
     f_s_errs = np.array([np.sqrt(e)*sin_w - f_s_interval[0], f_s_interval[1] - np.sqrt(e)*sin_w])
     # omega
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
-        w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
-        w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
+        w_interval = az.hdi(w_vals, hdi_prob=0.683, multimodal=True)
+        w_bounds = az.hdi(w_vals, hdi_prob=0.997, multimodal=True)
     else:
-        w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
-        w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
+        w_interval = az.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
+        w_bounds = az.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
     w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
     # w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
     w_errs = np.array([w - w_inter[0], (w_inter[1] - w) % (2 * np.pi)])  # %2pi for if w_inter wrapped around
     # r_sum_sma
-    rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
-    rsumsma_bounds = arviz.hdi(rsumsma_vals, hdi_prob=0.997)
+    rsumsma_interval = az.hdi(rsumsma_vals, hdi_prob=0.683)
+    rsumsma_bounds = az.hdi(rsumsma_vals, hdi_prob=0.997)
     rsumsma_errs = np.array([r_sum_sma - rsumsma_interval[0], rsumsma_interval[1] - r_sum_sma])
     # r_ratio
-    rratio_interval = arviz.hdi(rratio_vals, hdi_prob=0.683)
-    rratio_bounds = arviz.hdi(rratio_vals, hdi_prob=0.997)
+    rratio_interval = az.hdi(rratio_vals, hdi_prob=0.683)
+    rratio_bounds = az.hdi(rratio_vals, hdi_prob=0.997)
     rratio_errs = np.array([r_ratio - rratio_interval[0], rratio_interval[1] - r_ratio])
     # sb_ratio
-    sbratio_interval = arviz.hdi(sbratio_vals, hdi_prob=0.683)
-    sbratio_bounds = arviz.hdi(sbratio_vals, hdi_prob=0.997)
+    sbratio_interval = az.hdi(sbratio_vals, hdi_prob=0.683)
+    sbratio_bounds = az.hdi(sbratio_vals, hdi_prob=0.997)
     sbratio_errs = np.array([sb_ratio - sbratio_interval[0], sbratio_interval[1] - sb_ratio])
     # collect
     intervals = (e_interval, w_interval, i_interval, rsumsma_interval, rratio_interval, sbratio_interval,
