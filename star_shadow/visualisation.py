@@ -16,7 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as mgrid
 import h5py
-import arviz
+import arviz as az
 import corner
 
 from . import timeseries_functions as tsf
@@ -857,8 +857,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     cos_w = np.cos(w)
     sin_w = np.sin(w)
     # inclination
-    i_interval = arviz.hdi(i_vals, hdi_prob=0.683)
-    i_bounds = arviz.hdi(i_vals, hdi_prob=0.997)
+    i_interval = az.hdi(i_vals, hdi_prob=0.683)
+    i_bounds = az.hdi(i_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(i_vals / np.pi * 180, bins=50, label='vary fit input')
     ax.plot([i / np.pi * 180, i / np.pi * 180], [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -874,8 +874,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # eccentricity
-    e_interval = arviz.hdi(e_vals, hdi_prob=0.683)
-    e_bounds = arviz.hdi(e_vals, hdi_prob=0.997)
+    e_interval = az.hdi(e_vals, hdi_prob=0.683)
+    e_bounds = az.hdi(e_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(e_vals, bins=50, label='vary fit input')
     ax.plot([e, e], [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -889,8 +889,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # e*np.cos(w)
-    ecosw_interval = arviz.hdi(e_vals * np.cos(w_vals), hdi_prob=0.683)
-    ecosw_bounds = arviz.hdi(e_vals * np.cos(w_vals), hdi_prob=0.997)
+    ecosw_interval = az.hdi(e_vals * np.cos(w_vals), hdi_prob=0.683)
+    ecosw_bounds = az.hdi(e_vals * np.cos(w_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(e_vals * np.cos(w_vals), bins=50, label='vary fit input')
     ax.plot([e * cos_w, e * cos_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -906,8 +906,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # e*np.sin(w)
-    esinw_interval = arviz.hdi(e_vals * np.sin(w_vals), hdi_prob=0.683)
-    esinw_bounds = arviz.hdi(e_vals * np.sin(w_vals), hdi_prob=0.997)
+    esinw_interval = az.hdi(e_vals * np.sin(w_vals), hdi_prob=0.683)
+    esinw_bounds = az.hdi(e_vals * np.sin(w_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(e_vals * np.sin(w_vals), bins=50, label='vary fit input')
     ax.plot([e * sin_w, e * sin_w], [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -924,8 +924,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.show()
     # omega (use same logic as in error_estimates_hdi)
     if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
-        w_interval = arviz.hdi(w_vals, hdi_prob=0.683, multimodal=True)
-        w_bounds = arviz.hdi(w_vals, hdi_prob=0.997, multimodal=True)
+        w_interval = az.hdi(w_vals, hdi_prob=0.683, multimodal=True)
+        w_bounds = az.hdi(w_vals, hdi_prob=0.997, multimodal=True)
         if (len(w_interval) == 1):
             w_interval = w_interval[0]
             # w_errs = np.array([w - w_interval[0], w_interval[1] - w])
@@ -943,8 +943,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
             sorter = np.argsort(bounds_size)
             w_bounds = w_bounds[sorter[-2:]]  # pick only the largest two intervals
     else:
-        w_interval = arviz.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
-        w_bounds = arviz.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
+        w_interval = az.hdi(w_vals - np.pi, hdi_prob=0.683, circular=True) + np.pi
+        w_bounds = az.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
         # w_errs = np.array([min(abs(w - w_interval[0]), abs(2*np.pi + w - w_interval[0])),
         #                    min(abs(w_interval[1] - w), abs(2*np.pi + w_interval[1] - w))])
     # plot
@@ -1003,8 +1003,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # r_sum_sma
-    rsumsma_interval = arviz.hdi(rsumsma_vals, hdi_prob=0.683)
-    rsumsma_bounds = arviz.hdi(rsumsma_vals, hdi_prob=0.997)
+    rsumsma_interval = az.hdi(rsumsma_vals, hdi_prob=0.683)
+    rsumsma_bounds = az.hdi(rsumsma_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(rsumsma_vals, bins=50, label='vary fit input')
     ax.plot([r_sum_sma, r_sum_sma], [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -1020,8 +1020,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # r_ratio
-    rratio_interval = arviz.hdi(rratio_vals, hdi_prob=0.683)
-    rratio_bounds = arviz.hdi(rratio_vals, hdi_prob=0.997)
+    rratio_interval = az.hdi(rratio_vals, hdi_prob=0.683)
+    rratio_bounds = az.hdi(rratio_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist((rratio_vals), bins=50, label='vary fit input')
     ax.plot(([r_ratio, r_ratio]), [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -1037,8 +1037,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # log(r_ratio)
-    log_rratio_interval = arviz.hdi(np.log10(rratio_vals), hdi_prob=0.683)
-    log_rratio_bounds = arviz.hdi(np.log10(rratio_vals), hdi_prob=0.997)
+    log_rratio_interval = az.hdi(np.log10(rratio_vals), hdi_prob=0.683)
+    log_rratio_bounds = az.hdi(np.log10(rratio_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(np.log10(rratio_vals), bins=50, label='vary fit input')
     ax.plot(np.log10([r_ratio, r_ratio]), [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -1055,8 +1055,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # sb_ratio
-    sbratio_interval = arviz.hdi(sbratio_vals, hdi_prob=0.683)
-    sbratio_bounds = arviz.hdi(sbratio_vals, hdi_prob=0.997)
+    sbratio_interval = az.hdi(sbratio_vals, hdi_prob=0.683)
+    sbratio_bounds = az.hdi(sbratio_vals, hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist((sbratio_vals), bins=50, label='vary fit input')
     ax.plot(([sb_ratio, sb_ratio]), [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -1072,8 +1072,8 @@ def plot_dists_eclipse_parameters(e, w, i, r_sum_sma, r_ratio, sb_ratio, e_vals,
     plt.tight_layout()
     plt.show()
     # log(sb_ratio)
-    log_sbratio_interval = arviz.hdi(np.log10(sbratio_vals), hdi_prob=0.683)
-    log_sbratio_bounds = arviz.hdi(np.log10(sbratio_vals), hdi_prob=0.997)
+    log_sbratio_interval = az.hdi(np.log10(sbratio_vals), hdi_prob=0.683)
+    log_sbratio_bounds = az.hdi(np.log10(sbratio_vals), hdi_prob=0.997)
     fig, ax = plt.subplots()
     hist = ax.hist(np.log10(sbratio_vals), bins=50, label='vary fit input')
     ax.plot(np.log10([sb_ratio, sb_ratio]), [0, np.max(hist[0])], c='tab:green', label='best fit value')
@@ -1582,6 +1582,24 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
         plt.show()
     else:
         plt.close()
+    return
+
+
+def plot_mcmc_output(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+    """Show the pymc3 sampling results in several pair plots and a trace plot"""
+    par_lines = [('t_zero', {}, t_zero), ('const', {}, const), ('slope', {}, slope),
+                 ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n),
+                 ('e_cos_w', {}, ecosw), ('e_sin_w', {}, esinw), ('incl', {}, i),
+                 ('phi_0', {}, phi_0), ('r_ratio', {}, r_rat), ('sb_ratio', {}, sb_rat)]
+    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+                 coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]},
+                 marginals=True, kind=['scatter', 'kde'])
+    az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
+                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
+                 marginals=True, kind=['scatter', 'kde'])
+    az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'incl', 'phi_0', 'r_rat', 'sb_rat'],
+                 marginals=True, kind=['scatter', 'kde'])
+    az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return
 
 

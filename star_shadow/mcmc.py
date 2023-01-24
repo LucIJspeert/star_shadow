@@ -9,12 +9,13 @@ Code written by: Luc IJspeert
 """
 
 import numpy as np
+import scipy as sp
+import scipy.stats
 
 import pymc3 as pm
 import theano.tensor as tt
 import arviz as az
-# from fastprogress import fastprogress
-# fastprogress.printing = lambda: True
+from fastprogress import fastprogress
 
 
 def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
@@ -44,12 +45,12 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
         Mask of points to extend time series to the right (for if t_ext_2!=0)
     """
     # reference time is the mean of the times array
-    mean_t = np.mean(times)
+    mean_t = tt.mean(times)
     t_folded = (times - mean_t - t_zero) % p_orb
     # extend to both sides
     ext_left = (t_folded > p_orb + t_ext_1)
     ext_right = (t_folded < t_ext_2)
-    t_extended = np.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
+    t_extended = tt.concatenate((t_folded[ext_left] - p_orb, t_folded, t_folded[ext_right] + p_orb))
     return t_extended, ext_left, ext_right
 
 
@@ -530,3 +531,277 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     # interp_model = np.interp(t_folded, t_model, ecl_model)
     interp_model = interp(t_folded, t_model, ecl_model)
     return interp_model
+
+
+def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
+                          noise_level, i_sectors, verbose=False):
+    """"""
+    # setup
+    mean_t = tt.mean(times)
+    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    reps = i_sectors[:, 1] - i_sectors[:, 0]
+    n_sectors = len(const)
+    n_sinusoids = len(f_n)
+    lin_shape = (n_sectors,)
+    sin_shape = (n_sinusoids, 1)
+    # progress bar
+    if verbose:
+        fastprogress.printing = lambda: True
+    else:
+        fastprogress.printing = lambda: False
+    # make pymc3 model
+    with pm.Model() as lc_model:
+        # piece-wise linear curve parameter models
+        const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
+        slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
+        # piece-wise linear curve
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        # sinusoid parameter models
+        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
+        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n.reshape(-1, 1), sigma=a_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=a_n.reshape(-1, 1))
+        ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
+                              shape=sin_shape, testval=ph_n.reshape(-1, 1))
+        # sum of sinusoids
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        # full light curve model
+        model = model_linear + model_sinusoid
+        # observed distribution
+        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+        
+    # do the sampling
+    with lc_model:
+        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, return_inferencedata=True)
+    
+    if verbose:
+        az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
+    # stacked parameter chains
+    p_orb_ch = inf_data.posterior.p_orb.stack(dim=['chain', 'draw']).to_numpy()
+    const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
+    slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
+    f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
+    a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
+    ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    # parameter means
+    p_orb_m = np.mean(p_orb_ch)
+    const_m = np.mean(const_ch, axis=1).flatten()
+    slope_m = np.mean(slope_ch, axis=1).flatten()
+    f_n_m = np.mean(f_n_ch, axis=2).flatten()
+    a_n_m = np.mean(a_n_ch, axis=2).flatten()
+    ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
+    par_means = [p_orb_m, const_m, slope_m, f_n_m, a_n_m, ph_n_m]
+    # parameter errors (hdi)
+    const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e]
+    return inf_data, par_means, par_hdis
+
+
+def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, n_h, a_h, ph_h, p_orb_err,
+                            c_err, sl_err, f_n_err, a_n_err, ph_n_err, a_h_err, ph_h_err, noise_level, i_sectors,
+                            verbose=False):
+    """"""
+    # setup
+    mean_t = tt.mean(times)
+    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    reps = i_sectors[:, 1] - i_sectors[:, 0]
+    n_sectors = len(const)
+    n_sinusoids = len(f_n)
+    n_harmonics = len(n_h)
+    lin_shape = (n_sectors,)
+    sin_shape = (n_sinusoids, 1)
+    harm_shape = (n_harmonics, 1)
+    # progress bar
+    if verbose:
+        fastprogress.printing = lambda: True
+    else:
+        fastprogress.printing = lambda: False
+    # make pymc3 model
+    with pm.Model() as lc_model:
+        # piece-wise linear curve parameter models
+        const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
+        slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
+        # piece-wise linear curve
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        # sinusoid parameter models
+        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
+        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n.reshape(-1, 1), sigma=a_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=a_n.reshape(-1, 1))
+        ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
+                              shape=sin_shape, testval=ph_n.reshape(-1, 1))
+        # sum of sinusoids
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        # harmonic parameter models
+        p_orb_pm = pm.TruncatedNormal('p_orb', mu=p_orb, sigma=p_orb_err, lower=0, testval=p_orb)
+        f_h_pm = n_h / p_orb
+        a_h_pm = pm.TruncatedNormal('a_h', mu=a_h.reshape(-1, 1), sigma=a_h_err.reshape(-1, 1),
+                                    lower=0, shape=harm_shape, testval=a_h.reshape(-1, 1))
+        ph_h_pm = pm.VonMises('ph_h', mu=ph_h.reshape(-1, 1), kappa=1 / ph_h_err.reshape(-1, 1)**2,
+                              shape=harm_shape, testval=ph_h.reshape(-1, 1))
+        # sum of harmonic sinusoids
+        model_harmonic = pm.math.sum(a_h_pm * pm.math.sin((2 * np.pi * f_h_pm * (times - mean_t)) + ph_h_pm), axis=0)
+        # full light curve model
+        model = model_linear + model_sinusoid + model_harmonic
+        # observed distribution
+        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+        
+    # do the sampling
+    with lc_model:
+        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, return_inferencedata=True)
+    
+    if verbose:
+        az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
+    # stacked parameter chains
+    p_orb_ch = inf_data.posterior.p_orb.stack(dim=['chain', 'draw']).to_numpy()
+    const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
+    slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
+    f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
+    a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
+    ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    a_h_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
+    ph_h_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    # parameter means
+    p_orb_m = np.mean(p_orb_ch)
+    const_m = np.mean(const_ch, axis=1).flatten()
+    slope_m = np.mean(slope_ch, axis=1).flatten()
+    f_n_m = np.mean(f_n_ch, axis=2).flatten()
+    a_n_m = np.mean(a_n_ch, axis=2).flatten()
+    ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
+    a_h_m = np.mean(a_h_ch, axis=2).flatten()
+    ph_h_m = sp.stats.circmean(ph_h_ch, axis=2).flatten()
+    par_means = [p_orb_m, const_m, slope_m, f_n_m, a_n_m, ph_n_m, a_h_m, ph_h_m]
+    # parameter errors (hdi)
+    const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    a_h_e = az.hdi(a_h_ch.T, hdi_prob=0.683)
+    ph_h_e = az.hdi(ph_h_ch.T, hdi_prob=0.683, circular=True)
+    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, a_h_e, ph_h_e]
+    return inf_data, par_means, par_hdis
+
+
+def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, t_zero_err,
+                                  ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors,
+                                  verbose=False):
+    """"""
+    # unpack parameters
+    e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, phi_0 = ecl_par
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err = ecl_par_err
+    # setup
+    mean_t = tt.mean(times)
+    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    reps = i_sectors[:, 1] - i_sectors[:, 0]
+    n_sectors = len(const)
+    n_sinusoids = len(f_n)
+    lin_shape = (n_sectors,)
+    sin_shape = (n_sinusoids, 1)
+    # progress bar
+    # if verbose:
+    #     fastprogress.printing = lambda: True
+    # else:
+    #     fastprogress.printing = lambda: False
+    # make pymc3 model
+    with pm.Model() as lc_model:
+        # piece-wise linear curve parameter models
+        const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
+        slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
+        # piece-wise linear curve
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        # sinusoid parameter models
+        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
+        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n.reshape(-1, 1), sigma=a_n_err.reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=a_n.reshape(-1, 1))
+        ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
+                              shape=sin_shape, testval=ph_n.reshape(-1, 1))
+        # sum of sinusoids
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        # eclipse parameters
+        t_zero_pm = pm.Normal('t_zero', mu=t_zero, sigma=t_zero_err, testval=t_zero)
+        ecosw_pm = pm.TruncatedNormal('ecosw', mu=ecosw, sigma=ecosw_err, lower=-1, upper=1, testval=ecosw)
+        esinw_pm = pm.TruncatedNormal('esinw', mu=esinw, sigma=esinw_err, lower=-1, upper=1, testval=esinw)
+        incl_pm = pm.TruncatedNormal('incl', mu=i, sigma=i_err, lower=0, upper=np.pi / 2, testval=i)
+        phi_0_pm = pm.TruncatedNormal('phi_0', mu=phi_0, sigma=phi_0_err, lower=0, testval=phi_0)
+        r_rat_pm = pm.TruncatedNormal('r_rat', mu=r_rat, sigma=r_rat_err, lower=0, testval=r_rat)
+        sb_rat_pm = pm.TruncatedNormal('sb_rat', mu=sb_rat, sigma=sb_rat_err, lower=0, testval=sb_rat)
+        # some transformations (done to sample a less correlated parameter space)
+        e_pm = pm.math.sqrt(ecosw_pm**2 + esinw_pm**2)
+        w_pm = tt.arctan2(esinw_pm, ecosw_pm) % (2 * np.pi)
+        r_sum_pm = pm.math.sqrt((1 - pm.math.sin(incl_pm)**2 * pm.math.cos(phi_0_pm)**2) * (1 - e_pm**2))
+        # physical eclipse model
+        model_eclipse = simple_eclipse_lc(times, p_orb, t_zero_pm, e_pm, w_pm, incl_pm, r_sum_pm, r_rat_pm, sb_rat_pm)
+        # full light curve model
+        model = model_linear + model_sinusoid + model_eclipse
+        # observed distribution
+        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+    
+    # do the sampling
+    with lc_model:
+        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', chains=2, cores=1, progressbar=verbose,
+                             return_inferencedata=True)
+    
+    if verbose:
+        az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
+    # stacked parameter chains
+    t_zero_ch = inf_data.posterior.t_zero.stack(dim=['chain', 'draw']).to_numpy()
+    const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
+    slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
+    f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
+    a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
+    ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    ecosw_ch = inf_data.posterior.ecosw.stack(dim=['chain', 'draw']).to_numpy()
+    esinw_ch = inf_data.posterior.esinw.stack(dim=['chain', 'draw']).to_numpy()
+    i_ch = inf_data.posterior.incl.stack(dim=['chain', 'draw']).to_numpy()
+    phi_0_ch = inf_data.posterior.phi_0.stack(dim=['chain', 'draw']).to_numpy()
+    r_rat_ch = inf_data.posterior.r_rat.stack(dim=['chain', 'draw']).to_numpy()
+    sb_rat_ch = inf_data.posterior.sb_rat.stack(dim=['chain', 'draw']).to_numpy()
+    # parameter transforms
+    e_ch = np.sqrt(ecosw_ch**2 + esinw_ch**2)
+    w_ch = np.arctan2(esinw_ch, ecosw_ch) % (2 * np.pi)
+    r_sum_ch = np.sqrt((1 - np.sin(i_ch)**2 * np.cos(phi_0_ch)**2) * (1 - e_ch**2))
+    # parameter means
+    t_zero_m = np.mean(t_zero_ch)
+    const_m = np.mean(const_ch, axis=1).flatten()
+    slope_m = np.mean(slope_ch, axis=1).flatten()
+    f_n_m = np.mean(f_n_ch, axis=2).flatten()
+    a_n_m = np.mean(a_n_ch, axis=2).flatten()
+    ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
+    ecosw_m = np.mean(ecosw_ch)
+    esinw_m = np.mean(esinw_ch)
+    i_m = np.mean(i_ch)
+    phi_0_m = np.mean(phi_0_ch)
+    r_rat_m = np.mean(r_rat_ch)
+    sb_rat_m = np.mean(sb_rat_ch)
+    # transformed parameter means
+    e_m = np.mean(e_ch)
+    w_m = sp.stats.circmean(w_ch)
+    r_sum_m = np.mean(r_sum_ch)
+    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, t_zero_m, ecosw_m, esinw_m, i_m, phi_0_m, r_rat_m, sb_rat_m,
+                 e_m, w_m, r_sum_m]
+    # parameter errors (hdi)
+    t_zero_e = az.hdi(t_zero_ch, hdi_prob=0.683)
+    const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    ecosw_e = az.hdi(ecosw_ch, hdi_prob=0.683)
+    esinw_e = az.hdi(esinw_ch, hdi_prob=0.683)
+    i_e = az.hdi(i_ch, hdi_prob=0.683)
+    phi_0_e = az.hdi(phi_0_ch, hdi_prob=0.683)
+    r_rat_e = az.hdi(r_rat_ch, hdi_prob=0.683)
+    sb_rat_e = az.hdi(sb_rat_ch, hdi_prob=0.683)
+    # transformed parameter errors (hdi)
+    e_e = az.hdi(e_ch.T, hdi_prob=0.683)
+    w_e = az.hdi(w_ch.T, hdi_prob=0.683)
+    r_sum_e = az.hdi(r_sum_ch.T, hdi_prob=0.683)
+    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, i_e, phi_0_e, r_rat_e, sb_rat_e,
+                e_e, w_e, r_sum_e]
+    return inf_data, par_means, par_hdis

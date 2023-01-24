@@ -19,8 +19,8 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, logger, data_id=None,
-                                    overwrite=False, verbose=False):
+def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, data_id=None, overwrite=False,
+                                    verbose=False):
     """Iterative prewhitening of the input signal in the form of
     sine waves and a piece-wise linear curve
 
@@ -41,8 +41,6 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    logger: object
-        Logging logger object for logging, prints and/or saves information.
     data_id: int, str, None
         Identification for the dataset used
     overwrite: bool
@@ -53,132 +51,145 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
 
     Returns
     -------
-    const_1: numpy.ndarray[float]
+    const: numpy.ndarray[float]
         The y-intercept(s) of a piece-wise linear curve
-    slope_1: numpy.ndarray[float]
+    slope: numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    f_n_1: numpy.ndarray[float]
+    f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    a_n_1: numpy.ndarray[float]
+    a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    ph_n_1: numpy.ndarray[float]
+    ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    const_2: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
-    slope_2: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
-    f_n_2: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n_2: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n_2: numpy.ndarray[float]
-        The phases of a number of sine waves
-    
-    See Also
-    --------
-    frequency_analysis
-    
-    Notes
-    -----
-    Recipe:
-    1) Extract frequencies
-        We start by extracting the frequency with the highest amplitude one by one, directly from
-        the Lomb-Scargle periodogram until the BIC does not significantly improve anymore.
-        No fitting is performed yet.
-    2) First multi-sine NL-LS fit
-        To get the best results in the following steps, a fit is performed over sets of 10-15
-        frequencies at a time. Fitting in groups is a trade-off between accuracy and
-        drastically reduced time taken.
     """
-    n_sectors = len(i_sectors)
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    # [1] --- initial iterative extraction of frequencies
-    file_name_1 = file_name.replace(fn_ext, '_1.hdf5')
-    if os.path.isfile(file_name_1) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_1, verbose=verbose)
-        p_orb_1, const_1, slope_1, f_n_1, a_n_1, ph_n_1 = results
-        model_1 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_1 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        _, const, slope, f_n, a_n, ph_n = results
         if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_1))[0]}')
-    else:
-        if verbose:
-            print(f'Looking for frequencies')
-        t1_a = time.time()
-        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = tsf.extract_all(times, signal, signal_err, i_sectors, verbose=verbose)
-        t1_b = time.time()
-        # main function done, do the rest for this step
-        model_1 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_1 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
-        n_param_1 = 2 * n_sectors + 3 * len(f_n_1)
-        bic_1 = tsf.calc_bic((signal - model_1) / signal_err, n_param_1)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48mFrequency extraction complete.\033[0m')
-            print(f'\033[0;32;48m{len(f_n_1)} frequencies, {n_param_1} free parameters. '
-                  f'BIC: {bic_1:1.2f}, time taken: {t1_b - t1_a:1.1f}s\033[0m\n')
-        # save
-        results = (0, const_1, slope_1, f_n_1, a_n_1, ph_n_1)
-        f_errors = tsf.formal_uncertainties(times, signal - model_1, a_n_1, i_sectors)
-        c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1 = f_errors
-        errors = (-1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1)
-        stats = (n_param_1, bic_1, np.std(signal - model_1))
-        desc = 'Frequency extraction results.'
-        ut.save_results(results, errors, stats, file_name_1, description=desc, data_id=data_id)
-    # [2] --- multi-sine NL-LS fit (in chunks)
-    file_name_2 = file_name.replace(fn_ext, '_2.hdf5')
-    if os.path.isfile(file_name_2) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_2, verbose=verbose)
-        p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = results
-        # p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = errors
-        # n_param_2, bic_2, noise_level_2 = stats
-        model_2 = tsf.linear_curve(times, const_2, slope_2, i_sectors)
-        model_2 += tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_2))[0]}')
-    else:
-        if verbose:
-            print(f'Starting multi-sinusoid NL-LS fit.')
-        t_2a = time.time()
-        f_groups = ut.group_frequencies_for_fit(a_n_1, g_min=10, g_max=15)
-        out_2 = tsfit.fit_multi_sinusoid_per_group(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
-                                                   i_sectors, f_groups, verbose=verbose)
-        t_2b = time.time()
-        # main function done, do the rest for this step
-        const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
-        model_2 = tsf.linear_curve(times, const_2, slope_2, i_sectors)
-        model_2 += tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
-        noise_level_2 = np.std(signal - model_2)
-        f_errors = tsf.formal_uncertainties(times, signal - model_2, a_n_2, i_sectors)
-        c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = f_errors
-        n_param_2 = 2 * n_sectors + 3 * len(f_n_2)
-        bic_2 = tsf.calc_bic((signal - model_2) / signal_err, n_param_2)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48mFit complete.\033[0m')
-            print(f'\033[0;32;48m{len(f_n_2)} frequencies, {n_param_2} free parameters. '
-                  f'BIC: {bic_2:1.2f}, time taken: {t_2b - t_2a:1.1f}s\033[0m\n')
-        # save
-        results = (0, const_2, slope_2, f_n_2, a_n_2, ph_n_2)
-        errors = (-1, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2)
-        stats = (n_param_2, bic_2, noise_level_2)
-        desc = 'Multi-sinusoid NL-LS fit results.'
-        ut.save_results(results, errors, stats, file_name_2, description=desc, data_id=data_id)
-        # save freqs and linear curve in ascii format at this stage
-        file_name_s = file_name.replace(fn_ext, '_2_sinusoid.csv')
-        data = np.column_stack((f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2))
-        hdr = f'f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2'
-        np.savetxt(file_name_s, data, delimiter=',', header=hdr)
-        file_name_l = file_name.replace(fn_ext, '_2_linear.csv')
-        data = np.column_stack((const_2, c_err_2, slope_2, sl_err_2, i_sectors[:, 0], i_sectors[:, 1]))
-        hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
-        np.savetxt(file_name_l, data, delimiter=',', header=hdr)
-    if (len(f_n_2) == 0):
-        logger.info('No frequencies found.')
-    return const_1, slope_1, f_n_1, a_n_1, ph_n_1, const_2, slope_2, f_n_2, a_n_2, ph_n_2
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Looking for frequencies')
+    t_a = time.time()
+    const, slope, f_n, a_n, ph_n = tsf.extract_all(times, signal, signal_err, i_sectors, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    n_param = 2 * n_sectors + 3 * len(f_n)
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48mFrequency extraction complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (0, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    errors = (-1, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Frequency extraction results.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return const, slope, f_n, a_n, ph_n
 
 
-def analysis_orbital_period(times, signal, f_n):
+def analysis_optimise_sinusoids(times, signal, signal_err, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                                i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+    """Multi-sinusoid non-linear fit
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        _, const, slope, f_n, a_n, ph_n = results
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Starting multi-sinusoid NL-LS fit.')
+    t_a = time.time()
+    f_groups = ut.group_frequencies_for_fit(a_n_in, g_min=10, g_max=15)
+    output = tsfit.fit_multi_sinusoid_per_group(times, signal, signal_err, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                                                i_sectors, f_groups, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    n_param = 2 * n_sectors + 3 * len(f_n)
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48mFit complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (0, const, slope, f_n, a_n, ph_n)
+    errors = (-1, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Multi-sinusoid NL-LS fit results.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return const, slope, f_n, a_n, ph_n
+
+
+def analysis_find_orbital_period(times, signal, f_n):
     """Find the most likely eclipse period from a sinusoid model
     
     Parameters
@@ -235,6 +246,503 @@ def analysis_orbital_period(times, signal, f_n):
     if (frac_double > minimal_frac):
         p_orb = p_orb_2
     return p_orb
+
+
+def analysis_couple_harmonics(times, signal, signal_err, p_orb_in, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                              i_sectors, file_name, data_id=None, overwrite=False,  verbose=False):
+    """Find the orbital period and couple harmonic frequencies to the orbital period
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb_in: float
+        Orbital period of the eclipsing binary in days
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        p_orb = p_orb[0]  # must be a float
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return p_orb, const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Coupling the harmonic frequencies to the orbital frequency.')
+    t_a = time.time()
+    if (p_orb_in == 0):
+        p_orb = analysis_find_orbital_period(times, signal, f_n_in)
+    else:
+        p_orb = p_orb_in  # else we use the input p_orb_in at face value
+    # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_in, p_orb, f_tol=freq_res/2)
+    if (t_tot / p_orb < 1.1):
+        output = const_in, slope_in, f_n_in, a_n_in, ph_n_in  # return previous results
+    elif (len(harmonics) < 2):
+        output = const_in, slope_in, f_n_in, a_n_in, ph_n_in  # return previous results
+    else:
+        # couple the harmonics to the period. likely removes more frequencies that need re-extracting
+        output = tsf.fix_harmonic_frequency(times, signal, p_orb, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                                            i_sectors)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48mOrbital harmonic frequencies coupled. Period: {p_orb:2.4}\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (p_orb, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    errors = (p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Harmonic frequencies coupled.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return p_orb, const, slope, f_n, a_n, ph_n
+
+
+def analysis_add_harmonics(times, signal, signal_err, p_orb, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                           i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+    """Find and add more harmonic frequencies if possible
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        n_param, bic, noise_level = stats
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return p_orb, const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Looking for additional harmonics.')
+    t_a = time.time()
+    output = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb, const_in, slope_in,
+                                              f_n_in, a_n_in, ph_n_in, i_sectors, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48m{len(f_n) - len(f_n_in)} additional harmonics added.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (p_orb, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    errors = (p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Additional harmonic extraction.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return p_orb, const, slope, f_n, a_n, ph_n
+
+
+def analysis_optimise_sinusoids_h(times, signal, signal_err, p_orb_in, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                                  i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+    """Multi-sinusoid non-linear fit with coupled harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb_in: float
+        Orbital period of the eclipsing binary in days
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        p_orb = p_orb[0]  # must be a float
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return p_orb, const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Starting multi-sine NL-LS fit with harmonics.')
+    t_a = time.time()
+    output = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_in, const_in, slope_in,
+                                                          f_n_in, a_n_in, ph_n_in, i_sectors, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    p_orb, const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb:2.4}\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (p_orb, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    errors = (p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Multi-sine NL-LS fit results with coupled harmonics.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return p_orb, const, slope, f_n, a_n, ph_n
+
+
+def analysis_add_sinusoids(times, signal, signal_err, p_orb, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                           i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+    """Find and add more non-harmonic frequencies if possible
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        n_param, bic, noise_level = stats
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return p_orb, const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Looking for additional frequencies.')
+    t_a = time.time()
+    output = tsf.extract_additional_frequencies(times, signal, signal_err, p_orb, const_in, slope_in,
+                                               f_n_in, a_n_in, ph_n_in, i_sectors, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48m{len(f_n) - len(f_n_in)} additional frequencies added.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (p_orb, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    errors = (p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Additional non-harmonic extraction.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return p_orb, const, slope, f_n, a_n, ph_n
+
+
+def analysis_remove_sinusoids(times, signal, signal_err, p_orb, const_in, slope_in, f_n_in, a_n_in, ph_n_in,
+                              i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+    """Reduce the number of non-harmonic frequencies if possible
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const_in: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope_in: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n_in: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n_in: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n_in: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    file_name: str
+        File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
+    data_id: int, str, None
+        Identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercept(s) of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slope(s) of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    """
+    # guard for existing file when not overwriting
+    if os.path.isfile(file_name) & (not overwrite):
+        results, errors, stats = ut.read_results(file_name, verbose=verbose)
+        p_orb, const, slope, f_n, a_n, ph_n = results
+        p_orb = p_orb[0]
+        if verbose:
+            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name))[0]}')
+        return p_orb, const, slope, f_n, a_n, ph_n
+    
+    if verbose:
+        print(f'Attempting to reduce the number of frequencies.')
+    t_a = time.time()
+    output = tsf.reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const_in, slope_in,
+                                              f_n_in, a_n_in, ph_n_in, i_sectors, verbose=verbose)
+    t_b = time.time()
+    # main function done, do the rest for this step
+    const, slope, f_n, a_n, ph_n = output
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    resid = signal - model_linear - model_sinusoid
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
+    # print some useful info and save the result
+    if verbose:
+        print(f'\033[1;32;48mReducing frequencies complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
+              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+    # save
+    results = (p_orb, const, slope, f_n, a_n, ph_n)
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    errors = (p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    stats = (n_param, bic, noise_level)
+    desc = 'Reduce frequency set.'
+    ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    return p_orb, const, slope, f_n, a_n, ph_n
 
 
 def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, target_id, save_dir, logger, data_id=None,
@@ -328,81 +836,55 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     9) Multi-NL-LS fit with coupled harmonics (only if frequencies removed)
         If the previous step removed some frequencies, we need to fit one final time.
     """
-    t_0a = time.time()
+    t_a = time.time()
     n_sectors = len(i_sectors)
     t_tot = np.ptp(times)  # total time base of observations
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
-    # ----------------------------------------------------------------------------------------
-    # [1 and 2] --- initial iterative extraction of frequencies and first multi-sine NL-LS fit
-    # ----------------------------------------------------------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis.hdf5')
-    out_1_2 = analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name, logger=logger,
-                                              data_id=data_id, overwrite=overwrite, verbose=verbose)
-    const_1, slope_1, f_n_1, a_n_1, ph_n_1, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_1_2
-    if (len(f_n_2) == 0):
-        p_orb_i = [0, 0]
-        const_i = [const_1, const_2]
-        slope_i = [slope_1, slope_2]
-        f_n_i = [f_n_1, f_n_2]
-        a_n_i = [a_n_1, a_n_2]
-        ph_n_i = [ph_n_1, ph_n_2]
+    arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}  # these stay the same
+    # ---------------------------------------------------
+    # [1] --- initial iterative extraction of frequencies
+    # ---------------------------------------------------
+    file_name_1 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
+    out_1 = analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_name_1, **arg_dict)
+    const_1, slope_1, f_n_1, a_n_1, ph_n_1 = out_1
+    if (len(f_n_1) == 0):
+        logger.info('No frequencies found.')
+        p_orb_i = [0]
+        const_i = [const_1]
+        slope_i = [slope_1]
+        f_n_i = [f_n_1]
+        a_n_i = [a_n_1]
+        ph_n_i = [ph_n_1]
         return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+    # ---------------------------------------------------------
+    # [2] --- first multi-sinusoid non-linear least-squares fit
+    # ---------------------------------------------------------
+    file_name_2 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
+    out_2 = analysis_optimise_sinusoids(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1,
+                                        i_sectors, file_name_2, **arg_dict)
+    const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
+    # save freqs and linear curve in ascii format at this stage
+    model_linear = tsf.linear_curve(times, const_2, slope_2, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
+    resid = signal - model_linear - model_sinusoid
+    f_errors = tsf.formal_uncertainties(times, resid, a_n_2, i_sectors)
+    c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = f_errors
+    file_name_2b = file_name_2.replace('.hdf5', '_sinusoid.csv')
+    data = np.column_stack((f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2))
+    hdr = f'f_n_2, f_n_err_2, a_n_2, a_n_err_2, ph_n_2, ph_n_err_2'
+    np.savetxt(file_name_2b, data, delimiter=',', header=hdr)
+    file_name_2c = file_name_2.replace('.hdf5', '_linear.csv')
+    data = np.column_stack((const_2, c_err_2, slope_2, sl_err_2, i_sectors[:, 0], i_sectors[:, 1]))
+    hdr = (f'const_2, c_err_2, slope_2, sl_err_2, sector_start, sector_end')
+    np.savetxt(file_name_2c, data, delimiter=',', header=hdr)
     # -------------------------------------------------------------------------------
     # [3] --- measure the orbital period with pdm and couple the harmonic frequencies
     # -------------------------------------------------------------------------------
     file_name_3 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
-    fn_ext = os.path.splitext(os.path.basename(file_name_3))[1]
-    if os.path.isfile(file_name_3) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_3, verbose=verbose)
-        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
-        p_orb_3 = p_orb_3[0]  # must be a float
-        model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
-        model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_3))[0]}')
-    else:
-        if verbose:
-            print(f'Coupling the harmonic frequencies to the orbital frequency.')
-        t_3a = time.time()
-        if (p_orb == 0):
-            p_orb_3 = analysis_orbital_period(times, signal, f_n_2)
-        else:
-            # else we use the input p_orb at face value
-            p_orb_3 = p_orb
-        # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
-        if (t_tot / p_orb_3 < 1.1):
-            out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2  # return previous results
-        elif (len(harmonics) < 2):
-            out_3 = const_2, slope_2, f_n_2, a_n_2, ph_n_2  # return previous results
-        else:
-            # now couple the harmonics to the period. likely removes more frequencies that need re-extracting
-            out_3 = tsf.fix_harmonic_frequency(times, signal, p_orb_3, const_2, slope_2, f_n_2, a_n_2, ph_n_2,
-                                               i_sectors)
-        t_3b = time.time()
-        # main function done, do the rest for this step
-        const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
-        model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
-        model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_3, p_orb_3, f_tol=1e-9)
-        n_param_3 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_3) - len(harmonics))
-        bic_3 = tsf.calc_bic((signal - model_3)/signal_err, n_param_3)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48mOrbital harmonic frequencies coupled. Period: {p_orb_3:2.4}\033[0m')
-            print(f'\033[0;32;48m{len(f_n_3)} frequencies, {n_param_3} free parameters. '
-                  f'BIC: {bic_3:1.2f}, time taken: {t_3b - t_3a:1.1f}s\033[0m\n')
-        # save
-        results = (p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3)
-        f_errors = tsf.formal_uncertainties(times, signal - model_3, a_n_3, i_sectors)
-        c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = f_errors
-        p_err_3, _, _ = af.linear_regression_uncertainty(p_orb_3, t_tot, sigma_t=t_int)
-        errors = (p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3)
-        stats = (n_param_3, bic_3, np.std(signal - model_3))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
-        desc = 'Harmonic frequencies coupled.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    out_3 = analysis_couple_harmonics(times, signal, signal_err, p_orb, const_2, slope_2, f_n_2, a_n_2, ph_n_2,
+                                      i_sectors, file_name_3, **arg_dict)
+    p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
     # return in the following cases (and log message)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res/2)
     if (t_tot / p_orb_3 < 1.1):
@@ -431,270 +913,70 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     # [4] --- attempt to extract more harmonics knowing where they should be
     # ----------------------------------------------------------------------
     file_name_4 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
-    if os.path.isfile(file_name_4) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_4, verbose=verbose)
-        p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = results
-        n_param_4, bic_4, noise_level_4 = stats
-        model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
-        model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_4))[0]}')
-    else:
-        if verbose:
-            print(f'Looking for additional harmonics.')
-        t_4a = time.time()
-        out_4 = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb_3, const_3, slope_3,
-                                                 f_n_3, a_n_3, ph_n_3, i_sectors, verbose=verbose)
-        t_4b = time.time()
-        # main function done, do the rest for this step
-        const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4
-        model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
-        model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_4, p_orb_3, f_tol=1e-9)
-        n_param_4 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_4) - len(harmonics))
-        bic_4 = tsf.calc_bic((signal - model_4)/signal_err, n_param_4)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48m{len(f_n_4) - len(f_n_3)} additional harmonics added.\033[0m')
-            print(f'\033[0;32;48m{len(f_n_4)} frequencies, {n_param_4} free parameters. '
-                  f'BIC: {bic_4:1.2f}, time taken: {t_4b - t_4a:1.1f}s\033[0m\n')
-        # save
-        results = (p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4)
-        f_errors = tsf.formal_uncertainties(times, signal - model_4, a_n_4, i_sectors)
-        c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = f_errors
-        p_err_4, _, _ = af.linear_regression_uncertainty(p_orb_3, t_tot, sigma_t=t_int)
-        errors = (p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4)
-        stats = (n_param_4, bic_4, np.std(signal - model_4))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
-        desc = 'Additional harmonic extraction.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    out_4 = analysis_add_harmonics(times, signal, signal_err, p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3,
+                                   i_sectors, file_name_4, **arg_dict)
+    p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4  # p_orb_3 == p_orb_4
     # -----------------------------------------------------------------
     # [5] --- fit a second time but now with fixed harmonic frequencies
     # -----------------------------------------------------------------
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
-    if os.path.isfile(file_name_5) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_5, verbose=verbose)
-        p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = results
-        p_orb_5 = p_orb_5[0]  # must be a float
-        model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
-        model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_5))[0]}')
-    else:
-        if verbose:
-            print(f'Starting multi-sine NL-LS fit with harmonics.')
-        t_5a = time.time()
-        out_5 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_3, const_4, slope_4,
-                                                             f_n_4, a_n_4, ph_n_4, i_sectors, verbose=verbose)
-        t_5b = time.time()
-        # main function done, do the rest for this step
-        p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
-        model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
-        model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
-        bic_5 = tsf.calc_bic((signal - model_5)/signal_err, n_param_4)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb_5:2.4}\033[0m')
-            print(f'\033[0;32;48m{len(f_n_5)} frequencies, {n_param_4} free parameters. '
-                  f'BIC: {bic_5:1.2f}, time taken: {t_5b - t_5a:1.1f}s\033[0m\n')
-        # save
-        results = (p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5)
-        f_errors = tsf.formal_uncertainties(times, signal - model_5, a_n_5, i_sectors)
-        c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = f_errors
-        p_err_5, _, _ = af.linear_regression_uncertainty(p_orb_5, t_tot, sigma_t=t_int)
-        errors = (p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5)
-        stats = (n_param_4, bic_5, np.std(signal - model_5))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
-        desc = 'Multi-sine NL-LS fit results with coupled harmonics.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    out_5 = analysis_optimise_sinusoids_h(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4,
+                                          i_sectors, file_name_5, **arg_dict)
+    p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
     # --------------------------------------------------------------
     # [6] --- attempt to extract additional non-harmonic frequencies
     # --------------------------------------------------------------
     file_name_6 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
-    if os.path.isfile(file_name_6) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_6, verbose=verbose)
-        p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = results
-        n_param_6, bic_6, noise_level_6 = stats
-        model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
-        model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_6))[0]}')
-    else:
-        if verbose:
-            print(f'Looking for additional frequencies.')
-        t_6a = time.time()
-        out_6 = tsf.extract_additional_frequencies(times, signal, signal_err, p_orb_5, const_5, slope_5,
-                                                   f_n_5, a_n_5, ph_n_5, i_sectors, verbose=verbose)
-        t_6b = time.time()
-        # main function done, do the rest for this step
-        const_6, slope_6, f_n_6, a_n_6, ph_n_6 = out_6
-        model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
-        model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_6, p_orb_5, f_tol=1e-9)
-        n_param_6 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_6) - len(harmonics))
-        bic_6 = tsf.calc_bic((signal - model_6)/signal_err, n_param_6)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48m{len(f_n_6) - len(f_n_5)} additional frequencies added.\033[0m')
-            print(f'\033[0;32;48m{len(f_n_6)} frequencies, {n_param_6} free parameters. '
-                  f'BIC: {bic_6:1.2f}, time taken: {t_6b - t_6a:1.1f}s\033[0m\n')
-        # save
-        results = (p_orb_5, const_6, slope_6, f_n_6, a_n_6, ph_n_6)
-        f_errors = tsf.formal_uncertainties(times, signal - model_6, a_n_6, i_sectors)
-        c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = f_errors
-        p_err_6, _, _ = af.linear_regression_uncertainty(p_orb_5, t_tot, sigma_t=t_int)
-        errors = (p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6)
-        stats = (n_param_6, bic_6, np.std(signal - model_6))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
-        desc = 'Additional non-harmonic extraction.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    out_6 = analysis_add_sinusoids(times, signal, signal_err, p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5,
+                                   i_sectors, file_name_6, **arg_dict)
+    p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = out_6  # p_orb_5 == p_orb_6
     # -------------------------------------------------------------------
     # [7] --- need to fit once more after the addition of some frequencies
     # -------------------------------------------------------------------
     file_name_7 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-    if os.path.isfile(file_name_7) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_7, verbose=verbose)
-        p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results
-        p_orb_7 = p_orb_7[0]  # must be a float
-        model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
-        model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_7))[0]}')
+    if (len(f_n_5) < len(f_n_6)):
+        out_7 = analysis_optimise_sinusoids_h(times, signal, signal_err, p_orb_5, const_6, slope_6, f_n_6, a_n_6,
+                                              ph_n_6, i_sectors, file_name_7, **arg_dict)
+        p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
     else:
-        if (len(f_n_5) < len(f_n_6)):
-            if verbose:
-                print(f'Starting multi-sine NL-LS fit with harmonics.')
-            t_7a = time.time()
-            out_7 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_5, const_6, slope_6,
-                                                                 f_n_6, a_n_6, ph_n_6, i_sectors, verbose=verbose)
-            t_7b = time.time()
-            # main function done, do the rest for this step
-            p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
-            model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
-            model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
-            bic_7 = tsf.calc_bic((signal - model_7)/signal_err, n_param_6)
-            # now print some useful info and save the result
-            if verbose:
-                print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb_7:2.4}\033[0m')
-                print(f'\033[0;32;48m{len(f_n_7)} frequencies, {n_param_6} free parameters. '
-                      f'BIC: {bic_7:1.2f}, time taken: {t_7b - t_7a:1.1f}s\033[0m\n')
-            # save
-            results = (p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7)
-            f_errors = tsf.formal_uncertainties(times, signal - model_7, a_n_7, i_sectors)
-            c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = f_errors
-            p_err_7, _, _ = af.linear_regression_uncertainty(p_orb_7, t_tot, sigma_t=t_int)
-            errors = (p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7)
-            stats = (n_param_6, bic_7, np.std(signal - model_7))
-            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-            desc = 'Multi-sine NL-LS fit results with coupled harmonics.'
-            ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
-        else:
-            p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5
-            model_7 = np.copy(model_5)
-            if verbose:
-                print(f'\033[1;32;48mNo frequencies added, so no additional fit needed.\033[0m\n')
+        p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5
+        if verbose:
+            print(f'\033[1;32;48mNo frequencies added, so no additional fit needed.\033[0m\n')
     # ----------------------------------------------------------------------
     # [8] --- try to reduce the number of frequencies after the fit was done
     # ----------------------------------------------------------------------
     file_name_8 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
-    if os.path.isfile(file_name_8) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_8, verbose=verbose)
-        p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
-        model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
-        model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_8))[0]}')
-    else:
-        if verbose:
-            print(f'Attempting to reduce the number of frequencies.')
-        t_8a = time.time()
-        out_8 = tsf.reduce_frequencies_harmonics(times, signal, signal_err, p_orb_7, const_7, slope_7,
-                                                 f_n_7, a_n_7, ph_n_7, i_sectors, verbose=verbose)
-        t_8b = time.time()
-        # main function done, do the rest for this step
-        const_8, slope_8, f_n_8, a_n_8, ph_n_8 = out_8
-        model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
-        model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_8, p_orb_7, f_tol=1e-9)
-        n_param_8 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_8) - len(harmonics))
-        bic_8 = tsf.calc_bic((signal - model_8)/signal_err, n_param_8)
-        # now print some useful info and save the result
-        if verbose:
-            print(f'\033[1;32;48mReducing frequencies complete.\033[0m')
-            print(f'\033[0;32;48m{len(f_n_8)} frequencies, {n_param_8} free parameters. '
-                  f'BIC: {bic_8:1.2f}, time taken: {t_8b - t_8a:1.1f}s\033[0m\n')
-        # save
-        results = (p_orb_7, const_8, slope_8, f_n_8, a_n_8, ph_n_8)
-        f_errors = tsf.formal_uncertainties(times, signal - model_8, a_n_8, i_sectors)
-        c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = f_errors
-        p_err_8, _, _ = af.linear_regression_uncertainty(p_orb_7, t_tot, sigma_t=t_int)
-        errors = (p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8)
-        stats = (n_param_8, bic_8, np.std(signal - model_8))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
-        desc = 'Reduce frequency set.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
+    out_8 = analysis_remove_sinusoids(times, signal, signal_err, p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7,
+                                      i_sectors, file_name_8, **arg_dict)
+    p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = out_8  # p_orb_7 == p_orb_8
     # -------------------------------------------------------------------
     # [9] --- need to fit once more after the removal of some frequencies
     # -------------------------------------------------------------------
     file_name_9 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
-    if os.path.isfile(file_name_9) & (not overwrite):
-        results, errors, stats = ut.read_results(file_name_9, verbose=verbose)
-        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
-        p_orb_9 = p_orb_9[0]  # must be a float
-        model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
-        model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
-        if verbose:
-            print(f'Loaded existing results {os.path.splitext(os.path.basename(file_name_9))[0]}')
+    if (len(f_n_7) > len(f_n_8)):
+        out_9 = analysis_optimise_sinusoids_h(times, signal, signal_err, p_orb_7, const_8, slope_8, f_n_8, a_n_8,
+                                              ph_n_8, i_sectors, file_name_9, **arg_dict)
+        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = out_9
     else:
-        if (len(f_n_7) > len(f_n_8)):
-            if verbose:
-                print(f'Starting second multi-sine NL-LS fit with harmonics.')
-            t_9a = time.time()
-            out_9 = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb_7, const_8, slope_8,
-                                                                 f_n_8, a_n_8, ph_n_8, i_sectors, verbose=verbose)
-            t_9b = time.time()
-            # main function done, do the rest for this step
-            p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = out_9
-            model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
-            model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
-            harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
-            n_param_9 = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_9) - len(harmonics))
-            bic_9 = tsf.calc_bic((signal - model_9)/signal_err, n_param_9)
-            # now print some useful info and/or save the result
-            if verbose:
-                print(f'\033[1;32;48mFit with fixed harmonics complete. Period: {p_orb_9:2.4}\033[0m')
-                print(f'\033[0;32;48m{len(f_n_9)} frequencies, {n_param_9} free parameters. '
-                      f'BIC: {bic_9:1.2f}, time taken: {t_9b - t_9a:1.1f}s\033[0m\n')
-        else:
-            p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7
-            n_param_9 = n_param_6
-            model_9 = np.copy(model_7)
-            bic_9 = tsf.calc_bic((signal - model_9)/signal_err, n_param_9)
-            if verbose:
-                print(f'\033[1;32;48mNo frequencies removed, so no additional fit needed.\033[0m\n')
-        # save
-        results = (p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9)
-        f_errors = tsf.formal_uncertainties(times, signal - model_9, a_n_9, i_sectors)
-        c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = f_errors
-        p_err_9, _, _ = af.linear_regression_uncertainty(p_orb_9, t_tot, sigma_t=t_int)
-        errors = (p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9)
-        stats = (n_param_9, bic_9, np.std(signal - model_9))
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
-        desc = 'Second multi-sine NL-LS fit results with coupled harmonics.'
-        ut.save_results(results, errors, stats, file_name, description=desc, data_id=data_id)
-        # save final freqs and linear curve in ascii format
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9_sinusoid.csv')
-        data = np.column_stack((f_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9))
-        hdr = f'p_orb_9: {p_orb_9}, p_err_9: {p_err_9}\nf_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9'
-        np.savetxt(file_name, data, delimiter=',', header=hdr)
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9_linear.csv')
-        data = np.column_stack((const_9, c_err_9, slope_9, sl_err_9, i_sectors[:, 0], i_sectors[:, 1]))
-        hdr = (f'p_orb_9: {p_orb_9}, p_err_9: {p_err_9}\n'
-               f'const_9, c_err_9, slope_9, sl_err_9, sector_start, sector_end')
-        np.savetxt(file_name, data, delimiter=',', header=hdr)
-    # final timing and message
-    t_0b = time.time()
-    logger.info(f'Frequency extraction done. Total time elapsed: {t_0b - t_0a:1.1f}s.')
+        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7
+        if verbose:
+            print(f'\033[1;32;48mNo frequencies removed, so no additional fit needed.\033[0m\n')
+    # save final freqs and linear curve in ascii format
+    model_linear = tsf.linear_curve(times, const_9, slope_9, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
+    resid = signal - model_linear - model_sinusoid
+    f_errors = tsf.formal_uncertainties(times, resid, a_n_9, i_sectors)
+    c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = f_errors
+    p_err_9, _, _ = af.linear_regression_uncertainty(p_orb_9, t_tot, sigma_t=t_int)
+    file_name_9b = file_name_9.replace('.hdf5', '_sinusoid.csv')
+    data = np.column_stack((f_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9))
+    hdr = f'p_orb_9: {p_orb_9}, p_err_9: {p_err_9}\nf_n_9, f_n_err_9, a_n_9, a_n_err_9, ph_n_9, ph_n_err_9'
+    np.savetxt(file_name_9b, data, delimiter=',', header=hdr)
+    file_name_9c = file_name_9.replace('.hdf5', '_linear.csv')
+    data = np.column_stack((const_9, c_err_9, slope_9, sl_err_9, i_sectors[:, 0], i_sectors[:, 1]))
+    hdr = (f'p_orb_9: {p_orb_9}, p_err_9: {p_err_9}\n'
+           f'const_9, c_err_9, slope_9, sl_err_9, sector_start, sector_end')
+    np.savetxt(file_name_9c, data, delimiter=',', header=hdr)
     # make lists
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5, p_orb_5, p_orb_7, p_orb_7, p_orb_9]
     const_i = [const_1, const_2, const_3, const_4, const_5, const_6, const_7, const_8, const_9]
@@ -702,6 +984,9 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7, f_n_8, f_n_9]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7, a_n_8, a_n_9]
     ph_n_i = [ph_n_1, ph_n_2, ph_n_3, ph_n_4, ph_n_5, ph_n_6, ph_n_7, ph_n_8, ph_n_9]
+    # final timing and message
+    t_b = time.time()
+    logger.info(f'Frequency extraction done. Total time elapsed: {t_b - t_a:1.1f}s.')
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
@@ -2115,7 +2400,7 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
         if verbose:
             print('done.')
         return -1
-    p_orb = analysis_orbital_period(times, signal, f_n_2)
+    p_orb = analysis_find_orbital_period(times, signal, f_n_2)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
     # save p_orb
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
