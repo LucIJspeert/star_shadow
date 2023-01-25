@@ -1094,6 +1094,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     -----
     The result is ordered according to depth so that the deepest eclipse is the first.
     Timings are shifted by t_zero so that deepest minimum occurs at 0.
+    
+    t_zero is measured with respect to the phase (ph_h) zero point.
     """
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.linspace(0, 2 * p_orb, 10**6)
@@ -1906,9 +1908,9 @@ def ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi
 
 
 @nb.njit(cache=True)
-def radius_sum_from_phi0(e, i, phi_0):
+def r_sum_sma_from_phi_0(e, i, phi_0):
     """Formula for the sum of radii in units of the semi-major axis
-    from the angle phi_0
+     from the angle phi_0
     
     Parameters
     ----------
@@ -1924,9 +1926,32 @@ def radius_sum_from_phi0(e, i, phi_0):
     r_sum_sma: float, numpy.ndarray[float]
         Sum of radii in units of the semi-major axis
     """
-    r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)  # (1 - e**2) not srt as in Kopal
+    r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)  # (1 - e**2) not sqrt as in Kopal
     r_sum_sma = max(r_sum_sma, 0)  # prevent it going below zero (i.e. for e>1)
     return r_sum_sma
+
+
+@nb.njit(cache=True)
+def phi_0_from_r_sum_sma(e, i, r_sum_sma):
+    """Formula for the angle phi_0 from the sum of radii in units
+    of the semi-major axis
+
+    Parameters
+    ----------
+    e: float, numpy.ndarray[float]
+        Eccentricity
+    i: float, numpy.ndarray[float]
+        Inclination of the orbit
+    r_sum_sma: float, numpy.ndarray[float]
+        Sum of radii in units of the semi-major axis
+
+    Returns
+    -------
+    phi_0: float, numpy.ndarray[float]
+        Auxiliary angle, see Kopal 1959
+    """
+    phi_0 = np.arccos(np.sqrt(1 - r_sum_sma**2 / (1 - e**2)) / np.sin(i))
+    return phi_0
 
 
 @nb.njit(cache=True)
@@ -2279,7 +2304,7 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     dur_1 = integral_tau_1_1 + integral_tau_1_2
     dur_2 = integral_tau_2_1 + integral_tau_2_2
     # calculate the depths
-    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
+    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
     r_ratio = 1
     sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
@@ -2450,18 +2475,17 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxiliary angle (see Kopal 1959)
-    psi_0: float
-        Auxiliary angle like phi_0 but for the eclipse bottoms
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
-    r_dif_sma: float
-        Absolute difference of radii in units of the semi-major axis
     r_ratio: float
         Radius ratio r_2/r_1
     sb_ratio: float
         Surface brightness ratio sb_2/sb_1
+    
+    Notes
+    -----
+    phi_0: Auxiliary angle (see Kopal 1959)
+    psi_0: Auxiliary angle like phi_0 but for the eclipse bottoms
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
     args_i = (p_orb, *timings_tau[:6], depths[0], depths[1], *timings_err, *depths_err)
@@ -2475,9 +2499,9 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     # values of e and w by approximate formulae
     e, w = ecc_omega_approx(p_orb, *timings_tau[:6], i, phi_0)
     # value for r_sum_sma from ecc, incl and phi_0
-    r_sum_sma = radius_sum_from_phi0(e, i, phi_0)
+    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
     # value for |r1 - r2|/a = r_dif_sma from ecc, incl and psi_0
-    r_dif_sma = radius_sum_from_phi0(e, i, psi_0)
+    r_dif_sma = r_sum_sma_from_phi_0(e, i, psi_0)
     # r_dif_sma only valid if psi_0 is not zero, otherwise it will give limits on the radii
     r_small = (r_sum_sma - r_dif_sma)/2  # if psi_0=0, this is a lower limit on the smaller radius
     r_large = (r_sum_sma + r_dif_sma)/2  # if psi_0=0, this is an upper limit on the bigger radius
@@ -2560,10 +2584,6 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
         Formal error in e*cos(w)
     sigma_esinw: float
         Formal error in e*sin(w)
-    sigma_f_c: float
-        Formal error in sqrt(e)*cos(w)
-    sigma_f_s: float
-        Formal error in sqrt(e)*sin(w)
     """
     # often used errors/parameter
     phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
@@ -2609,12 +2629,12 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
     s_rs_phi0 = sin_i_2**2 * cos_i_2 * cos_phi0_2 * (1 - e_2)**2 / term_2_i_phi0 * sigma_phi_0**2
     sigma_r_sum_sma = np.sqrt(s_rs_e + s_rs_i + s_rs_phi0)
     # error in f_c and f_s (sqrt(e)cos(w) and sqrt(e)sin(w))
-    sigma_f_c = np.sqrt(cos_w**2 / (4 * e) * sigma_e**2 + e * sin_w**2 * sigma_w**2)
-    sigma_f_s = np.sqrt(sin_w**2 / (4 * e) * sigma_e**2 + e * cos_w**2 * sigma_w**2)
-    return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s
+    # sigma_f_c = np.sqrt(cos_w**2 / (4 * e) * sigma_e**2 + e * sin_w**2 * sigma_w**2)
+    # sigma_f_s = np.sqrt(sin_w**2 / (4 * e) * sigma_e**2 + e * cos_w**2 * sigma_w**2)
+    return sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw
 
 
-def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, depths, p_err, timings_err, depths_err,
+def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p_err, timings_err, depths_err,
                         p_t_corr, verbose=False):
     """Estimate errors using importance sampling and
     the highest density interval (HDI)
@@ -2627,11 +2647,11 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         Argument of periastron
     i: float
         Inclination of the orbit
-    r_sum_sma: float
+    r_sum: float
         Sum of radii in units of the semi-major axis
-    r_ratio: float
+    r_rat: float
         Radius ratio r_2/r_1
-    sb_ratio: float
+    sb_rat: float
         Surface brightness ratio sb_2/sb_1
     p_orb: float
         Orbital period of the eclipsing binary in days
@@ -2658,7 +2678,7 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     -------
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w)
     bounds: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     errors: tuple[numpy.ndarray[float]]
@@ -2749,9 +2769,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     e_vals = np.zeros(n_gen)
     w_vals = np.zeros(n_gen)
     i_vals = np.zeros(n_gen)
-    rsumsma_vals = np.zeros(n_gen)
-    rratio_vals = np.zeros(n_gen)
-    sbratio_vals = np.zeros(n_gen)
+    r_sum_vals = np.zeros(n_gen)
+    r_rat_vals = np.zeros(n_gen)
+    sb_rat_vals = np.zeros(n_gen)
     i_delete = []  # to be deleted due to out of bounds parameter
     for k in range(n_gen):
         timings_tau_dist = (normal_t_1[k], normal_t_2[k],
@@ -2766,9 +2786,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
         e_vals[k] = out[0]
         w_vals[k] = out[1]
         i_vals[k] = out[2]
-        rsumsma_vals[k] = out[3]
-        rratio_vals[k] = out[4]
-        sbratio_vals[k] = out[5]
+        r_sum_vals[k] = out[3]
+        r_rat_vals[k] = out[4]
+        sb_rat_vals[k] = out[5]
         if verbose & ((k + 1) % 200 == 0):
             print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
     # delete the skipped parameters
@@ -2787,9 +2807,9 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     e_vals = np.delete(e_vals, i_delete)
     w_vals = np.delete(w_vals, i_delete)
     i_vals = np.delete(i_vals, i_delete)
-    rsumsma_vals = np.delete(rsumsma_vals, i_delete)
-    rratio_vals = np.delete(rratio_vals, i_delete)
-    sbratio_vals = np.delete(sbratio_vals, i_delete)
+    r_sum_vals = np.delete(r_sum_vals, i_delete)
+    r_rat_vals = np.delete(r_rat_vals, i_delete)
+    sb_rat_vals = np.delete(sb_rat_vals, i_delete)
     # Calculate the highest density interval (HDI) for a given probability.
     cos_w = np.cos(w)
     sin_w = np.sin(w)
@@ -2801,22 +2821,18 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     e_interval = az.hdi(e_vals, hdi_prob=0.683)
     e_bounds = az.hdi(e_vals, hdi_prob=0.997)
     e_errs = np.array([e - e_interval[0], e_interval[1] - e])
-    # e*np.cos(w)
-    ecosw_interval = az.hdi(e_vals*np.cos(w_vals), hdi_prob=0.683)
-    ecosw_bounds = az.hdi(e_vals*np.cos(w_vals), hdi_prob=0.997)
-    ecosw_errs = np.array([e*cos_w - ecosw_interval[0], ecosw_interval[1] - e*cos_w])
-    # e*np.sin(w)
-    esinw_interval = az.hdi(e_vals*np.sin(w_vals), hdi_prob=0.683)
-    esinw_bounds = az.hdi(e_vals*np.sin(w_vals), hdi_prob=0.997)
-    esinw_errs = np.array([e*sin_w - esinw_interval[0], esinw_interval[1] - e*sin_w])
-    # sqrt(e)*np.cos(w) (== f_c)
-    f_c_interval = az.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.683)
-    f_c_bounds = az.hdi(np.sqrt(e_vals)*np.cos(w_vals), hdi_prob=0.997)
-    f_c_errs = np.array([np.sqrt(e)*cos_w - f_c_interval[0], f_c_interval[1] - np.sqrt(e)*cos_w])
-    # sqrt(e)*np.sin(w) (== f_s)
-    f_s_interval = az.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.683)
-    f_s_bounds = az.hdi(np.sqrt(e_vals)*np.sin(w_vals), hdi_prob=0.997)
-    f_s_errs = np.array([np.sqrt(e)*sin_w - f_s_interval[0], f_s_interval[1] - np.sqrt(e)*sin_w])
+    # e cos(w)
+    ecosw = e * cos_w
+    ecosw_vals = e_vals * np.cos(w_vals)
+    ecosw_interval = az.hdi(ecosw_vals, hdi_prob=0.683)
+    ecosw_bounds = az.hdi(ecosw_vals, hdi_prob=0.997)
+    ecosw_errs = np.array([ecosw - ecosw_interval[0], ecosw_interval[1] - ecosw])
+    # e sin(w)
+    esinw = e * sin_w
+    esinw_vals = e_vals * np.sin(w_vals)
+    esinw_interval = az.hdi(esinw_vals, hdi_prob=0.683)
+    esinw_bounds = az.hdi(esinw_vals, hdi_prob=0.997)
+    esinw_errs = np.array([esinw - esinw_interval[0], esinw_interval[1] - esinw])
     # omega
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         w_interval = az.hdi(w_vals, hdi_prob=0.683, multimodal=True)
@@ -2827,26 +2843,32 @@ def error_estimates_hdi(e, w, i, r_sum_sma, r_ratio, sb_ratio, p_orb, timings, d
     w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
     # w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
     w_errs = np.array([w - w_inter[0], (w_inter[1] - w) % (2 * np.pi)])  # %2pi for if w_inter wrapped around
+    # phi_0
+    phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
+    phi_0_vals = phi_0_from_r_sum_sma(e_vals, i_vals, r_sum_vals)
+    phi_0_interval = az.hdi(phi_0_vals, hdi_prob=0.683)
+    phi_0_bounds = az.hdi(phi_0_vals, hdi_prob=0.997)
+    phi_0_errs = np.array([phi_0 - phi_0_interval[0], phi_0_interval[1] - phi_0])
     # r_sum_sma
-    rsumsma_interval = az.hdi(rsumsma_vals, hdi_prob=0.683)
-    rsumsma_bounds = az.hdi(rsumsma_vals, hdi_prob=0.997)
-    rsumsma_errs = np.array([r_sum_sma - rsumsma_interval[0], rsumsma_interval[1] - r_sum_sma])
+    r_sum_interval = az.hdi(r_sum_vals, hdi_prob=0.683)
+    r_sum_bounds = az.hdi(r_sum_vals, hdi_prob=0.997)
+    r_sum_errs = np.array([r_sum - r_sum_interval[0], r_sum_interval[1] - r_sum])
     # r_ratio
-    rratio_interval = az.hdi(rratio_vals, hdi_prob=0.683)
-    rratio_bounds = az.hdi(rratio_vals, hdi_prob=0.997)
-    rratio_errs = np.array([r_ratio - rratio_interval[0], rratio_interval[1] - r_ratio])
+    r_rat_interval = az.hdi(r_rat_vals, hdi_prob=0.683)
+    r_rat_bounds = az.hdi(r_rat_vals, hdi_prob=0.997)
+    r_rat_errs = np.array([r_rat - r_rat_interval[0], r_rat_interval[1] - r_rat])
     # sb_ratio
-    sbratio_interval = az.hdi(sbratio_vals, hdi_prob=0.683)
-    sbratio_bounds = az.hdi(sbratio_vals, hdi_prob=0.997)
-    sbratio_errs = np.array([sb_ratio - sbratio_interval[0], sbratio_interval[1] - sb_ratio])
+    sb_rat_interval = az.hdi(sb_rat_vals, hdi_prob=0.683)
+    sb_rat_bounds = az.hdi(sb_rat_vals, hdi_prob=0.997)
+    sb_rat_errs = np.array([sb_rat - sb_rat_interval[0], sb_rat_interval[1] - sb_rat])
     # collect
-    intervals = (e_interval, w_interval, i_interval, rsumsma_interval, rratio_interval, sbratio_interval,
-                 ecosw_interval, esinw_interval, f_c_interval, f_s_interval)
-    bounds = (e_bounds, w_bounds, i_bounds, rsumsma_bounds, rratio_bounds, sbratio_bounds,
-              ecosw_bounds, esinw_bounds, f_c_bounds, f_s_bounds)
-    errors = (e_errs, w_errs, i_errs, rsumsma_errs, rratio_errs, sbratio_errs,
-              ecosw_errs, esinw_errs, f_c_errs, f_s_errs)
+    intervals = (e_interval, w_interval, i_interval, r_sum_interval, r_rat_interval, sb_rat_interval,
+                 ecosw_interval, esinw_interval, phi_0_interval)
+    bounds = (e_bounds, w_bounds, i_bounds, r_sum_bounds, r_rat_bounds, sb_rat_bounds,
+              ecosw_bounds, esinw_bounds, phi_0_bounds)
+    errors = (e_errs, w_errs, i_errs, r_sum_errs, r_rat_errs, sb_rat_errs,
+              ecosw_errs, esinw_errs, phi_0_errs)
     dists_in = (normal_p, normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
                 normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
-    dists_out = (e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals)
+    dists_out = (e_vals, w_vals, i_vals, r_sum_vals, r_rat_vals, sb_rat_vals)
     return intervals, bounds, errors, dists_in, dists_out

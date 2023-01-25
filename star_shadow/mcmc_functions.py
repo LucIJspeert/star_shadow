@@ -389,6 +389,32 @@ def projected_separation(e, w, i, theta):
     return sep
 
 
+def phi_0_from_r_sum_sma(e, i, r_sum_sma):
+    """Formula for the angle phi_0 from the sum of radii in units
+    of the semi-major axis
+
+    Parameters
+    ----------
+    e: float, numpy.ndarray[float]
+        Eccentricity
+    i: float, numpy.ndarray[float]
+        Inclination of the orbit
+    r_sum_sma: float, numpy.ndarray[float]
+        Sum of radii in units of the semi-major axis
+
+    Returns
+    -------
+    phi_0: float, numpy.ndarray[float]
+        Auxiliary angle, see Kopal 1959
+    
+    Notes
+    -----
+    Taken from analysis_functions and without JIT-ting
+    """
+    phi_0 = np.arccos(np.sqrt(1 - r_sum_sma**2 / (1 - e**2)) / np.sin(i))
+    return phi_0
+
+
 def covered_area(d, r_1, r_2):
     """Area covered for two overlapping circles separated by a certain distance
 
@@ -690,9 +716,65 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
 def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, t_zero_err,
                                   ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors,
                                   verbose=False):
-    """"""
+    """
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of the deepest minimum with respect to the mean time
+    ecl_par: numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    const: numpy.ndarray[float]
+        The y-intercepts of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slopes of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    t_zero_err: float
+        Uncertainty in the time of the deepest minimum
+    ecl_par_err: numpy.ndarray[float]
+        Uncertainty in the initial eclipse parameters to start the fit, consisting of:
+        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err
+    c_err: numpy.ndarray[float]
+        Uncertainty in the y-intercepts of a number of sine waves
+    sl_err: numpy.ndarray[float]
+        Uncertainty in the slopes of a number of sine waves
+    f_n_err: numpy.ndarray[float]
+        Uncertainty in the frequencies of a number of sine waves
+    a_n_err: numpy.ndarray[float]
+        Uncertainty in the amplitudes of a number of sine waves
+    ph_n_err: numpy.ndarray[float]
+        Uncertainty in the phases of a number of sine waves
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: list[int], numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    inf_data: object
+    par_means: list[float]
+    par_hdis: list[float]
+    """
     # unpack parameters
-    e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, phi_0 = ecl_par
+    e, w, i, r_sum, r_rat, sb_rat = ecl_par
+    ecosw, esinw = e * np.cos(w), e * np.sin(w)
+    phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err = ecl_par_err
     # setup
     mean_t = tt.mean(times)

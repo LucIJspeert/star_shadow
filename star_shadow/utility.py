@@ -1244,13 +1244,12 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
         These are computed from the intervals.
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio,
-        sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w), phi_0
     bounds: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     formal_errors: tuple[float]
         Formal (symmetric) errors in the parameters:
-        e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
+        e, w, phi_0, r_sum_sma, ecosw, esinw
     dists_in: tuple[numpy.ndarray[float]]
         Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
@@ -1265,23 +1264,20 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
     -------
     None
     """
-    e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
-    e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
+    e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, phi_0_err = errors
+    e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, phi_0_bds = bounds
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
     # multi interval
     w_bds, w_bds_2 = bounds_multiplicity_check(w_bds, w)
     w_inter = intervals[1]
     w_inter, w_inter_2 = bounds_multiplicity_check(w_inter, w)
-    var_names = ['e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio',
-                 'e_upper', 'e_lower', 'w_upper', 'w_lower', 'i_upper', 'i_lower',
-                 'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower', 'sb_ratio_upper',
-                 'sb_ratio_lower', 'ecosw_upper', 'ecosw_lower', 'esinw_upper', 'esinw_lower',
-                 'f_c_upper', 'f_c_lower', 'f_s_upper', 'f_s_lower',
-                 'e_ubnd', 'e_lbnd', 'w_ubnd', 'w_lbnd', 'i_ubnd', 'i_lbnd', 'r_sum_sma_ubnd', 'r_sum_sma_lbnd',
-                 'r_ratio_ubnd', 'r_ratio_lbnd', 'sb_ratio_ubnd', 'sb_ratio_lbnd', 'ecosw_ubnd', 'ecosw_lbnd',
-                 'esinw_ubnd', 'esinw_lbnd', 'f_c_ubnd', 'f_c_lbnd', 'f_s_ubnd', 'f_s_lbnd',
-                 'sigma_e', 'sigma_w', 'sigma_phi_0', 'sigma_r_sum_sma', 'sigma_ecosw', 'sigma_esinw',
-                 'sigma_f_c', 'sigma_f_s']
+    var_names = ['e', 'w', 'i', 'r_sum_sma', 'r_ratio', 'sb_ratio', 'e_upper', 'e_lower', 'w_upper', 'w_lower',
+                 'i_upper', 'i_lower', 'r_sum_sma_upper', 'r_sum_sma_lower', 'r_ratio_upper', 'r_ratio_lower',
+                 'sb_ratio_upper', 'sb_ratio_lower', 'ecosw_upper', 'ecosw_lower', 'esinw_upper', 'esinw_lower',
+                 'phi_0_upper', 'phi_0_lower', 'e_ubnd', 'e_lbnd', 'w_ubnd', 'w_lbnd', 'i_ubnd', 'i_lbnd',
+                 'r_sum_sma_ubnd', 'r_sum_sma_lbnd', 'r_ratio_ubnd', 'r_ratio_lbnd', 'sb_ratio_ubnd', 'sb_ratio_lbnd',
+                 'ecosw_ubnd', 'ecosw_lbnd', 'esinw_ubnd', 'esinw_lbnd', 'phi_0_ubnd', 'phi_0_lbnd',
+                 'sigma_e', 'sigma_w', 'sigma_phi_0', 'sigma_r_sum_sma', 'sigma_ecosw', 'sigma_esinw']
     var_desc = ['eccentricity', 'argument of periastron (radians)', 'inclination (radians)',
                 'sum of radii divided by the semi-major axis of the relative orbit',
                 'radius ratio r2/r1', 'surface brightness ratio sb2/sb1',
@@ -1293,8 +1289,7 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
                 'upper error estimate in sb_ratio', 'lower error estimate in sb_ratio',
                 'upper error estimate in ecos(w)', 'lower error estimate in ecos(w)',
                 'upper error estimate in esin(w)', 'lower error estimate in esin(w)',
-                'upper error estimate in f_c', 'lower error estimate in f_c',
-                'upper error estimate in f_s', 'lower error estimate in f_s',
+                'upper error estimate in phi_0', 'lower error estimate in phi_0',
                 'upper bound in e (hdi_prob=.997)', 'lower bound in e (hdi_prob=.997)',
                 'upper bound in w (hdi_prob=.997)', 'lower bound in w (hdi_prob=.997)',
                 'upper bound in i (hdi_prob=.997)', 'lower bound in i (hdi_prob=.997)',
@@ -1303,23 +1298,20 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
                 'upper bound in sb_ratio (hdi_prob=.997)', 'lower bound in sb_ratio (hdi_prob=.997)',
                 'upper bound in ecos(w) (hdi_prob=.997)', 'lower bound in ecos(w) (hdi_prob=.997)',
                 'upper bound in esin(w) (hdi_prob=.997)', 'lower bound in esin(w) (hdi_prob=.997)',
-                'upper bound in f_c (hdi_prob=.997)', 'lower bound in f_c (hdi_prob=.997)',
-                'upper bound in f_s (hdi_prob=.997)', 'lower bound in f_s (hdi_prob=.997)',
+                'upper bound in phi_0 (hdi_prob=.997)', 'lower bound in phi_0 (hdi_prob=.997)',
                 'formal uncorrelated error in e', 'formal uncorrelated error in w',
                 'formal uncorrelated error in phi_0', 'formal uncorrelated error in r_sum_sma',
-                'formal uncorrelated error in ecos(w)', 'formal uncorrelated error in esin(w)',
-                'formal uncorrelated error in f_c', 'formal uncorrelated error in f_s']
+                'formal uncorrelated error in ecos(w)', 'formal uncorrelated error in esin(w)']
     values = [str(e), str(w), str(i), str(r_sum_sma), str(r_ratio), str(sb_ratio),
               str(e_err[1]), str(e_err[0]), str(w_err[1]), str(w_err[0]), str(i_err[1]), str(i_err[0]),
               str(r_sum_sma_err[1]), str(r_sum_sma_err[0]), str(r_ratio_err[1]), str(r_ratio_err[0]),
               str(sb_ratio_err[1]), str(sb_ratio_err[0]), str(ecosw_err[1]), str(ecosw_err[0]),
-              str(esinw_err[1]), str(esinw_err[0]), str(f_c_err[1]), str(f_c_err[0]), str(f_s_err[1]), str(f_s_err[0]),
+              str(esinw_err[1]), str(esinw_err[0]), str(phi_0_err[1]), str(phi_0_err[0]),
               str(e_bds[1]), str(e_bds[0]), str(w_bds[1]), str(w_bds[0]), str(i_bds[1]), str(i_bds[0]),
               str(r_sum_sma_bds[1]), str(r_sum_sma_bds[0]), str(r_ratio_bds[1]), str(r_ratio_bds[0]),
               str(sb_ratio_bds[1]), str(sb_ratio_bds[0]), str(ecosw_bds[1]), str(ecosw_bds[0]),
-              str(esinw_bds[1]), str(esinw_bds[0]), str(f_c_bds[1]), str(f_c_bds[0]), str(f_s_bds[1]), str(f_s_bds[0]),
-              str(sigma_e), str(sigma_w), str(sigma_phi_0), str(sigma_r_sum_sma), str(sigma_ecosw), str(sigma_esinw),
-              str(sigma_f_c), str(sigma_f_s)]
+              str(esinw_bds[1]), str(esinw_bds[0]), str(phi_0_bds[1]), str(phi_0_bds[0]),
+              str(sigma_e), str(sigma_w), str(sigma_phi_0), str(sigma_r_sum_sma), str(sigma_ecosw), str(sigma_esinw)]
     table = np.column_stack((var_names, values, var_desc))
     if w_inter_2 is not None:
         # omega is somewhere around 90 or 270 deg, giving rise to a disjunct confidence interval
@@ -1369,14 +1361,8 @@ def read_results_elements(file_name):
         Argument of periastron
     i: float
         Inclination of the orbit
-    phi_0: float
-        Auxilary angle (see Kopal 1959)
-    psi_0: float
-        Auxilary angle like phi_0 but for the eclipse bottoms
     r_sum_sma: float
         Sum of radii in units of the semi-major axis
-    r_dif_sma: float
-        Absolute difference of radii in units of the semi-major axis
     r_ratio: float
         Radius ratio r_2/r_1
     sb_ratio: float
@@ -1386,13 +1372,12 @@ def read_results_elements(file_name):
         These are computed from the intervals.
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, phi_0, psi_0, r_sum_sma, r_dif_sma, r_ratio,
-        sb_ratio, e*cos(w), e*sin(w), f_c, f_s
+        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w), phi_0
     bounds: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     formal_errors: tuple[float]
         Formal (symmetric) errors in the parameters:
-        e, w, phi_0, r_sum_sma, ecosw, esinw, f_c, f_s
+        e, w, phi_0, r_sum_sma, ecosw, esinw
     dists_in: tuple[numpy.ndarray[float]]
         Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
@@ -1401,9 +1386,9 @@ def read_results_elements(file_name):
     """
     results = np.loadtxt(file_name, usecols=(1,), delimiter=',', unpack=True)
     e, w, i, r_sum_sma, r_ratio, sb_ratio = results[:6]
-    errors = results[6:26].reshape((10, 2))
-    bounds = results[26:46].reshape((10, 2))
-    formal_errors = results[46:54]
+    errors = results[6:24].reshape((9, 2))
+    bounds = results[24:42].reshape((9, 2))
+    formal_errors = results[42:48]
     # intervals_w  # ? for when the interval is disjoint
     # distributions
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
@@ -1855,9 +1840,9 @@ def save_summary(t_tot, mean_t, target_id, save_dir, data_id='none'):
     if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_14.csv')):
         results_14 = read_results_elements(os.path.join(data_dir, f'{target_id}_analysis_14.csv'))
         e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out = results_14
-        e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, f_c_err, f_s_err = errors
-        e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, f_c_bds, f_s_bds = bounds
-        sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw, sigma_f_c, sigma_f_s = formal_errors
+        e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, phi_0_err = errors
+        e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, phi_0_bds = bounds
+        sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
         elem = [e, e_err[1], e_err[0], sigma_e, w, w_err[1], w_err[0], sigma_w, i, i_err[1], i_err[0],
                 r_sum_sma, r_sum_sma_err[1], r_sum_sma_err[0], sigma_r_sum_sma, r_ratio, r_ratio_err[1],
                 r_ratio_err[0],

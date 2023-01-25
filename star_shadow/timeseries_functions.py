@@ -892,9 +892,9 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
     times: numpy.ndarray[float]
         Timestamps of the time series
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     i_sectors: list[int], numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -925,7 +925,7 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
 
 @nb.njit(cache=True)
 def linear_pars(times, signal, i_sectors):
-    """Calculate the slope(s) and y-intercept(s) of a linear trend with the MLE.
+    """Calculate the slopes and y-intercepts of a linear trend with the MLE.
     
     Parameters
     ----------
@@ -941,9 +941,9 @@ def linear_pars(times, signal, i_sectors):
     Returns
     -------
     y_inter: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     
     Notes
     -----
@@ -1430,9 +1430,9 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     t_zero: float
         Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1522,9 +1522,9 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     t_zero: float
         Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1614,9 +1614,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1631,9 +1631,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     Returns
     -------
     const: numpy.ndarray[float]
-        (Updated) y-intercept(s) of a piece-wise linear curve
+        (Updated) y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        (Updated) slope(s) of a piece-wise linear curve
+        (Updated) slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         (Updated) frequencies of the same number of sine waves
     a_n: numpy.ndarray[float]
@@ -1843,9 +1843,9 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1862,9 +1862,9 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
     Returns
     -------
     const: numpy.ndarray[float]
-        Updated y-intercept(s) of a piece-wise linear curve
+        Updated y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        Updated slope(s) of a piece-wise linear curve
+        Updated slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         Updated frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1942,9 +1942,9 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -1961,9 +1961,9 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     Returns
     -------
     const: numpy.ndarray[float]
-        Updated y-intercept(s) of a piece-wise linear curve
+        Updated y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        Updated slope(s) of a piece-wise linear curve
+        Updated slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         Updated frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2052,9 +2052,9 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     Returns
     -------
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2145,9 +2145,9 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2164,9 +2164,9 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     Returns
     -------
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2255,9 +2255,9 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2274,9 +2274,9 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     Returns
     -------
     const: numpy.ndarray[float]
-        (Updated) y-intercept(s) of a piece-wise linear curve
+        (Updated) y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        (Updated) slope(s) of a piece-wise linear curve
+        (Updated) slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         (Updated) frequencies of a (higher) number of sine waves
     a_n: numpy.ndarray[float]
@@ -2357,9 +2357,9 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2376,9 +2376,9 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     Returns
     -------
     const: numpy.ndarray[float]
-        (Updated) y-intercept(s) of a piece-wise linear curve
+        (Updated) y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        (Updated) slope(s) of a piece-wise linear curve
+        (Updated) slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         (Updated) frequencies of a (lower) number of sine waves
     a_n: numpy.ndarray[float]
@@ -2505,9 +2505,9 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
-        The y-intercept(s) of a piece-wise linear curve
+        The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        The slope(s) of a piece-wise linear curve
+        The slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
     a_n: numpy.ndarray[float]
@@ -2524,9 +2524,9 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     Returns
     -------
     const: numpy.ndarray[float]
-        (Updated) y-intercept(s) of a piece-wise linear curve
+        (Updated) y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
-        (Updated) slope(s) of a piece-wise linear curve
+        (Updated) slopes of a piece-wise linear curve
     f_n: numpy.ndarray[float]
         (Updated) frequencies of a (lower) number of sine waves
     a_n: numpy.ndarray[float]
