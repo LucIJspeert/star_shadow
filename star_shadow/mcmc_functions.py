@@ -758,7 +758,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         Uncertainty in the phases of a number of sine waves
     noise_level: float
         The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -774,8 +774,10 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     # unpack parameters
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
+    cosi = np.cos(i)
     phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err = ecl_par_err
+    cosi_err = i_err  # todo: input cosi_err
     # setup
     mean_t = tt.mean(times)
     mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
@@ -785,10 +787,10 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     lin_shape = (n_sectors,)
     sin_shape = (n_sinusoids, 1)
     # progress bar
-    # if verbose:
-    #     fastprogress.printing = lambda: True
-    # else:
-    #     fastprogress.printing = lambda: False
+    if verbose:
+        fastprogress.printing = lambda: True
+    else:
+        fastprogress.printing = lambda: False
     # make pymc3 model
     with pm.Model() as lc_model:
         # piece-wise linear curve parameter models
@@ -809,13 +811,15 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         t_zero_pm = pm.Normal('t_zero', mu=t_zero, sigma=t_zero_err, testval=t_zero)
         ecosw_pm = pm.TruncatedNormal('ecosw', mu=ecosw, sigma=ecosw_err, lower=-1, upper=1, testval=ecosw)
         esinw_pm = pm.TruncatedNormal('esinw', mu=esinw, sigma=esinw_err, lower=-1, upper=1, testval=esinw)
-        incl_pm = pm.TruncatedNormal('incl', mu=i, sigma=i_err, lower=0, upper=np.pi / 2, testval=i)
+        # incl_pm = pm.TruncatedNormal('incl', mu=i, sigma=i_err, lower=0, upper=np.pi / 2, testval=i)
+        cosi_pm = pm.TruncatedNormal('cosi', mu=cosi, sigma=cosi_err, lower=0, upper=1, testval=cosi)
         phi_0_pm = pm.TruncatedNormal('phi_0', mu=phi_0, sigma=phi_0_err, lower=0, testval=phi_0)
         r_rat_pm = pm.TruncatedNormal('r_rat', mu=r_rat, sigma=r_rat_err, lower=0, testval=r_rat)
         sb_rat_pm = pm.TruncatedNormal('sb_rat', mu=sb_rat, sigma=sb_rat_err, lower=0, testval=sb_rat)
         # some transformations (done to sample a less correlated parameter space)
         e_pm = pm.math.sqrt(ecosw_pm**2 + esinw_pm**2)
         w_pm = tt.arctan2(esinw_pm, ecosw_pm) % (2 * np.pi)
+        incl_pm = tt.arccos(cosi_pm)
         r_sum_pm = pm.math.sqrt((1 - pm.math.sin(incl_pm)**2 * pm.math.cos(phi_0_pm)**2) * (1 - e_pm**2))
         # physical eclipse model
         model_eclipse = simple_eclipse_lc(times, p_orb, t_zero_pm, e_pm, w_pm, incl_pm, r_sum_pm, r_rat_pm, sb_rat_pm)
@@ -840,13 +844,15 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
     ecosw_ch = inf_data.posterior.ecosw.stack(dim=['chain', 'draw']).to_numpy()
     esinw_ch = inf_data.posterior.esinw.stack(dim=['chain', 'draw']).to_numpy()
-    i_ch = inf_data.posterior.incl.stack(dim=['chain', 'draw']).to_numpy()
+    # i_ch = inf_data.posterior.incl.stack(dim=['chain', 'draw']).to_numpy()
+    cosi_ch = inf_data.posterior.cosi.stack(dim=['chain', 'draw']).to_numpy()
     phi_0_ch = inf_data.posterior.phi_0.stack(dim=['chain', 'draw']).to_numpy()
     r_rat_ch = inf_data.posterior.r_rat.stack(dim=['chain', 'draw']).to_numpy()
     sb_rat_ch = inf_data.posterior.sb_rat.stack(dim=['chain', 'draw']).to_numpy()
     # parameter transforms
     e_ch = np.sqrt(ecosw_ch**2 + esinw_ch**2)
     w_ch = np.arctan2(esinw_ch, ecosw_ch) % (2 * np.pi)
+    i_ch = np.arccos(cosi_ch)
     r_sum_ch = np.sqrt((1 - np.sin(i_ch)**2 * np.cos(phi_0_ch)**2) * (1 - e_ch**2))
     # parameter means
     t_zero_m = np.mean(t_zero_ch)

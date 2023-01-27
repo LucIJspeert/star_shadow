@@ -40,7 +40,7 @@ def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=Fa
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -97,7 +97,7 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -129,10 +129,14 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     res_phases = np.copy(ph_n)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = len(f_n)  # each sine has freq, ampl and phase
+    # we don't want the frequencies to go lower than about 1/T/100
+    t_tot = np.ptp(times)
+    f_low = 0.01 / t_tot
     # do the fit
     par_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
     par_bounds = [(None, None) for _ in range(2 * n_sect)]
-    par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     arguments = (times, signal, signal_err, i_sectors, verbose)
     result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
@@ -173,7 +177,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -256,7 +260,7 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
     harmonic_n: numpy.ndarray[int]
         Integer indicating which harmonic each index in 'harmonics'
         points to. n=1 for the base frequency (=orbital frequency)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -325,7 +329,7 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -358,11 +362,15 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     n_harm = len(harmonics)
     n_sin = n_f_tot - n_harm  # each independent sine has freq, ampl and phase
     non_harm = np.delete(np.arange(n_f_tot), harmonics)
+    # we don't want the frequencies to go lower than about 1/T/100
+    t_tot = np.ptp(times)
+    f_low = 0.01 / t_tot
     # do the fit
     par_init = np.concatenate(([p_orb], np.atleast_1d(const), np.atleast_1d(slope), np.delete(f_n, harmonics),
                                np.delete(a_n, harmonics), np.delete(ph_n, harmonics), a_n[harmonics], ph_n[harmonics]))
     par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
-    par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin)] + [(None, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, signal, signal_err, harmonic_n, i_sectors, verbose)
     result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments, method='Nelder-Mead',
@@ -414,7 +422,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -455,6 +463,9 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_harm = len(harmonics)
     n_sin = len(f_n) - n_harm
+    # we don't want the frequencies to go lower than about 1/T/100
+    t_tot = np.ptp(times)
+    f_low = 0.01 / t_tot
     # make a copy of the initial parameters
     res_const = np.copy(np.atleast_1d(const))
     res_slope = np.copy(np.atleast_1d(slope))
@@ -533,7 +544,7 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
     harmonic_n: numpy.ndarray[int]
         Integer indicating which harmonic each index in 'harmonics'
         points to. n=1 for the base frequency (=orbital frequency)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -600,7 +611,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -847,7 +858,7 @@ def fit_eclipse_cubics(times, signal, signal_err, p_orb, t_zero, timings, depths
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -926,7 +937,7 @@ def objective_cubics_sinusoids_lc(params, times, signal, signal_err, p_orb, t_ze
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of the deepest minimum with respect to the mean time
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1004,7 +1015,7 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1054,6 +1065,9 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
     res_freqs = np.copy(f_n)
     res_ampls = np.copy(a_n)
     res_phases = np.copy(ph_n)
+    # we don't want the frequencies to go lower than about 1/T/100
+    t_tot = np.ptp(times)
+    f_low = 0.01 / t_tot
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
@@ -1068,6 +1082,10 @@ def fit_eclipse_cubics_sinusoids(times, signal, signal_err, p_orb, t_zero, timin
         dur_2 = t_c4_1 - t_c3_1
         par_bounds = [(t_c1_1, t_c2_1), (t_c3_1, t_c4_1), (t_c1_1 - dur_1, t_c2_1), (t_c3_1 - dur_2, t_c4_1),
                       (t_c1_2 - dur_1, t_c2_1), (t_c3_2 - dur_2, t_c4_1), (0, None), (0, None)]
+        n_gr = len(res_freqs[group])
+        par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
+        par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
+        par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
         par_bounds.extend([(None, None) for _ in range(2 * n_sect + 3 * len(res_freqs[group]))])
         arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors, verbose)
         output = sp.optimize.minimize(objective_cubics_sinusoids_lc, x0=par_init, args=arguments, method='Nelder-Mead',
@@ -1215,7 +1233,7 @@ def fit_simple_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const,
     par_init: tuple[float], list[float], numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1399,7 +1417,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     par_init: tuple[float], list[float], numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1473,7 +1491,7 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
         Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1537,7 +1555,7 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
         Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1610,7 +1628,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1655,6 +1673,9 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     res_freqs = np.copy(f_n)
     res_ampls = np.copy(a_n)
     res_phases = np.copy(ph_n)
+    # we don't want the frequencies to go lower than about 1/T/100
+    t_tot = np.ptp(times)
+    f_low = 0.01 / t_tot
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
@@ -1668,7 +1689,8 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
                                    res_phases[group]))
         par_bounds = [(None, None), (-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000)]
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
-        par_bounds = par_bounds + [(0, None) for _ in range(2 * n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
+        par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin_g)]
+        par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
         arguments = (times, resid, signal_err, p_orb, i_sectors, verbose)
         if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc

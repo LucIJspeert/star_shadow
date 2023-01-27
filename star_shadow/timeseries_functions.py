@@ -895,7 +895,7 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slopes of a piece-wise linear curve
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -933,7 +933,7 @@ def linear_pars(times, signal, i_sectors):
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1347,7 +1347,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
         Residual is signal - model
     a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1448,7 +1448,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
         Primary and secondary eclipse depth
     noise_level: float
         The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1541,7 +1541,7 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     noise_level: float
         The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1623,7 +1623,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1852,7 +1852,7 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -1951,7 +1951,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -2042,7 +2042,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -2154,7 +2154,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -2264,7 +2264,7 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -2366,7 +2366,7 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
@@ -2514,7 +2514,7 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).

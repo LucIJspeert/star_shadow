@@ -182,7 +182,7 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
     ----------
     flux_counts: numpy.ndarray[float]
         Flux measurement values in counts of the time series
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
@@ -228,7 +228,7 @@ def get_tess_sectors(times, bjd_ref=2457000.0):
         
     Returns
     -------
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
     
     Notes
@@ -261,7 +261,7 @@ def convert_tess_t_sectors(times, t_sectors):
     
     Returns
     -------
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended.
@@ -280,7 +280,7 @@ def time_zero_points(times, i_sectors):
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
     
     Returns
@@ -456,7 +456,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
     
     Returns
@@ -548,7 +548,7 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
         Measurement values of the time series
     crowdsap: list[float], numpy.ndarray[float]
         Light contamination parameter (1-third_light) listed per sector
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
@@ -585,7 +585,7 @@ def model_crowdsap(signal, crowdsap, i_sectors):
         Measurement values of the time series
     crowdsap: list[float], numpy.ndarray[float]
         Light contamination parameter (1-third_light) listed per sector
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
@@ -615,7 +615,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     ----------
     min_third_light: numpy.ndarray[float]
         Minimum amount of third light present per sector
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans.
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
@@ -623,7 +623,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     crowdsap: list[float], numpy.ndarray[float]
         Light contamination parameter (1-third_light) listed per sector
     verbose: bool
-        If set to True, this function will print some information
+        If set to True, this function will print some information.
     
     Returns
     -------
@@ -687,6 +687,441 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     return corr, check
 
 
+def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors,
+                         description='none', data_id='none'):
+    """Save the full model parameters of the linear, sinusoid
+    and eclipse models to an hdf5 file.
+
+    Parameters
+    ----------
+    file_name: str
+        File name (including path) for saving the results.
+    par_means: None, list[union(float, numpy.ndarray[float])]
+        Parameter mean values for the full model in the order they appear below.
+        linear (these are arrays): const, slope,
+        sinusoid (these are arrays): f_n, a_n, ph_n,
+        eclipses: p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
+        eclipses (extra parametrisations): e, w, i, r_sum
+    par_err: None, list[numpy.ndarray[float]]
+        Parameter error values for the full model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+        eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
+        eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
+    par_hdis: None, list[numpy.ndarray[float]]
+        Parameter hdi values for the full model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+        eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
+        eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
+    timings: None, numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        eclipse timings of the possible flat bottom (internal tangency),
+        and eclipse depth of the primary and secondary:
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+    timings_err: None, numpy.ndarray[float]
+        Error estimates for the eclipse timings and depths, same format as timings
+    timings_hdi: None, numpy.ndarray[float]
+        Error estimates for the eclipse timings and depths, same format as timings
+    stats: None, tuple[float]
+        Some statistics: t_tot, mean_t, n_param, bic, noise_level
+    i_sectors: None, numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve.
+    description: str
+        Optional description of the saved results
+    data_id: str
+        Optional identifier for the data set used
+    
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    The file contains the data sets (array-like) and attributes
+    to describe the data, in hdf5 format.
+    
+    Any missing data is filled up with -1
+    """
+    if par_means is None:
+        par_means = [-np.ones(1) for _ in range(5)] + [-1 for _ in range(10)]
+    if par_err is None:
+        par_err = [-np.ones(1) for _ in range(5)] + [-1 for _ in range(10)]
+    if par_hdis is None:
+        par_hdis = [-np.ones((1, 2)) for _ in range(5)] + [-1 for _ in range(10)]
+    if timings is None:
+        timings = -np.ones(12)
+    if timings_err is None:
+        timings_err = -np.ones(12)
+    if timings_hdi is None:
+        timings_hdi = -np.ones((12, 2))
+    if stats is None:
+        stats = [-1 for _ in range(5)]
+    if i_sectors is None:
+        i_sectors = -np.ones((1, 2))
+    # unpack all the variables
+    const, slope, f_n, a_n, ph_n, p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_means
+    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi = par_hdis[:9]
+    cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi, e_hdi, w_hdi, i_hdi, r_sum_hdi = par_hdis[9:]
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_err, t_zero_err, ecosw_err, esinw_err = par_err[:9]
+    cosi_err, phi_0_err, r_rat_err, sb_rat_err, e_err, w_err, i_err, r_sum_err = par_err[9:]
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
+    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
+    t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
+    t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi = timings_hdi[6:]
+    t_tot, mean_t, n_param, bic, noise_level = stats
+    # check some input
+    ext = os.path.splitext(os.path.basename(file_name))[1]
+    if (ext != '.hdf5'):
+        file_name = file_name.replace(ext, '.hdf5')
+    # create the file
+    with h5py.File(file_name, 'w') as file:
+        file.attrs['identifier'] = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
+        file.attrs['description'] = description
+        file.attrs['data_id'] = data_id
+        file.attrs['date_time'] = str(datetime.datetime.now())
+        file.attrs['t_tot'] = t_tot  # total time base of observations
+        file.attrs['mean_t'] = mean_t  # time reference (zero) point
+        file.attrs['n_param'] = n_param  # number of free parameters
+        file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals
+        file.attrs['noise_level'] = noise_level  # standard deviation of the residuals
+        # orbital period and time of deepest eclipse
+        file.create_dataset('p_orb', data=np.array([p_orb, p_err, p_hdi[0], p_hdi[1]]))
+        file['p_orb'].attrs['unit'] = 'd'
+        file['p_orb'].attrs['description'] = 'Orbital period and error estimates.'
+        file.create_dataset('t_zero', data=np.array([t_zero, t_zero_err, t_zero_hdi[0], t_zero_hdi[1]]))
+        file['t_zero'].attrs['unit'] = 'd'
+        file['t_zero'].attrs['description'] = 'time of deepest eclipse with reference point mean_t and error estimates.'
+        # the linear model
+        # y-intercepts
+        file.create_dataset('const', data=const)
+        file['const'].attrs['unit'] = 'median normalised flux'
+        file['const'].attrs['description'] = 'y-intercept per analysed sector'
+        file.create_dataset('c_err', data=c_err)
+        file['c_err'].attrs['unit'] = 'median normalised flux'
+        file['c_err'].attrs['description'] = 'errors in the y-intercept per analysed sector'
+        file.create_dataset('c_hdi', data=c_hdi)
+        file['c_hdi'].attrs['unit'] = 'median normalised flux'
+        file['c_hdi'].attrs['description'] = 'HDI for the y-intercept per analysed sector'
+        # slopes
+        file.create_dataset('slope', data=slope)
+        file['slope'].attrs['unit'] = 'median normalised flux / d'
+        file['slope'].attrs['description'] = 'slope per analysed sector'
+        file.create_dataset('sl_err', data=sl_err)
+        file['sl_err'].attrs['unit'] = 'median normalised flux / d'
+        file['sl_err'].attrs['description'] = 'error in the slope per analysed sector'
+        file.create_dataset('sl_hdi', data=sl_hdi)
+        file['sl_hdi'].attrs['unit'] = 'median normalised flux / d'
+        file['sl_hdi'].attrs['description'] = 'HDI for the slope per analysed sector'
+        # sector indices
+        file.create_dataset('i_sectors', data=i_sectors)
+        file['i_sectors'].attrs['description'] = ('pairs of indices indicating chunks in time defining '
+                                                  'the pieces of the piece-wise linear curve')
+        # the sinusoid model
+        # frequencies
+        file.create_dataset('f_n', data=f_n)
+        file['f_n'].attrs['unit'] = '1 / d'
+        file['f_n'].attrs['description'] = 'frequencies of a number of sine waves'
+        file.create_dataset('f_n_err', data=f_n_err)
+        file['f_n_err'].attrs['unit'] = '1 / d'
+        file['f_n_err'].attrs['description'] = 'errors in the frequencies of a number of sine waves'
+        file.create_dataset('f_n_hdi', data=f_n_hdi)
+        file['f_n_hdi'].attrs['unit'] = '1 / d'
+        file['f_n_hdi'].attrs['description'] = 'HDI for the frequencies of a number of sine waves'
+        # amplitudes
+        file.create_dataset('a_n', data=a_n)
+        file['a_n'].attrs['unit'] = 'median normalised flux'
+        file['a_n'].attrs['description'] = 'amplitudes of a number of sine waves'
+        file.create_dataset('a_n_err', data=a_n_err)
+        file['a_n_err'].attrs['unit'] = 'median normalised flux'
+        file['a_n_err'].attrs['description'] = 'errors in the amplitudes of a number of sine waves'
+        file.create_dataset('a_n_hdi', data=a_n_hdi)
+        file['a_n_hdi'].attrs['unit'] = 'median normalised flux'
+        file['a_n_hdi'].attrs['description'] = 'HDI for the amplitudes of a number of sine waves'
+        # phases
+        file.create_dataset('ph_n', data=ph_n)
+        file['ph_n'].attrs['unit'] = 'radians'
+        file['ph_n'].attrs['description'] = 'phases of a number of sine waves, with reference point mean_t'
+        file.create_dataset('ph_n_err', data=ph_n_err)
+        file['ph_n_err'].attrs['unit'] = 'radians'
+        file['ph_n_err'].attrs['description'] = 'errors in the phases of a number of sine waves'
+        file.create_dataset('ph_n_hdi', data=ph_n_hdi)
+        file['ph_n_hdi'].attrs['unit'] = 'radians'
+        file['ph_n_hdi'].attrs['description'] = 'HDI for the phases of a number of sine waves'
+        # eclipse timings for the empirical eclipse model
+        file.create_dataset('t_1', data=np.array([t_1, t_1_err, t_1_hdi[:, 0], t_1_hdi[:, 1]]))
+        file['t_1'].attrs['description'] = 'time of primary minimum with respect to t_zero'
+        file.create_dataset('t_2', data=np.array([t_2, t_2_err, t_2_hdi[:, 0], t_2_hdi[:, 1]]))
+        file['t_2'].attrs['description'] = 'time of secondary minimum with respect to t_zero'
+        file.create_dataset('t_1_1', data=np.array([t_1_1, t_1_1_err, t_1_1_hdi[:, 0], t_1_1_hdi[:, 1]]))
+        file['t_1_1'].attrs['description'] = 'time of primary first contact with respect to t_zero'
+        file.create_dataset('t_1_2', data=np.array([t_1_2, t_1_2_err, t_1_2_hdi[:, 0], t_1_2_hdi[:, 1]]))
+        file['t_1_2'].attrs['description'] = 'time of primary last contact with respect to t_zero'
+        file.create_dataset('t_2_1', data=np.array([t_2_1, t_2_1_err, t_2_1_hdi[:, 0], t_2_1_hdi[:, 1]]))
+        file['t_2_1'].attrs['description'] = 'time of secondary first contact with respect to t_zero'
+        file.create_dataset('t_2_2', data=np.array([t_2_2, t_2_2_err, t_2_2_hdi[:, 0], t_2_2_hdi[:, 1]]))
+        file['t_2_2'].attrs['description'] = 'time of secondary last contact with respect to t_zero'
+        file.create_dataset('t_b_1_1', data=np.array([t_b_1_1, t_b_1_1_err, t_b_1_1_hdi[:, 0], t_b_1_1_hdi[:, 1]]))
+        file['t_b_1_1'].attrs['description'] = 'time of primary first internal tangency with respect to t_zero'
+        file.create_dataset('t_b_1_2', data=np.array([t_b_1_2, t_b_1_2_err, t_b_1_2_hdi[:, 0], t_b_1_2_hdi[:, 1]]))
+        file['t_b_1_2'].attrs['description'] = 'time of primary last internal tangency with respect to t_zero'
+        file.create_dataset('t_b_2_1', data=np.array([t_b_2_1, t_b_2_1_err, t_b_2_1_hdi[:, 0], t_b_2_1_hdi[:, 1]]))
+        file['t_b_2_1'].attrs['description'] = 'time of secondary first internal tangency with respect to t_zero'
+        file.create_dataset('t_b_2_2', data=np.array([t_b_2_2, t_b_2_2_err, t_b_2_2_hdi[:, 0], t_b_2_2_hdi[:, 1]]))
+        file['t_b_2_2'].attrs['description'] = 'time of secondary last internal tangency with respect to t_zero'
+        file.create_dataset('depth_1', data=np.array([depth_1, depth_1_err, depth_1_hdi[:, 0], depth_1_hdi[:, 1]]))
+        file['depth_1'].attrs['description'] = 'depth of primary minimum (median normalised flux)'
+        file.create_dataset('depth_2', data=np.array([depth_2, depth_2_err, depth_2_hdi[:, 0], depth_2_hdi[:, 1]]))
+        file['depth_2'].attrs['description'] = 'depth of secondary minimum (median normalised flux)'
+        # the physical eclipse model parameters
+        file.create_dataset('ecosw', data=np.array([ecosw, ecosw_err, ecosw_hdi[0], ecosw_hdi[1]]))
+        file['ecosw'].attrs['description'] = 'tangential part of the eccentricity'
+        file.create_dataset('esinw', data=np.array([esinw, esinw_err, esinw_hdi[0], esinw_hdi[1]]))
+        file['esinw'].attrs['description'] = 'radial part of the eccentricity'
+        file.create_dataset('cosi', data=np.array([cosi, cosi_err, cosi_hdi[0], cosi_hdi[1]]))
+        file['cosi'].attrs['description'] = 'cosine of the inclination'
+        file.create_dataset('phi_0', data=np.array([phi_0, phi_0_err, phi_0_hdi[0], phi_0_hdi[:, 1]]))
+        file['phi_0'].attrs['description'] = 'auxilary angle of Kopal 1959, measures the sum of eclipse durations'
+        file.create_dataset('r_rat', data=np.array([r_rat, r_rat_err, r_rat_hdi[0], r_rat_hdi[1]]))
+        file['r_rat'].attrs['description'] = 'ratio of radii r_2 / r_1'
+        file.create_dataset('sb_rat', data=np.array([sb_rat, sb_rat_err, sb_rat_hdi[0], sb_rat_hdi[1]]))
+        file['sb_rat'].attrs['description'] = 'ratio of surface brightnesses sb_2 / sb_1'
+        # some alternate parameterisations
+        file.create_dataset('e', data=np.array([e, e_err, e_hdi[0], e_hdi[1]]))
+        file['e'].attrs['description'] = 'orbital eccentricity'
+        file.create_dataset('w', data=np.array([w, w_err, w_hdi[0], w_hdi[1]]))
+        file['w'].attrs['description'] = 'argument of periastron'
+        file.create_dataset('i', data=np.array([i, i_err, i_hdi[0], i_hdi[1]]))
+        file['i'].attrs['description'] = 'orbital inclination'
+        file.create_dataset('r_sum', data=np.array([r_sum, r_sum_err, r_sum_hdi[0], r_sum_hdi[1]]))
+        file['r_sum'].attrs['description'] = 'sum of radii scaled to the semi-major axis'
+    return None
+
+
+def read_parameters_hdf5(file_name, verbose=False):
+    """Read the full model parameters of the linear, sinusoid
+    and eclipse models to an hdf5 file.
+
+    Parameters
+    ----------
+    file_name: str
+        File name (including path) for loading the results.
+    verbose: bool
+        If set to True, this function will print some information.
+
+    Returns
+    -------
+    par_means: list[union(float, numpy.ndarray[float])]
+        Parameter mean values for the full model in the order they appear below.
+        linear (these are arrays): const, slope,
+        sinusoid (these are arrays): f_n, a_n, ph_n,
+        eclipses: p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
+        eclipses (extra parametrisations): e, w, i, r_sum
+    par_err: list[numpy.ndarray[float]]
+        Parameter error values for the full model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+        eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
+        eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
+    par_hdis: list[numpy.ndarray[float]]
+        Parameter hdi values for the full model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+        eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
+        eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
+    timings: numpy.ndarray[float]
+        Eclipse timings of minima and first and last contact points,
+        eclipse timings of the possible flat bottom (internal tangency),
+        and eclipse depth of the primary and secondary:
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings and depths:
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+        depth_1_err, depth_2_err
+    timings_hdi: numpy.ndarray[float]
+        Error estimates for the eclipse timings and depths:
+        t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi,
+        t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi
+    stats: tuple[float]
+        Some statistics: t_tot, mean_t, n_param, bic, noise_level
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve.
+    """
+    # check some input
+    ext = os.path.splitext(os.path.basename(file_name))[1]
+    if (ext != '.hdf5'):
+        file_name = file_name.replace(ext, '.hdf5')
+    # create the file
+    with h5py.File(file_name, 'r') as file:
+        identifier = file.attrs['identifier']
+        description = file.attrs['description']
+        data_id = file.attrs['data_id']
+        date_time = file.attrs['date_time']
+        t_tot = file.attrs['t_tot']
+        mean_t = file.attrs['mean_t']
+        n_param = file.attrs['n_param']
+        bic = file.attrs['bic']
+        noise_level = file.attrs['noise_level']
+        # orbital period and time of deepest eclipse
+        p_orb = np.copy(file['p_orb'])
+        t_zero = np.copy(file['t_zero'])
+        # the linear model
+        # y-intercepts
+        const = np.copy(file['const'])
+        c_err = np.copy(file['c_err'])
+        c_hdi = np.copy(file['c_hdi'])
+        # slopes
+        slope = np.copy(file['slope'])
+        sl_err = np.copy(file['sl_err'])
+        sl_hdi = np.copy(file['sl_hdi'])
+        # sector indices
+        i_sectors = np.copy(file['i_sectors'])
+        # the sinusoid model
+        # frequencies
+        f_n = np.copy(file['f_n'])
+        f_n_err = np.copy(file['f_n_err'])
+        f_n_hdi = np.copy(file['f_n_hdi'])
+        # amplitudes
+        a_n = np.copy(file['a_n'])
+        a_n_err = np.copy(file['a_n_err'])
+        a_n_hdi = np.copy(file['a_n_hdi'])
+        # phases
+        ph_n = np.copy(file['ph_n'])
+        ph_n_err = np.copy(file['ph_n_err'])
+        ph_n_hdi = np.copy(file['ph_n_hdi'])
+        # eclipse timings for the empirical eclipse model
+        t_1 = np.copy(file['t_1'])
+        t_2 = np.copy(file['t_2'])
+        t_1_1 = np.copy(file['t_1_1'])
+        t_1_2 = np.copy(file['t_1_2'])
+        t_2_1 = np.copy(file['t_2_1'])
+        t_2_2 = np.copy(file['t_2_2'])
+        t_b_1_1 = np.copy(file['t_b_1_1'])
+        t_b_1_2 = np.copy(file['t_b_1_2'])
+        t_b_2_1 = np.copy(file['t_b_2_1'])
+        t_b_2_2 = np.copy(file['t_b_2_2'])
+        depth_1 = np.copy(file['depth_1'])
+        depth_2 = np.copy(file['depth_2'])
+        # the physical eclipse model parameters
+        ecosw = np.copy(file['ecosw'])
+        esinw = np.copy(file['esinw'])
+        cosi = np.copy(file['cosi'])
+        phi_0 = np.copy(file['phi_0'])
+        r_rat = np.copy(file['r_rat'])
+        sb_rat = np.copy(file['sb_rat'])
+        # some alternate parameterisations
+        e = np.copy(file['e'])
+        w = np.copy(file['w'])
+        i = np.copy(file['i'])
+        r_sum = np.copy(file['r_sum'])
+    
+    par_means = np.array([const, slope, f_n, a_n, ph_n, p_orb[0], t_zero[0],
+                          ecosw[0], esinw[0], cosi[0], phi_0[0], r_rat[0], sb_rat[0], e[0], w[0], i[0], r_sum[0]])
+    par_err = np.array([c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_orb[1], t_zero[1],
+                        ecosw[1], esinw[1], cosi[1], phi_0[1], r_rat[1], sb_rat[1],
+                        e[1], w[1], i[1], r_sum[1]])
+    par_hdis = np.array([c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_orb[2:4], t_zero[2:4],
+                         ecosw[2:4], esinw[2:4], cosi[2:4], phi_0[2:4], r_rat[2:4], sb_rat[2:4],
+                         e[2:4], w[2:4], i[2:4], r_sum[2:4]])
+    timings = np.array([t_1[0], t_2[0], t_1_1[0], t_1_2[0], t_2_1[0], t_2_2[0],
+                        t_b_1_1[0], t_b_1_2[0], t_b_2_1[0], t_b_2_2[0], depth_1[0], depth_2[0]])
+    timings_err = np.array([t_1[1], t_2[1], t_1_1[1], t_1_2[1], t_2_1[1], t_2_2[1],
+                            t_b_1_1[1], t_b_1_2[1], t_b_2_1[1], t_b_2_2[1], depth_1[1], depth_2[1]])
+    timings_hdi = np.array([t_1[2:4], t_2[2:4], t_1_1[2:4], t_1_2[2:4], t_2_1[2:4], t_2_2[2:4],
+                            t_b_1_1[2:4], t_b_1_2[2:4], t_b_2_1[2:4], t_b_2_2[2:4], depth_1[2:4], depth_2[2:4]])
+    stats = (t_tot, mean_t, n_param, bic, noise_level)
+    
+    if verbose:
+        print(f'Opened frequency analysis file with identifier: {identifier}, created on {date_time}. \n'
+              f'data_id: {data_id}. Description: {description} \n')
+    return par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors
+
+
+def convert_hdf5_to_ascii(file_name, verbose=False):
+    """Convert a save file in hdf5 format to multiple ascii save files
+    
+    Parameters
+    ----------
+    file_name: str
+        File name (including path) for saving the results.
+    verbose: bool
+        If set to True, this function will print some information.
+    
+    Returns
+    -------
+    None
+    """
+    # check the file name
+    ext = os.path.splitext(os.path.basename(file_name))[1]
+    if (ext != '.hdf5'):
+        file_name = file_name.replace(ext, '.hdf5')
+    data = read_parameters_hdf5(file_name, verbose=False)
+    par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors = data
+    # unpack all parameters
+    const, slope, f_n, a_n, ph_n, p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_means
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_err, t_zero_err, ecosw_err, esinw_err = par_err[:9]
+    cosi_err, phi_0_err, r_rat_err, sb_rat_err, e_err, w_err, i_err, r_sum_err = par_err[9:]
+    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi = par_hdis[:9]
+    cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi, e_hdi, w_hdi, i_hdi, r_sum_hdi = par_hdis[9:]
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
+    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
+    t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
+    t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi = timings_hdi[6:]
+    t_tot, mean_t, n_param, bic, noise_level = stats
+    # check for -1 values and ignore those parameters - errors or hdis are always stored alongside
+    # linear model parameters
+    if (not np.all(const == -1)) & (not np.all(slope == -1)):
+        data = np.column_stack((const, c_err, c_hdi[:, 0], c_hdi[:, 1],
+                                slope, sl_err, sl_hdi[:, 0], sl_hdi[:, 1],
+                                i_sectors[:, 0], i_sectors[:, 1]))
+        hdr = ('const, c_err, c_hdi_l, c_hdi_r, slope, sl_err, sl_hdi_l, sl_hdi_r, sector_start, sector_end')
+        file_name_lin = file_name.replace('.hdf5', '_linear.csv')
+        np.savetxt(file_name_lin, data, delimiter=',', header=hdr)
+    # sinusoid model parameters
+    if (not np.all(f_n == -1)) & (not np.all(a_n == -1)) & (not np.all(ph_n == -1)):
+        data = np.column_stack((f_n, f_n_err, f_n_hdi[:, 0], f_n_hdi[:, 1],
+                                a_n, a_n_err, a_n_hdi[:, 0], a_n_hdi[:, 1],
+                                ph_n, ph_n_err, ph_n_hdi[:, 0], ph_n_hdi[:, 1]))
+        hdr = ('f_n, f_n_err, f_n_hdi_l, f_n_hdi_r, a_n, a_n_err, a_n_hdi_l, a_n_hdi_r, '
+               'ph_n, ph_n_err, ph_n_hdi_l, ph_n_hdi_r')
+        file_name_sin = file_name.replace('.hdf5', '_sinusoid.csv')
+        np.savetxt(file_name_sin, data, delimiter=',', header=hdr)
+    # eclipse model parameters
+    values = np.array([p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum])
+    if (not np.all(values == -1)):
+        names = ('p_orb', 't_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat', 'e', 'w', 'i', 'r_sum')
+        errors = (p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
+                  e_err, w_err, i_err, r_sum_err)
+        hdi_l = (p_hdi[0], t_zero_hdi[0], ecosw_hdi[0], esinw_hdi[0], cosi_hdi[0], phi_0_hdi[0], r_rat_hdi[0],
+                 sb_rat_hdi[0], e_hdi[0], w_hdi[0], i_hdi[0], r_sum_hdi[0])
+        hdi_r = (p_hdi[1], t_zero_hdi[1], ecosw_hdi[1], esinw_hdi[1], cosi_hdi[1], phi_0_hdi[1], r_rat_hdi[1],
+                 sb_rat_hdi[1], e_hdi[1], w_hdi[1], i_hdi[1], r_sum_hdi[1])
+        data = np.column_stack((names, values, errors, hdi_l, hdi_r))
+        hdr = ('name, value, error, hdi_l, hdi_r')
+        file_name_ecl = file_name.replace('.hdf5', '_eclipse.csv')
+        np.savetxt(file_name_ecl, data, delimiter=',', header=hdr, fmt='%s')
+    # eclipse timings
+    if not np.all(timings == -1):
+        names = ('t_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
+                 'depth_1', 'depth_2')
+        hdi_l = (t_1_hdi[0], t_2_hdi[0], t_1_1_hdi[0], t_1_2_hdi[0], t_2_1_hdi[0], t_2_2_hdi[0],
+                 t_b_1_1_hdi[0], t_b_1_2_hdi[0], t_b_2_1_hdi[0], t_b_2_2_hdi[0], depth_1_hdi[0], depth_2_hdi[0])
+        hdi_r = (t_1_hdi[1], t_2_hdi[1], t_1_1_hdi[1], t_1_2_hdi[1], t_2_1_hdi[1], t_2_2_hdi[1],
+                 t_b_1_1_hdi[1], t_b_1_2_hdi[1], t_b_2_1_hdi[1], t_b_2_2_hdi[1], depth_1_hdi[1], depth_2_hdi[1])
+        data = np.column_stack((names, timings, timings_err, hdi_l, hdi_r))
+        hdr = ('name, value, error, hdi_l, hdi_r')
+        file_name_tim = file_name.replace('.hdf5', '_timings.csv')
+        np.savetxt(file_name_tim, data, delimiter=',', header=hdr, fmt='%s')
+    # todo: finish this (stats?, desc?)
+    return  None
+
+
 def save_results(results, errors, stats, file_name, description='none', data_id='none'):
     """Save the full output of the frequency analysis function to an hdf5 file.
     
@@ -698,7 +1133,7 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
     errors: tuple[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
     file_name: str
         File name (including path) for saving the results.
@@ -721,8 +1156,9 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
     p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     n_param, bic, noise_level = stats
     # check some input
-    if not file_name.endswith('.hdf5'):
-        file_name += '.hdf5'
+    ext = os.path.splitext(os.path.basename(file_name))[1]
+    if (ext != '.hdf5'):
+        file_name = file_name.replace(ext, '.hdf5')
     # create the file
     with h5py.File(file_name, 'w') as file:
         file.attrs['identifier'] = os.path.splitext(os.path.basename(file_name))[0]  # the file name without extension
@@ -761,24 +1197,6 @@ def save_results(results, errors, stats, file_name, description='none', data_id=
     return None
 
 
-def load_results(file_name):
-    """Load the full output of the find_eclipses function from the hdf5 file.
-    returns an h5py file object, which has to be closed by the user (file.close()).
-    
-    Parameters
-    ----------
-    file_name: str
-        File name (including path) for loading the results.
-    
-    Returns
-    -------
-    file: Object
-        The hdf5 file object
-    """
-    file = h5py.File(file_name, 'r')
-    return file
-
-
 def read_results(file_name, verbose=False):
     """Read the full output of the sinusoid + linear model from the hdf5 file.
     
@@ -787,7 +1205,7 @@ def read_results(file_name, verbose=False):
     file_name: str
         File name (including path) for loading the results.
     verbose: bool
-        If set to True, this function will print some information
+        If set to True, this function will print some information.
     
     Returns
     -------
@@ -797,7 +1215,7 @@ def read_results(file_name, verbose=False):
     errors: tuple[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
     """
     with h5py.File(file_name, 'r') as file:
@@ -1087,7 +1505,7 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
     errors: tuple[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
     t_zero_em: float
         Time of the deepest minimum with respect to the mean time
@@ -1106,7 +1524,7 @@ def save_results_cubics_sin_lin(results, errors, stats, t_zero_em, timings_em, d
         Error estimates for the depths
     p_t_corr: float
         correlation between period and t_zero
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
     file_name: str
@@ -1187,7 +1605,7 @@ def read_results_cubics_sin_lin(file_name):
     errors: tuple[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
     t_zero: float
         Time of the deepest minimum with respect to the mean time
@@ -1498,35 +1916,22 @@ def read_results_lc_fit(file_name):
     return param_init, param_opt1, param_opt2
 
 
-def save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio, i_sectors,
-                             file_name, data_id='none'):
+def save_results_ecl_sin_lin(par_means, par_hdis, stats, inf_data, i_sectors, file_name, data_id='none'):
     """Save the results of the eclipse, sinusoid and linear models
 
     Parameters
     ----------
-    results: tuple[numpy.ndarray[float]]
+    par_means: list[union(float, numpy.ndarray[float])]
         Results containing the following data:
         p_orb, const, slope, f_n, a_n, ph_n
-    errors: tuple[numpy.ndarray[float]]
+    par_hdis: list[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
-    t_zero: float
-        Time of the deepest minimum with respect to the mean time
-    e: float
-        Eccentricity of the orbit
-    w: float
-        Argument of periastron
-    i: float
-        Inclination of the orbit
-    r_sum_sma: float
-        Sum of radii in units of the semi-major axis
-    r_ratio: float
-        Radius ratio r_2/r_1
-    sb_ratio: float
-        Surface brightness ratio sb_2/sb_1
-    i_sectors: list[int], numpy.ndarray[int]
+    inf_data: object
+        Arviz inference data object
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
     file_name: str
@@ -1572,7 +1977,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
     file_name: str
         File name (including path) for loading the results.
     verbose: bool
-        If set to True, this function will print some information
+        If set to True, this function will print some information.
     
     Returns
     -------
@@ -1582,7 +1987,7 @@ def read_results_ecl_sin_lin(file_name, verbose=False):
     errors: tuple[numpy.ndarray[float]]
         Error values containing the following data:
         p_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err
-    stats: tuple[numpy.ndarray[float]]
+    stats: tuple[float]
         Some statistics: n_param, bic, noise_level
     t_zero: float
         Time of the deepest minimum with respect to the mean time
@@ -1999,7 +2404,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.

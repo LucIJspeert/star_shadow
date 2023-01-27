@@ -33,7 +33,7 @@ def analysis_iterative_prewhitening(times, signal, signal_err, i_sectors, file_n
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -121,7 +121,7 @@ def analysis_optimise_sinusoids(times, signal, signal_err, const_in, slope_in, f
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -273,7 +273,7 @@ def analysis_couple_harmonics(times, signal, signal_err, p_orb_in, const_in, slo
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -386,7 +386,7 @@ def analysis_add_harmonics(times, signal, signal_err, p_orb, const_in, slope_in,
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -486,7 +486,7 @@ def analysis_optimise_sinusoids_h(times, signal, signal_err, p_orb_in, const_in,
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -586,7 +586,7 @@ def analysis_add_sinusoids(times, signal, signal_err, p_orb, const_in, slope_in,
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -686,7 +686,7 @@ def analysis_remove_sinusoids(times, signal, signal_err, p_orb, const_in, slope_
         The amplitudes of a number of sine waves
     ph_n_in: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -774,7 +774,7 @@ def frequency_analysis(times, signal, signal_err, i_sectors, t_int, p_orb, targe
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1193,7 +1193,7 @@ def analysis_cubics_model(times, signal, signal_err, p_orb, t_zero, timings, dep
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1326,7 +1326,7 @@ def analysis_cubics_sines_model(times, signal, signal_err, p_orb, t_zero, timing
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1698,7 +1698,7 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1789,8 +1789,8 @@ def analysis_eclipse_model(times, signal, signal_err, par_init, p_orb, t_zero, t
 
 
 def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
-                                 t_zero_err, ecl_par_err, const_err, slope_err, f_n_err, a_n_err, ph_n_err,
-                                 i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                                 t_zero_err, ecl_par_err, i_sectors, file_name, data_id=None, overwrite=False,
+                                 verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
 
@@ -1819,7 +1819,7 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -1873,33 +1873,36 @@ def analysis_eclipse_sines_model(times, signal, signal_err, p_orb, t_zero, ecl_p
         print(f'Starting multi-sine NL-LS fit with eclipse model.')
     t_a = time.time()
     f_groups = ut.group_frequencies_for_fit(a_n, g_min=10, g_max=15)
-    e, w, i, r_sum, r_rat, sb_rat = ecl_par
-    # multi-sine NL-LS fit with eclipse model (in chunks)
-    # todo: further integrate
+    # make model including everything to calculate noise level
+    model_lin = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
+    model_ecl = tsfit.simple_eclipse_lc(times, p_orb, t_zero, *ecl_par)
+    resid = signal - (model_lin + model_sin + model_ecl)
+    noise_level = np.std(resid)
+    # formal linear and sinusoid parameter errors
+    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    # Monte Carlo sampling of full model
     output = mcf.sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
                                                t_zero_err, ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
                                                noise_level, i_sectors, verbose=verbose)
     # main function done, do the rest for this step
-    t_zero, ecl_par, const, slope, f_n, a_n, ph_n = output
-    ecosw, esinw, i, r_sum, r_rat, sb_rat = ecl_par
-    e, w = np.sqrt(ecosw**2 + esinw**2), np.arctan2(esinw, ecosw) % (2 * np.pi)
+    inf_data, par_means, par_hdis = output
+    const, slope, f_n, a_n, ph_n = par_means[:5]
+    t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, e, w, r_sum = par_means[5:]
     ecl_par = np.array([e, w, i, r_sum, r_rat, sb_rat])
-    # make model including everything to calculate BIC and noise level
+    # make updated model including linear, sinusoid and eclipse part
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
     model_ecl = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
-    residuals = signal - (model_lin + model_sin + model_ecl)
-    noise_level = np.std(residuals)
-    f_errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    resid = signal - (model_lin + model_sin + model_ecl)
+    # calculate number of parameters, BIC and noise level
     n_param = 2 + len(ecl_par) + 2 * len(const) + 3 * len(f_n)
-    bic = tsf.calc_bic(residuals / signal_err, n_param)
-    # save everything
-    results = (p_orb, const, slope, f_n, a_n, ph_n)
-    errors = (-1, c_err, sl_err, f_n_err, a_n_err, ph_n_err)
+    bic = tsf.calc_bic(resid / signal_err, n_param)
+    noise_level = np.std(resid)
     stats = (n_param, bic, noise_level)
-    ut.save_results_ecl_sin_lin(results, errors, stats, t_zero, e, w, i, r_sum, r_rat, sb_rat, i_sectors,
-                                file_name_1, data_id=data_id)
+    # save everything
+    ut.save_results_ecl_sin_lin(par_means, par_hdis, stats, inf_data, i_sectors, file_name_1, data_id=data_id)
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mFit complete.\033[0m')
@@ -1922,7 +1925,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2010,11 +2013,11 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     model_cubics = 1 + tsfit.eclipse_cubics_model(times, p_orb_9, t_zero_11, mid_1, mid_2, t_c1_1, t_c3_1,
                                                   t_c1_2, t_c3_2, depth_1, depth_2)
     residual = signal - model_cubics
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12a.csv')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12a.hdf5')
     out_12a = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name, **kwargs_1)
     const_12a, slope_12a, f_n_12a, a_n_12a, ph_n_12a = out_12a
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12b.csv')
-    out_12b = analysis_optimise_sinusoids(times, signal, signal_err, const_12a, slope_12a, f_n_12a, a_n_12a, ph_n_12a,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12b.hdf5')
+    out_12b = analysis_optimise_sinusoids(times, residual, signal_err, const_12a, slope_12a, f_n_12a, a_n_12a, ph_n_12a,
                                           i_sectors, file_name, **kwargs_1)
     const_12b, slope_12b, f_n_12b, a_n_12b, ph_n_12b = out_12b
     # -----------------------------------------------
@@ -2030,6 +2033,7 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_13
     d_1, d_2 = depths_13
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err_13
+    t_zero_err_13 = t_1_err
     depth_1_err, depth_2_err = depths_err_13
     dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
     dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
@@ -2046,6 +2050,20 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
                                        p_t_corr_13, file_name=file_name, **kwargs_2)
     e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = out_14[:6]
     errors_14, bounds_14, formal_errors_14, dists_in_14, dists_out_14 = out_14[6:]
+    e_errs, w_errs, i_errs, r_sum_errs, r_rat_errs, sb_rat_errs, ecosw_errs, esinw_errs, phi_0_errs = errors_14
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors_14
+    # for the mcmc, take maximum errors for prior model
+    e_err_14 = max(e_errs[0], e_errs[1], sigma_e)
+    w_err_14 = max(w_errs[0], w_errs[1], sigma_w)
+    i_err_14 = max(i_errs[0], i_errs[1])
+    r_sum_err_14 = max(r_sum_errs[0], r_sum_errs[1], sigma_r_sum)
+    r_rat_err_14 = max(r_rat_errs[0], r_rat_errs[1])
+    sb_rat_err_14 = max(sb_rat_errs[0], sb_rat_errs[1])
+    ecosw_err_14 = max(ecosw_errs[0], ecosw_errs[1], sigma_ecosw)
+    esinw_err_14 = max(esinw_errs[0], esinw_errs[1], sigma_esinw)
+    phi_0_err_14 = max(phi_0_errs[0], phi_0_errs[1], sigma_phi_0)
+    ecl_par_err = np.array([e_err_14, w_err_14, i_err_14, r_sum_err_14, r_rat_err_14, sb_rat_err_14,
+                            ecosw_err_14, esinw_err_14, phi_0_err_14])
     if (e_14 > 0.99):
         return (None,) * 10  # unphysical parameters
     # -----------------------------------------------
@@ -2063,11 +2081,11 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # ----------------------------------------
     model_ecl_15_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *par_opt_15)
     residual = signal - model_ecl_15_simple
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16a.csv')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16a.hdf5')
     out_16a = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name, **kwargs_1)
     const_16a, slope_16a, f_n_16a, a_n_16a, ph_n_16a = out_16a
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.csv')
-    out_16b = analysis_optimise_sinusoids(times, signal, signal_err, const_16a, slope_16a, f_n_16a, a_n_16a, ph_n_16a,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.hdf5')
+    out_16b = analysis_optimise_sinusoids(times, residual, signal_err, const_16a, slope_16a, f_n_16a, a_n_16a, ph_n_16a,
                                 i_sectors, file_name, **kwargs_1)
     const_16b, slope_16b, f_n_16b, a_n_16b, ph_n_16b = out_16b
     # ellc model (convert optimised parameters)
@@ -2076,12 +2094,12 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
         par_opt_15b_ellc = np.array([f_c, f_s, *par_opt_15b[2:]])
         model_ecl_15b = tsfit.wrap_ellc_lc(times, p_orb_9, t_zero_13, *par_opt_15b_ellc, 0)
         residual = signal - model_ecl_15b
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16c.csv')
+        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16c.hdf5')
         out_16c = analysis_iterative_prewhitening(times, residual, signal_err, i_sectors, file_name=file_name,
                                                   **kwargs_1)
         const_16c, slope_16c, f_n_16c, a_n_16c, ph_n_16c = out_16c
-        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.csv')
-        out_16b = analysis_optimise_sinusoids(times, signal, signal_err, const_16c, slope_16c, f_n_16c, a_n_16c,
+        file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b.hdf5')
+        out_16b = analysis_optimise_sinusoids(times, residual, signal_err, const_16c, slope_16c, f_n_16c, a_n_16c,
                                               ph_n_16c, i_sectors, file_name, **kwargs_1)
         const_16d, slope_16d, f_n_16d, a_n_16d, ph_n_16d = out_16d
     else:
@@ -2091,16 +2109,16 @@ def eclipse_analysis(times, signal, signal_err, i_sectors, t_int, target_id, sav
     # ---------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.csv')
     out_17a = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15, const_16b,
-                                          slope_16b, f_n_16b, a_n_16b, ph_n_16b, i_sectors, model='simple',
-                                          file_name=file_name, **kwargs_1)
+                                           slope_16b, f_n_16b, a_n_16b, ph_n_16b, t_zero_err_13, ecl_par_err,
+                                           i_sectors, file_name=file_name, **kwargs_1)
     t_zero_17a, ecl_par_17a, const_17a, slope_17a, f_n_17a, a_n_17a, ph_n_17a = out_17a
     model_ecl_17a_simple = tsfit.simple_eclipse_lc(times, p_orb_9, t_zero_13, *ecl_par_17a)
     # ellc model
     if fit_ellc:
         file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17d.csv')
         out_17b = analysis_eclipse_sines_model(times, signal, signal_err, p_orb_9, t_zero_13, par_opt_15b, const_16d,
-                                               slope_16d, f_n_16d, a_n_16d, ph_n_16d, i_sectors, model='ellc',
-                                               file_name=file_name, **kwargs_1)
+                                               slope_16d, f_n_16d, a_n_16d, ph_n_16d, t_zero_err_13, ecl_par_err,
+                                               i_sectors, file_name=file_name, **kwargs_1)
         t_zero_17b, ecl_par_17b, const_17b, slope_17b, f_n_17b, a_n_17b, ph_n_17b = out_17b
         f_c, f_s = ecl_par_17b[0]**0.5 * np.cos(ecl_par_17b[1]), ecl_par_17b[0]**0.5 * np.sin(ecl_par_17b[1])
         ecl_par_r_17b_ellc = np.array([f_c, f_s, *ecl_par_17b[2:]])
@@ -2137,7 +2155,7 @@ def analysis_frequency_selection(times, signal, model_ecl, p_orb, const, slope, 
         The phases of a number of sine waves
     noise_level: float
         The noise level (standard deviation of the residuals)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2231,7 +2249,7 @@ def analysis_variability_amplitudes(times, signal, model_ecl, p_orb, const, slop
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2335,7 +2353,7 @@ def pulsation_analysis(times, signal, signal_err, i_sectors, t_int, target_id, s
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2492,7 +2510,7 @@ def period_from_file(file_name, i_sectors=None, t_int=None, data_id=None, overwr
         Path to a file containing the light curve data, with
         timestamps, normalised flux, error values as the
         first three columns, respectively.
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2574,7 +2592,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, t_int, target_id, sa
         Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days (set zero if unkown)
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
@@ -2633,7 +2651,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, t_int=None, data_id=No
         first three columns, respectively.
     p_orb: float
         Orbital period of the eclipsing binary in days
-    i_sectors: list[int], numpy.ndarray[int]
+    i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
         observation sectors, but taking half the sectors is recommended.
