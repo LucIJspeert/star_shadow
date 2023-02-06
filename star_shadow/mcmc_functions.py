@@ -863,16 +863,17 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
     ecosw_m = np.mean(ecosw_ch)
     esinw_m = np.mean(esinw_ch)
-    i_m = np.mean(i_ch)
+    cosi_m = np.mean(cosi_ch)
     phi_0_m = np.mean(phi_0_ch)
     r_rat_m = np.mean(r_rat_ch)
     sb_rat_m = np.mean(sb_rat_ch)
     # transformed parameter means
     e_m = np.mean(e_ch)
     w_m = sp.stats.circmean(w_ch)
+    i_m = np.mean(i_ch)
     r_sum_m = np.mean(r_sum_ch)
-    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, t_zero_m, ecosw_m, esinw_m, i_m, phi_0_m, r_rat_m, sb_rat_m,
-                 e_m, w_m, r_sum_m]
+    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, t_zero_m, ecosw_m, esinw_m, cosi_m, phi_0_m, r_rat_m, sb_rat_m,
+                 e_m, w_m, i_m, r_sum_m]
     # parameter errors (hdi)
     t_zero_e = az.hdi(t_zero_ch, hdi_prob=0.683)
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
@@ -882,14 +883,15 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
     ecosw_e = az.hdi(ecosw_ch, hdi_prob=0.683)
     esinw_e = az.hdi(esinw_ch, hdi_prob=0.683)
-    i_e = az.hdi(i_ch, hdi_prob=0.683)
+    cosi_e = az.hdi(cosi_ch, hdi_prob=0.683)
     phi_0_e = az.hdi(phi_0_ch, hdi_prob=0.683)
     r_rat_e = az.hdi(r_rat_ch, hdi_prob=0.683)
     sb_rat_e = az.hdi(sb_rat_ch, hdi_prob=0.683)
     # transformed parameter errors (hdi)
     e_e = az.hdi(e_ch.T, hdi_prob=0.683)
     w_e = az.hdi(w_ch.T, hdi_prob=0.683)
+    i_e = az.hdi(i_ch, hdi_prob=0.683)
     r_sum_e = az.hdi(r_sum_ch.T, hdi_prob=0.683)
-    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, i_e, phi_0_e, r_rat_e, sb_rat_e,
-                e_e, w_e, r_sum_e]
+    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, cosi_e, phi_0_e, r_rat_e, sb_rat_e,
+                e_e, w_e, i_e, r_sum_e]
     return inf_data, par_means, par_hdis

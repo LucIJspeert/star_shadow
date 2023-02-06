@@ -666,12 +666,12 @@ def plot_lc_empirical_model(times, signal, p_orb, t_zero, timings, depths, const
     mean_t_m = np.mean(t_model)
     mid_1 = (t_1_1 + t_1_2) / 2
     mid_2 = (t_2_1 + t_2_2) / 2
-    model_ecl_init = tsfit.eclipse_cubics_model(t_model, p_orb, -mean_t_m, mid_1, mid_2, t_1_1, t_2_1,
+    model_ecl_init = tsfit.eclipse_empirical_lc(t_model, p_orb, -mean_t_m, mid_1, mid_2, t_1_1, t_2_1,
                                                 t_b_1_1, t_b_2_1, depth_1, depth_2)
-    model_ecl = tsfit.eclipse_cubics_model(t_model, p_orb, -mean_t_m, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+    model_ecl = tsfit.eclipse_empirical_lc(t_model, p_orb, -mean_t_m, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
                                            t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
     # add residual harmonic sinusoids to model
-    model_ecl_2 = tsfit.eclipse_cubics_model(times, p_orb, t_zero_em, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
+    model_ecl_2 = tsfit.eclipse_empirical_lc(times, p_orb, t_zero_em, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
                                              t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
     model_sin_lin = model_sinusoid + model_linear
     model_sin_lin = np.concatenate((model_sin_lin[ext_left], model_sin_lin, model_sin_lin[ext_right]))
@@ -821,9 +821,9 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     # unpack and define parameters
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
     # make the simple model
-    ecl_model = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_1 = tsfit.simple_eclipse_lc(t_extended[mask_1], p_orb, -mean_t_e1, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_2 = tsfit.simple_eclipse_lc(t_extended[mask_2], p_orb, -mean_t_e2, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_model = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_1 = tsfit.eclipse_physical_lc(t_extended[mask_1], p_orb, -mean_t_e1, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_ecl_2 = tsfit.eclipse_physical_lc(t_extended[mask_2], p_orb, -mean_t_e2, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -1192,9 +1192,9 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
         opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
         opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
     # make the ellc models
-    model_simple_init = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_opt1 = tsfit.simple_eclipse_lc(t_extended, p_orb, -mean_t_e, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma,
-                                         opt1_r_ratio, opt1_sb_ratio)
+    model_simple_init = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    model_opt1 = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma,
+                                           opt1_r_ratio, opt1_sb_ratio)
     if not np.all(par_opt2 == -1):
         model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, -mean_t_e, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
                                              opt1_r_ratio, opt1_sb_ratio, 0)
@@ -1420,7 +1420,7 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
     if (model == 'ellc'):
         ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        ecl_model = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     ecl_resid = signal - ecl_model
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, ecl_resid)
@@ -1473,7 +1473,7 @@ def plot_lc_disentangled_freqs(times, signal, p_orb, t_zero, const_r, slope_r, f
     if (model == 'ellc'):
         ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        ecl_model = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        ecl_model = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_sin_lin = model_sinusoid_r + model_linear_r
     model_full = ecl_model + model_sinusoid_r + model_linear_r
     # plot
@@ -1524,7 +1524,7 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     if (model == 'ellc'):
         model_ecl = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, 0)
     else:
-        model_ecl = tsfit.simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+        model_ecl = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_ecl_2 = np.concatenate((model_ecl[ext_left], model_ecl, model_ecl[ext_right]))
     # add residual harmonic sinusoids to model
     model_sin_lin = model_sinusoid_r + model_linear_r

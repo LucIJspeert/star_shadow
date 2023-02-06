@@ -687,8 +687,8 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     return corr, check
 
 
-def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors,
-                         description='none', data_id='none'):
+def save_parameters_hdf5(file_name, sin_par_means, sin_par_err, sin_par_hdis, ecl_par_means, ecl_par_err, ecl_par_hdis,
+                         timings, timings_err, timings_hdi, stats, i_sectors, description='none', data_id='none'):
     """Save the full model parameters of the linear, sinusoid
     and eclipse models to an hdf5 file.
 
@@ -696,22 +696,28 @@ def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timin
     ----------
     file_name: str
         File name (including path) for saving the results.
-    par_means: None, list[union(float, numpy.ndarray[float])]
-        Parameter mean values for the full model in the order they appear below.
+    sin_par_means: None, list[numpy.ndarray[float]]
+        Parameter mean values for the linear and sinusoid model in the order they appear below.
         linear (these are arrays): const, slope,
         sinusoid (these are arrays): f_n, a_n, ph_n,
+    sin_par_err: None, list[numpy.ndarray[float]]
+        Parameter error values for the linear and sinusoid model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    sin_par_hdis: None, list[numpy.ndarray[float]]
+        Parameter hdi values for the linear and sinusoid model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_means: None, numpy.ndarray[float]
+        Parameter mean values for the eclipse model in the order they appear below.
         eclipses: p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
         eclipses (extra parametrisations): e, w, i, r_sum
-    par_err: None, list[numpy.ndarray[float]]
-        Parameter error values for the full model in the order they appear below.
-        linear (these are arrays): c_err, sl_err,
-        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_err: None, numpy.ndarray[float]
+        Parameter error values for the eclipse model in the order they appear below.
         eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
         eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
-    par_hdis: None, list[numpy.ndarray[float]]
-        Parameter hdi values for the full model in the order they appear below.
-        linear (these are arrays): c_err, sl_err,
-        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_hdis: None, numpy.ndarray[float]
+        Parameter hdi values for the eclipse model in the order they appear below.
         eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
         eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
     timings: None, numpy.ndarray[float]
@@ -725,7 +731,7 @@ def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timin
     timings_hdi: None, numpy.ndarray[float]
         Error estimates for the eclipse timings and depths, same format as timings
     stats: None, tuple[float]
-        Some statistics: t_tot, mean_t, n_param, bic, noise_level
+        Some statistics: t_tot, mean_t, t_int, n_param, bic, noise_level
     i_sectors: None, numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
@@ -745,12 +751,18 @@ def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timin
     
     Any missing data is filled up with -1
     """
-    if par_means is None:
-        par_means = [-np.ones(1) for _ in range(5)] + [-1 for _ in range(10)]
-    if par_err is None:
-        par_err = [-np.ones(1) for _ in range(5)] + [-1 for _ in range(10)]
-    if par_hdis is None:
-        par_hdis = [-np.ones((1, 2)) for _ in range(5)] + [-1 for _ in range(10)]
+    if sin_par_means is None:
+        sin_par_means = [np.zeros(1) for _ in range(5)]
+    if sin_par_err is None:
+        sin_par_err = [np.zeros(1) for _ in range(5)]
+    if sin_par_hdis is None:
+        sin_par_hdis = [np.zeros((1, 2)) for _ in range(5)]
+    if ecl_par_means is None:
+        ecl_par_means = -np.ones(12)
+    if ecl_par_err is None:
+        ecl_par_err = -np.ones(12)
+    if ecl_par_hdis is None:
+        ecl_par_hdis = -np.ones((12, 2))
     if timings is None:
         timings = -np.ones(12)
     if timings_err is None:
@@ -758,21 +770,24 @@ def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timin
     if timings_hdi is None:
         timings_hdi = -np.ones((12, 2))
     if stats is None:
-        stats = [-1 for _ in range(5)]
+        stats = [-1 for _ in range(6)]
     if i_sectors is None:
         i_sectors = -np.ones((1, 2))
     # unpack all the variables
-    const, slope, f_n, a_n, ph_n, p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_means
-    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi = par_hdis[:9]
-    cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi, e_hdi, w_hdi, i_hdi, r_sum_hdi = par_hdis[9:]
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_err, t_zero_err, ecosw_err, esinw_err = par_err[:9]
-    cosi_err, phi_0_err, r_rat_err, sb_rat_err, e_err, w_err, i_err, r_sum_err = par_err[9:]
+    const, slope, f_n, a_n, ph_n = sin_par_means
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = sin_par_err
+    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi = sin_par_hdis
+    p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_par_means
+    p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = ecl_par_err[:8]
+    e_err, w_err, i_err, r_sum_err = ecl_par_err[8:]
+    p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi, cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi = ecl_par_hdis[:8]
+    e_hdi, w_hdi, i_hdi, r_sum_hdi = ecl_par_hdis[8:]
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
     t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
     t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi = timings_hdi[6:]
-    t_tot, mean_t, n_param, bic, noise_level = stats
+    t_tot, mean_t, t_int, n_param, bic, noise_level = stats
     # check some input
     ext = os.path.splitext(os.path.basename(file_name))[1]
     if (ext != '.hdf5'):
@@ -784,7 +799,8 @@ def save_parameters_hdf5(file_name, par_means, par_hdis, par_err, timings, timin
         file.attrs['data_id'] = data_id
         file.attrs['date_time'] = str(datetime.datetime.now())
         file.attrs['t_tot'] = t_tot  # total time base of observations
-        file.attrs['mean_t'] = mean_t  # time reference (zero) point
+        file.attrs['t_mean'] = mean_t  # time reference (zero) point
+        file.attrs['t_int'] = t_int  # integration time of observations
         file.attrs['n_param'] = n_param  # number of free parameters
         file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals
         file.attrs['noise_level'] = noise_level  # standard deviation of the residuals
@@ -914,22 +930,28 @@ def read_parameters_hdf5(file_name, verbose=False):
 
     Returns
     -------
-    par_means: list[union(float, numpy.ndarray[float])]
-        Parameter mean values for the full model in the order they appear below.
+    sin_par_means: None, list[numpy.ndarray[float]]
+        Parameter mean values for the linear and sinusoid model in the order they appear below.
         linear (these are arrays): const, slope,
         sinusoid (these are arrays): f_n, a_n, ph_n,
+    sin_par_err: None, list[numpy.ndarray[float]]
+        Parameter error values for the linear and sinusoid model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    sin_par_hdis: None, list[numpy.ndarray[float]]
+        Parameter hdi values for the linear and sinusoid model in the order they appear below.
+        linear (these are arrays): c_err, sl_err,
+        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_means: None, numpy.ndarray[float]
+        Parameter mean values for the eclipse model in the order they appear below.
         eclipses: p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
         eclipses (extra parametrisations): e, w, i, r_sum
-    par_err: list[numpy.ndarray[float]]
-        Parameter error values for the full model in the order they appear below.
-        linear (these are arrays): c_err, sl_err,
-        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_err: None, numpy.ndarray[float]
+        Parameter error values for the eclipse model in the order they appear below.
         eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
         eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
-    par_hdis: list[numpy.ndarray[float]]
-        Parameter hdi values for the full model in the order they appear below.
-        linear (these are arrays): c_err, sl_err,
-        sinusoid (these are arrays): f_n_err, a_n_err, ph_n_err,
+    ecl_par_hdis: None, numpy.ndarray[float]
+        Parameter hdi values for the eclipse model in the order they appear below.
         eclipses: p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
         eclipses (extra parametrisations): e_err, w_err, i_err, r_sum_err
     timings: numpy.ndarray[float]
@@ -963,7 +985,8 @@ def read_parameters_hdf5(file_name, verbose=False):
         data_id = file.attrs['data_id']
         date_time = file.attrs['date_time']
         t_tot = file.attrs['t_tot']
-        mean_t = file.attrs['mean_t']
+        t_mean = file.attrs['t_mean']
+        t_int = file.attrs['t_int']
         n_param = file.attrs['n_param']
         bic = file.attrs['bic']
         noise_level = file.attrs['noise_level']
@@ -1020,26 +1043,28 @@ def read_parameters_hdf5(file_name, verbose=False):
         i = np.copy(file['i'])
         r_sum = np.copy(file['r_sum'])
     
-    par_means = np.array([const, slope, f_n, a_n, ph_n, p_orb[0], t_zero[0],
-                          ecosw[0], esinw[0], cosi[0], phi_0[0], r_rat[0], sb_rat[0], e[0], w[0], i[0], r_sum[0]])
-    par_err = np.array([c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_orb[1], t_zero[1],
-                        ecosw[1], esinw[1], cosi[1], phi_0[1], r_rat[1], sb_rat[1],
-                        e[1], w[1], i[1], r_sum[1]])
-    par_hdis = np.array([c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_orb[2:4], t_zero[2:4],
-                         ecosw[2:4], esinw[2:4], cosi[2:4], phi_0[2:4], r_rat[2:4], sb_rat[2:4],
-                         e[2:4], w[2:4], i[2:4], r_sum[2:4]])
+    sin_par = [const, slope, f_n, a_n, ph_n]
+    sin_par_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
+    sin_par_hdis = [c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi]
+    ecl_par = [p_orb[0], t_zero[0], ecosw[0], esinw[0], cosi[0], phi_0[0], r_rat[0], sb_rat[0],
+                     e[0], w[0], i[0], r_sum[0]]
+    ecl_par_err = [p_orb[1], t_zero[1], ecosw[1], esinw[1], cosi[1], phi_0[1], r_rat[1], sb_rat[1],
+                   e[1], w[1], i[1], r_sum[1]]
+    ecl_par_hdis = [p_orb[2:4], t_zero[2:4], ecosw[2:4], esinw[2:4], cosi[2:4], phi_0[2:4], r_rat[2:4], sb_rat[2:4],
+                    e[2:4], w[2:4], i[2:4], r_sum[2:4]]
     timings = np.array([t_1[0], t_2[0], t_1_1[0], t_1_2[0], t_2_1[0], t_2_2[0],
                         t_b_1_1[0], t_b_1_2[0], t_b_2_1[0], t_b_2_2[0], depth_1[0], depth_2[0]])
     timings_err = np.array([t_1[1], t_2[1], t_1_1[1], t_1_2[1], t_2_1[1], t_2_2[1],
                             t_b_1_1[1], t_b_1_2[1], t_b_2_1[1], t_b_2_2[1], depth_1[1], depth_2[1]])
     timings_hdi = np.array([t_1[2:4], t_2[2:4], t_1_1[2:4], t_1_2[2:4], t_2_1[2:4], t_2_2[2:4],
                             t_b_1_1[2:4], t_b_1_2[2:4], t_b_2_1[2:4], t_b_2_2[2:4], depth_1[2:4], depth_2[2:4]])
-    stats = (t_tot, mean_t, n_param, bic, noise_level)
+    stats = (t_tot, t_mean, t_int, n_param, bic, noise_level)
     
     if verbose:
-        print(f'Opened frequency analysis file with identifier: {identifier}, created on {date_time}. \n'
+        print(f'Loaded analysis file with identifier: {identifier}, created on {date_time}. \n'
               f'data_id: {data_id}. Description: {description} \n')
-    return par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors
+    return (sin_par, sin_par_err, sin_par_hdis, ecl_par, ecl_par_err, ecl_par_hdis, timings, timings_err, timings_hdi,
+            stats, i_sectors, description)
 
 
 def convert_hdf5_to_ascii(file_name, verbose=False):
@@ -1055,25 +1080,34 @@ def convert_hdf5_to_ascii(file_name, verbose=False):
     Returns
     -------
     None
+    
+    Notes
+    -----
+    Only saves text files of certain groups of values when they
+    are available in the hdf5 file.
     """
     # check the file name
     ext = os.path.splitext(os.path.basename(file_name))[1]
     if (ext != '.hdf5'):
         file_name = file_name.replace(ext, '.hdf5')
     data = read_parameters_hdf5(file_name, verbose=False)
-    par_means, par_hdis, par_err, timings, timings_err, timings_hdi, stats, i_sectors = data
+    sin_par_means, sin_par_err, sin_par_hdis, ecl_par_means, ecl_par_err, ecl_par_hdis = data[:6]
+    timings, timings_err, timings_hdi, stats, i_sectors, description = data[6:]
     # unpack all parameters
-    const, slope, f_n, a_n, ph_n, p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_means
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err, p_err, t_zero_err, ecosw_err, esinw_err = par_err[:9]
-    cosi_err, phi_0_err, r_rat_err, sb_rat_err, e_err, w_err, i_err, r_sum_err = par_err[9:]
-    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi, p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi = par_hdis[:9]
-    cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi, e_hdi, w_hdi, i_hdi, r_sum_hdi = par_hdis[9:]
+    const, slope, f_n, a_n, ph_n = sin_par_means
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = sin_par_err
+    c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi = sin_par_hdis
+    p_orb, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_par_means
+    p_err, t_zero_err, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = ecl_par_err[:8]
+    e_err, w_err, i_err, r_sum_err = ecl_par_err[8:]
+    p_hdi, t_zero_hdi, ecosw_hdi, esinw_hdi, cosi_hdi, phi_0_hdi, r_rat_hdi, sb_rat_hdi = ecl_par_hdis[:8]
+    e_hdi, w_hdi, i_hdi, r_sum_hdi = ecl_par_hdis[8:]
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
     t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
     t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi = timings_hdi[6:]
-    t_tot, mean_t, n_param, bic, noise_level = stats
+    t_tot, mean_t, t_int, n_param, bic, noise_level = stats
     # check for -1 values and ignore those parameters - errors or hdis are always stored alongside
     # linear model parameters
     if (not np.all(const == -1)) & (not np.all(slope == -1)):
@@ -1118,7 +1152,14 @@ def convert_hdf5_to_ascii(file_name, verbose=False):
         hdr = ('name, value, error, hdi_l, hdi_r')
         file_name_tim = file_name.replace('.hdf5', '_timings.csv')
         np.savetxt(file_name_tim, data, delimiter=',', header=hdr, fmt='%s')
-    # todo: finish this (stats?, desc?)
+    # statistics
+    if not np.all(stats == -1):
+        names = ('t_tot', 't_mean', 't_int', 'n_param', 'bic', 'noise_level')
+        stats = (t_tot, t_mean, t_int, n_param, bic, noise_level)
+        data = np.column_stack((names, stats))
+        hdr = (f'{description}\nname, value')
+        file_name_stats = file_name.replace('.hdf5', '_stats.csv')
+        np.savetxt(file_name_stats, data, delimiter=',', header=hdr, fmt='%s')
     return  None
 
 
@@ -1639,6 +1680,64 @@ def read_results_cubics_sin_lin(file_name):
     return results, errors, stats, t_zero, timings, depths, timings_err, depths_err, p_t_corr
 
 
+def save_results_dists(dists_in, dists_out, file_name, data_id='none'):
+    """Save the distributions of the determination of orbital elements
+    
+    Parameters
+    ----------
+    dists_in: tuple[numpy.ndarray[float]]
+        Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
+    dists_out: tuple[numpy.ndarray[float]]
+        Full output distributions for the same parameters as intervals
+    file_name: str
+        File name (including path) for saving the results.
+    data_id: str
+        Identification for the dataset used
+    
+    Returns
+    -------
+    None
+    """
+    data = np.column_stack((*dists_in, *dists_out))
+    # file name just adds 'dists' at the end
+    split_name = os.path.splitext(os.path.basename(file_name))
+    target_id = split_name[0]  # the file name without extension
+    fn_ext = split_name[1]
+    file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
+    description = 'Prior and posterior distributions (not MCMC).'
+    hdr = (f'{target_id}, {data_id}, {description}\n'
+           'p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, '
+           't_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
+           'e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals')
+    np.savetxt(file_name_2, data, delimiter=',', header=hdr)
+    return None
+
+
+def read_results_dists(file_name):
+    """Save the distributions of the determination of orbital elements
+
+    Parameters
+    ----------
+    file_name: str
+        File name (including path) for saving the results.
+
+    Returns
+    -------
+    dists_in: tuple[numpy.ndarray[float]]
+        Full input distributions for: p, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
+    dists_out: tuple[numpy.ndarray[float]]
+        Full output distributions for the same parameters as intervals
+    """
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
+    all_dists = np.loadtxt(file_name_2, delimiter=',', unpack=True)
+    dists_in = all_dists[:13]
+    dists_out = all_dists[13:]
+    return dists_in, dists_out
+
+
 def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, intervals, bounds, formal_errors,
                           dists_in, dists_out, file_name, data_id='none'):
     """Save the results of the determination of orbital elements
@@ -1750,16 +1849,7 @@ def save_results_elements(e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, interva
     hdr = f'{target_id}, {data_id}, {description}\nname, value, description'
     np.savetxt(file_name, table, delimiter=',', fmt='%s', header=hdr)
     # save the distributions separately
-    data = np.column_stack((*dists_in, *dists_out))
-    # file name just adds 'dists' at the end
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
-    description = 'Prior and posterior distributions (not MCMC).'
-    hdr = (f'{target_id}, {data_id}, {description}\n'
-           'p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals, '
-           't_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals, '
-           'e_vals, w_vals, i_vals, rsumsma_vals, rratio_vals, sbratio_vals')
-    np.savetxt(file_name_2, data, delimiter=',', header=hdr)
+    save_results_dists(dists_in, dists_out, file_name, data_id=data_id)
     return None
 
 
@@ -1809,10 +1899,7 @@ def read_results_elements(file_name):
     formal_errors = results[42:48]
     # intervals_w  # ? for when the interval is disjoint
     # distributions
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    all_dists = np.loadtxt(file_name.replace(fn_ext, '_dists' + fn_ext), delimiter=',', unpack=True)
-    dists_in = all_dists[:13]
-    dists_out = all_dists[13:]
+    dists_in, dists_out = read_results_dists(file_name)
     return e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out
 
 
