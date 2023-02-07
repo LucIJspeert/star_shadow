@@ -17,6 +17,8 @@ import theano.tensor as tt
 import arviz as az
 from fastprogress import fastprogress
 
+import analysis_functions as af
+
 
 def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
     """Fold the given time series over the orbital period
@@ -45,8 +47,8 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
         Mask of points to extend time series to the right (for if t_ext_2!=0)
     """
     # reference time is the mean of the times array
-    mean_t = tt.mean(times)
-    t_folded = (times - mean_t - t_zero) % p_orb
+    t_mean = tt.mean(times)
+    t_folded = (times - t_mean - t_zero) % p_orb
     # extend to both sides
     ext_left = (t_folded > p_orb + t_ext_1)
     ext_right = (t_folded < t_ext_2)
@@ -561,10 +563,56 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
 
 def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
                           noise_level, i_sectors, verbose=False):
-    """"""
+    """NUTS sampling of a linear + sinusoid + eclipse model
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    const: numpy.ndarray[float]
+        The y-intercepts of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slopes of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    c_err: numpy.ndarray[float]
+        Uncertainty in the y-intercepts of a number of sine waves
+    sl_err: numpy.ndarray[float]
+        Uncertainty in the slopes of a number of sine waves
+    f_n_err: numpy.ndarray[float]
+        Uncertainty in the frequencies of a number of sine waves
+    a_n_err: numpy.ndarray[float]
+        Uncertainty in the amplitudes of a number of sine waves
+    ph_n_err: numpy.ndarray[float]
+        Uncertainty in the phases of a number of sine waves
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    inf_data: object
+        Arviz inference data object
+    par_means: list[float]
+        Parameter mean values in the following order:
+        const, slope, f_n, a_n, ph_n
+    par_hdi: list[float]
+        Parameter HDI values, same order as par_means
+    """
     # setup
-    mean_t = tt.mean(times)
-    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = tt.mean(times)
+    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
     reps = i_sectors[:, 1] - i_sectors[:, 0]
     n_sectors = len(const)
     n_sinusoids = len(f_n)
@@ -581,7 +629,7 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
         slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
         # piece-wise linear curve
-        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(t_mean_s, reps))
         # sinusoid parameter models
         f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
                                     lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
@@ -590,7 +638,7 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
                               shape=sin_shape, testval=ph_n.reshape(-1, 1))
         # sum of sinusoids
-        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - t_mean)) + ph_n_pm), axis=0)
         # full light curve model
         model = model_linear + model_sinusoid
         # observed distribution
@@ -623,21 +671,72 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
-    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e]
-    return inf_data, par_means, par_hdis
+    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e]
+    return inf_data, par_means, par_hdi
 
 
-def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, n_h, a_h, ph_h, p_orb_err,
-                            c_err, sl_err, f_n_err, a_n_err, ph_n_err, a_h_err, ph_h_err, noise_level, i_sectors,
-                            verbose=False):
-    """"""
+def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_orb_err, c_err, sl_err,
+                            f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=False):
+    """NUTS sampling of a linear + sinusoid + eclipse model
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercepts of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slopes of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    p_orb_err: float
+        Uncertainty in the orbital period
+    c_err: numpy.ndarray[float]
+        Uncertainty in the y-intercepts of a number of sine waves
+    sl_err: numpy.ndarray[float]
+        Uncertainty in the slopes of a number of sine waves
+    f_n_err: numpy.ndarray[float]
+        Uncertainty in the frequencies of a number of sine waves
+    a_n_err: numpy.ndarray[float]
+        Uncertainty in the amplitudes of a number of sine waves
+    ph_n_err: numpy.ndarray[float]
+        Uncertainty in the phases of a number of sine waves
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    inf_data: object
+        Arviz inference data object
+    par_means: list[float]
+        Parameter mean values in the following order:
+        p_orb, const, slope, f_n, a_n, ph_n, a_h, ph_h
+    par_hdi: list[float]
+        Parameter HDI values, same order as par_means
+    """
     # setup
-    mean_t = tt.mean(times)
-    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = tt.mean(times)
+    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
     reps = i_sectors[:, 1] - i_sectors[:, 0]
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
     n_sectors = len(const)
-    n_sinusoids = len(f_n)
-    n_harmonics = len(n_h)
+    n_sinusoids = len(f_n[non_harm])
+    n_harmonics = len(f_n[harmonics])
     lin_shape = (n_sectors,)
     sin_shape = (n_sinusoids, 1)
     harm_shape = (n_harmonics, 1)
@@ -652,25 +751,25 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
         slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
         # piece-wise linear curve
-        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(t_mean_s, reps))
         # sinusoid parameter models
-        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
-                                    lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
-        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n.reshape(-1, 1), sigma=a_n_err.reshape(-1, 1),
-                                    lower=0, shape=sin_shape, testval=a_n.reshape(-1, 1))
-        ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
-                              shape=sin_shape, testval=ph_n.reshape(-1, 1))
+        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n[non_harm].reshape(-1, 1), sigma=f_n_err[non_harm].reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=f_n[non_harm].reshape(-1, 1))
+        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n[non_harm].reshape(-1, 1), sigma=a_n_err[non_harm].reshape(-1, 1),
+                                    lower=0, shape=sin_shape, testval=a_n[non_harm].reshape(-1, 1))
+        ph_n_pm = pm.VonMises('ph_n', mu=ph_n[non_harm].reshape(-1, 1), kappa=1 / ph_n_err[non_harm].reshape(-1, 1)**2,
+                              shape=sin_shape, testval=ph_n[non_harm].reshape(-1, 1))
         # sum of sinusoids
-        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - t_mean)) + ph_n_pm), axis=0)
         # harmonic parameter models
         p_orb_pm = pm.TruncatedNormal('p_orb', mu=p_orb, sigma=p_orb_err, lower=0, testval=p_orb)
-        f_h_pm = n_h / p_orb
-        a_h_pm = pm.TruncatedNormal('a_h', mu=a_h.reshape(-1, 1), sigma=a_h_err.reshape(-1, 1),
-                                    lower=0, shape=harm_shape, testval=a_h.reshape(-1, 1))
-        ph_h_pm = pm.VonMises('ph_h', mu=ph_h.reshape(-1, 1), kappa=1 / ph_h_err.reshape(-1, 1)**2,
-                              shape=harm_shape, testval=ph_h.reshape(-1, 1))
+        f_h_pm = harmonic_n / p_orb_pm
+        a_h_pm = pm.TruncatedNormal('a_h', mu=a_n[harmonics].reshape(-1, 1), sigma=a_n_err[harmonics].reshape(-1, 1),
+                                    lower=0, shape=harm_shape, testval=a_n[harmonics].reshape(-1, 1))
+        ph_h_pm = pm.VonMises('ph_h', mu=ph_n[harmonics].reshape(-1, 1), kappa=1 / ph_n_err[harmonics].reshape(-1, 1)**2,
+                              shape=harm_shape, testval=ph_n[harmonics].reshape(-1, 1))
         # sum of harmonic sinusoids
-        model_harmonic = pm.math.sum(a_h_pm * pm.math.sin((2 * np.pi * f_h_pm * (times - mean_t)) + ph_h_pm), axis=0)
+        model_harmonic = pm.math.sum(a_h_pm * pm.math.sin((2 * np.pi * f_h_pm * (times - t_mean)) + ph_h_pm), axis=0)
         # full light curve model
         model = model_linear + model_sinusoid + model_harmonic
         # observed distribution
@@ -709,14 +808,14 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
     a_h_e = az.hdi(a_h_ch.T, hdi_prob=0.683)
     ph_h_e = az.hdi(ph_h_ch.T, hdi_prob=0.683, circular=True)
-    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, a_h_e, ph_h_e]
-    return inf_data, par_means, par_hdis
+    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, a_h_e, ph_h_e]
+    return inf_data, par_means, par_hdi
 
 
 def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, t_zero_err,
                                   ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors,
                                   verbose=False):
-    """
+    """NUTS sampling of a linear + sinusoid + eclipse model
     
     Parameters
     ----------
@@ -768,8 +867,13 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     Returns
     -------
     inf_data: object
+        Arviz inference data object
     par_means: list[float]
-    par_hdis: list[float]
+        Parameter mean values in the following order:
+        const, slope, f_n, a_n, ph_n, t_zero,
+        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum
+    par_hdi: list[float]
+        Parameter HDI values, same order as par_means
     """
     # unpack parameters
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
@@ -779,8 +883,8 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err = ecl_par_err
     cosi_err = i_err  # todo: input cosi_err
     # setup
-    mean_t = tt.mean(times)
-    mean_t_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = tt.mean(times)
+    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
     reps = i_sectors[:, 1] - i_sectors[:, 0]
     n_sectors = len(const)
     n_sinusoids = len(f_n)
@@ -797,7 +901,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
         slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
         # piece-wise linear curve
-        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(mean_t_s, reps))
+        model_linear = tt.repeat(const_pm, reps) + tt.repeat(slope_pm, reps) * (times - tt.repeat(t_mean_s, reps))
         # sinusoid parameter models
         f_n_pm = pm.TruncatedNormal('f_n', mu=f_n.reshape(-1, 1), sigma=f_n_err.reshape(-1, 1),
                                     lower=0, shape=sin_shape, testval=f_n.reshape(-1, 1))
@@ -806,7 +910,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         ph_n_pm = pm.VonMises('ph_n', mu=ph_n.reshape(-1, 1), kappa=1 / ph_n_err.reshape(-1, 1)**2,
                               shape=sin_shape, testval=ph_n.reshape(-1, 1))
         # sum of sinusoids
-        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - mean_t)) + ph_n_pm), axis=0)
+        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - t_mean)) + ph_n_pm), axis=0)
         # eclipse parameters
         t_zero_pm = pm.Normal('t_zero', mu=t_zero, sigma=t_zero_err, testval=t_zero)
         ecosw_pm = pm.TruncatedNormal('ecosw', mu=ecosw, sigma=ecosw_err, lower=-1, upper=1, testval=ecosw)
@@ -892,6 +996,6 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     w_e = az.hdi(w_ch.T, hdi_prob=0.683)
     i_e = az.hdi(i_ch, hdi_prob=0.683)
     r_sum_e = az.hdi(r_sum_ch.T, hdi_prob=0.683)
-    par_hdis = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, cosi_e, phi_0_e, r_rat_e, sb_rat_e,
+    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, cosi_e, phi_0_e, r_rat_e, sb_rat_e,
                 e_e, w_e, i_e, r_sum_e]
-    return inf_data, par_means, par_hdis
+    return inf_data, par_means, par_hdi
