@@ -2678,7 +2678,7 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     -------
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, r_sum_sma, r_ratio, sb_ratio, e*cos(w), e*sin(w)
+        e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0
     bounds: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.997) for the same parameters as intervals
     errors: tuple[numpy.ndarray[float]]
@@ -2816,23 +2816,29 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     # inclination
     i_interval = az.hdi(i_vals, hdi_prob=0.683)
     i_bounds = az.hdi(i_vals, hdi_prob=0.997)
-    i_errs = np.array([i - i_interval[0], i_interval[1] - i])
+    i_err = np.array([i - i_interval[0], i_interval[1] - i])
+    # cos(i)
+    cosi = np.cos(i)
+    cosi_vals = np.cos(i_vals)
+    cosi_interval = az.hdi(cosi_vals, hdi_prob=0.683)
+    cosi_bounds = az.hdi(cosi_vals, hdi_prob=0.997)
+    cosi_err = np.array([cosi - cosi_interval[0], cosi_interval[1] - cosi])
     # eccentricity
     e_interval = az.hdi(e_vals, hdi_prob=0.683)
     e_bounds = az.hdi(e_vals, hdi_prob=0.997)
-    e_errs = np.array([e - e_interval[0], e_interval[1] - e])
+    e_err = np.array([e - e_interval[0], e_interval[1] - e])
     # e cos(w)
     ecosw = e * cos_w
     ecosw_vals = e_vals * np.cos(w_vals)
     ecosw_interval = az.hdi(ecosw_vals, hdi_prob=0.683)
     ecosw_bounds = az.hdi(ecosw_vals, hdi_prob=0.997)
-    ecosw_errs = np.array([ecosw - ecosw_interval[0], ecosw_interval[1] - ecosw])
+    ecosw_err = np.array([ecosw - ecosw_interval[0], ecosw_interval[1] - ecosw])
     # e sin(w)
     esinw = e * sin_w
     esinw_vals = e_vals * np.sin(w_vals)
     esinw_interval = az.hdi(esinw_vals, hdi_prob=0.683)
     esinw_bounds = az.hdi(esinw_vals, hdi_prob=0.997)
-    esinw_errs = np.array([esinw - esinw_interval[0], esinw_interval[1] - esinw])
+    esinw_err = np.array([esinw - esinw_interval[0], esinw_interval[1] - esinw])
     # omega
     if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
         w_interval = az.hdi(w_vals, hdi_prob=0.683, multimodal=True)
@@ -2842,32 +2848,31 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
         w_bounds = az.hdi(w_vals - np.pi, hdi_prob=0.997, circular=True) + np.pi
     w_inter, w_inter_2 = ut.bounds_multiplicity_check(w_interval, w)
     # w_bds, w_bds_2 = ut.bounds_multiplicity_check(w_bounds, w)
-    w_errs = np.array([w - w_inter[0], (w_inter[1] - w) % (2 * np.pi)])  # %2pi for if w_inter wrapped around
+    w_err = np.array([w - w_inter[0], (w_inter[1] - w) % (2 * np.pi)])  # %2pi for if w_inter wrapped around
     # phi_0
     phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
     phi_0_vals = phi_0_from_r_sum_sma(e_vals, i_vals, r_sum_vals)
     phi_0_interval = az.hdi(phi_0_vals, hdi_prob=0.683)
     phi_0_bounds = az.hdi(phi_0_vals, hdi_prob=0.997)
-    phi_0_errs = np.array([phi_0 - phi_0_interval[0], phi_0_interval[1] - phi_0])
+    phi_0_err = np.array([phi_0 - phi_0_interval[0], phi_0_interval[1] - phi_0])
     # r_sum_sma
     r_sum_interval = az.hdi(r_sum_vals, hdi_prob=0.683)
     r_sum_bounds = az.hdi(r_sum_vals, hdi_prob=0.997)
-    r_sum_errs = np.array([r_sum - r_sum_interval[0], r_sum_interval[1] - r_sum])
+    r_sum_err = np.array([r_sum - r_sum_interval[0], r_sum_interval[1] - r_sum])
     # r_ratio
     r_rat_interval = az.hdi(r_rat_vals, hdi_prob=0.683)
     r_rat_bounds = az.hdi(r_rat_vals, hdi_prob=0.997)
-    r_rat_errs = np.array([r_rat - r_rat_interval[0], r_rat_interval[1] - r_rat])
+    r_rat_err = np.array([r_rat - r_rat_interval[0], r_rat_interval[1] - r_rat])
     # sb_ratio
     sb_rat_interval = az.hdi(sb_rat_vals, hdi_prob=0.683)
     sb_rat_bounds = az.hdi(sb_rat_vals, hdi_prob=0.997)
-    sb_rat_errs = np.array([sb_rat - sb_rat_interval[0], sb_rat_interval[1] - sb_rat])
+    sb_rat_err = np.array([sb_rat - sb_rat_interval[0], sb_rat_interval[1] - sb_rat])
     # collect
     intervals = (e_interval, w_interval, i_interval, r_sum_interval, r_rat_interval, sb_rat_interval,
-                 ecosw_interval, esinw_interval, phi_0_interval)
+                 ecosw_interval, esinw_interval, cosi_interval, phi_0_interval)
     bounds = (e_bounds, w_bounds, i_bounds, r_sum_bounds, r_rat_bounds, sb_rat_bounds,
-              ecosw_bounds, esinw_bounds, phi_0_bounds)
-    errors = (e_errs, w_errs, i_errs, r_sum_errs, r_rat_errs, sb_rat_errs,
-              ecosw_errs, esinw_errs, phi_0_errs)
+              ecosw_bounds, esinw_bounds, cosi_bounds, phi_0_bounds)
+    errors = (e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err)
     dists_in = (normal_p, normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
                 normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
     dists_out = (e_vals, w_vals, i_vals, r_sum_vals, r_rat_vals, sb_rat_vals)

@@ -8,6 +8,7 @@ Markov Chain Monte Carlo (MCMC) with PyMC3
 Code written by: Luc IJspeert
 """
 
+import logging
 import numpy as np
 import scipy as sp
 import scipy.stats
@@ -17,7 +18,7 @@ import theano.tensor as tt
 import arviz as az
 from fastprogress import fastprogress
 
-import analysis_functions as af
+from . import analysis_functions as af
 
 
 def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
@@ -608,7 +609,7 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         Parameter mean values in the following order:
         const, slope, f_n, a_n, ph_n
     par_hdi: list[float]
-        Parameter HDI values, same order as par_means
+        Parameter HDI error values, same order as par_means
     """
     # setup
     t_mean = tt.mean(times)
@@ -621,8 +622,12 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
     # progress bar
     if verbose:
         fastprogress.printing = lambda: True
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.INFO)
     else:
         fastprogress.printing = lambda: False
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.ERROR)
     # make pymc3 model
     with pm.Model() as lc_model:
         # piece-wise linear curve parameter models
@@ -646,36 +651,40 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         
     # do the sampling
     with lc_model:
-        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, return_inferencedata=True)
+        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, progressbar=verbose,
+                             return_inferencedata=True)
     
     if verbose:
         az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
     # stacked parameter chains
-    p_orb_ch = inf_data.posterior.p_orb.stack(dim=['chain', 'draw']).to_numpy()
     const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
     slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
     f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
     a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
     ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
     # parameter means
-    p_orb_m = np.mean(p_orb_ch)
     const_m = np.mean(const_ch, axis=1).flatten()
     slope_m = np.mean(slope_ch, axis=1).flatten()
     f_n_m = np.mean(f_n_ch, axis=2).flatten()
     a_n_m = np.mean(a_n_ch, axis=2).flatten()
     ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
-    par_means = [p_orb_m, const_m, slope_m, f_n_m, a_n_m, ph_n_m]
-    # parameter errors (hdi)
+    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m]
+    # parameter errors (from hdi)
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
     par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e]
     return inf_data, par_means, par_hdi
 
 
-def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_orb_err, c_err, sl_err,
+def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err, c_err, sl_err,
                             f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=False):
     """NUTS sampling of a linear + sinusoid + eclipse model
     
@@ -697,7 +706,7 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    p_orb_err: float
+    p_err: float
         Uncertainty in the orbital period
     c_err: numpy.ndarray[float]
         Uncertainty in the y-intercepts of a number of sine waves
@@ -724,9 +733,9 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         Arviz inference data object
     par_means: list[float]
         Parameter mean values in the following order:
-        p_orb, const, slope, f_n, a_n, ph_n, a_h, ph_h
+        p_orb, const, slope, f_n, a_n, ph_n
     par_hdi: list[float]
-        Parameter HDI values, same order as par_means
+        Parameter HDI error values, same order as par_means
     """
     # setup
     t_mean = tt.mean(times)
@@ -743,8 +752,12 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     # progress bar
     if verbose:
         fastprogress.printing = lambda: True
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.INFO)
     else:
         fastprogress.printing = lambda: False
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.ERROR)
     # make pymc3 model
     with pm.Model() as lc_model:
         # piece-wise linear curve parameter models
@@ -762,8 +775,8 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         # sum of sinusoids
         model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times - t_mean)) + ph_n_pm), axis=0)
         # harmonic parameter models
-        p_orb_pm = pm.TruncatedNormal('p_orb', mu=p_orb, sigma=p_orb_err, lower=0, testval=p_orb)
-        f_h_pm = harmonic_n / p_orb_pm
+        p_orb_pm = pm.TruncatedNormal('p_orb', mu=p_orb, sigma=p_err, lower=0, testval=p_orb)
+        f_h_pm = pm.Deterministic('f_h', harmonic_n.reshape(-1, 1) / p_orb_pm)
         a_h_pm = pm.TruncatedNormal('a_h', mu=a_n[harmonics].reshape(-1, 1), sigma=a_n_err[harmonics].reshape(-1, 1),
                                     lower=0, shape=harm_shape, testval=a_n[harmonics].reshape(-1, 1))
         ph_h_pm = pm.VonMises('ph_h', mu=ph_n[harmonics].reshape(-1, 1), kappa=1 / ph_n_err[harmonics].reshape(-1, 1)**2,
@@ -777,7 +790,8 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         
     # do the sampling
     with lc_model:
-        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, return_inferencedata=True)
+        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, progressbar=verbose,
+                             return_inferencedata=True)
     
     if verbose:
         az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
@@ -788,8 +802,9 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
     a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
     ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
-    a_h_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
-    ph_h_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    f_h_ch = inf_data.posterior.f_h.stack(dim=['chain', 'draw']).to_numpy()
+    a_h_ch = inf_data.posterior.a_h.stack(dim=['chain', 'draw']).to_numpy()
+    ph_h_ch = inf_data.posterior.ph_h.stack(dim=['chain', 'draw']).to_numpy()
     # parameter means
     p_orb_m = np.mean(p_orb_ch)
     const_m = np.mean(const_ch, axis=1).flatten()
@@ -797,18 +812,36 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     f_n_m = np.mean(f_n_ch, axis=2).flatten()
     a_n_m = np.mean(a_n_ch, axis=2).flatten()
     ph_n_m = sp.stats.circmean(ph_n_ch, axis=2).flatten()
+    f_h_m = np.mean(f_h_ch, axis=2).flatten()
     a_h_m = np.mean(a_h_ch, axis=2).flatten()
     ph_h_m = sp.stats.circmean(ph_h_ch, axis=2).flatten()
-    par_means = [p_orb_m, const_m, slope_m, f_n_m, a_n_m, ph_n_m, a_h_m, ph_h_m]
-    # parameter errors (hdi)
+    f_n_m = np.append(f_n_m, f_h_m)
+    a_n_m = np.append(a_n_m, a_h_m)
+    ph_n_m = np.append(ph_n_m, ph_h_m)
+    par_means = [p_orb_m, const_m, slope_m, f_n_m, a_n_m, ph_n_m]
+    # parameter errors (from hdi)
+    p_orb_e = az.hdi(p_orb_ch.T, hdi_prob=0.683)
+    p_orb_e = np.array([p_orb_m - p_orb_e[0], p_orb_e[1] - p_orb_m])
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
+    f_h_e = az.hdi(f_h_ch.T, hdi_prob=0.683)
+    f_h_e = np.array([f_h_m - f_h_e[0], f_h_e[1] - f_h_m])
     a_h_e = az.hdi(a_h_ch.T, hdi_prob=0.683)
+    a_h_e = np.array([a_h_m - a_h_e[0], a_h_e[1] - a_h_m])
     ph_h_e = az.hdi(ph_h_ch.T, hdi_prob=0.683, circular=True)
-    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, a_h_e, ph_h_e]
+    ph_h_e = np.array([ph_h_m - ph_h_e[0], ph_h_e[1] - ph_h_m])
+    f_n_e = np.append(f_n_e, f_h_e)
+    a_n_e = np.append(a_n_e, a_h_e)
+    ph_n_e = np.append(ph_n_e, ph_h_e)
+    par_hdi = [p_orb_e, const_e, slope_e, f_n_e, a_n_e, ph_n_e]
     return inf_data, par_means, par_hdi
 
 
@@ -844,7 +877,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         Uncertainty in the time of the deepest minimum
     ecl_par_err: numpy.ndarray[float]
         Uncertainty in the initial eclipse parameters to start the fit, consisting of:
-        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err
+        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err
     c_err: numpy.ndarray[float]
         Uncertainty in the y-intercepts of a number of sine waves
     sl_err: numpy.ndarray[float]
@@ -873,15 +906,14 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         const, slope, f_n, a_n, ph_n, t_zero,
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum
     par_hdi: list[float]
-        Parameter HDI values, same order as par_means
+        Parameter HDI error values, same order as par_means
     """
     # unpack parameters
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
     phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, phi_0_err = ecl_par_err
-    cosi_err = i_err  # todo: input cosi_err
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = ecl_par_err
     # setup
     t_mean = tt.mean(times)
     t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
@@ -893,8 +925,12 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     # progress bar
     if verbose:
         fastprogress.printing = lambda: True
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.INFO)
     else:
         fastprogress.printing = lambda: False
+        mc_logger = logging.getLogger('pymc3')
+        mc_logger.setLevel(logging.ERROR)
     # make pymc3 model
     with pm.Model() as lc_model:
         # piece-wise linear curve parameter models
@@ -915,7 +951,6 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         t_zero_pm = pm.Normal('t_zero', mu=t_zero, sigma=t_zero_err, testval=t_zero)
         ecosw_pm = pm.TruncatedNormal('ecosw', mu=ecosw, sigma=ecosw_err, lower=-1, upper=1, testval=ecosw)
         esinw_pm = pm.TruncatedNormal('esinw', mu=esinw, sigma=esinw_err, lower=-1, upper=1, testval=esinw)
-        # incl_pm = pm.TruncatedNormal('incl', mu=i, sigma=i_err, lower=0, upper=np.pi / 2, testval=i)
         cosi_pm = pm.TruncatedNormal('cosi', mu=cosi, sigma=cosi_err, lower=0, upper=1, testval=cosi)
         phi_0_pm = pm.TruncatedNormal('phi_0', mu=phi_0, sigma=phi_0_err, lower=0, testval=phi_0)
         r_rat_pm = pm.TruncatedNormal('r_rat', mu=r_rat, sigma=r_rat_err, lower=0, testval=r_rat)
@@ -948,7 +983,6 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
     ecosw_ch = inf_data.posterior.ecosw.stack(dim=['chain', 'draw']).to_numpy()
     esinw_ch = inf_data.posterior.esinw.stack(dim=['chain', 'draw']).to_numpy()
-    # i_ch = inf_data.posterior.incl.stack(dim=['chain', 'draw']).to_numpy()
     cosi_ch = inf_data.posterior.cosi.stack(dim=['chain', 'draw']).to_numpy()
     phi_0_ch = inf_data.posterior.phi_0.stack(dim=['chain', 'draw']).to_numpy()
     r_rat_ch = inf_data.posterior.r_rat.stack(dim=['chain', 'draw']).to_numpy()
@@ -978,24 +1012,40 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     r_sum_m = np.mean(r_sum_ch)
     par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, t_zero_m, ecosw_m, esinw_m, cosi_m, phi_0_m, r_rat_m, sb_rat_m,
                  e_m, w_m, i_m, r_sum_m]
-    # parameter errors (hdi)
+    # parameter errors (from hdi)
     t_zero_e = az.hdi(t_zero_ch, hdi_prob=0.683)
+    t_zero_e = np.array([t_zero_m - t_zero_e[0], t_zero_e[1] - t_zero_m])
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
+    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
+    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
+    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
+    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
+    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
     ecosw_e = az.hdi(ecosw_ch, hdi_prob=0.683)
+    ecosw_e = np.array([ecosw_m - ecosw_e[0], ecosw_e[1] - ecosw_m])
     esinw_e = az.hdi(esinw_ch, hdi_prob=0.683)
+    esinw_e = np.array([esinw_m - esinw_e[0], esinw_e[1] - esinw_m])
     cosi_e = az.hdi(cosi_ch, hdi_prob=0.683)
+    cosi_e = np.array([cosi_m - cosi_e[0], cosi_e[1] - cosi_m])
     phi_0_e = az.hdi(phi_0_ch, hdi_prob=0.683)
+    phi_0_e = np.array([phi_0_m - phi_0_e[0], phi_0_e[1] - phi_0_m])
     r_rat_e = az.hdi(r_rat_ch, hdi_prob=0.683)
+    r_rat_e = np.array([r_rat_m - r_rat_e[0], r_rat_e[1] - r_rat_m])
     sb_rat_e = az.hdi(sb_rat_ch, hdi_prob=0.683)
-    # transformed parameter errors (hdi)
+    sb_rat_e = np.array([sb_rat_m - sb_rat_e[0], sb_rat_e[1] - sb_rat_m])
+    # transformed parameter errors (from hdi)
     e_e = az.hdi(e_ch.T, hdi_prob=0.683)
+    e_e = np.array([e_m - e_e[0], e_e[1] - e_m])
     w_e = az.hdi(w_ch.T, hdi_prob=0.683)
+    w_e = np.array([w_m - w_e[0], w_e[1] - w_m])
     i_e = az.hdi(i_ch, hdi_prob=0.683)
+    i_e = np.array([i_m - i_e[0], i_e[1] - i_m])
     r_sum_e = az.hdi(r_sum_ch.T, hdi_prob=0.683)
+    r_sum_e = np.array([r_sum_m - r_sum_e[0], r_sum_e[1] - r_sum_m])
     par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_zero_e, ecosw_e, esinw_e, cosi_e, phi_0_e, r_rat_e, sb_rat_e,
-                e_e, w_e, i_e, r_sum_e]
+               e_e, w_e, i_e, r_sum_e]
     return inf_data, par_means, par_hdi

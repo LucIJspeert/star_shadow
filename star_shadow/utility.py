@@ -893,32 +893,32 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         file['passed_h'].attrs['description'] = 'harmonic sinusoids passing the sigma criterion'
         # eclipse timings for the empirical eclipse model
         # minima
-        file.create_dataset('t_1', data=np.array([t_1, t_1_err, t_1_hdi[:, 0], t_1_hdi[:, 1]]))
+        file.create_dataset('t_1', data=np.array([t_1, t_1_err, t_1_hdi[0], t_1_hdi[1]]))
         file['t_1'].attrs['description'] = 'time of primary minimum with respect to t_zero'
-        file.create_dataset('t_2', data=np.array([t_2, t_2_err, t_2_hdi[:, 0], t_2_hdi[:, 1]]))
+        file.create_dataset('t_2', data=np.array([t_2, t_2_err, t_2_hdi[0], t_2_hdi[1]]))
         file['t_2'].attrs['description'] = 'time of secondary minimum with respect to t_zero'
         # contact
-        file.create_dataset('t_1_1', data=np.array([t_1_1, t_1_1_err, t_1_1_hdi[:, 0], t_1_1_hdi[:, 1]]))
+        file.create_dataset('t_1_1', data=np.array([t_1_1, t_1_1_err, t_1_1_hdi[0], t_1_1_hdi[1]]))
         file['t_1_1'].attrs['description'] = 'time of primary first contact with respect to t_zero'
-        file.create_dataset('t_1_2', data=np.array([t_1_2, t_1_2_err, t_1_2_hdi[:, 0], t_1_2_hdi[:, 1]]))
+        file.create_dataset('t_1_2', data=np.array([t_1_2, t_1_2_err, t_1_2_hdi[0], t_1_2_hdi[1]]))
         file['t_1_2'].attrs['description'] = 'time of primary last contact with respect to t_zero'
-        file.create_dataset('t_2_1', data=np.array([t_2_1, t_2_1_err, t_2_1_hdi[:, 0], t_2_1_hdi[:, 1]]))
+        file.create_dataset('t_2_1', data=np.array([t_2_1, t_2_1_err, t_2_1_hdi[0], t_2_1_hdi[1]]))
         file['t_2_1'].attrs['description'] = 'time of secondary first contact with respect to t_zero'
-        file.create_dataset('t_2_2', data=np.array([t_2_2, t_2_2_err, t_2_2_hdi[:, 0], t_2_2_hdi[:, 1]]))
+        file.create_dataset('t_2_2', data=np.array([t_2_2, t_2_2_err, t_2_2_hdi[0], t_2_2_hdi[1]]))
         file['t_2_2'].attrs['description'] = 'time of secondary last contact with respect to t_zero'
         # internal tangency
-        file.create_dataset('t_b_1_1', data=np.array([t_b_1_1, t_b_1_1_err, t_b_1_1_hdi[:, 0], t_b_1_1_hdi[:, 1]]))
+        file.create_dataset('t_b_1_1', data=np.array([t_b_1_1, t_b_1_1_err, t_b_1_1_hdi[0], t_b_1_1_hdi[1]]))
         file['t_b_1_1'].attrs['description'] = 'time of primary first internal tangency with respect to t_zero'
-        file.create_dataset('t_b_1_2', data=np.array([t_b_1_2, t_b_1_2_err, t_b_1_2_hdi[:, 0], t_b_1_2_hdi[:, 1]]))
+        file.create_dataset('t_b_1_2', data=np.array([t_b_1_2, t_b_1_2_err, t_b_1_2_hdi[0], t_b_1_2_hdi[1]]))
         file['t_b_1_2'].attrs['description'] = 'time of primary last internal tangency with respect to t_zero'
-        file.create_dataset('t_b_2_1', data=np.array([t_b_2_1, t_b_2_1_err, t_b_2_1_hdi[:, 0], t_b_2_1_hdi[:, 1]]))
+        file.create_dataset('t_b_2_1', data=np.array([t_b_2_1, t_b_2_1_err, t_b_2_1_hdi[0], t_b_2_1_hdi[1]]))
         file['t_b_2_1'].attrs['description'] = 'time of secondary first internal tangency with respect to t_zero'
-        file.create_dataset('t_b_2_2', data=np.array([t_b_2_2, t_b_2_2_err, t_b_2_2_hdi[:, 0], t_b_2_2_hdi[:, 1]]))
+        file.create_dataset('t_b_2_2', data=np.array([t_b_2_2, t_b_2_2_err, t_b_2_2_hdi[0], t_b_2_2_hdi[1]]))
         file['t_b_2_2'].attrs['description'] = 'time of secondary last internal tangency with respect to t_zero'
         # depths
-        file.create_dataset('depth_1', data=np.array([depth_1, depth_1_err, depth_1_hdi[:, 0], depth_1_hdi[:, 1]]))
+        file.create_dataset('depth_1', data=np.array([depth_1, depth_1_err, depth_1_hdi[0], depth_1_hdi[1]]))
         file['depth_1'].attrs['description'] = 'depth of primary minimum (median normalised flux)'
-        file.create_dataset('depth_2', data=np.array([depth_2, depth_2_err, depth_2_hdi[:, 0], depth_2_hdi[:, 1]]))
+        file.create_dataset('depth_2', data=np.array([depth_2, depth_2_err, depth_2_hdi[0], depth_2_hdi[1]]))
         file['depth_2'].attrs['description'] = 'depth of secondary minimum (median normalised flux)'
         # variability to eclipse depth ratios
         file.create_dataset('ratios_1', data=np.array([std_1, ratios_1[0], ratios_1[1]]))
@@ -933,7 +933,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         desc = ('Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model, '
                 'Ratio of the first eclipse depth to std_3, Ratio of the second eclipse depth to std_3')
         file['ratios_3'].attrs['description'] = desc
-        file.create_dataset('ratios_1', data=np.array([std_4, ratios_4[0], ratios_4[1]]))
+        file.create_dataset('ratios_4', data=np.array([std_4, ratios_4[0], ratios_4[1]]))
         desc = ('Standard deviation of the residuals of the linear+non-harmonic sinusoid+eclipse model, '
                 'Ratio of the first eclipse depth to std_4, Ratio of the second eclipse depth to std_4')
         file['ratios_4'].attrs['description'] = desc
@@ -944,7 +944,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         file['esinw'].attrs['description'] = 'radial part of the eccentricity'
         file.create_dataset('cosi', data=np.array([cosi, cosi_err, cosi_hdi[0], cosi_hdi[1]]))
         file['cosi'].attrs['description'] = 'cosine of the inclination'
-        file.create_dataset('phi_0', data=np.array([phi_0, phi_0_err, phi_0_hdi[0], phi_0_hdi[:, 1]]))
+        file.create_dataset('phi_0', data=np.array([phi_0, phi_0_err, phi_0_hdi[0], phi_0_hdi[1]]))
         file['phi_0'].attrs['description'] = 'auxilary angle of Kopal 1959, measures the sum of eclipse durations'
         file.create_dataset('r_rat', data=np.array([r_rat, r_rat_err, r_rat_hdi[0], r_rat_hdi[1]]))
         file['r_rat'].attrs['description'] = 'ratio of radii r_2 / r_1'
