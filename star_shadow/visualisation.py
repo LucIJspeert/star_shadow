@@ -1163,8 +1163,8 @@ def plot_corner_eclipse_parameters(p_orb, timings, depths, p_vals, t_1_vals, t_2
     return
 
 
-def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init, par_opt1,
-                            par_opt2, i_sectors, save_file=None, show=True):
+def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, par_init, par_opt,
+                            i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings, simple model and the ellc light curve models.
     """
@@ -1186,21 +1186,13 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
-    opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
-    opt1_f_c, opt1_f_s = opt1_e**0.5 * np.cos(opt1_w), opt1_e**0.5 * np.sin(opt1_w)
-    if not np.all(par_opt2 == -1):
-        opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-        opt2_f_c, opt2_f_s = opt2_e**0.5 * np.cos(opt2_w), opt2_e**0.5 * np.sin(opt2_w)
+    opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_opt
+    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
     # make the ellc models
     model_simple_init = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_opt1 = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, opt1_e, opt1_w, opt1_i, opt1_r_sum_sma,
-                                           opt1_r_ratio, opt1_sb_ratio)
-    if not np.all(par_opt2 == -1):
-        model_ellc_init = tsfit.wrap_ellc_lc(t_extended, p_orb, -mean_t_e, opt1_f_c, opt1_f_s, opt1_i, opt1_r_sum_sma,
-                                             opt1_r_ratio, opt1_sb_ratio, 0)
-        model_opt2 = tsfit.wrap_ellc_lc(t_extended, p_orb, -mean_t_e, opt2_f_c, opt2_f_s, opt2_i, opt2_r_sum_sma,
-                                        opt2_r_ratio, opt2_sb_ratio, 0)
-    # plot the simple model
+    model_opt1 = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, opt_e, opt_w, opt_i, opt_r_sum_sma,
+                                           opt_r_ratio, opt_sb_ratio)
+    # plot the physical eclipse model
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
     ax.plot(t_extended[sorter], model_simple_init[sorter], c='tab:orange', label='initial simple eclipse model')
@@ -1214,42 +1206,11 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     plt.legend()
     plt.tight_layout()
     if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_1.png')
-        else:
-            fig_save_file = save_file + '_1.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:
         plt.close()
-    # plot the ellc model
-    if not np.all(par_opt2 == -1):
-        fig, ax = plt.subplots()
-        ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-        ax.plot(t_extended[sorter], model_ellc_init[sorter], c='tab:orange', label='initial ellc eclipse model')
-        ax.plot(t_extended[sorter], model_opt2[sorter], c='tab:red', label='final ellc eclipse model')
-        if np.all(model_opt2 == 1):
-            ax.annotate(f'Likely invalid parameter combination for ellc or too low inclination '
-                        f'({opt2_i:2.4} rad)', (0, 1))
-        ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
-        ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
-        ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
-        ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
-        ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
-        ax.set_ylabel('normalised flux')
-        plt.legend()
-        plt.tight_layout()
-        if save_file is not None:
-            if save_file.endswith('.png'):
-                fig_save_file = save_file.replace('.png', '_2.png')
-            else:
-                fig_save_file = save_file + '_2.png'
-            plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-        if show:
-            plt.show()
-        else:
-            plt.close()
     return
 
 
@@ -1312,7 +1273,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     return
 
 
-def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_file=None, show=True):
+def plot_corner_lc_fit_pars(par_init, par_opt, distributions, save_file=None, show=True):
     """Corner plot of the distributions and the given 'truths' indicated
     using the parametrisation of ellc
     """
@@ -1332,17 +1293,11 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
         mask = (np.sign((w / np.pi * 180 - 180) * (w_vals / np.pi * 180 - 180)) < 0)
         w_vals[mask] = w_vals[mask] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
     # simple fit params
-    opt1_e, opt1_w, opt1_i_rad, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt1
-    opt1_ecosw, opt1_esinw = opt1_e * np.cos(opt1_w), opt1_e * np.sin(opt1_w)
-    opt1_i = opt1_i_rad * r2d
-    par_opt1_a = np.array([opt1_ecosw, opt1_esinw, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
-    par_opt1_b = np.array([opt1_e, opt1_w * r2d, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio])
-    # ellc fit params
-    opt2_e, opt2_w, opt2_i_rad, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt2
-    opt2_ecosw, opt2_esinw = opt2_e * np.cos(opt2_w), opt2_e * np.sin(opt2_w)
-    opt2_i = opt2_i_rad * r2d
-    par_opt2_a = np.array([opt2_ecosw, opt2_esinw, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
-    par_opt2_b = np.array([opt2_e, opt2_w * r2d, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio])
+    opt_e, opt_w, opt_i_rad, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_opt
+    opt_ecosw, opt_esinw = opt_e * np.cos(opt_w), opt_e * np.sin(opt_w)
+    opt_i = opt_i_rad * r2d
+    par_opt_a = np.array([opt_ecosw, opt_esinw, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio])
+    par_opt_b = np.array([opt_e, opt_w * r2d, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio])
     ecosw_vals = e_vals * np.cos(w_vals)
     esinw_vals = e_vals * np.sin(w_vals)
     # stack dists and plot
@@ -1354,10 +1309,8 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
     corner.overplot_lines(fig, par_init_a[nonzero_range], color='tab:blue')
     corner.overplot_points(fig, [par_init_a[nonzero_range]], marker='s', color='tab:blue')
-    corner.overplot_lines(fig, par_opt1_a[nonzero_range], color='tab:orange')
-    corner.overplot_points(fig, [par_opt1_a[nonzero_range]], marker='s', color='tab:orange')
-    corner.overplot_lines(fig, par_opt2_a[nonzero_range], color='tab:green')
-    corner.overplot_points(fig, [par_opt2_a[nonzero_range]], marker='s', color='tab:green')
+    corner.overplot_lines(fig, par_opt_a[nonzero_range], color='tab:orange')
+    corner.overplot_points(fig, [par_opt_a[nonzero_range]], marker='s', color='tab:orange')
     if not np.all(nonzero_range):
         fig.suptitle('Output distributions and lc fit outcome'
                      f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
@@ -1379,10 +1332,8 @@ def plot_corner_lc_fit_pars(par_init, par_opt1, par_opt2, distributions, save_fi
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
     corner.overplot_lines(fig, par_init_b[nonzero_range], color='tab:blue')
     corner.overplot_points(fig, [par_init_b[nonzero_range]], marker='s', color='tab:blue')
-    corner.overplot_lines(fig, par_opt1_b[nonzero_range], color='tab:orange')
-    corner.overplot_points(fig, [par_opt1_b[nonzero_range]], marker='s', color='tab:orange')
-    corner.overplot_lines(fig, par_opt2_b[nonzero_range], color='tab:green')
-    corner.overplot_points(fig, [par_opt2_b[nonzero_range]], marker='s', color='tab:green')
+    corner.overplot_lines(fig, par_opt_b[nonzero_range], color='tab:orange')
+    corner.overplot_points(fig, [par_opt_b[nonzero_range]], marker='s', color='tab:orange')
     if not np.all(nonzero_range):
         fig.suptitle('Output distributions and lc fit outcome'
                      f' ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')

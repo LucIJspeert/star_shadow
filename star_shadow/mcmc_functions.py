@@ -612,8 +612,10 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         Parameter HDI error values, same order as par_means
     """
     # setup
-    t_mean = tt.mean(times)
-    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = np.mean(times)
+    t_mean = tt.as_tensor_variable(t_mean)
+    t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean_s = tt.as_tensor_variable(t_mean_s)
     reps = i_sectors[:, 1] - i_sectors[:, 0]
     n_sectors = len(const)
     n_sinusoids = len(f_n)
@@ -648,10 +650,10 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         model = model_linear + model_sinusoid
         # observed distribution
         y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
-        
+    
     # do the sampling
     with lc_model:
-        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, progressbar=verbose,
+        inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', cores=1, progressbar=verbose,
                              return_inferencedata=True)
     
     if verbose:
@@ -671,15 +673,15 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
     par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m]
     # parameter errors (from hdi)
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
-    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
+    const_e = np.array([const_m - const_e[:, 0], const_e[:, 1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
-    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
+    slope_e = np.array([slope_m - slope_e[:, 0], slope_e[:, 1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
-    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
+    f_n_e = np.array([f_n_m - f_n_e[:, 0], f_n_e[:, 1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
-    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
+    a_n_e = np.array([a_n_m - a_n_e[:, 0], a_n_e[:, 1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
-    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
+    ph_n_e = np.array([ph_n_m - ph_n_e[:, 0], ph_n_e[:, 1] - ph_n_m])
     par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e]
     return inf_data, par_means, par_hdi
 
@@ -738,8 +740,10 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         Parameter HDI error values, same order as par_means
     """
     # setup
-    t_mean = tt.mean(times)
-    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = np.mean(times)
+    t_mean = tt.as_tensor_variable(t_mean)
+    t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean_s = tt.as_tensor_variable(t_mean_s)
     reps = i_sectors[:, 1] - i_sectors[:, 0]
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -779,7 +783,8 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         f_h_pm = pm.Deterministic('f_h', harmonic_n.reshape(-1, 1) / p_orb_pm)
         a_h_pm = pm.TruncatedNormal('a_h', mu=a_n[harmonics].reshape(-1, 1), sigma=a_n_err[harmonics].reshape(-1, 1),
                                     lower=0, shape=harm_shape, testval=a_n[harmonics].reshape(-1, 1))
-        ph_h_pm = pm.VonMises('ph_h', mu=ph_n[harmonics].reshape(-1, 1), kappa=1 / ph_n_err[harmonics].reshape(-1, 1)**2,
+        ph_h_pm = pm.VonMises('ph_h', mu=ph_n[harmonics].reshape(-1, 1),
+                              kappa=1 / ph_n_err[harmonics].reshape(-1, 1)**2,
                               shape=harm_shape, testval=ph_n[harmonics].reshape(-1, 1))
         # sum of harmonic sinusoids
         model_harmonic = pm.math.sum(a_h_pm * pm.math.sin((2 * np.pi * f_h_pm * (times - t_mean)) + ph_h_pm), axis=0)
@@ -787,10 +792,10 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         model = model_linear + model_sinusoid + model_harmonic
         # observed distribution
         y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
-        
+    
     # do the sampling
     with lc_model:
-        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', cores=1, progressbar=verbose,
+        inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', cores=1, progressbar=verbose,
                              return_inferencedata=True)
     
     if verbose:
@@ -823,21 +828,21 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     p_orb_e = az.hdi(p_orb_ch.T, hdi_prob=0.683)
     p_orb_e = np.array([p_orb_m - p_orb_e[0], p_orb_e[1] - p_orb_m])
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
-    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
+    const_e = np.array([const_m - const_e[:, 0], const_e[:, 1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
-    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
+    slope_e = np.array([slope_m - slope_e[:, 0], slope_e[:, 1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
-    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
+    f_n_e = np.array([f_n_m - f_n_e[:, 0], f_n_e[:, 1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
-    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
+    a_n_e = np.array([a_n_m - a_n_e[:, 0], a_n_e[:, 1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
-    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
+    ph_n_e = np.array([ph_n_m - ph_n_e[:, 0], ph_n_e[:, 1] - ph_n_m])
     f_h_e = az.hdi(f_h_ch.T, hdi_prob=0.683)
-    f_h_e = np.array([f_h_m - f_h_e[0], f_h_e[1] - f_h_m])
+    f_h_e = np.array([f_h_m - f_h_e[:, 0], f_h_e[:, 1] - f_h_m])
     a_h_e = az.hdi(a_h_ch.T, hdi_prob=0.683)
-    a_h_e = np.array([a_h_m - a_h_e[0], a_h_e[1] - a_h_m])
+    a_h_e = np.array([a_h_m - a_h_e[:, 0], a_h_e[:, 1] - a_h_m])
     ph_h_e = az.hdi(ph_h_ch.T, hdi_prob=0.683, circular=True)
-    ph_h_e = np.array([ph_h_m - ph_h_e[0], ph_h_e[1] - ph_h_m])
+    ph_h_e = np.array([ph_h_m - ph_h_e[:, 0], ph_h_e[:, 1] - ph_h_m])
     f_n_e = np.append(f_n_e, f_h_e)
     a_n_e = np.append(a_n_e, a_h_e)
     ph_n_e = np.append(ph_n_e, ph_h_e)
@@ -915,8 +920,10 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = ecl_par_err
     # setup
-    t_mean = tt.mean(times)
-    t_mean_s = tt.concatenate([tt.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean = np.mean(times)
+    t_mean = tt.as_tensor_variable(t_mean)
+    t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])
+    t_mean_s = tt.as_tensor_variable(t_mean_s)
     reps = i_sectors[:, 1] - i_sectors[:, 0]
     n_sectors = len(const)
     n_sinusoids = len(f_n)
@@ -969,7 +976,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     
     # do the sampling
     with lc_model:
-        inf_data = pm.sample(draws=2000, tune=2000, init='adapt_diag', chains=2, cores=1, progressbar=verbose,
+        inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', chains=2, cores=1, progressbar=verbose,
                              return_inferencedata=True)
     
     if verbose:
@@ -1016,15 +1023,15 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
     t_zero_e = az.hdi(t_zero_ch, hdi_prob=0.683)
     t_zero_e = np.array([t_zero_m - t_zero_e[0], t_zero_e[1] - t_zero_m])
     const_e = az.hdi(const_ch.T, hdi_prob=0.683)
-    const_e = np.array([const_m - const_e[0], const_e[1] - const_m])
+    const_e = np.array([const_m - const_e[:, 0], const_e[:, 1] - const_m])
     slope_e = az.hdi(slope_ch.T, hdi_prob=0.683)
-    slope_e = np.array([slope_m - slope_e[0], slope_e[1] - slope_m])
+    slope_e = np.array([slope_m - slope_e[:, 0], slope_e[:, 1] - slope_m])
     f_n_e = az.hdi(f_n_ch.T, hdi_prob=0.683)
-    f_n_e = np.array([f_n_m - f_n_e[0], f_n_e[1] - f_n_m])
+    f_n_e = np.array([f_n_m - f_n_e[:, 0], f_n_e[:, 1] - f_n_m])
     a_n_e = az.hdi(a_n_ch.T, hdi_prob=0.683)
-    a_n_e = np.array([a_n_m - a_n_e[0], a_n_e[1] - a_n_m])
+    a_n_e = np.array([a_n_m - a_n_e[:, 0], a_n_e[:, 1] - a_n_m])
     ph_n_e = az.hdi(ph_n_ch.T, hdi_prob=0.683, circular=True)
-    ph_n_e = np.array([ph_n_m - ph_n_e[0], ph_n_e[1] - ph_n_m])
+    ph_n_e = np.array([ph_n_m - ph_n_e[:, 0], ph_n_e[:, 1] - ph_n_m])
     ecosw_e = az.hdi(ecosw_ch, hdi_prob=0.683)
     ecosw_e = np.array([ecosw_m - ecosw_e[0], ecosw_e[1] - ecosw_m])
     esinw_e = az.hdi(esinw_ch, hdi_prob=0.683)

@@ -738,7 +738,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         Varability level diagnostic statistics
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
     stats: None, list[float]
-        Some statistics: t_tot, t_mean, t_int, n_param, bic, noise_level
+        Some statistics: t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level
     i_sectors: None, numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
@@ -802,7 +802,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
     passed_sigma, passed_snr, passed_h = sin_select
     passed_b = (passed_sigma & passed_snr)  # passed both
     std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = var_stats
-    t_tot, t_mean, t_int, n_param, bic, noise_level = stats
+    t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
     # check some input
     ext = os.path.splitext(os.path.basename(file_name))[1]
     if (ext != '.hdf5'):
@@ -815,6 +815,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         file.attrs['date_time'] = str(datetime.datetime.now())
         file.attrs['t_tot'] = t_tot  # total time base of observations
         file.attrs['t_mean'] = t_mean  # time reference (zero) point
+        file.attrs['t_mean_s'] = t_mean_s  # time reference (zero) point per observing sector
         file.attrs['t_int'] = t_int  # integration time of observations
         file.attrs['n_param'] = n_param  # number of free parameters
         file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals
@@ -1020,7 +1021,7 @@ def read_parameters_hdf5(file_name, verbose=False):
         Varability level diagnostic statistics
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
     stats: list[float]
-        Some statistics: t_tot, t_mean, n_param, bic, noise_level
+        Some statistics: t_tot, t_mean, t_mean_s, n_param, bic, noise_level
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve.
@@ -1040,6 +1041,7 @@ def read_parameters_hdf5(file_name, verbose=False):
         date_time = file.attrs['date_time']
         t_tot = file.attrs['t_tot']
         t_mean = file.attrs['t_mean']
+        t_mean_s = file.attrs['t_mean_s']
         t_int = file.attrs['t_int']
         n_param = file.attrs['n_param']
         bic = file.attrs['bic']
@@ -1125,7 +1127,7 @@ def read_parameters_hdf5(file_name, verbose=False):
                             t_b_1_1[2:4], t_b_1_2[2:4], t_b_2_1[2:4], t_b_2_2[2:4], depth_1[2:4], depth_2[2:4]])
     var_stats = [ratios_1[0], ratios_2[0], ratios_3[0], ratios_4[0],
                  ratios_1[1:], ratios_2[1:], ratios_3[1:], ratios_4[1:]]
-    stats = [t_tot, t_mean, t_int, n_param, bic, noise_level]
+    stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
     text = [identifier, data_id, description, date_time]
     if verbose:
         print(f'Loaded analysis file with identifier: {identifier}, created on {date_time}. \n'
@@ -1425,15 +1427,11 @@ def read_inference_data(file_name):
     return inf_data
 
 
-def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
+def save_summary(target_id, save_dir, data_id='none'):
     """Create a summary file from the results of the analysis
     
     Parameters
     ----------
-    t_tot: float
-        Total time base of observations
-    t_mean: float
-        Time series mean time for reference
     target_id: int, str
         Target identifier
     save_dir: str
@@ -1454,84 +1452,87 @@ def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
     prew_par = -np.ones(5)
     timings_par = -np.ones(25)
     form_par = -np.ones(21)
-    fit_par_init = -np.ones(12)
-    fit_par = -np.ones(18)
-    freqs_par = -np.ones(10, dtype=int)
+    fit_par_init = -np.ones(6)
+    fit_par = -np.ones(9)
+    freqs_par = -np.ones(5, dtype=int)
     level_par = -np.ones(12)
     # read results
-    data_dir = os.path.join(save_dir, f'{target_id}_analysis')
+    save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
     # get period from last prewhitening step
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_9.hdf5')):
-        results, errors, stats = read_results(os.path.join(data_dir, f'{target_id}_analysis_9.hdf5'))
-        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
-        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
-        n_param, bic, noise_level = stats
-        prew_par = [p_orb_9[0], p_err_9, n_param, bic, noise_level]
-    elif os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_3.hdf5')):
-        results, errors, stats = read_results(os.path.join(data_dir, f'{target_id}_analysis_3.hdf5'))
-        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
-        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
-        n_param, bic, noise_level = stats
-        prew_par = [p_orb_3[0], p_err_3, n_param, bic, noise_level]
-    elif os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_3.txt')):
-        with open(os.path.join(data_dir, f'{target_id}_analysis_3.txt')) as txt_file:
-            lines = txt_file.readlines()
-            prew_par[0] = float(lines[1].split()[2])
+    file_name_3 = os.path.join(save_dir, f'{target_id}_analysis_3.hdf5')
+    file_name_9 = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
+    if os.path.isfile(file_name_9):
+        results = read_parameters_hdf5(file_name_9, verbose=False)
+        sin_mean, sin_err, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const, slope, f_n, a_n, ph_n = sin_mean
+        c_err, sl_err, f_n_err, a_n_err, ph_n_err = sin_err
+        p_orb, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
+        prew_par = [p_orb, p_err, n_param, bic, noise_level]
+    elif os.path.isfile(file_name_3):
+        results = read_parameters_hdf5(file_name_3, verbose=False)
+        sin_mean, sin_err, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const, slope, f_n, a_n, ph_n = sin_mean
+        c_err, sl_err, f_n_err, a_n_err, ph_n_err = sin_err
+        p_orb, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
+        prew_par = [p_orb, p_err, n_param, bic, noise_level]
     # load timing results (13)
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_13.hdf5')):
-        results_13 = read_results_cubics_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_13.hdf5'))
-        results, errors, stats, t_zero, timings, depths, timings_err, depths_err, p_t_corr = results_13
-        p_err_13, c_err_13, sl_err_13, f_n_err_13, a_n_err_13, ph_n_err_13 = errors
-        n_param, bic, noise_level = stats
-        timings_par = [t_zero, *timings, *depths, *timings_err, *depths_err, p_t_corr, n_param, bic, noise_level]
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_13.hdf5')
+    if os.path.isfile(file_name):
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, stats, _, _ = results
+        const, slope, f_n, a_n, ph_n = sin_mean
+        _, t_zero, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
+        _, _, p_t_corr = af.linear_regression_uncertainty(prew_par[0], t_tot, sigma_t=t_int)
+        timings_par = [t_zero, *timings, *timings_err, p_t_corr, n_param, bic, noise_level]
     # load parameter results from formulae (14)
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_14.csv')):
-        results_14 = read_results_elements(os.path.join(data_dir, f'{target_id}_analysis_14.csv'))
-        e, w, i, r_sum_sma, r_ratio, sb_ratio, errors, bounds, formal_errors, dists_in, dists_out = results_14
-        e_err, w_err, i_err, r_sum_sma_err, r_ratio_err, sb_ratio_err, ecosw_err, esinw_err, phi_0_err = errors
-        e_bds, w_bds, i_bds, r_sum_sma_bds, r_ratio_bds, sb_ratio_bds, ecosw_bds, esinw_bds, phi_0_bds = bounds
-        sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_14.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        _, _, _, _, ecl_mean, ecl_err, ecl_hdi, _, _, _, _, _, _, _ = results
+        _, _, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_mean
+        _, _, sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum = ecl_err
+        formal_errors = sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw
+        _, _, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = ecl_hdi[:8]
+        e_err, w_err, i_err, r_sum_err = ecl_hdi[8:]
         elem = [e, e_err[1], e_err[0], sigma_e, w, w_err[1], w_err[0], sigma_w, i, i_err[1], i_err[0],
-                r_sum_sma, r_sum_sma_err[1], r_sum_sma_err[0], sigma_r_sum_sma, r_ratio, r_ratio_err[1],
-                r_ratio_err[0],
-                sb_ratio, sb_ratio_err[1], sb_ratio_err[0]]
+                r_sum, r_sum_err[1], r_sum_err[0], sigma_r_sum, r_rat, r_rat_err[1], r_rat_err[0],
+                sb_rat, sb_rat_err[1], sb_rat_err[0]]
         form_par = elem
     # load parameter results from initial fit (15)
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_15.csv')):
-        results_15 = read_results_lc_fit(os.path.join(data_dir, f'{target_id}_analysis_15.csv'))
-        param_init, par_opt_simple, par_opt_ellc = results_15
-        opt1_e, opt1_w, opt1_i, opt1_r_sum_sma, opt1_r_ratio, opt1_sb_ratio = par_opt_simple
-        opt2_e, opt2_w, opt2_i, opt2_r_sum_sma, opt2_r_ratio, opt2_sb_ratio = par_opt_ellc
-        fit_par_init = [*par_opt_simple, *par_opt_ellc]
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_15.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        _, _, _, _, ecl_mean, _, _, _, _, _, _, _, _, _ = results
+        _, _, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_mean
+        fit_par_init = [e, w, i, r_sum, r_rat, sb_rat]
     # load parameter results from full fit (17)
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_17.hdf5')):
-        results_17 = read_results_ecl_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_17.hdf5'))
-        results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = results_17
-        ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
-        p_orb, const, slope, f_n, a_n, ph_n = results
-        n_param, bic, noise_level = stats
-        fit_par[:9] = [*ecl_par, n_param, bic, noise_level]
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_17b.hdf5')):
-        results_17b = read_results_ecl_sin_lin(os.path.join(data_dir, f'{target_id}_analysis_17b.hdf5'))
-        results, errors, stats, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio = results_17b
-        ecl_par = e, w, i, r_sum_sma, r_ratio, sb_ratio
-        p_orb, const, slope, f_n, a_n, ph_n = results
-        n_param, bic, noise_level = stats
-        fit_par[9:] = [*ecl_par, n_param, bic, noise_level]
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_17.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, stats, _, _ = results
+        const, slope, f_n, a_n, ph_n = sin_mean
+        _, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
+        fit_par = [e, w, i, r_sum, r_rat, sb_rat, n_param, bic, noise_level]
     # include n_freqs/n_freqs_passed (18)
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18.csv')):
-        results_18 = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18.csv'))
-        passed_sigma, passed_snr, passed_both, passed_h = results_18
-        freqs_par[:5] = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
-                         np.sum(passed_h)]
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_18b.csv')):
-        results_18b = read_results_fselect(os.path.join(data_dir, f'{target_id}_analysis_18b.csv'))
-        passed_sigma, passed_snr, passed_both, passed_h = results_18b
-        freqs_par[5:] = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
-                         np.sum(passed_h)]
-    if os.path.isfile(os.path.join(data_dir, f'{target_id}_analysis_19.csv')):
-        results_19 = read_results_var_level(os.path.join(data_dir, f'{target_id}_analysis_19.csv'))
-        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results_19
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_18.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name, verbose=verbose)
+        _, _, _, sin_select, _, _, _, _, _, _, _, _, _, _ = results
+        passed_sigma, passed_snr, passed_both, passed_h = sin_select
+        freqs_par = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
+                     np.sum(passed_h)]
+    # include variability stats (19)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_19.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name, verbose=verbose)
+        _, _, _, _, _, _, _, _, _, _, var_stats, _, _, _ = results
+        std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = var_stats
         level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4]
     # file header with all variable names
     hdr = ['id', 'stage', 't_tot', 't_mean', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
@@ -1539,14 +1540,11 @@ def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
            'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
            'd_1_err', 'd_2_err', 'p_t_corr', 'n_param_cubics', 'bic_cubics', 'noise_level_cubics',
            'e_form', 'e_low', 'e_upp', 'e_sig', 'w_form', 'w_low', 'w_upp', 'w_sig', 'i_form', 'i_low', 'i_upp',
-           'r_sum_sma_form', 'r_sum_sma_low', 'r_sum_sma_upp', 'r_sum_sma_sig', 'r_ratio_form',
-           'r_ratio_low', 'r_ratio_upp', 'sb_ratio_form', 'sb_ratio_low', 'sb_ratio_upp',
-           'e_fit_h', 'w_fit_h', 'i_fit_h', 'r_sum_sma_fit_h', 'r_ratio_fit_h', 'sb_ratio_fit_h',
-           'e_ellc_h', 'w_ellc_h', 'i_ellc_h', 'r_sum_sma_ellc_h', 'r_ratio_ellc_h', 'sb_ratio_ellc_h',
-           'e_fit', 'w_fit', 'i_fit', 'r_sum_sma_fit', 'r_ratio_fit', 'sb_ratio_fit',
+           'r_sum_form', 'r_sum_low', 'r_sum_upp', 'r_sum_sig', 'r_rat_form',
+           'r_rat_low', 'r_rat_upp', 'sb_rat_form', 'sb_rat_low', 'sb_rat_upp',
+           'e_fit_h', 'w_fit_h', 'i_fit_h', 'r_sum_fit_h', 'r_rat_fit_h', 'sb_rat_fit_h',
+           'e_fit', 'w_fit', 'i_fit', 'r_sum_fit', 'r_rat_fit', 'sb_rat_fit',
            'n_param_fit', 'bic_fit', 'noise_level_fit',
-           'e_ellc', 'w_ellc', 'i_ellc', 'r_sum_sma_ellc', 'r_ratio_ellc', 'sb_ratio_ellc',
-           'n_param_ellc', 'bic_ellc', 'noise_level_ellc',
            'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both', 'passed_harmonics',
            'total_freqs_ellc', 'passed_sigma_ellc', 'passed_snr_ellc', 'passed_both_ellc', 'passed_harmonics_ellc',
            'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
@@ -1577,32 +1575,22 @@ def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
             'inclination (radians) from timing formulae',
             'upper error estimate in i', 'lower error estimate in i',
             'sum of radii divided by the semi-major axis of the relative orbit from timing formulae',
-            'upper error estimate in r_sum_sma', 'lower error estimate in r_sum_sma',
-            'formal uncorrelated error in r_sum_sma',
-            'upper error estimate in r_ratio', 'lower error estimate in r_ratio',
+            'upper error estimate in r_sum', 'lower error estimate in r_sum',
+            'formal uncorrelated error in r_sum',
+            'upper error estimate in r_rat', 'lower error estimate in r_rat',
             'radius ratio r2/r1 from timing formulae',
             'surface brightness ratio sb2/sb1 from timing formulae',
-            'upper error estimate in sb_ratio', 'lower error estimate in sb_ratio',
+            'upper error estimate in sb_rat', 'lower error estimate in sb_rat',
             'eccentricity fit 1 (harmonics)', 'argument of periastron fit 1 (harmonics)',
             'orbital inclination i (radians) fit 1 (harmonics)', 'sum of fractional radii (r1+r2)/a fit 1 (harmonics)',
             'radius ratio r2/r1 fit 1 (harmonics)', 'surface brightness ratio sb2/sb1 fit 1 (harmonics)',
-            'eccentricity fit 2 (ellc) (harmonics)', 'argument of periastron fit 2 (ellc) (harmonics)',
-            'inclination (radians) fit 2 (ellc) (harmonics)', 'sum of fractional radii fit 2 (ellc) (harmonics)',
-            'radius ratio fit 2 (ellc) (harmonics)', 'surface brightness ratio fit 2 (ellc) (harmonics)',
             'eccentricity fit 1 (full)', 'argument of periastron fit 1 (full)',
             'inclination (radians) fit 1 (full)', 'sum of fractional radii fit 1 (full)',
             'radius ratio fit 1 (full)', 'surface brightness ratio fit 1 (full)',
             'number of parameters fit 1 (full)', 'BIC fit 1 (full)', 'noise level fit 1 (full)',
-            'eccentricity fit 2 (ellc) (full)', 'argument of periastron fit 2 (ellc) (full)',
-            'inclination (radians) fit 2 (ellc) (full)', 'sum of fractional radii fit 2 (ellc) (full)',
-            'radius ratio fit 2 (ellc) (full)', 'surface brightness ratio fit 2 (ellc) (full)',
-            'number of parameters fit 2 (ellc) (full)', 'BIC fit 2 (ellc) (full)', 'noise level fit 2 (ellc) (full)',
             'total number of frequencies', 'number of frequencies that passed the sigma test',
             'number of frequencies that passed the S/R test', 'number of frequencies that passed both tests',
             'number of hramonics that passed both tests',
-            'total number of frequencies (ellc)', 'number of frequencies that passed the sigma test (ellc)',
-            'number of frequencies that passed the S/R test (ellc)',
-            'number of frequencies that passed both tests (ellc)', 'number of hramonics that passed both tests (ellc)',
             'Standard deviation of the residuals of the linear+sinusoid+eclipse model',
             'Standard deviation of the residuals of the linear+eclipse model',
             'Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model',
@@ -1613,7 +1601,7 @@ def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
             'Ratio of the first eclipse depth to std_4', 'Ratio of the second eclipse depth to std_4']
     # record the stage where the analysis finished
     files_in_dir = []
-    for root, dirs, files in os.walk(data_dir):
+    for root, dirs, files in os.walk(save_dir):
         for file_i in files:
             files_in_dir.append(os.path.join(root, file_i))
     for i in range(19, 0, -1):
@@ -1632,7 +1620,7 @@ def save_summary(t_tot, t_mean, target_id, save_dir, data_id='none'):
                               fit_par, freqs_par, level_par)).reshape((-1, 1))
     data = np.column_stack((hdr, obs_par, desc))
     file_hdr = f'{target_id}, {data_id}\nname, value'  # the actual header used for numpy savetxt
-    save_name = os.path.join(data_dir, f'{target_id}_analysis_summary.csv')
+    save_name = os.path.join(save_dir, f'{target_id}_analysis_summary.csv')
     np.savetxt(save_name, data, delimiter=',', fmt='%s', header=file_hdr)
     return None
 
@@ -1667,142 +1655,128 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     -------
     None
     """
+    load_dir = os.path.join(load_dir, f'{target_id}_analysis')  # add subdir
+    save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
     # open all the data
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_1.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_1, const_1, slope_1, f_n_1, a_n_1, ph_n_1 = results
-        # p_orb_1 = p_orb_1[0]  # must be a float
-        # p_err_1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1 = errors
-        # n_param_1, bic_1, noise_level_1 = stats
-        model_1 = tsf.linear_curve(times, const_1, slope_1, i_sectors)
-        model_1 += tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, _, _, _, _, _, _, _, _, _, _ = results
+        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = sin_mean
+        model_linear = tsf.linear_curve(times, const_1, slope_1, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_1, a_n_1, ph_n_1)
+        model_1 = model_linear + model_sinusoid
     else:
-        p_orb_1, const_1, slope_1, f_n_1, a_n_1, ph_n_1 = np.array([[], [], [], [], [], []])
-        # p_orb_1 = 0
-        # p_err_1, c_err_1, sl_err_1, f_n_err_1, a_n_err_1, ph_n_err_1 = np.array([[], [], [], [], [], []])
-        # n_param_1, bic_1, noise_level_1 = 0, 0, 0
+        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = np.array([[], [], [], [], []])
         model_1 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_2.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = results
-        # p_orb_2 = p_orb_2[0]  # must be a float
-        # p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = errors
-        # n_param_2, bic_2, noise_level_2 = stats
-        model_2 = tsf.linear_curve(times, const_2, slope_2, i_sectors)
-        model_2 += tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, _, _, _, _, _, _, _, _, _, _ = results
+        const_2, slope_2, f_n_2, a_n_2, ph_n_2 = sin_mean
+        model_linear = tsf.linear_curve(times, const_2, slope_2, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_2, a_n_2, ph_n_2)
+        model_2 = model_linear + model_sinusoid
     else:
-        p_orb_2, const_2, slope_2, f_n_2, a_n_2, ph_n_2 = np.array([[], [], [], [], [], []])
-        # p_orb_2 = 0
-        # p_err_2, c_err_2, sl_err_2, f_n_err_2, a_n_err_2, ph_n_err_2 = np.array([[], [], [], [], [], []])
-        # n_param_2, bic_2, noise_level_2 = 0, 0, 0
+        const_2, slope_2, f_n_2, a_n_2, ph_n_2 = np.array([[], [], [], [], []])
         model_2 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_3.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = results
-        p_orb_3 = p_orb_3[0]  # must be a float
-        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = errors
-        # n_param_3, bic_3, noise_level_3 = stats
-        model_3 = tsf.linear_curve(times, const_3, slope_3, i_sectors)
-        model_3 += tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const_3, slope_3, f_n_3, a_n_3, ph_n_3 = sin_mean
+        p_orb_3, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err_3, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param_3, bic_3, noise_level_3 = stats
+        model_linear = tsf.linear_curve(times, const_3, slope_3, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_3, a_n_3, ph_n_3)
+        model_3 = model_linear + model_sinusoid
     else:
-        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = np.array([[], [], [], [], [], []])
-        p_orb_3 = 0
-        p_err_3, c_err_3, sl_err_3, f_n_err_3, a_n_err_3, ph_n_err_3 = np.array([[], [], [], [], [], []])
-        # n_param_3, bic_3, noise_level_3 = 0, 0, 0
+        const_3, slope_3, f_n_3, a_n_3, ph_n_3 = np.array([[], [], [], [], []])
+        p_orb_3, p_err_3 = 0, 0
         model_3 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_4.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = results
-        # p_orb_4 = p_orb_4[0]  # must be a float
-        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = errors
-        # n_param_4, bic_4, noise_level_4 = stats
-        model_4 = tsf.linear_curve(times, const_4, slope_4, i_sectors)
-        model_4 += tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, _, _, _, _, _, _, _, stats, _, _ = results
+        const_4, slope_4, f_n_4, a_n_4, ph_n_4 = sin_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param_4, bic_4, noise_level_4 = stats
+        model_linear = tsf.linear_curve(times, const_4, slope_4, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
+        model_4 = model_linear + model_sinusoid
     else:
-        p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = np.array([[], [], [], [], [], []])
-        # p_orb_4 = 0
-        # p_err_4, c_err_4, sl_err_4, f_n_err_4, a_n_err_4, ph_n_err_4 = np.array([[], [], [], [], [], []])
-        # n_param_4, bic_4, noise_level_4 = 0, 0, 0
+        const_4, slope_4, f_n_4, a_n_4, ph_n_4 = np.array([[], [], [], [], []])
         model_4 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_5.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = results
-        p_orb_5 = p_orb_5[0]  # must be a float
-        p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = errors
-        # n_param_5, bic_5, noise_level_5 = stats
-        model_5 = tsf.linear_curve(times, const_5, slope_5, i_sectors)
-        model_5 += tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const_5, slope_5, f_n_5, a_n_5, ph_n_5 = sin_mean
+        p_orb_5, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err_5, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param_5, bic_5, noise_level_5 = stats
+        model_linear = tsf.linear_curve(times, const_5, slope_5, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_5, a_n_5, ph_n_5)
+        model_5 = model_linear + model_sinusoid
     else:
-        p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = np.array([[], [], [], [], [], []])
-        p_orb_5 = 0
-        p_err_5, c_err_5, sl_err_5, f_n_err_5, a_n_err_5, ph_n_err_5 = np.array([[], [], [], [], [], []])
-        # n_param_5, bic_5, noise_level_5 = 0, 0, 0
+        const_5, slope_5, f_n_5, a_n_5, ph_n_5 = np.array([[], [], [], [], []])
+        p_orb_5, p_err_5 = 0, 0
         model_5 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_6.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = results
-        # p_orb_6 = p_orb_6[0]  # must be a float
-        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = errors
-        # n_param_6, bic_6, noise_level_6 = stats
-        model_6 = tsf.linear_curve(times, const_6, slope_6, i_sectors)
-        model_6 += tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, _, _, _, _, _, _, _, stats, _, _ = results
+        const_6, slope_6, f_n_6, a_n_6, ph_n_6 = sin_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param_6, bic_6, noise_level_6 = stats
+        model_linear = tsf.linear_curve(times, const_6, slope_6, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_6, a_n_6, ph_n_6)
+        model_6 = model_linear + model_sinusoid
     else:
-        p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = np.array([[], [], [], [], [], []])
-        # p_orb_6 = 0
-        # p_err_6, c_err_6, sl_err_6, f_n_err_6, a_n_err_6, ph_n_err_6 = np.array([[], [], [], [], [], []])
-        # n_param_6, bic_6, noise_level_6 = 0, 0, 0
+        const_6, slope_6, f_n_6, a_n_6, ph_n_6 = np.array([[], [], [], [], []])
         model_6 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results
-        p_orb_7 = p_orb_7[0]  # must be a float
-        p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = errors
-        # n_param_7, bic_7, noise_level_7 = stats
-        model_7 = tsf.linear_curve(times, const_7, slope_7, i_sectors)
-        model_7 += tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const_7, slope_7, f_n_7, a_n_7, ph_n_7 = sin_mean
+        p_orb_7, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err_7, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param_7, bic_7, noise_level_7 = stats
+        model_linear = tsf.linear_curve(times, const_7, slope_7, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_7, a_n_7, ph_n_7)
+        model_7 = model_linear + model_sinusoid
     else:
-        p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = np.array([[], [], [], [], [], []])
-        p_orb_7 = 0
-        p_err_7, c_err_7, sl_err_7, f_n_err_7, a_n_err_7, ph_n_err_7 = np.array([[], [], [], [], [], []])
-        # n_param_7, bic_7, noise_level_7 = 0, 0, 0
+        const_7, slope_7, f_n_7, a_n_7, ph_n_7 = np.array([[], [], [], [], []])
+        p_orb_7, p_err_7 = 0, 0
         model_7 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results
-        # p_orb_8 = p_orb_8[0]  # must be a float
-        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = errors
-        # n_param_8, bic_8, noise_level_8 = stats
-        model_8 = tsf.linear_curve(times, const_8, slope_8, i_sectors)
-        model_8 += tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, _, _, _, _, _, _, _, stats, _, _ = results
+        const_8, slope_8, f_n_8, a_n_8, ph_n_8 = sin_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param_8, bic_8, noise_level_8 = stats
+        model_linear = tsf.linear_curve(times, const_8, slope_8, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_8, a_n_8, ph_n_8)
+        model_8 = model_linear + model_sinusoid
     else:
-        p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], [], []])
-        # p_orb_8 = 0
-        # p_err_8, c_err_8, sl_err_8, f_n_err_8, a_n_err_8, ph_n_err_8 = np.array([[], [], [], [], [], []])
-        # n_param_8, bic_8, noise_level_8 = 0, 0, 0
+        p_orb_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8 = np.array([[], [], [], [], []])
         model_8 = np.zeros(len(times))
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
-        results, errors, stats = read_results(file_name, verbose=False)
-        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results
-        p_orb_9 = p_orb_9[0]  # must be a float
-        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = errors
-        n_param_9, bic_9, noise_level_9 = stats
-        model_9 = tsf.linear_curve(times, const_9, slope_9, i_sectors)
-        model_9 += tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results
+        const_9, slope_9, f_n_9, a_n_9, ph_n_9 = sin_mean
+        p_orb_9, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        p_err_9, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+        t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = stats
+        model_linear = tsf.linear_curve(times, const_9, slope_9, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n_9, a_n_9, ph_n_9)
+        model_9 = model_linear + model_sinusoid
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_9, p_orb_9, f_tol=1e-9)
         f_h_9, a_h_9, ph_h_9 = f_n_9[harmonics], a_n_9[harmonics], ph_n_9[harmonics]
     else:
-        p_orb_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9 = np.array([[], [], [], [], [], []])
-        p_orb_9 = 0
-        p_err_9, c_err_9, sl_err_9, f_n_err_9, a_n_err_9, ph_n_err_9 = np.array([[], [], [], [], [], []])
+        const_9, slope_9, f_n_9, a_n_9, ph_n_9 = np.array([[], [], [], [], []])
+        p_orb_9, p_err_9 = 0, 0
         n_param_9, bic_9, noise_level_9 = 0, 0, 0
         model_9 = np.zeros(len(times))
         f_h_9, a_h_9, ph_h_9 = np.array([[], [], []])
@@ -1818,87 +1792,72 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         if (len(harmonics) > 0):
             low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
             f_hl_9, a_hl_9, ph_hl_9 = f_n_9[harmonics[low_h]], a_n_9[harmonics[low_h]], ph_n_9[harmonics[low_h]]
-    # open some more data - timings, harmonic separation, eclipse parameters
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.csv')
+    # load initial timing results (10)
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_10.csv')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
     if os.path.isfile(file_name):
-        results_10 = read_results_timings(file_name)
-        t_zero_10, timings_10, depths_10, timings_err_10, depths_err_10, ecl_indices_10 = results_10
+        results = read_parameters_hdf5(file_name, verbose=False)
+        _, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, _, _, _ = results
+        _, t_zero_10, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        timings_10, depths_10 = timings[:10], timings[10:]
+        timings_err_10, depths_err_10 = timings_err[:10], timings_err[10:]
+        ecl_indices_10 = read_results_ecl_indices(file_name)
     elif os.path.isfile(file_name_2):
         ecl_indices_10 = read_results_ecl_indices(file_name)
     if os.path.isfile(file_name) | os.path.isfile(file_name_2):
         ecl_indices_10 = np.atleast_2d(ecl_indices_10)
         if (len(ecl_indices_10) == 0):
             del ecl_indices_10  # delete the empty array to not do the plot
-    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')  # 11 not used
-    # if os.path.isfile(file_name):
-    #     results_11 = read_results_cubics(file_name)
-    #     t_zero_11, timings_11, depths_11 = results_11
-    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_12.hdf5')  # 12 not used
-    # if os.path.isfile(file_name):
-    #     results, errors, stats = read_results(file_name, verbose=False)
-    #     p_orb_12, const_12, slope_12, f_n_12, a_n_12, ph_n_12 = results
-    #     p_orb_12 = p_orb_12[0]  # must be a float
-    #     p_err_12, c_err_12, sl_err_12, f_n_err_12, a_n_err_12, ph_n_err_12 = errors
-    #     n_param_12, bic_12, noise_level_12 = stats
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.hdf5')
+    # load timing results (13)
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_13.hdf5')
     if os.path.isfile(file_name):
-        results_13 = read_results_cubics_sin_lin(file_name)
-        results, errors, stats = results_13[:3]
-        t_zero_13, timings_13, depths_13, timings_err_13, depths_err_13, p_t_corr_13 = results_13[3:]
-        p_orb_13, const_13, slope_13, f_n_13, a_n_13, ph_n_13 = results
-        # p_err_13, c_err_13, sl_err_13, f_n_err_13, a_n_err_13, ph_n_err_13 = errors
-        # n_param_13, bic_13, noise_level_13 = stats
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.csv')
+        results = read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, stats, _, _ = results
+        const_13, slope_13, f_n_13, a_n_13, ph_n_13 = sin_mean
+        _, t_zero_13, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        timings_13, depths_13 = timings[:10], timings[10:]
+        timings_err_13, depths_err_13 = timings_err[:10], timings_err[10:]
+        t_tot, t_mean, t_mean_s, t_int, n_param_13, bic_13, noise_level_13 = stats
+        _, _, p_t_corr = af.linear_regression_uncertainty(prew_par[0], t_tot, sigma_t=t_int)
+        timings_par = [t_zero, *timings, *timings_err, p_t_corr, n_param, bic, noise_level]
+    # load parameter results from formulae (14)
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_14.hdf5')
     if os.path.isfile(file_name):
-        results_14 = read_results_elements(file_name)
-        e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14 = results_14[:6]
-        errors_14, bounds_14, formal_errors_14, dists_in_14, dists_out_14 = results_14[6:]
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        _, _, _, _, ecl_mean, ecl_err, ecl_hdi, _, _, _, _, _, _, _ = results
+        _, _, ecosw_14, esinw_14, cosi_14, phi_0_14, r_rat_14, sb_rat_14, e_14, w_14, i_14, r_sum_14 = ecl_mean
+        _, _, ecosw_err_14, esinw_err_14, cosi_err_14, phi_0_err_14, r_rat_err_14, sb_rat_err_14 = ecl_hdi[:8]
+        e_err_14, w_err_14, i_err_14, r_sum_err_14 = ecl_hdi[8:]
+        par_init_14 = [e_14, w_14, i_14, r_sum_14, r_rat_14, sb_rat_14]
+        dists_in_14, dists_out_14 = ut.read_results_dists(file_name)
         # intervals_w #? for when the interval is disjoint
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.csv')
+    # load parameter results from initial fit (15)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_15.hdf5')
     if os.path.isfile(file_name):
-        par_init_14, par_opt_15, par_opt_15b = read_results_lc_fit(file_name)
-    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_16_2.hdf5')  # 16 not used
-    # if os.path.isfile(file_name):
-    #     results_16 = read_results(file_name, verbose=False)
-    #     results, errors, stats = results_16
-    #     _, const_16, slope_16, f_n_16, a_n_16, ph_n_16 = results
-    # file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_16b_2.hdf5')  # 16b not used
-    # if os.path.isfile(file_name):
-    #     results_16b = read_results(file_name, verbose=False)
-    #     results, errors, stats = results_16b
-    #     _, const_16b, slope_16b, f_n_16b, a_n_16b, ph_n_16b = results
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.hdf5')
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        _, _, _, _, ecl_mean, _, _, _, _, _, _, _, _, _ = results
+        _, _, ecosw_15, esinw_15, cosi_15, phi_0_15, r_rat_15, sb_rat_15, e_15, w_15, i_15, r_sum_15 = ecl_mean
+        par_opt_15 = [e_15, w_15, i_15, r_sum_15, r_rat_15, sb_rat_15]
+    # load parameter results from full fit (17)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_17.hdf5')
     if os.path.isfile(file_name):
-        results_17 = read_results_ecl_sin_lin(file_name, verbose=False)
-        results, errors, stats, t_zero_17, e_17, w_17, i_17, r_sum_sma_17, r_ratio_17, sb_ratio_17 = results_17
-        p_orb_17, const_17, slope_17, f_n_17, a_n_17, ph_n_17 = results
-        p_orb_17 = p_orb_17[0]
-        # p_err_17, c_err_17, sl_err_17, f_n_err_17, a_n_err_17, ph_n_err_17 = errors
-        # n_param_17, bic_17, noise_level_17 = stats
-        par_opt_17 = np.array([e_17, w_17, i_17, r_sum_sma_17, r_ratio_17, sb_ratio_17])
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_17b.hdf5')
+        results = ut.read_parameters_hdf5(file_name, verbose=False)
+        sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, stats, _, _ = results
+        const_17, slope_17, f_n_17, a_n_17, ph_n_17 = sin_mean
+        _, t_zero_17, ecosw_17, esinw_17, cosi_17, phi_0_17, r_rat_17, sb_rat_17, e_17, w_17, i_17, r_sum_17 = ecl_mean
+        t_tot, t_mean, t_mean_s, t_int, n_param_17, bic_17, noise_level_17 = stats
+        par_opt_17 = np.array([e_17, w_17, i_17, r_sum_17, r_rat_17, sb_rat_17])
+    # include n_freqs/n_freqs_passed (18)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_18.hdf5')
     if os.path.isfile(file_name):
-        results_17b = read_results_ecl_sin_lin(file_name, verbose=False)
-        results, errors, stats, t_zero_17b, e_17b, w_17b, i_17b, r_sum_sma_17b, r_ratio_17b, sb_ratio_17b = results_17b
-        p_orb_17b, const_17b, slope_17b, f_n_17b, a_n_17b, ph_n_17b = results
-        p_orb_17b = p_orb_17b[0]
-        # p_err_17b, c_err_17b, sl_err_17b, f_n_err_17b, a_n_err_17b, ph_n_err_17b = errors
-        # n_param_17b, bic_17b, noise_level_17b = stats
-        par_opt_17b = np.array([e_17b, w_17b, i_17b, r_sum_sma_17b, r_ratio_17b, sb_ratio_17b])
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18.csv')
-    if os.path.isfile(file_name):
-        results_18 = read_results_fselect(file_name)
-        pass_sigma_18, pass_snr_18, passed_b_18, passed_h_18 = results_18
-    file_name = os.path.join(load_dir, f'{target_id}_analysis', f'{target_id}_analysis_18b.csv')
-    if os.path.isfile(file_name):
-        results_18b = read_results_fselect(file_name)
-        pass_sigma_18b, pass_snr_18b, passed_b_18b, passed_h_18b = results_18b
+        results = ut.read_parameters_hdf5(file_name, verbose=verbose)
+        _, _, _, sin_select, _, _, _, _, _, _, _, _, _, _ = results
+        passed_sigma_18, passed_snr_18, passed_b_18, passed_h_18 = sin_select
     # frequency_analysis
     if save_dir is not None:
         try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_frequency_analysis_pd_full.png')
+            file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_pd_full.png')
             vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
                                     save_file=file_name, show=False)
             if np.any([len(fs) != 0 for fs in f_n_i]):
@@ -1973,26 +1932,25 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_eclipse_analysis_corner.png')
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_corner.png')
             vis.plot_corner_eclipse_parameters(p_orb_9, timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
-                                               r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14,
+                                               r_sum_14, r_rat_14, sb_rat_14, *dists_out_14,
                                                save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         except ValueError:
             pass  # no dynamic range for some variable
         try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_eclipse_analysis_lc_fit.png')
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_fit.png')
             vis.plot_lc_light_curve_fit(times, signal, p_orb_9, t_zero_13, timings_13, const_9, slope_9,
-                                        f_n_9, a_n_9, ph_n_9, par_init_14, par_opt_15, par_opt_15b, i_sectors,
+                                        f_n_9, a_n_9, ph_n_9, par_init_14, par_opt_15, i_sectors,
                                         save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_eclipse_analysis_corner_lc_fit.png')
-            vis.plot_corner_lc_fit_pars(par_init_14, par_opt_15, par_opt_15b, dists_out_14,
-                                        save_file=file_name, show=False)
+            vis.plot_corner_lc_fit_pars(par_init_14, par_opt_15, dists_out_14, save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         except ValueError:
@@ -2022,12 +1980,12 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_dists_eclipse_parameters(e_14, w_14, i_14, r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14)
+            vis.plot_dists_eclipse_parameters(e_14, w_14, i_14, r_sum_14, r_rat_14, sb_rat_14, *dists_out_14)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             vis.plot_corner_eclipse_parameters(p_orb_9, timings_13, depths_13, *dists_in_14, e_14, w_14, i_14,
-                                               r_sum_sma_14, r_ratio_14, sb_ratio_14, *dists_out_14,
+                                               r_sum_14, r_rat_14, sb_rat_14, *dists_out_14,
                                                save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
@@ -2035,12 +1993,12 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             pass  # no dynamic range for some variable
         try:
             vis.plot_lc_light_curve_fit(times, signal, p_orb_9, t_zero_13, timings_13, const_9, slope_9,
-                                        f_n_9, a_n_9, ph_n_9, par_init_14, par_opt_15, par_opt_15b, i_sectors,
+                                        f_n_9, a_n_9, ph_n_9, par_init_14, par_opt_15, i_sectors,
                                         save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_corner_lc_fit_pars(par_init_14, par_opt_15, par_opt_15b, dists_out_14, save_file=None, show=True)
+            vis.plot_corner_lc_fit_pars(par_init_14, par_opt_15, dists_out_14, save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         except ValueError:
@@ -2050,86 +2008,44 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_pulsation_analysis_lc_disentangled_simple_model.png')
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_17, t_zero_17, const_17, slope_17, f_n_17, a_n_17,
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_17, const_17, slope_17, f_n_17, a_n_17,
                                            ph_n_17, i_sectors, passed_b_18, par_opt_17, model='simple',
-                                           save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis',
-                                     f'{target_id}_pulsation_analysis_lc_disentangled_ellc_model.png')
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_17, t_zero_17, const_17b, slope_17b, f_n_17b, a_n_17b,
-                                           ph_n_17b, i_sectors, passed_b_18b, par_opt_17b, model='ellc',
                                            save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_pulsation_analysis_lc_disentangled_simple_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17, t_zero_17, timings_13, const_17, slope_17,
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_17, timings_13, const_17, slope_17,
                                              f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, passed_h_18,
                                              par_opt_17, model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
             file_name = os.path.join(save_dir, f'{target_id}_analysis',
-                                     f'{target_id}_pulsation_analysis_lc_disentangled_ellc_model_h.png')
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17b, t_zero_17b, timings_13, const_17b, slope_17b,
-                                             f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, passed_h_18b,
-                                             par_opt_17b, model='ellc', save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis',
                                      f'{target_id}_pulsation_analysis_pd_disentangled_simple_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_17, t_zero_17, noise_level_9, const_17, slope_17,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_17, noise_level_9, const_17, slope_17,
                                            f_n_17, a_n_17, ph_n_17, passed_b_18, par_opt_17, i_sectors,
                                            model='simple', save_file=file_name, show=False)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
-        try:
-            file_name = os.path.join(save_dir, f'{target_id}_analysis',
-                                     f'{target_id}_pulsation_analysis_pd_disentangled_ellc_model.png')
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_17b, t_zero_17b, noise_level_9, const_17b, slope_17b,
-                                           f_n_17b, a_n_17b, ph_n_17b, passed_b_18b, par_opt_17b, i_sectors,
-                                           model='ellc', save_file=file_name, show=False)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
     if show:
         try:
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_17, t_zero_17, const_17, slope_17, f_n_17, a_n_17,
+            vis.plot_lc_disentangled_freqs(times, signal, p_orb_9, t_zero_17, const_17, slope_17, f_n_17, a_n_17,
                                            ph_n_17, i_sectors, passed_b_18, par_opt_17, model='simple',
                                            save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs(times, signal, p_orb_17b, t_zero_17b, const_17b, slope_17b, f_n_17b, a_n_17b,
-                                           ph_n_17b, i_sectors, passed_b_18b, par_opt_17b, model='ellc',
-                                           save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17, t_zero_17, timings_13, const_17, slope_17,
+            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_9, t_zero_17, timings_13, const_17, slope_17,
                                              f_n_17, a_n_17, ph_n_17, i_sectors, passed_b_18, passed_h_18,
                                              par_opt_17, model='simple', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
         try:
-            vis.plot_lc_disentangled_freqs_h(times, signal, p_orb_17b, t_zero_17b, timings_13, const_17b, slope_17b,
-                                             f_n_17b, a_n_17b, ph_n_17b, i_sectors, passed_b_18b, passed_h_18b,
-                                             par_opt_17b, model='ellc', save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_17, t_zero_17, noise_level_9, const_17, slope_17,
+            vis.plot_pd_disentangled_freqs(times, signal, p_orb_9, t_zero_17, noise_level_9, const_17, slope_17,
                                            f_n_17, a_n_17, ph_n_17, passed_b_18, par_opt_17, i_sectors,
                                            model='simple', save_file=None, show=True)
-        except NameError:
-            pass  # some variable wasn't loaded (file did not exist)
-        try:
-            vis.plot_pd_disentangled_freqs(times, signal, p_orb_17b, t_zero_17b, noise_level_9, const_17b, slope_17b,
-                                           f_n_17b, a_n_17b, ph_n_17b, passed_b_18b, par_opt_17b, i_sectors,
-                                           model='ellc', save_file=None, show=True)
         except NameError:
             pass  # some variable wasn't loaded (file did not exist)
     return None
