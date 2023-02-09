@@ -744,7 +744,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
         in the piecewise-linear curve.
     description: str
         Optional description of the saved results
-    data_id: str
+    data_id: int, str
         Optional identifier for the data set used
     
     Returns
@@ -1292,7 +1292,7 @@ def save_results_ecl_indices(file_name, ecl_indices, data_id='none'):
     ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         as generated here (see function for details)
-    data_id: str
+    data_id: int, str
         Identification for the dataset used
 
     Returns
@@ -1342,7 +1342,7 @@ def save_results_dists(file_name, dists_in, dists_out, data_id='none'):
         t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2
     dists_out: tuple[numpy.ndarray[float]]
         Full output distributions for the same parameters as intervals
-    data_id: str
+    data_id: int, str
         Identification for the dataset used
     
     Returns
@@ -1437,7 +1437,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
-    data_id: str
+    data_id: int, str
         Identification for the dataset used
     
     Returns

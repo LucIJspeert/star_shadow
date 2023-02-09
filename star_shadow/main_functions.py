@@ -20,7 +20,7 @@ from . import analysis_functions as af
 from . import utility as ut
 
 
-def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_name, data_id=None, overwrite=False,
+def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_name, data_id='none', overwrite=False,
                            verbose=False):
     """Iterative prewhitening of the input signal in the form of
     sine waves and a piece-wise linear curve
@@ -44,7 +44,7 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -110,7 +110,7 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
 
 
 def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                      data_id=None, overwrite=False, verbose=False):
+                      data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model
 
     Parameters
@@ -142,7 +142,7 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -286,7 +286,7 @@ def find_orbital_period(times, signal, f_n, t_tot):
 
 
 def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                     data_id=None, overwrite=False, verbose=False):
+                     data_id='none', overwrite=False, verbose=False):
     """Find the orbital period and couple harmonic frequencies to the orbital period
 
     Parameters
@@ -320,7 +320,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -405,7 +405,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
 
 
 def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                  data_id=None, overwrite=False, verbose=False):
+                  data_id='none', overwrite=False, verbose=False):
     """Find and add more harmonic frequencies if possible
 
     Parameters
@@ -439,7 +439,7 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -513,7 +513,7 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
 
 
 def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                        data_id=None, overwrite=False, verbose=False):
+                        data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model with coupled harmonics
 
     Parameters
@@ -547,7 +547,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -635,7 +635,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
 
 
 def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                  data_id=None, overwrite=False, verbose=False):
+                  data_id='none', overwrite=False, verbose=False):
     """Find and add more non-harmonic frequencies if possible
 
     Parameters
@@ -669,7 +669,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -743,7 +743,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
 
 
 def remove_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                     data_id=None, overwrite=False, verbose=False):
+                     data_id='none', overwrite=False, verbose=False):
     """Reduce the number of non-harmonic frequencies if possible
 
     Parameters
@@ -777,7 +777,7 @@ def remove_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -850,7 +850,7 @@ def remove_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
-def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, save_dir, logger, data_id=None,
+def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, save_dir, logger, data_id='none',
                         overwrite=False, verbose=False):
     """Recipe for analysis of EB light curves.
 
@@ -882,7 +882,7 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
         previous analysis results.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1006,6 +1006,23 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     out_4 = add_harmonics(times, signal, signal_err, p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3, i_sectors,
                           t_stats, file_name_4, **arg_dict)
     p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4  # p_orb_3 == p_orb_4
+    
+    
+    # ------------------------------------------------------------------
+    # --- [4b] --- Attempt to extract additional non-harmonic frequencies
+    # ------------------------------------------------------------------
+    file_name_4b = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_4b.hdf5')
+    model_linear = tsf.linear_curve(times, const_4, slope_4, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
+    resid = signal - (model_linear + model_sinusoid)
+    out_4b = iterative_prewhitening(times, resid, signal_err, i_sectors, t_stats, file_name_4b, **arg_dict)
+    const_4b, slope_4b, f_n_4b, a_n_4b, ph_n_4b = out_4b
+    f_n_4, a_n_4, ph_n_4 = np.append(f_n_4, f_n_4b), np.append(a_n_4, a_n_4b), np.append(ph_n_4, ph_n_4b)
+    model_sinusoid = tsf.sum_sines(times, f_n_4, a_n_4, ph_n_4)
+    const_4, slope_4 = tsf.linear_pars(times, signal - model_sinusoid, i_sectors)
+    
+    
+    
     # ---------------------------------------------------------------------
     # --- [5] --- Fit a second time but now with fixed harmonic frequencies
     # ---------------------------------------------------------------------
@@ -1066,7 +1083,7 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
 
 
-def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name, logger, data_id=None, overwrite=False,
+def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name, logger, data_id='none', overwrite=False,
                     verbose=False):
     """Takes the output of the frequency analysis and finds the position
     of the eclipses using the orbital harmonics
@@ -1092,7 +1109,7 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
         load previous analysis results if found.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1233,7 +1250,7 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
 
 
 def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                         i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                         i_sectors, file_name, data_id='none', overwrite=False, verbose=False):
     """Optimise the eclipse timings using an empirical model of cubic functions
 
     Parameters
@@ -1274,7 +1291,7 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1386,7 +1403,7 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
 
 
 def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
-                                   f_n, a_n, ph_n, i_sectors, t_stats, file_name, logger, data_id=None,
+                                   f_n, a_n, ph_n, i_sectors, t_stats, file_name, logger, data_id='none',
                                    overwrite=False, verbose=False):
     """Optimise the eclipse timings and sinusoid model
     using an empirical model of cubic functions
@@ -1434,7 +1451,7 @@ def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, tim
         load previous analysis results if found.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1612,7 +1629,7 @@ def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, tim
 
 
 def eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_err, p_t_corr, file_name, logger,
-                     data_id=None, overwrite=False, verbose=False):
+                     data_id='none', overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
     Parameters
@@ -1642,7 +1659,7 @@ def eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_
         load previous analysis results if found.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1777,7 +1794,7 @@ def eclipse_elements(p_orb, t_zero, timings, depths, p_err, timings_err, depths_
 
 
 def optimise_phys_eclipse(times, signal, signal_err, par_init, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
-                          i_sectors, file_name, data_id=None, overwrite=False, verbose=False):
+                          i_sectors, file_name, data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the physical eclipse model
 
     Parameters
@@ -1817,7 +1834,7 @@ def optimise_phys_eclipse(times, signal, signal_err, par_init, p_orb, t_zero, ti
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -1888,7 +1905,7 @@ def optimise_phys_eclipse(times, signal, signal_err, par_init, p_orb, t_zero, ti
 
 
 def optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
-                                   t_zero_err, ecl_err, i_sectors, file_name, data_id=None, overwrite=False,
+                                   t_zero_err, ecl_err, i_sectors, file_name, data_id='none', overwrite=False,
                                    verbose=False):
     """Optimise the parameters of the physical eclipse, sinusoid and linear model
 
@@ -1933,7 +1950,7 @@ def optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2028,7 +2045,7 @@ def optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl
     return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
-def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, logger, data_id=None,
+def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, logger, data_id='none',
                      overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
@@ -2057,7 +2074,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
         previous analysis results.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2208,10 +2225,10 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
 
 
 def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, noise_level, i_sectors, t_stats,
-                        file_name, data_id=None, overwrite=False, verbose=False):
+                        file_name, data_id='none', overwrite=False, verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
-
+    
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2245,7 +2262,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2323,7 +2340,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
 
 
 def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, depths, i_sectors, t_stats,
-                           file_name, data_id=None, overwrite=False, verbose=False):
+                           file_name, data_id='none', overwrite=False, verbose=False):
     """Determine several levels of variability
 
     Parameters
@@ -2359,7 +2376,7 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2454,7 +2471,7 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
     return std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
 
 
-def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, logger, data_id=None,
+def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, logger, data_id='none',
                        overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
@@ -2483,7 +2500,7 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
         previous analysis results.
     logger: object
         Logging logger object for logging, prints and/or saves information.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2586,7 +2603,7 @@ def custom_logger(save_dir, target_id, verbose):
     return logger
 
 
-def period_from_file(file_name, i_sectors=None, data_id=None, overwrite=False, verbose=False):
+def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False, verbose=False):
     """Do the global period search for a given light curve file
 
     Parameters
@@ -2601,7 +2618,7 @@ def period_from_file(file_name, i_sectors=None, data_id=None, overwrite=False, v
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2660,7 +2677,7 @@ def period_from_file(file_name, i_sectors=None, data_id=None, overwrite=False, v
     return p_orb
 
 
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, data_id=None, overwrite=False,
+def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, data_id='none', overwrite=False,
                verbose=False):
     """Do all steps of the analysis
 
@@ -2685,7 +2702,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2726,7 +2743,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     return None
 
 
-def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id=None, overwrite=False, verbose=False):
+def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id='none', overwrite=False, verbose=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
@@ -2743,7 +2760,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id=None, overwrit
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
@@ -2773,7 +2790,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id=None, overwrit
     return None
 
 
-def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overwrite=False, verbose=False):
+def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id='none', overwrite=False, verbose=False):
     """Do all steps of the analysis for a given TIC number
     
     Parameters
@@ -2789,7 +2806,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id=None, overw
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
-    data_id: int, str, None
+    data_id: int, str
         Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as

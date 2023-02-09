@@ -666,7 +666,7 @@ def scargle_phase_single(times, signal, f):
     # final calculations
     a_cos = s_cos / cos_2**(1/2)
     b_sin = s_sin / sin_2**(1/2)
-    # phase (radians)
+    # sine phase (radians)
     phi = np.pi/2 - np.arctan2(b_sin, a_cos) - two_pi * f * tau
     return phi
 
@@ -735,7 +735,7 @@ def scargle_phase(times, signal, fs):
         # final calculations
         a_cos = s_cos / cos_2**(1/2)
         b_sin = s_sin / sin_2**(1/2)
-        # phase (radians)
+        # sine phase (radians)
         phi[i] = np.pi / 2 - np.arctan2(b_sin, a_cos) - two_pi * fs[i] * tau
     return phi
 
