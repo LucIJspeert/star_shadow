@@ -1749,86 +1749,6 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def extract_single_harmonics(times, signal, p_orb, f0=0, fn=0, verbose=True):
-    """Extract a single frequency from a time series using oversampling
-    of the periodogram and avoiding harmonics.
-    
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    f0: float
-        Starting frequency of the periodogram.
-        If left zero, default is f0 = 1/(100*T)
-    fn: float
-        Last frequency of the periodogram.
-        If left zero, default is fn = 1/(2*np.min(np.diff(times))) = Nyquist frequency
-    verbose: bool
-        If set to True, this function will print some information
-    
-    Returns
-    -------
-    f_final: float
-        Frequency of the extracted sinusoid
-    a_final: float
-        Amplitude of the extracted sinusoid
-    ph_final: float
-        Phase of the extracted sinusoid
-    
-    See Also
-    --------
-    scargle, scargle_phase_single
-    
-    Notes
-    -----
-    The extracted frequency is based on the highest amplitude in the
-    periodogram (over the interval where it is calculated). The highest
-    peak is oversampled by a factor 10^4 to get a precise measurement.
-    """
-    freq_res = 1.5 / np.ptp(times)
-    df = 0.1 / np.ptp(times)
-    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
-    avoid = freq_res / (np.ptp(times) / p_orb)  # avoidance zone around harmonics
-    mask = (freqs % (1 / p_orb) > avoid / 2) & (freqs % (1 / p_orb) < (1 / p_orb) - avoid / 2)
-    # check that the mask does not cover everything:
-    len_m = len(freqs[mask])
-    if (len_m == 0):
-        return 0, 0, 0
-    p1 = np.argmax(ampls[mask])
-    # check if we pick the boundary frequency (does not take into account masked positions)
-    if (p1 in [0, len_m - 1]):
-        if verbose:
-            print(f'Edge of frequency range {freqs[mask][p1]:1.6f} at position {p1} during extraction phase 1.')
-    # now refine once by increasing the frequency resolution x100
-    f_left_1 = max(freqs[mask][p1] - df, 0.01 / np.ptp(times))  # may not get too low
-    f_right_1 = freqs[mask][p1] + df
-    f_refine_1, a_refine_1 = scargle(times, signal, f0=f_left_1, fn=f_right_1, df=df/100)
-    p2 = np.argmax(a_refine_1)
-    # check if we pick the boundary frequency
-    if (p2 in [0, len(f_refine_1) - 1]):
-        if verbose:
-            print(f'Edge of frequency range {f_refine_1[p2]:1.6f} at position {p2} during extraction phase 2.')
-    # now refine another time by increasing the frequency resolution x100 again
-    f_left_2 = max(f_refine_1[p2] - df/100, 0.01 / np.ptp(times))  # may not get too low
-    f_right_2 = f_refine_1[p2] + df/100
-    f_refine_2, a_refine_2 = scargle(times, signal, f0=f_left_2, fn=f_right_2, df=df/10000)
-    p3 = np.argmax(a_refine_2)
-    # check if we pick the boundary frequency
-    if (p3 in [0, len(f_refine_2) - 1]):
-        if verbose:
-            print(f'Edge of frequency range {f_refine_2[p3]:1.6f} at position {p3} during extraction phase 3.')
-    f_final = f_refine_2[p3]
-    a_final = a_refine_2[p3]
-    # finally, compute the phase (and make sure it stays within + and - pi)
-    ph_final = scargle_phase_single(times, signal, f_final)
-    ph_final = (ph_final + np.pi) % (2 * np.pi) - np.pi
-    return f_final, a_final, ph_final
-
-
 def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other.
     
@@ -1927,7 +1847,8 @@ def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph
 
 def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
                             verbose=False):
-    """Refine a subset of frequencies that are within the Rayleigh criterion of each other.
+    """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
+    taking into account (and not changing) harmonics.
     
     Parameters
     ----------
@@ -2132,7 +2053,7 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
 
 def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
                                    verbose=True):
-    """Extract additional frequencies starting from an existing set.
+    """Extract additional frequencies starting from an existing set with harmonics.
     
     Parameters
     ----------
@@ -2214,7 +2135,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
         if verbose:
             print(f'Iteration {i}, {len(f_n)} frequencies, BIC= {bic:1.2f}')
         # attempt to extract the next frequency
-        f_i, a_i, ph_i = extract_single_harmonics(times, resid, p_orb, verbose=verbose)
+        f_i, a_i, ph_i = extract_single(times, resid, verbose=verbose)
         f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_temp, f_i), np.append(a_n_temp, a_i), np.append(ph_n_temp, ph_i)
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
@@ -2581,7 +2502,8 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     a_n = np.delete(a_n, remove_single)
     ph_n = np.delete(ph_n, remove_single)
     if verbose:
-        print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f}')
+        print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f} '
+              f'(delta-BIC= {bic_init - bic_prev:1.2f})')
     # Now go on to trying to replace sets of frequencies that are close together (first without harmonics)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)

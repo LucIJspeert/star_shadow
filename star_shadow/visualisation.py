@@ -29,95 +29,21 @@ script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the scri
 plt.style.use(script_dir.replace('star_shadow/star_shadow', 'star_shadow/data/mpl_stylesheet.dat'))
 
 
-def plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, title, n_param=None, bic=None,
-                                zoom=None, annotate=False, save_file=None, show=True):
-    """Plot the periodogram with the output of one frequency analysis step.
-    Primarily meant for the visualisation of the extraction process.
-    """
-    # preparations
-    model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
-    freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model)
-    err = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
-    a_height = np.max(ampls)
-    a_width = np.max(freqs)
-    if (n_param is not None) & (bic is not None):
-        model_text = f'(n_param: {n_param}, BIC: {bic:1.2f})'
-    else:
-        model_text = ''
-    # plotting
-    fig = plt.figure()
-    fig.suptitle(title)
-    fgrid = mgrid.GridSpec(nrows=2, ncols=1, height_ratios=(6, 3))
-    fsubgrid = mgrid.GridSpecFromSubplotSpec(nrows=2, ncols=1, subplot_spec=fgrid[1], hspace=0, height_ratios=(2, 1))
-    ax0 = fig.add_subplot(fgrid[0])
-    ax1 = fig.add_subplot(fsubgrid[0])
-    ax2 = fig.add_subplot(fsubgrid[1], sharex=ax1)
-    if model_text is not '':
-        ax0.text(0.5, 0.95, model_text, horizontalalignment='center',
-                 verticalalignment='center', transform=ax0.transAxes)
-    ax0.plot(freqs, ampls, label='signal')
-    ax0.plot(freqs_r, ampls_r, label=f'residual')
-    for i in range(len(f_n)):
-        ax0.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, err[2][i]], yerr=[0, err[3][i]],
-                     linestyle=':', capsize=2, c='tab:red')
-        if annotate:
-            ax0.annotate(f'{i + 1}', (f_n[i], a_n[i] + 1.1 * err[3][i]), alpha=0.6)
-        if (i == len(f_n) - 1):
-            ax0.arrow(f_n[i], -0.02 * a_height, 0, 0, head_length=0.01 * a_height, head_width=0.005 * a_width,
-                      width=0.005 * a_width, color='blue', head_starts_at_zero=False)
-    ax1.scatter(times, signal, marker='.', label='signal')
-    ax1.scatter(times, model, marker='.', label=f'model')
-    ax2.scatter(times, signal - model, marker='.')
-    ax0.set_xlabel('frequency (1/d)')
-    ax2.set_xlabel('time (d)')
-    ax0.set_ylabel('amplitude')
-    ax1.set_ylabel('signal')
-    ax2.set_ylabel('residual')
-    ax0.legend(loc='upper right')
-    ax1.legend(loc='upper right')
-    # create inset
-    if zoom is not None:
-        a_width_ins = zoom[1] - zoom[0]
-        ax0_ins = ax0.inset_axes([0.4, 0.4, 0.595, 0.59], transform=ax0.transAxes)
-        ax0_ins.plot(freqs, ampls, label='signal')
-        ax0_ins.plot(freqs_r, ampls_r, label='residual')
-        for i in range(len(f_n)):
-            if (f_n[i] > zoom[0]) & (f_n[i] < zoom[1]):
-                ax0_ins.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, err[2][i]], yerr=[0, err[3][i]],
-                                 linestyle=':', capsize=2, c='tab:red')
-            if (i == (len(f_n) - 1)):
-                ax0_ins.arrow(f_n[i], -0.02 * a_height, 0, 0, head_length=0.01 * a_height,
-                              head_width=0.005 * a_width_ins, width=0.005 * a_width_ins, color='blue',
-                              head_starts_at_zero=False)
-        ax0_ins.set_xlim(zoom[0], zoom[1])
-        if model_text is not '':
-            ax0_ins.text(0.5, 0.95, model_text, ha='center', va='center',
-                         transform=ax0.transAxes)
-        ax0.indicate_inset_zoom(ax0_ins, edgecolor="black")
-    else:
-        if model_text is not '':
-            ax0.text(0.5, 0.95, model_text, ha='center', va='center',
-                     transform=ax0.transAxes)
-    plt.tight_layout()
-    if save_file is not None:
-        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
-    return
-
-
-def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s, save_file=None, show=True):
+def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_sectors, annotate=True, save_file=None,
+                          show=True):
     """Plot the periodogram with one output of the analysis recipe."""
+    # separate harmonics
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    # make model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    model = model_linear + model_sinusoid
     # make periodograms
-    freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
+    freqs, ampls = tsf.astropy_scargle(times, signal)
     freq_range = np.ptp(freqs)
-    freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model - np.all(model == 0) * np.mean(signal))
+    freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model)
     # get error values
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
+    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
     # max plot value
     y_max = max(np.max(ampls), np.max(a_n))
     # plot
@@ -127,10 +53,18 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
         ax.plot(freqs_r, ampls_r, label='residual')
     if (p_orb > 0):
         ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
-                    linestyle='--', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
+                    linestyle='-', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
+        for i in range(2, np.max(harmonic_n) + 1):
+            ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
     for i in range(len(f_n)):
-        ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
-                    linestyle='--', capsize=2, c='tab:red')
+        if i in harmonics:
+            ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
+                        linestyle='-', capsize=2, c='tab:red')
+        else:
+            ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
+                        linestyle='-', capsize=2, c='tab:brown')
+    if annotate:
+        ax.annotate(f'{i + 1}', (f_n[i], a_n[i]))
     ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
@@ -145,7 +79,7 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_half_s
     return
 
 
-def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_half_s, save_file=None, show=True):
+def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True):
     """Plot the periodogram with the full output of the analysis recipe."""
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, signal - np.mean(signal))
@@ -160,15 +94,15 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     freqs_8, ampls_8 = tsf.astropy_scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
     freqs_9, ampls_9 = tsf.astropy_scargle(times, signal - models[8] - np.all(models[8] == 0) * np.mean(signal))
     # get error values
-    err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_half_s)
-    err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_half_s)
-    err_3 = tsf.formal_uncertainties(times, signal - models[2], a_n_i[2], i_half_s)
-    err_4 = tsf.formal_uncertainties(times, signal - models[3], a_n_i[3], i_half_s)
-    err_5 = tsf.formal_uncertainties(times, signal - models[4], a_n_i[4], i_half_s)
-    err_6 = tsf.formal_uncertainties(times, signal - models[5], a_n_i[5], i_half_s)
-    err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_half_s)
-    err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_half_s)
-    err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_half_s)
+    err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_sectors)
+    err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_sectors)
+    err_3 = tsf.formal_uncertainties(times, signal - models[2], a_n_i[2], i_sectors)
+    err_4 = tsf.formal_uncertainties(times, signal - models[3], a_n_i[3], i_sectors)
+    err_5 = tsf.formal_uncertainties(times, signal - models[4], a_n_i[4], i_sectors)
+    err_6 = tsf.formal_uncertainties(times, signal - models[5], a_n_i[5], i_sectors)
+    err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_sectors)
+    err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_sectors)
+    err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_sectors)
     # max plot value
     if (len(f_n_i[8]) > 0):
         y_max = max(np.max(ampls), np.max(a_n_i[8]))
@@ -245,10 +179,10 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     return
 
 
-def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, save_file=None, show=True):
+def plot_lc_sinusoids(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, save_file=None, show=True):
     """Shows the separated harmonics in several ways"""
     # make models
-    model = tsf.linear_curve(times, const, slope, i_half_s)
+    model = tsf.linear_curve(times, const, slope, i_sectors)
     model += tsf.sum_sines(times, f_n, a_n, ph_n)
     # plot the full model light curve
     fig, ax = plt.subplots(nrows=2, sharex=True)
@@ -270,17 +204,17 @@ def plot_lc_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s,
     return
 
 
-def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_half_s, annotate=True,
-                               save_file=None, show=True):
+def plot_lc_harmonics(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_sectors, save_file=None,
+                      show=True):
     """Shows the separated harmonics in several ways"""
     # make models
-    model_line = tsf.linear_curve(times, const, slope, i_half_s)
+    model_line = tsf.linear_curve(times, const, slope, i_sectors)
     model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
                              np.delete(ph_n, harmonics))
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_half_s)
+    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
     # plot the harmonic model and non-harmonic model
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonics')
@@ -295,76 +229,7 @@ def plot_lc_pd_harmonic_output(times, signal, p_orb, p_err, const, slope, f_n, a
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
     if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_1.png')
-        else:
-            fig_save_file = save_file + '_1.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
-    # periodogram non-harmonics
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    freqs_nh, ampls_nh = tsf.astropy_scargle(times, signal - model_h - model_line)
-    freqs, ampls = tsf.astropy_scargle(times, signal - model)
-    freq_range = np.ptp(freqs)
-    # max plot value
-    y_max = max(np.max(ampls_nh), np.max(a_n))
-    fig, ax = plt.subplots()
-    ax.plot(freqs_nh, ampls_nh, label='residuals after harmonic removal')
-    ax.plot(freqs, ampls, label='final residuals')
-    ax.plot([1 / p_orb, 1 / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3,
-            label=f'orbital frequency (p={p_orb:1.4f}d)')
-    for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
-    for i in range(len(f_n[non_harm])):
-        ax.errorbar([f_n[non_harm][i], f_n[non_harm][i]], [0, a_n[non_harm][i]], xerr=[0, errors[2][non_harm][i]],
-                    yerr=[0, errors[3][non_harm][i]], linestyle='--', capsize=2, c='tab:red')
-        if annotate:
-            ax.annotate(f'{i + 1}', (f_n[non_harm][i], a_n[non_harm][i]))
-    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
-    plt.xlabel('frequency (1/d)')
-    plt.ylabel('amplitude')
-    plt.legend()
-    plt.tight_layout()
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_2.png')
-        else:
-            fig_save_file = save_file + '_2.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-    if show:
-        plt.show()
-    else:
-        plt.close()
-    # periodogram harmonics
-    freqs_h, ampls_h = tsf.astropy_scargle(times, signal - model_nh - model_line)
-    # max plot value
-    y_max = max(np.max(ampls_h), np.max(a_n))
-    fig, ax = plt.subplots()
-    ax.plot(freqs_h, ampls_h, label='residuals after non-harmonic removal')
-    ax.plot(freqs, ampls, label='final residuals')
-    ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
-                linestyle='--', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
-    for i in range(2, np.max(harmonic_n) + 1):
-        ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
-    for i in range(len(f_n[harmonics])):
-        ax.errorbar([f_n[harmonics][i], f_n[harmonics][i]], [0, a_n[harmonics][i]], xerr=[0, errors[2][harmonics][i]],
-                    yerr=[0, errors[3][harmonics][i]], linestyle='--', capsize=2, c='tab:red')
-        if annotate:
-            ax.annotate(f'{i + 1}', (f_n[harmonics][i], a_n[harmonics][i]))
-    ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
-    plt.xlabel('frequency (1/d)')
-    plt.ylabel('amplitude')
-    plt.legend()
-    plt.tight_layout()
-    if save_file is not None:
-        if save_file.endswith('.png'):
-            fig_save_file = save_file.replace('.png', '_3.png')
-        else:
-            fig_save_file = save_file + '_3.png'
-        plt.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        plt.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     if show:
         plt.show()
     else:
@@ -1536,12 +1401,8 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     return
 
 
-def plot_mcmc_output(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
-    """Show the pymc3 sampling results in several pair plots and a trace plot"""
-    par_lines = [('t_zero', {}, t_zero), ('const', {}, const), ('slope', {}, slope),
-                 ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n),
-                 ('e_cos_w', {}, ecosw), ('e_sin_w', {}, esinw), ('incl', {}, i),
-                 ('phi_0', {}, phi_0), ('r_ratio', {}, r_rat), ('sb_ratio', {}, sb_rat)]
+def plot_mcmc_pair(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+    """Show the pymc3 sampling results in several pair plots"""
     az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
                  coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]},
                  marginals=True, kind=['scatter', 'kde'])
@@ -1550,184 +1411,14 @@ def plot_mcmc_output(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, co
                  marginals=True, kind=['scatter', 'kde'])
     az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'incl', 'phi_0', 'r_rat', 'sb_rat'],
                  marginals=True, kind=['scatter', 'kde'])
-    az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return
 
 
-def refine_subset_visual(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph_n, i_sectors, iteration,
-                         save_dir, verbose=False):
-    """Refine a subset of frequencies that are within the Rayleigh criterion of each other
-    and visualise the process.
-    
-    Intended as a sub-loop within another extraction routine (see: extract_all_visual).
-    """
-    freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    n_sectors = len(i_sectors)
-    n_f = len(f_n)
-    # determine initial bic
-    model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-    model += tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    resid = signal - model
-    f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
-    n_param = 2 * n_sectors + 3 * n_f
-    bic_prev = np.inf
-    bic = tsf.calc_bic(resid / signal_err, n_param)
-    # stop the loop when the BIC increases
-    i = 0
-    while (np.round(bic_prev - bic, 2) > 0):
-        # last frequencies are accepted
-        f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
-        bic_prev = bic
-        if verbose:
-            print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}')
-        # save parameters
-        with h5py.File(os.path.join(save_dir, f'vis_step_1_iteration_{iteration}_refine_{i}.hdf5'), 'w-') as file:
-            file.attrs['date_time'] = str(datetime.datetime.now())
-            file.attrs['iteration'] = iteration
-            file.attrs['subiteration'] = i
-            file.attrs['n_param'] = n_param  # number of free parameters
-            file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals
-            file.create_dataset('const', data=const)
-            file.create_dataset('slope', data=slope)
-            file.create_dataset('f_n', data=f_n_temp)
-            file.create_dataset('a_n', data=a_n_temp)
-            file.create_dataset('ph_n', data=ph_n_temp)
-        # remove each frequency one at a time to re-extract them
-        for j in close_f:
-            model = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-            model += tsf.sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j),
-                                   np.delete(ph_n_temp, j))  # the sinusoid part of the model
-            resid = signal - model
-            f_j, a_j, ph_j = tsf.extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
-                                                verbose=verbose)
-            f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
-        # as a last model-refining step, redetermine the constant and slope
-        model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = tsf.linear_pars(times, signal - model, i_sectors)
-        model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
-        bic = tsf.calc_bic(resid / signal_err, n_param)
-        i += 1
-    if verbose:
-        print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
-    # redo the constant and slope without the last iteration of changes
-    resid = signal - tsf.sum_sines(times, f_n, a_n, ph_n)
-    const, slope = tsf.linear_pars(times, resid, i_sectors)
-    return const, slope, f_n, a_n, ph_n
-
-
-def extract_all_visual(times, signal, signal_err, i_sectors, save_dir, verbose=True):
-    """Extract all the frequencies from a periodic signal and visualise the process.
-
-    For a description of the algorithm, see timeseries_functions.extract_all()
-    Parameters are saved at each step, so that after completion an animated
-    visualisation can be made.
-    """
-    times -= times[0]  # shift reference time to times[0]
-    freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    n_sectors = len(i_sectors)
-    # constant term (or y-intercept) and slope
-    const, slope = tsf.linear_pars(times, signal, i_sectors)
-    resid = signal - tsf.linear_curve(times, const, slope, i_sectors)
-    f_n_temp, a_n_temp, ph_n_temp = np.array([[], [], []])
-    f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
-    n_param = 2 * n_sectors
-    bic_prev = np.inf  # initialise previous BIC to infinity
-    bic = tsf.calc_bic(resid / signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
-    # stop the loop when the BIC decreases by less than 2 (or increases)
-    i = 0
-    while (bic_prev - bic > 2):
-        # last frequency is accepted
-        f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
-        bic_prev = bic
-        if verbose:
-            print(f'Iteration {i}, {len(f_n)} frequencies, BIC= {bic:1.2f}')
-        # save parameters
-        with h5py.File(os.path.join(save_dir, f'vis_step_1_iteration_{i}.hdf5'), 'w-') as file:
-            file.attrs['date_time'] = str(datetime.datetime.now())
-            file.attrs['iteration'] = i
-            file.attrs['n_param'] = n_param  # number of free parameters
-            file.attrs['bic'] = bic  # Bayesian Information Criterion of the residuals
-            file.create_dataset('const', data=const)
-            file.create_dataset('slope', data=slope)
-            file.create_dataset('f_n', data=f_n_temp)
-            file.create_dataset('a_n', data=a_n_temp)
-            file.create_dataset('ph_n', data=ph_n_temp)
-        # attempt to extract the next frequency
-        f_i, a_i, ph_i = tsf.extract_single(times, resid, verbose=verbose)
-        f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_temp, f_i), np.append(a_n_temp, a_i), np.append(ph_n_temp, ph_i)
-        # now iterate over close frequencies (around f_i) a number of times to improve them
-        close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
-        if (i > 0) & (len(close_f) > 1):
-            output = refine_subset_visual(times, signal, signal_err, close_f, const, slope,
-                                          f_n_temp, a_n_temp, ph_n_temp, i_sectors, i, save_dir, verbose=verbose)
-            const, slope, f_n_temp, a_n_temp, ph_n_temp = output
-        # as a last model-refining step, redetermine the constant and slope
-        model = tsf.sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)  # the sinusoid part of the model
-        const, slope = tsf.linear_pars(times, signal - model, i_sectors)
-        model += tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
-        # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model
-        n_param = 2 * n_sectors + 3 * len(f_n_temp)
-        bic = tsf.calc_bic(resid / signal_err, n_param)
-        i += 1
-    if verbose:
-        print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
-    # redo the constant and slope without the last iteration frequencies
-    resid = signal - tsf.sum_sines(times, f_n, a_n, ph_n)
-    const, slope = tsf.linear_pars(times, resid, i_sectors)
-    return const, slope, f_n, a_n, ph_n
-
-
-def visualise_frequency_analysis(times, signal, signal_err, i_sectors, i_half_s, target_id, save_dir, verbose=False):
-    """Visualise the whole frequency analysis process."""
-    # make the directory
-    sub_dir = f'{target_id}_analysis'
-    file_id = f'{target_id}'
-    if (not os.path.isdir(os.path.join(save_dir, sub_dir))):
-        os.mkdir(os.path.join(save_dir, sub_dir))  # create the subdir
-    save_dir = os.path.join(save_dir, sub_dir)  # this is what we will use from now on
-    # start by saving the light curve itself (this is for future reproducibility)
-    with h5py.File(os.path.join(save_dir, f'vis_step_0_light_curve.hdf5'), 'w-') as file:
-        file.attrs['identifier'] = file_id
-        file.attrs['date_time'] = str(datetime.datetime.now())
-        file.create_dataset('times', data=times)
-        file.create_dataset('signal', data=signal)
-        file.create_dataset('i_sectors', data=i_sectors)
-        file.create_dataset('i_half_s', data=i_half_s)
-    # now do the extraction and save results
-    extract_all_visual(times, signal, signal_err, i_half_s, save_dir, verbose=verbose)
-    freq_res = 1.5 / np.ptp(times)
-    # make the images (step 1)
-    step_1_files = []
-    for file_name in os.listdir(save_dir):
-        if fnmatch.fnmatch(file_name, 'vis_step_1*.hdf5'):
-            step_1_files.append(file_name)
-    for file_name in step_1_files:
-        with h5py.File(os.path.join(save_dir, file_name), 'r') as file:
-            iteration = file.attrs['iteration']
-            # stats
-            n_param = file.attrs['n_param']
-            bic = file.attrs['bic']
-            # main results and errors
-            const = np.copy(file['const'])
-            slope = np.copy(file['slope'])
-            f_n = np.copy(file['f_n'])
-            a_n = np.copy(file['a_n'])
-            ph_n = np.copy(file['ph_n'])
-            if 'refine' in file_name:
-                sub_iter = file.attrs['subiteration']
-                title = f'Iteration {iteration}, refinement {sub_iter}'
-                f_name = os.path.join(save_dir, f'vis_step_1_iteration_{iteration}_refine_{sub_iter}.png')
-                f_close = af.f_within_rayleigh(len(f_n) - 1, f_n, freq_res)
-                xlim = [np.min(f_n[f_close]) - freq_res, np.max(f_n[f_close]) + freq_res]
-            else:
-                title = f'Iteration {iteration}'
-                f_name = os.path.join(save_dir, f'vis_step_1_iteration_{iteration}.png')
-                xlim = None
-        plot_combined_single_output(times, signal, const, slope, f_n, a_n, ph_n, i_half_s, title, n_param=n_param,
-                                    bic=bic, zoom=xlim, annotate=False, save_file=f_name, show=False)
+def plot_mcmc_trace(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+    """Show the pymc3 sampling results in a trace plot"""
+    par_lines = [('t_zero', {}, t_zero), ('const', {}, const), ('slope', {}, slope),
+                 ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n),
+                 ('e_cos_w', {}, ecosw), ('e_sin_w', {}, esinw), ('incl', {}, i),
+                 ('phi_0', {}, phi_0), ('r_ratio', {}, r_rat), ('sb_ratio', {}, sb_rat)]
+    az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return
