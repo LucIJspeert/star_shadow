@@ -9,13 +9,9 @@ Code written by: Luc IJspeert
 """
 
 import os
-import datetime
-import fnmatch
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as mgrid
-import h5py
 import arviz as az
 import corner
 
@@ -29,8 +25,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the scri
 plt.style.use(script_dir.replace('star_shadow/star_shadow', 'star_shadow/data/mpl_stylesheet.dat'))
 
 
-def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_sectors, annotate=True, save_file=None,
-                          show=True):
+def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_sectors, annotate=True,
+                          save_file=None, show=True):
     """Plot the periodogram with one output of the analysis recipe."""
     # separate harmonics
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
@@ -53,7 +49,7 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_sector
         ax.plot(freqs_r, ampls_r, label='residual')
     if (p_orb > 0):
         ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
-                    linestyle='-', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d)')
+                    linestyle='-', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d +-{p_err:1.4f})')
         for i in range(2, np.max(harmonic_n) + 1):
             ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
     for i in range(len(f_n)):
@@ -63,8 +59,8 @@ def plot_pd_single_output(times, signal, model, p_orb, p_err, f_n, a_n, i_sector
         else:
             ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
                         linestyle='-', capsize=2, c='tab:brown')
-    if annotate:
-        ax.annotate(f'{i + 1}', (f_n[i], a_n[i]))
+        if annotate:
+            ax.annotate(f'{i + 1}', (f_n[i], a_n[i]))
     ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
@@ -209,16 +205,15 @@ def plot_lc_harmonics(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n,
     """Shows the separated harmonics in several ways"""
     # make models
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    model = model_line + tsf.sum_sines(times, f_n, a_n, ph_n)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     model_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics], ph_n[harmonics])
     model_nh = tsf.sum_sines(times, np.delete(f_n, harmonics), np.delete(a_n, harmonics),
                              np.delete(ph_n, harmonics))
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
     # plot the harmonic model and non-harmonic model
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(times, signal - model_nh, marker='.', c='tab:blue', label='signal - non-harmonics')
-    ax[0].plot(times, model_line + model_h, c='tab:orange', label='linear + harmonic model')
+    ax[0].plot(times, model_line + model_h, c='tab:orange', label='linear + harmonic model, '
+                                                                  f'p={p_orb:1.4f}d (+-{p_err:1.4f})')
     ax[1].scatter(times, signal - model_h, marker='.', c='tab:blue', label='signal - harmonics')
     ax[1].plot(times, model_line + model_nh, c='tab:orange', label='linear + non-harmonic model')
     ax[0].set_ylabel('residual/model')
@@ -687,13 +682,13 @@ def plot_lc_eclipse_parameters_simple(times, signal, p_orb, t_zero, timings, con
     e, w, i, phi_0, r_sum_sma, r_ratio, sb_ratio = ecl_params
     # make the simple model
     ecl_model = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_1 = tsfit.eclipse_physical_lc(t_extended[mask_1], p_orb, -mean_t_e1, e, w, i, r_sum_sma, r_ratio, sb_ratio)
-    model_ecl_2 = tsfit.eclipse_physical_lc(t_extended[mask_2], p_orb, -mean_t_e2, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_1 = tsfit.eclipse_physical_lc(t_extended[mask_1], p_orb, -mean_t_e1, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    ecl_2 = tsfit.eclipse_physical_lc(t_extended[mask_2], p_orb, -mean_t_e2, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
-    ax.plot(t_extended[sorter][mask_1], model_ecl_1, c='tab:orange', label='spheres of uniform brightness')
-    ax.plot(t_extended[sorter][mask_2], model_ecl_2, c='tab:orange')
+    ax.plot(t_extended[sorter][mask_1], ecl_1, c='tab:orange', label='spheres of uniform brightness')
+    ax.plot(t_extended[sorter][mask_2], ecl_2, c='tab:orange')
     ax.plot(t_extended[sorter], ecl_model, c='tab:purple', alpha=0.3)
     ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges')
     ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
@@ -1052,7 +1047,6 @@ def plot_lc_light_curve_fit(times, signal, p_orb, t_zero, timings, const, slope,
     # unpack and define parameters
     e, w, i, r_sum_sma, r_ratio, sb_ratio = par_init
     opt_e, opt_w, opt_i, opt_r_sum_sma, opt_r_ratio, opt_sb_ratio = par_opt
-    opt_f_c, opt_f_s = opt_e**0.5 * np.cos(opt_w), opt_e**0.5 * np.sin(opt_w)
     # make the ellc models
     model_simple_init = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, e, w, i, r_sum_sma, r_ratio, sb_ratio)
     model_opt1 = tsfit.eclipse_physical_lc(t_extended, p_orb, -mean_t_e, opt_e, opt_w, opt_i, opt_r_sum_sma,
@@ -1324,7 +1318,6 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
-    freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
     t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)

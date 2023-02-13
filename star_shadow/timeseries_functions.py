@@ -140,7 +140,7 @@ def mark_folded_gaps(times, p_orb, width):
     if np.all(t_fold_edges < p_orb):
         t_fold_edges = np.append(t_fold_edges, [p_orb])
     # mark the gaps
-    t_sorted = np.sort(times)
+    t_sorted = np.sort(t_fold_edges)
     t_diff = t_sorted[1:] - t_sorted[:-1]  # np.diff(a)
     gaps = (t_diff > width)
     # get the timestamps

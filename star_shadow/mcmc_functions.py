@@ -649,7 +649,7 @@ def sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl
         # full light curve model
         model = model_linear + model_sinusoid
         # observed distribution
-        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+        pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
     
     # do the sampling
     with lc_model:
@@ -792,7 +792,7 @@ def sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         # full light curve model
         model = model_linear + model_sinusoid + model_harmonic
         # observed distribution
-        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+        pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
     
     # do the sampling
     with lc_model:
@@ -971,7 +971,7 @@ def sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, 
         # full light curve model
         model = model_linear + model_sinusoid + model_eclipse
         # observed distribution
-        y_obs = pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
+        pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
     
     # do the sampling
     with lc_model:

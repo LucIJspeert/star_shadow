@@ -12,7 +12,6 @@ import numpy as np
 import numba as nb
 import scipy as sp
 import scipy.optimize
-import pymc3 as pm
 try:
     import ellc  # optional functionality
 except ImportError:
@@ -463,9 +462,6 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_harm = len(harmonics)
     n_sin = len(f_n) - n_harm
-    # we don't want the frequencies to go lower than about 1/T/100
-    t_tot = np.ptp(times)
-    f_low = 0.01 / t_tot
     # make a copy of the initial parameters
     res_const = np.copy(np.atleast_1d(const))
     res_slope = np.copy(np.atleast_1d(slope))
@@ -640,8 +636,8 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = len(non_harm)  # each independent sine has freq, ampl and phase
     n_harm = len(harmonics)
-    model_linear = linear_curve(times, const, slope, i_sectors)
-    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
     bic_init = tsf.calc_bic(resid / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
     # start off at third light of 0.01 and stretch parameter of 1.01
@@ -657,10 +653,10 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     model_sinusoid_h = tsf.sum_sines(times, f_n[harmonics], a_n[harmonics] * res_stretch, ph_n[harmonics])
     model_sinusoid_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     resid = signal - model_sinusoid_nh - model_sinusoid_h
-    const, slope = tsf.linear_pars(times, signal - model, i_sectors)
+    const, slope = tsf.linear_pars(times, resid, i_sectors)
     if verbose:
         model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-        model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+        model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
         model_crowdsap = ut.model_crowdsap(model_linear + model_sinusoid, 1 - res_light_3, i_sectors)
         bic = tsf.calc_bic((signal - model_crowdsap) / signal_err, 2 * n_sect + 1 + 2 * n_harm + 3 * n_sin)
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. Old BIC: {bic_init:1.2f}. New BIC: {bic:1.2f}')
@@ -1026,11 +1022,9 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
 
     Returns
     -------
-    res_t_zero: float
-        Updated time of the deepest minimum
-    res_ecl_par: numpy.ndarray[float]
-        Updated eclipse parameters, consisting of:
-        e, w, i, r_sum_sma, r_ratio, sb_ratio
+    res_cubics: numpy.ndarray[float]
+        Updated empirical eclipse model parameters:
+        mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2,
     res_const: numpy.ndarray[float]
         Updated y-intercepts of a piece-wise linear curve
     res_slope: numpy.ndarray[float]
@@ -1088,8 +1082,9 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
         par_bounds.extend([(None, None) for _ in range(2 * n_sect + 3 * len(res_freqs[group]))])
         arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors, verbose)
-        output = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='Nelder-Mead',
-                                      bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
+        output = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments,
+                                      method='Nelder-Mead', bounds=par_bounds,
+                                      options={'maxfev': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
         res_cubics = output.x[0:8]
@@ -1134,8 +1129,6 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ra
         Radius ratio r_2/r_1
     sb_ratio: float
         Surface brightness ratio sb_2/sb_1
-    t_shift: bool
-        Mean center the time axis
 
     Returns
     -------

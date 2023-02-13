@@ -669,7 +669,7 @@ def harmonic_series_length(f_test, f_n, freq_res, f_nyquist):
     completeness = np.zeros(len(f_test))
     distance = np.zeros(len(f_test))
     for i, f in enumerate(f_test):
-        harmonics, harmonic_n = find_harmonics_from_pattern(f_n, 1/f, f_tol=freq_res/2)
+        harmonics, harmonic_n = find_harmonics_from_pattern(f_n, 1 / f, f_tol=freq_res / 2)
         n_harm[i] = len(harmonics)
         if (n_harm[i] == 0):
             completeness[i] = 1
@@ -1343,7 +1343,7 @@ def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):
     # errors in the period and t_zero
     t_err = np.sqrt(var_matrix[0, 0])
     p_err = np.sqrt(var_matrix[1, 1])
-    p_t_corr = var_matrix[0, 1] / (t_err * p_err) # or [1, 0]
+    p_t_corr = var_matrix[0, 1] / (t_err * p_err)  # or [1, 0]
     return p_err, t_err, p_t_corr
 
 
@@ -1387,7 +1387,7 @@ def eccentric_anomaly(nu, e):
     : float, numpy.ndarray[float]
         Eccentric anomaly
     """
-    return 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu/2), np.sqrt(1 + e) * np.cos(nu/2))
+    return 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu / 2), np.sqrt(1 + e) * np.cos(nu / 2))
 
 
 @nb.njit(cache=True)
@@ -1415,6 +1415,7 @@ def integral_kepler_2(nu_1, nu_2, e):
     The indefinite integral formula is:
     2 arctan(sqrt(1 - e)sin(nu/2) / (sqrt(1 + e)cos(nu/2))) - e sqrt(1 - e**2)sin(nu) / (1 + e cos(nu))
     """
+    
     def indefinite_integral(nu, ecc):
         term_1 = 2 * np.arctan2(np.sqrt(1 - ecc) * np.sin(nu / 2), np.sqrt(1 + ecc) * np.cos(nu / 2))
         term_2 = - ecc * np.sqrt(1 - ecc**2) * np.sin(nu) / (1 + ecc * np.cos(nu))
@@ -1518,18 +1519,19 @@ def minima_phase_angles(e, w, i):
     except ValueError:
         theta_1 = 0
     try:
-        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi-1, np.pi+1))
+        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi - 1, np.pi + 1))
         theta_2 = opt_2.root
     except ValueError:
         theta_2 = np.pi
     try:
-        opt_3 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi/2-1, np.pi/2+1))
+        opt_3 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+                                        bracket=(np.pi / 2 - 1, np.pi / 2 + 1))
         theta_3 = opt_3.root
     except ValueError:
         theta_3 = np.pi / 2
     try:
         opt_4 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
-                                        bracket=(3*np.pi/2-1, 3*np.pi/2+1))
+                                        bracket=(3 * np.pi / 2 - 1, 3 * np.pi / 2 + 1))
         theta_4 = opt_4.root
     except ValueError:
         theta_4 = 3 * np.pi / 2
@@ -1723,7 +1725,7 @@ def root_contact_phase_angles(e, w, i, phi_0):
     phi_2_2: float
         Last contact angle of secondary eclipse
     """
-    q1 = (-10**-5, np.pi/2)
+    q1 = (-10**-5, np.pi / 2)
     try:
         opt_3 = sp.optimize.root_scalar(contact_angles, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
@@ -1899,7 +1901,7 @@ def ecc_omega_approx(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, i, phi
     """
     sin_i_2 = np.sin(i)**2
     cos_p0_2 = np.cos(phi_0)**2
-    e_cos_w = np.pi * (t_2 / p_orb - t_1 / p_orb - 1/2) * (sin_i_2 / (1 + sin_i_2))
+    e_cos_w = np.pi * (t_2 / p_orb - t_1 / p_orb - 1 / 2) * (sin_i_2 / (1 + sin_i_2))
     e_sin_w = np.pi / (2 * np.sin(phi_0) * p_orb) * (tau_1_1 + tau_1_2 - tau_2_1 - tau_2_2)
     e_sin_w = e_sin_w * (sin_i_2 * cos_p0_2 / (1 - sin_i_2 * (1 + cos_p0_2)))
     e = np.sqrt(e_cos_w**2 + e_sin_w**2)
@@ -2306,7 +2308,7 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     # calculate the depths
     r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
     r_ratio = 1
-    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
+    sb_ratio = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
@@ -2423,7 +2425,7 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
-    sb_ratio = sb_ratio_from_d_ratio((d_2/d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
+    sb_ratio = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
@@ -2489,7 +2491,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
     args_i = (p_orb, *timings_tau[:6], depths[0], depths[1], *timings_err, *depths_err)
-    bounds_i = (np.pi/4, np.pi/2)
+    bounds_i = (np.pi / 4, np.pi / 2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
     # calculation phi_0, in durations: (duration_1 + duration_2)/4 = (2pi/P)(tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2)/4
@@ -2503,24 +2505,24 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     # value for |r1 - r2|/a = r_dif_sma from ecc, incl and psi_0
     r_dif_sma = r_sum_sma_from_phi_0(e, i, psi_0)
     # r_dif_sma only valid if psi_0 is not zero, otherwise it will give limits on the radii
-    r_small = (r_sum_sma - r_dif_sma)/2  # if psi_0=0, this is a lower limit on the smaller radius
-    r_large = (r_sum_sma + r_dif_sma)/2  # if psi_0=0, this is an upper limit on the bigger radius
+    r_small = (r_sum_sma - r_dif_sma) / 2  # if psi_0=0, this is a lower limit on the smaller radius
+    r_large = (r_sum_sma + r_dif_sma) / 2  # if psi_0=0, this is an upper limit on the bigger radius
     if (r_small == 0) | (r_large == 0):
         rr_bounds = (0.001, 1000)
     else:
-        rr_bounds = (r_small/r_large/1.1, r_large/r_small*1.1)
+        rr_bounds = (r_small / r_large / 1.1, r_large / r_small * 1.1)
     # prepare for fit of: ecosw, esinw, i, r_sum_sma and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, r_sum_sma, 1)
     args_ep = (p_orb, *timings_tau, *depths, *timings_err, *depths_err)
-    bounds_ep = ((-1, 1), (-1, 1), (np.pi/8, np.pi/2), (0, 1), rr_bounds)
+    bounds_ep = ((-1, 1), (-1, 1), (np.pi / 8, np.pi / 2), (0, 1), rr_bounds)
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, r_sum_sma, r_ratio = res.x
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     # value for sb_ratio from the depths ratio and the other parameters
     theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
-    sb_ratio = sb_ratio_from_d_ratio(depths[1]/depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
+    sb_ratio = sb_ratio_from_d_ratio(depths[1] / depths[0], e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
     return e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
@@ -2679,8 +2681,6 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     intervals: tuple[numpy.ndarray[float]]
         The HDIs (hdi_prob=0.683) for the parameters:
         e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0
-    bounds: tuple[numpy.ndarray[float]]
-        The HDIs (hdi_prob=0.997) for the same parameters as intervals
     errors: tuple[numpy.ndarray[float]]
         The (non-symmetric) errors for the same parameters as intervals.
         These are computed from the intervals.
@@ -2719,10 +2719,10 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     normal_p = mvn[:, 2]
     # the edges are symmetric and cannot surpass the midpoint so use truncnorm
     normal_t_1_1 = sp.stats.truncnorm.rvs(((normal_t_2 - p_orb) - t_1_1) / t_1_1_err, (normal_t_1 - t_1_1) / t_1_1_err,
-                                            loc=t_1_1, scale=t_1_1_err, size=n_gen)
+                                          loc=t_1_1, scale=t_1_1_err, size=n_gen)
     normal_t_1_2 = 2 * normal_t_1 - normal_t_1_1  # mirrored
     normal_t_2_1 = sp.stats.truncnorm.rvs((normal_t_1 - t_2_1) / t_2_1_err, (normal_t_2 - t_2_1) / t_2_1_err,
-                                            loc=t_2_1, scale=t_2_1_err, size=n_gen)
+                                          loc=t_2_1, scale=t_2_1_err, size=n_gen)
     normal_t_2_2 = 2 * normal_t_2 - normal_t_2_1  # mirrored
     # if we have wide eclipses, they possibly overlap as well, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
@@ -2840,7 +2840,7 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     esinw_bounds = az.hdi(esinw_vals, hdi_prob=0.997)
     esinw_err = np.array([esinw - esinw_interval[0], esinw_interval[1] - esinw])
     # omega
-    if (abs(w/np.pi*180 - 180) > 80) & (abs(w/np.pi*180 - 180) < 100):
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_interval = az.hdi(w_vals, hdi_prob=0.683, multimodal=True)
         w_bounds = az.hdi(w_vals, hdi_prob=0.997, multimodal=True)
     else:
