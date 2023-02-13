@@ -46,17 +46,17 @@ Either function can be used for a set of light curves by using:
 
 ### Explanation of output
 
-Results are saved in a combination of hdf5 and csv files. A log file keeps track of the start and end time of the analysis and can contain important information about the operation of the algorithm, like a reason for terminating early.
+Results are saved in a combination of hdf5, csv and nc4 files. A log file keeps track of the start and end time of the analysis and can contain important information about the operation of the algorithm, like a reason for terminating early.
 
-Currently, there are a total of 19 analysis steps. Normal operation can terminate at several intermediate stages: 2, 3, 10, 13 and 14. A log entry is made when this happens containing further information. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. If stage 10 is reached, but nothing further, this means that the algorithm wasn't able to detect the two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis.
+Currently, there are a total of 17 analysis steps. Normal operation can terminate at several intermediate stages: 2, 3, 8, 11 and 12. A log entry is made when this happens containing further information. If it has stopped at stage 3, either the period found was too long for the given data set, or not enough orbital harmonics are found. If stage 10 is reached, but nothing further, this means that the algorithm wasn't able to detect the two eclipses (being the primary and secondary eclipse): both eclipses are needed for the further analysis.
 
-In normal operation, the nine first steps produce .hdf5 files with all the model parameters at that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of these nine prewhitening steps for easy access. All following steps produce one or more .csv files with the results.
+Each step produces at least an .hdf5 file with all the model parameters from that stage of the analysis. The utility module contains a function for reading these files, however, separate .csv files are also produced at the end of the prewhitening steps for easy access. The .nc4 files (a wrapper for hdf5) contain pymc3 sampling chains.
 
 ### Diagnostic plots
 
 There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
 
-    sts.ut.sequential_plotting(tic, times, signal, i_sectors,  load_dir, save_dir=None, show=False)
+    sts.ut.sequential_plotting(times, signal, target_id, i_sectors, load_dir, save_dir=None, show=False)
 
 saves and/or shows all these plots for one target. Unfortunately matplotlib plotting only works in the main thread, so when processing a whole set of light curves in parallel, this function will have to be run sequentially on the results afterwards (hence the name).
 

@@ -2,7 +2,7 @@ numpy
 scipy
 numba
 astropy
-ellc
+pymc3
 arviz
 h5py
 matplotlib
