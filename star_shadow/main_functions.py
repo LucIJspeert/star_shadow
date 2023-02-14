@@ -64,6 +64,11 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+    
+    Notes
+    -----
+    After extraction, a final check is done to see whether some
+    groups of frequencies are better replaced by one frequency.
     """
     t_a = time.time()
     # guard for existing file when not overwriting
@@ -75,7 +80,11 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     
     if verbose:
         print(f'Looking for frequencies')
-    const, slope, f_n, a_n, ph_n = tsf.extract_all(times, signal, signal_err, i_sectors, verbose=verbose)
+    # extract all frequencies with the iterative scheme
+    output_a = tsf.extract_all(times, signal, signal_err, i_sectors, verbose=verbose)
+    # remove any frequencies that end up not making the statistical cut
+    output_b = tsf.reduce_frequencies(times, signal, signal_err, 0, *output_a, i_sectors, verbose=verbose)
+    const, slope, f_n, a_n, ph_n = output_b
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
@@ -83,8 +92,8 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     n_param = 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the result
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
@@ -184,20 +193,23 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     # formal linear and sinusoid parameter errors
     f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    # do not include those frequencies that have too big uncertainty
+    include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
+    f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
+    f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
     # Monte Carlo sampling of the model
-    output = mcf.sample_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, f_n_err, a_n_err,
-                                       ph_n_err, noise_level, i_sectors, verbose=verbose)
-    # main function done, do the rest for this step
+    output = mcf.sample_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, f_n_err, a_n_err,
+                                 ph_n_err, noise_level, i_sectors, verbose=verbose)
     inf_data, par_means, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_means
+    # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
-    f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
     n_param = 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -343,6 +355,15 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+    
+    Notes
+    -----
+    Performs a global period search, if the period is unknown.
+    
+    Removes theoretical harmonic candidate frequencies within the frequency
+    resolution, then extracts a single harmonic at the theoretical location.
+    
+    Removes any frequencies that end up not making the statistical cut.
     """
     t_a = time.time()
     # guard for existing file when not overwriting
@@ -363,14 +384,16 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
     if (t_tot / p_orb < 1.1):
-        output = const, slope, f_n, a_n, ph_n  # return previous results
+        output_a = const, slope, f_n, a_n, ph_n  # return previous results
     elif (len(harmonics) < 2):
-        output = const, slope, f_n, a_n, ph_n  # return previous results
+        output_a = const, slope, f_n, a_n, ph_n  # return previous results
     else:
         # couple the harmonics to the period. likely removes more frequencies that need re-extracting
-        output = tsf.fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors)
+        output_a = tsf.fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors)
+    # remove any frequencies that end up not making the statistical cut
+    output_b = tsf.reduce_frequencies(times, signal, signal_err, p_orb, *output_a, i_sectors, verbose=verbose)
+    const, slope, f_n, a_n, ph_n = output_b
     # main function done, do the rest for this step
-    const, slope, f_n, a_n, ph_n = output
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
@@ -378,9 +401,9 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the result
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
@@ -405,9 +428,9 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
-def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
+def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
                   data_id='none', overwrite=False, verbose=False):
-    """Find and add more harmonic frequencies if possible
+    """Find and add more (harmonic and non-harmonic) frequencies if possible
 
     Parameters
     ----------
@@ -462,6 +485,16 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
+
+    Notes
+    -----
+    First looks for additional harmonic frequencies at the integer multiples
+    of the orbital frequency.
+
+    Then looks for any additional non-harmonic frequencies taking into account
+    the existing harmonics.
+
+    Finally, removes any frequencies that end up not making the statistical cut.
     """
     t_a = time.time()
     # guard for existing file when not overwriting
@@ -473,12 +506,17 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
         return p_orb, const, slope, f_n, a_n, ph_n
     
     if verbose:
-        print(f'Looking for additional harmonics.')
+        print(f'Looking for additional frequencies.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
-    output = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
-                                              f_n, a_n, ph_n, i_sectors, verbose=verbose)
+    # start by looking for more harmonics
+    output_a = tsf.extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n,
+                                                i_sectors, verbose=verbose)
+    # look for any additional non-harmonics with the iterative scheme
+    output_b = tsf.extract_additional(times, signal, signal_err, p_orb, *output_a, i_sectors, verbose=verbose)
+    # remove any frequencies that end up not making the statistical cut
+    output_c = tsf.reduce_frequencies(times, signal, signal_err, p_orb, *output_b, i_sectors, verbose=verbose)
+    const, slope, f_n, a_n, ph_n = output_c
     # main function done, do the rest for this step
-    const, slope, f_n, a_n, ph_n = output
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
@@ -486,9 +524,9 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the result
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
@@ -501,13 +539,13 @@ def add_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     timings_hdi = None
     var_stats = None
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
-    desc = 'Additional harmonic extraction.'
+    desc = 'Additional non-harmonic extraction.'
     ut.save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_mean, ecl_err, ecl_hdi, timings,
                             timings_err, timings_hdi, var_stats, stats, i_sectors, description=desc, data_id=data_id)
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48m{len(f_n) - len(f_n)} additional harmonics added.\033[0m')
+        print(f'\033[1;32;48m{len(f_n) - len(f_n)} additional frequencies added.\033[0m')
         print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
               f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
@@ -592,13 +630,16 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # do not include those frequencies that have too big uncertainty
+    include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
+    f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
+    f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
     # Monte Carlo sampling of the model
-    output = mcf.sample_multi_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err, c_err, sl_err,
-                                         f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=verbose)
-    # main function done, do the rest for this step
+    output = mcf.sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err, c_err, sl_err,
+                                   f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=verbose)
     inf_data, par_mean, par_hdi = output
     p_orb, const, slope, f_n, a_n, ph_n = par_mean
-    # make updated model including linear and sinusoid
+    # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
@@ -607,9 +648,9 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the result
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = list(par_hdi[1:])
@@ -630,222 +671,6 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     t_b = time.time()
     if verbose:
         print(f'\033[1;32;48mOptimisation with fixed harmonics complete. Period: {p_orb:2.4}\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return p_orb, const, slope, f_n, a_n, ph_n
-
-
-def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                  data_id='none', overwrite=False, verbose=False):
-    """Find and add more non-harmonic frequencies if possible
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_half_s = np.array([[0, len(times)]]).
-    t_stats: list[float]
-        Some time series statistics: t_tot, t_mean, t_mean_s, t_int
-    file_name: str
-        File name (including path) for saving the results. Also used to
-        load previous analysis results if found.
-    data_id: int, str
-        Identification for the dataset used
-    overwrite: bool
-        If set to True, overwrite old results in the same directory as
-        save_dir, or (if False) to continue from the last save-point.
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    """
-    t_a = time.time()
-    # guard for existing file when not overwriting
-    if os.path.isfile(file_name) & (not overwrite):
-        results = ut.read_parameters_hdf5(file_name, verbose=verbose)
-        sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, _, _, _ = results
-        const, slope, f_n, a_n, ph_n = sin_mean
-        p_orb, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        return p_orb, const, slope, f_n, a_n, ph_n
-    
-    if verbose:
-        print(f'Looking for additional frequencies.')
-    t_tot, t_mean, t_mean_s, t_int = t_stats
-    output = tsf.extract_additional_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n,
-                                                i_sectors, verbose=verbose)
-    # main function done, do the rest for this step
-    const, slope, f_n, a_n, ph_n = output
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
-    resid = signal - model_linear - model_sinusoid
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
-    bic = tsf.calc_bic(resid / signal_err, n_param)
-    noise_level = np.std(resid)
-    # save the result
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
-    sin_mean = [const, slope, f_n, a_n, ph_n]
-    sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
-    sin_hdi = None
-    sin_select = None
-    ecl_mean = np.array([p_orb] + [-1 for _ in range(11)])
-    ecl_err = np.array([p_err] + [-1 for _ in range(11)])
-    ecl_hdi = None
-    timings = None
-    timings_err = None
-    timings_hdi = None
-    var_stats = None
-    stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
-    desc = 'Additional non-harmonic extraction.'
-    ut.save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_mean, ecl_err, ecl_hdi, timings,
-                            timings_err, timings_hdi, var_stats, stats, i_sectors, description=desc, data_id=data_id)
-    # print some useful info
-    t_b = time.time()
-    if verbose:
-        print(f'\033[1;32;48m{len(f_n) - len(f_n)} additional frequencies added.\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return p_orb, const, slope, f_n, a_n, ph_n
-
-
-def remove_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                     data_id='none', overwrite=False, verbose=False):
-    """Reduce the number of non-harmonic frequencies if possible
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_half_s = np.array([[0, len(times)]]).
-    t_stats: list[float]
-        Some time series statistics: t_tot, t_mean, t_mean_s, t_int
-    file_name: str
-        File name (including path) for saving the results. Also used to
-        load previous analysis results if found.
-    data_id: int, str
-        Identification for the dataset used
-    overwrite: bool
-        If set to True, overwrite old results in the same directory as
-        save_dir, or (if False) to continue from the last save-point.
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    """
-    t_a = time.time()
-    # guard for existing file when not overwriting
-    if os.path.isfile(file_name) & (not overwrite):
-        results = ut.read_parameters_hdf5(file_name, verbose=verbose)
-        sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, _, _, _ = results
-        const, slope, f_n, a_n, ph_n = sin_mean
-        p_orb, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        return p_orb, const, slope, f_n, a_n, ph_n
-    
-    if verbose:
-        print(f'Attempting to reduce the number of frequencies.')
-    t_tot, t_mean, t_mean_s, t_int = t_stats
-    output = tsf.reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n,
-                                              i_sectors, verbose=verbose)
-    # main function done, do the rest for this step
-    const, slope, f_n, a_n, ph_n = output
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-    model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
-    resid = signal - model_linear - model_sinusoid
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
-    bic = tsf.calc_bic(resid / signal_err, n_param)
-    noise_level = np.std(resid)
-    # save the result
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
-    sin_mean = [const, slope, f_n, a_n, ph_n]
-    sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
-    sin_hdi = None
-    sin_select = None
-    ecl_mean = np.array([p_orb] + [-1 for _ in range(11)])
-    ecl_err = np.array([p_err] + [-1 for _ in range(11)])
-    ecl_hdi = None
-    timings = None
-    timings_err = None
-    timings_hdi = None
-    var_stats = None
-    stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
-    desc = 'Reduce frequency set.'
-    ut.save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_mean, ecl_err, ecl_hdi, timings,
-                            timings_err, timings_hdi, var_stats, stats, i_sectors, description=desc, data_id=data_id)
-    # print some useful info
-    t_b = time.time()
-    if verbose:
-        print(f'\033[1;32;48mReducing frequencies complete.\033[0m')
         print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
               f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
@@ -909,33 +734,30 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     Notes
     -----
     The followed recipe is:
+    
     1) Extract all frequencies
         We start by extracting the frequency with the highest amplitude one by one,
         directly from the Lomb-Scargle periodogram until the BIC does not significantly
-        improve anymore. No fitting is performed yet.
+        improve anymore. Some of these steps involve a final cleanup of the frequencies.
+    
     2) First multi-sine NL-LS optimisation
-        To get the best results in the following steps, the sinusoid parameters are
-        simultaneously optimised using Monte Carlo sampling.
+        The sinusoid parameters are simultaneously optimised using Monte Carlo sampling.
+    
     3) Measure the orbital period and couple the harmonic frequencies
         Global search done with combined phase dispersion, Lomb-Scargle and length/
         filling factor of the harmonic series in the list of frequencies.
-        The period is refined by minimising distance from frequencies to theoretical
-        series of harmonics. Then sets the frequencies of the harmonics to their new values,
-        coupling them to the orbital period.
+        Then sets the frequencies of the harmonics to their new values, coupling them
+        to the orbital period.
         [Note: it is possible to provide a fixed period if it is already well known.
         It will still be included as a free parameter in the final optimisation step]
-    4) Attempt to remove frequencies
-        After optimisation and coupling, it is possible that some frequencies are better
-        removed than kept. This also looks at replacing groups of close frequencies by
-        a single frequency. All previously extracted harmonics are kept.
-    5) Attempt to extract more orbital harmonics
-        With the decreased number of free parameters (2 vs. 3), the BIC, which punishes
-        for free parameters, may allow the extraction of more harmonics.
-    6) Attempt to extract more non-harmonic frequencies
-        Step 3 involves removing frequencies close to the harmonics, and step 4 cleans up
-        the frequency list more. This may have removed too many frequencies. It is attempted
-        to extract more frequencies like in step 1 again, now taking into account harmonics.
-    7) Multi-sine NL-LS optimisation with coupled harmonics
+    
+    4) Attempt to extract additional frequencies
+        The decreased number of free parameters (2 vs. 3), the BIC, which punishes for free
+        parameters, may allow the extraction of more harmonics.
+        It is also attempted to extract more frequencies like in step 1 again, now taking
+        into account the presence of harmonics.
+    
+    5) Multi-sine NL-LS optimisation with coupled harmonics
         Optimise all frequencies simultaneously once again, including the orbital period and
         the coupled harmonics.
     """
@@ -993,43 +815,29 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
         a_n_i = [a_n_1, a_n_2, a_n_2]
         ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
         return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
-    # ---------------------------------------------------
-    # --- [4] --- Try to reduce the number of frequencies
-    # ---------------------------------------------------
+    # ------------------------------------------------------------------
+    # --- [4] --- Attempt to extract additional non-harmonic frequencies
+    # ------------------------------------------------------------------
     file_name_4 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
-    out_4 = remove_sinusoids(times, signal, signal_err, p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3, i_sectors,
-                             t_stats, file_name_4, **arg_dict)
+    out_4 = add_sinusoids(times, signal, signal_err, p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3, i_sectors,
+                          t_stats, file_name_4, **arg_dict)
     p_orb_4, const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4  # p_orb_4 == p_orb_3
-    # --------------------------------------------------------------------------
-    # --- [5] --- Attempt to extract more harmonics knowing where they should be
-    # --------------------------------------------------------------------------
+    # ---------------------------------------------------------------------
+    # --- [5] --- Fit a second time but now with fixed harmonic frequencies
+    # ---------------------------------------------------------------------
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
-    out_5 = add_harmonics(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4, i_sectors,
-                          t_stats, file_name_5, **arg_dict)
-    p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5  # p_orb_5 == p_orb_3
-    # ------------------------------------------------------------------
-    # --- [6] --- Attempt to extract additional non-harmonic frequencies
-    # ------------------------------------------------------------------
-    file_name_6 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
-    out_6 = add_sinusoids(times, signal, signal_err, p_orb_3, const_5, slope_5, f_n_5, a_n_5, ph_n_5, i_sectors,
-                          t_stats, file_name_6, **arg_dict)
-    p_orb_6, const_6, slope_6, f_n_6, a_n_6, ph_n_6 = out_6  # p_orb_6 == p_orb_3
-    # ---------------------------------------------------------------------
-    # --- [7] --- Fit a second time but now with fixed harmonic frequencies
-    # ---------------------------------------------------------------------
-    file_name_7 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-    out_7 = optimise_sinusoid_h(times, signal, signal_err, p_orb_3, const_6, slope_6, f_n_6, a_n_6, ph_n_6,
-                                i_sectors, t_stats, file_name_7, **arg_dict)
-    p_orb_7, const_7, slope_7, f_n_7, a_n_7, ph_n_7 = out_7
+    out_5 = optimise_sinusoid_h(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4,
+                                i_sectors, t_stats, file_name_5, **arg_dict)
+    p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
     # save final freqs and linear curve in ascii format
-    ut.convert_hdf5_to_ascii(file_name_7)
+    ut.convert_hdf5_to_ascii(file_name_5)
     # make lists for output
-    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_3, p_orb_3, p_orb_7]
-    const_i = [const_1, const_2, const_3, const_4, const_5, const_6, const_7]
-    slope_i = [slope_1, slope_2, slope_3, slope_4, slope_5, slope_6, slope_7]
-    f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5, f_n_6, f_n_7]
-    a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5, a_n_6, a_n_7]
-    ph_n_i = [ph_n_1, ph_n_2, ph_n_3, ph_n_4, ph_n_5, ph_n_6, ph_n_7]
+    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5]
+    const_i = [const_1, const_2, const_3, const_4, const_5]
+    slope_i = [slope_1, slope_2, slope_3, slope_4, slope_5]
+    f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5]
+    a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5]
+    ph_n_i = [ph_n_1, ph_n_2, ph_n_3, ph_n_4, ph_n_5]
     # final timing and message
     t_b = time.time()
     logger.info(f'Frequency extraction done. Total time elapsed: {t_b - t_a:1.1f}s.')
@@ -1078,8 +886,7 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
         Eclipse depth of the primary and secondary,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings and depths,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
@@ -1090,19 +897,17 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
     t_a = time.time()
     # guard for existing file when not overwriting
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices.csv')
     if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         _, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, _, _, _ = results
         _, t_zero, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        timings, depths = timings[:10], timings[10:]
-        timings_err, depths_err = timings_err[:10], timings_err[10:]
         ecl_indices = ut.read_results_ecl_indices(file_name)
-        return t_zero, timings, depths, timings_err, depths_err, ecl_indices
+        return t_zero, timings, timings_err, ecl_indices
     elif (not os.path.isfile(file_name)) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print('Not enough eclipses found last time (see log)')
-        return (None,) * 6
+        return (None,) * 4
     
     if verbose:
         print(f'Measuring eclipse time points and depths.')
@@ -1199,8 +1004,8 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
     return t_zero, timings, timings_err, ecl_indices
 
 
-def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                         i_sectors, t_stats, file_name, data_id='none', overwrite=False, verbose=False):
+def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+                         t_stats, file_name, data_id='none', overwrite=False, verbose=False):
     """Optimise the eclipse timings using an empirical model of cubic functions
 
     Parameters
@@ -1218,10 +1023,8 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float], None
-        Eclipse depth of the primary and secondary, depth_1, depth_2
+        Eclipse depth of the primary and secondary,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1258,11 +1061,9 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float]
-        Cubic curve primary and secondary eclipse depth
+        timings of the possible flat bottom (internal tangency),
+        Cubic curve primary and secondary eclipse depth,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
 
     Notes
     -----
@@ -1277,15 +1078,13 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         _, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, _, _, _ = results
         _, t_zero, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        timings, depths = timings[:10], timings[10:]
-        # timings_err, depths_err = timings_err[:10], timings_err[10:]
-        return t_zero, timings, depths
+        return t_zero, timings
     
     if verbose:
         print(f'Improving timings and depths with cubic model ')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # fit for the cubic model parameters with fixed sinusoids
-    out_a = tsfit.fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
+    out_a = tsfit.fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                         f_n, a_n, ph_n, i_sectors, verbose=verbose)
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = out_a.x
     # check bad values for bottom timings
@@ -1306,13 +1105,12 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
                                            d_1, d_2)
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    residuals = signal - (model_linear + model_sines + model_ecl)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
-    p_err, t_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
-    # more stats
+    resid = signal - (model_linear + model_sines + model_ecl)
     n_param = 8 + 2 * len(const) + 3 * len(f_n)
-    bic = tsf.calc_bic(residuals, n_param)
-    noise_level = np.std(residuals)
+    bic = tsf.calc_bic(resid, n_param)
+    noise_level = np.std(resid)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    p_err, t_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -1359,12 +1157,12 @@ def optimise_emp_eclipse(times, signal, signal_err, p_orb, t_zero, timings, dept
               f'bottom_dur_1: {dur_b_1:.{rnd_bot_1}f}, bottom_dur_2: {dur_b_2:.{rnd_bot_2}f}. \n'
               f'd_1: {depths[0]:.{rnd_d_1}f}, d_2: {depths[1]:.{rnd_d_2}f}. \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return t_zero, timings, depths
+    return t_zero, timings
 
 
-def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
-                                   f_n, a_n, ph_n, i_sectors, t_stats, file_name, logger, data_id='none',
-                                   overwrite=False, verbose=False):
+def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                                   i_sectors, t_stats, file_name, logger, data_id='none', overwrite=False,
+                                   verbose=False):
     """Optimise the eclipse timings and sinusoid model
     using an empirical model of cubic functions
 
@@ -1383,11 +1181,9 @@ def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, tim
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float]
-        Cubic curve primary and secondary eclipse depth
+        timings of the possible flat bottom (internal tangency),
+        Cubic curve primary and secondary eclipse depth,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1451,21 +1247,17 @@ def optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb, t_zero, tim
     """
     t_a = time.time()
     # guard for existing file when not overwriting
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_1 = file_name.replace(fn_ext, '.hdf5')
-    file_name_2 = file_name.replace(fn_ext, '_cubics.csv')
-    if os.path.isfile(file_name_1) & os.path.isfile(file_name_2) & (not overwrite):
+    if os.path.isfile(file_name) & (not overwrite):
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         sin_mean, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, _, _, _ = results
         const, slope, f_n, a_n, ph_n = sin_mean
         _, t_zero, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        timings, depths = timings[:10], timings[10:]
-        timings_err, depths_err = timings_err[:10], timings_err[10:]
-        return t_zero, timings, depths, timings_err, depths_err, const, slope, f_n, a_n, ph_n
+        return t_zero, timings, timings_err, const, slope, f_n, a_n, ph_n
     
     if verbose:
         print(f'Optimisation of cubic model and sinusoids')
     t_tot, t_mean, t_mean_s, t_int = t_stats
+    timings, depths = timings[:10], timings[10:]
     # fit for the cubic model parameters simultaneously with sinusoids
     f_groups = ut.group_frequencies_for_fit(a_n, g_min=10, g_max=15)
     out_a = tsfit.fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, depths,
@@ -1597,14 +1389,12 @@ def eclipse_elements(p_orb, t_zero, timings, p_err, timings_err, p_t_corr, file_
         Eclipse timings of minima and first and last contact points,
         Timings of the possible flat bottom (internal tangency),
         Eclipse depth of the primary and secondary,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     p_err: float
         Error in the orbital period
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings and depths,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-        depth_1_err, depth_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
     p_t_corr: float
         Correlation between period and t_zero
     file_name: str
@@ -1679,20 +1469,18 @@ def eclipse_elements(p_orb, t_zero, timings, p_err, timings_err, p_t_corr, file_
     tau_b_2_1 = timings[1] - timings[8]  # t_2 - t_b_2_1
     tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
-    depths = timings[10:]
-    depths_err = timings_err[6:]
     # minimisation procedure for parameters from formulae
-    output = af.eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err)
+    output = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:6], timings_err[6:])
     e, w, i, r_sum, r_rat, sb_rat = output
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
     phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
     # calculate the errors
-    output_2 = af.error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p_err,
-                                      timings_err, depths_err, p_t_corr, verbose=verbose)
+    output_2 = af.error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings[:10], timings[10:], p_err,
+                                      timings_err[:6], timings_err[6:], p_t_corr, verbose=verbose)
     intervals, errors, dists_in, dists_out = output_2
     i_sym_err = max(errors[2])  # take the maximum as pessimistic estimate of the symmetric error
-    formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timings_err)
+    formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timings_err[:6])
     # check physical result
     if (e > 0.99):
         logger.info(f'Unphysically large eccentricity found: {e}')
@@ -1708,8 +1496,8 @@ def eclipse_elements(p_orb, t_zero, timings, p_err, timings_err, p_t_corr, file_
                         sigma_e, sigma_w, -1, sigma_r_sum])
     ecl_hdi = np.array([[-1, -1], [-1, -1], ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
                         e_err, w_err, i_err, r_sum_err])
-    timings = np.array([*timings, *depths])
-    timings_err = np.array([*timings_err, *depths_err])
+    timings = timings
+    timings_err = timings_err
     timings_hdi = None
     var_stats = None
     stats = None
@@ -1835,13 +1623,12 @@ def optimise_phys_eclipse(times, signal, signal_err, par_init, p_orb, t_zero, ti
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
     model_ecl = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     resid = signal - (model_lin + model_sin + model_ecl)
-    # calculate number of parameters, BIC and noise level
     n_param = 2 + 6 + 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the results
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     p_err, t_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
@@ -1965,26 +1752,28 @@ def optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl
     # formal linear and sinusoid parameter errors
     f_errors = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = f_errors
+    # do not include those frequencies that have too big uncertainty
+    include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
+    f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
+    f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
     # Monte Carlo sampling of full model
-    output = mcf.sample_multi_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
-                                               t_zero_err, ecl_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
-                                               noise_level, i_sectors, verbose=verbose)
-    # main function done, do the rest for this step
+    output = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
+                                         t_zero_err, ecl_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
+                                         noise_level, i_sectors, verbose=verbose)
     inf_data, par_mean, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
-    # make updated model including linear, sinusoid and eclipse part
+    # main function done, do the rest for this step
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
     model_ecl = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     resid = signal - (model_lin + model_sin + model_ecl)
-    # calculate number of parameters, BIC and noise level
     n_param = 2 + 6 + 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
-    # save the results
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     p_err, t_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = list(par_hdi[:5])
@@ -2051,21 +1840,21 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
 
     Returns
     -------
-    out_8: tuple
+    out_6: tuple
         output of analysis_eclipse_timings
-    out_9: tuple
+    out_7: tuple
         output of analysis_cubics_model
-    out_10b: tuple
+    out_8b: tuple
         output of analysis_optimise_sinusoids
-    out_11: tuple
+    out_9: tuple
         output of analysis_cubics_sines_model
-    out_12: tuple
+    out_10: tuple
         output of analysis_eclipse_elements
-    out_13: tuple
+    out_11: tuple
         output of analysis_eclipse_model
-    out_14b: tuple
+    out_12b: tuple
         output of analysis_optimise_sinusoids
-    out_15: tuple
+    out_13: tuple
         output of analysis_eclipse_sines_model
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
@@ -2073,61 +1862,60 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     kwargs_1 = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     kwargs_2 = {'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the frequency analysis results
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
     if not os.path.isfile(file_name):
         if verbose:
             print('No eclipse analysis results found')
         return (None,) * 10
-    results_7 = ut.read_parameters_hdf5(file_name, verbose=verbose)
-    sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results_7
-    const_7, slope_7, f_n_7, a_n_7, ph_n_7 = sin_mean
-    p_orb_7, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-    p_err_7, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
-    _, _, _, _, _, noise_level_7 = stats
+    results_5 = ut.read_parameters_hdf5(file_name, verbose=verbose)
+    sin_mean, _, _, _, ecl_mean, ecl_err, _, _, _, _, _, stats, _, _ = results_5
+    const_5, slope_5, f_n_5, a_n_5, ph_n_5 = sin_mean
+    p_orb_5, _, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+    p_err_5, _, _, _, _, _, _, _, _, _, _, _ = ecl_err
+    _, _, _, _, _, _, noise_level_5 = stats
     # ------------------------------------
-    # --- [8] --- Initial eclipse timings
+    # --- [6] --- Initial eclipse timings
     # ------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.csv')
-    out_8 = eclipse_timings(times, p_orb_7, f_n_7, a_n_7, ph_n_7, p_err_7, noise_level_7, file_name, **kwargs_2)
-    t_zero_8, timings_8, timings_err_8, ecl_indices_8 = out_8
-    depths_8 = timings_8[10:]
-    if np.any([item is None for item in out_8]) | (depths_8[0] <= 0) | (depths_8[1] <= 0):
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
+    out_6 = eclipse_timings(times, p_orb_5, f_n_5, a_n_5, ph_n_5, p_err_5, noise_level_5, file_name, **kwargs_2)
+    t_zero_6, timings_6, timings_err_6, ecl_indices_6 = out_6
+    depths_6 = timings_6[10:]
+    if np.any([item is None for item in out_6]) | (depths_6[0] <= 0) | (depths_6[1] <= 0):
         return (None,) * 10  # could still not find eclipses for some reason
     # -----------------------------------------
-    # --- [9] --- Initial cubics model timings
+    # --- [7] --- Initial cubics model timings
     # -----------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.csv')
-    out_9 = optimise_emp_eclipse(times, signal, signal_err, p_orb_7, t_zero_8, timings_8, depths_8, const_7,
-                                 slope_7, f_n_7, a_n_7, ph_n_7, i_sectors, t_stats, file_name, **kwargs_1)
-    t_zero_9, timings_9, depths_9 = out_9
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
+    out_7 = optimise_emp_eclipse(times, signal, signal_err, p_orb_5, t_zero_6, timings_6, const_5, slope_5,
+                                 f_n_5, a_n_5, ph_n_5, i_sectors, t_stats, file_name, **kwargs_1)
+    t_zero_7, timings_7 = out_7
     # --------------------------------------
-    # --- [10] --- Disentangling with cubics
+    # --- [8] --- Disentangling with cubics
     # --------------------------------------
-    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings_9
-    depth_1, depth_2 = depths_9
-    model_cubics = 1 + tsfit.eclipse_empirical_lc(times, p_orb_7, t_zero_9, mid_1, mid_2, t_c1_1, t_c3_1,
+    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, depth_1, depth_2 = timings_7
+    model_cubics = 1 + tsfit.eclipse_empirical_lc(times, p_orb_5, t_zero_7, mid_1, mid_2, t_c1_1, t_c3_1,
                                                   t_c1_2, t_c3_2, depth_1, depth_2)
     residual = signal - model_cubics
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10a.hdf5')
-    out_10a = iterative_prewhitening(times, residual, signal_err, i_sectors, t_stats, file_name, **kwargs_1)
-    const_10a, slope_10a, f_n_10a, a_n_10a, ph_n_10a = out_10a
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10b.hdf5')
-    out_10b = optimise_sinusoid(times, residual, signal_err, const_10a, slope_10a, f_n_10a, a_n_10a, ph_n_10a,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8a.hdf5')
+    out_8a = iterative_prewhitening(times, residual, signal_err, i_sectors, t_stats, file_name, **kwargs_1)
+    const_8a, slope_8a, f_n_8a, a_n_8a, ph_n_8a = out_8a
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8b.hdf5')
+    out_8b = optimise_sinusoid(times, residual, signal_err, const_8a, slope_8a, f_n_8a, a_n_8a, ph_n_8a,
                                 i_sectors, t_stats, file_name, **kwargs_1)
-    const_10b, slope_10b, f_n_10b, a_n_10b, ph_n_10b = out_10b
+    const_8b, slope_8b, f_n_8b, a_n_8b, ph_n_8b = out_8b
     # -----------------------------------------------
-    # --- [11] --- Improvement of timings with cubics
+    # --- [9] --- Improvement of timings with cubics
     # -----------------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.csv')
-    out_11 = optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb_7, t_zero_9, timings_9, depths_9,
-                                            const_10b, slope_10b, f_n_10b, a_n_10b, ph_n_10b, i_sectors, t_stats,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
+    out_9 = optimise_emp_eclipse_sinusoids(times, signal, signal_err, p_orb_5, t_zero_7, timings_7,
+                                            const_8b, slope_8b, f_n_8b, a_n_8b, ph_n_8b, i_sectors, t_stats,
                                             file_name, **kwargs_2)
-    t_zero_11, timings_11, timings_err_11 = out_11[:6]
-    # const_11, slope_11, f_h_11, a_h_11, ph_h_11 = out_11[6:]
+    t_zero_9, timings_9, timings_err_9 = out_9[:3]
+    # const_9, slope_9, f_h_9, a_h_9, ph_h_9 = out_9[3:]
     # check for significance
-    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2 = timings_11
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err = timings_err_11
-    t_zero_err_11 = t_1_err
+    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2 = timings_9
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err = timings_err_9
+    t_zero_err_9 = t_1_err
     dur_1, dur_2 = (t_c2_1 - t_c1_1), (t_c4_1 - t_c3_1)
     dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
@@ -2136,59 +1924,60 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     if dur_diff | depth_insig | dur_insig:
         return (None,) * 10  # unphysical parameters
     # ----------------------------------------------
-    # --- [12] --- Determination of orbital elements
+    # --- [10] --- Determination of orbital elements
     # ----------------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12.csv')
-    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb_7, np.ptp(times), sigma_t=t_int)
-    out_12 = eclipse_elements(p_orb_7, t_zero_11, timings_11, p_err_7, timings_err_11,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.hdf5')
+    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb_5, np.ptp(times), sigma_t=t_int)
+    out_10 = eclipse_elements(p_orb_5, t_zero_9, timings_9, p_err_5, timings_err_9,
                               p_t_corr, file_name, **kwargs_2)
-    e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12 = out_12[:6]
-    errors_12, formal_errors_12, dists_in_12, dists_out_12 = out_12[6:]
-    e_errs, w_errs, i_errs, r_sum_errs, r_rat_errs, sb_rat_errs, ecosw_errs, esinw_errs, phi_0_errs = errors_12
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors_12
+    e_10, w_10, i_10, r_sum_sma_10, r_ratio_10, sb_ratio_10 = out_10[:6]
+    errors_10, formal_errors_10, dists_in_10, dists_out_10 = out_10[6:]
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = errors_10
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors_10
     # for the mcmc, take maximum errors for prior model
-    e_err_12 = max(e_errs[0], e_errs[1], sigma_e)
-    w_err_12 = max(w_errs[0], w_errs[1], sigma_w)
-    i_err_12 = max(i_errs[0], i_errs[1])
-    r_sum_err_12 = max(r_sum_errs[0], r_sum_errs[1], sigma_r_sum)
-    r_rat_err_12 = max(r_rat_errs[0], r_rat_errs[1])
-    sb_rat_err_12 = max(sb_rat_errs[0], sb_rat_errs[1])
-    ecosw_err_12 = max(ecosw_errs[0], ecosw_errs[1], sigma_ecosw)
-    esinw_err_12 = max(esinw_errs[0], esinw_errs[1], sigma_esinw)
-    phi_0_err_12 = max(phi_0_errs[0], phi_0_errs[1], sigma_phi_0)
-    ecl_err = np.array([e_err_12, w_err_12, i_err_12, r_sum_err_12, r_rat_err_12, sb_rat_err_12,
-                        ecosw_err_12, esinw_err_12, phi_0_err_12])
-    if (e_12 > 0.99):
+    e_err_10 = max(e_err[0], e_err[1], sigma_e)
+    w_err_10 = max(w_err[0], w_err[1], sigma_w)
+    i_err_10 = max(i_err[0], i_err[1])
+    r_sum_err_10 = max(r_sum_err[0], r_sum_err[1], sigma_r_sum)
+    r_rat_err_10 = max(r_rat_err[0], r_rat_err[1])
+    sb_rat_err_10 = max(sb_rat_err[0], sb_rat_err[1])
+    ecosw_err_10 = max(ecosw_err[0], ecosw_err[1], sigma_ecosw)
+    esinw_err_10 = max(esinw_err[0], esinw_err[1], sigma_esinw)
+    cosi_err_10 = max(cosi_err[0], cosi_err[1])
+    phi_0_err_10 = max(phi_0_err[0], phi_0_err[1], sigma_phi_0)
+    ecl_err_10 = np.array([e_err_10, w_err_10, i_err_10, r_sum_err_10, r_rat_err_10, sb_rat_err_10,
+                        ecosw_err_10, esinw_err_10, cosi_err_10, phi_0_err_10])
+    if (e_10 > 0.99):
         return (None,) * 10  # unphysical parameters
     # --------------------------------------------
-    # --- [13] --- Optimise the eclipse parameters
+    # --- [11] --- Optimise the eclipse parameters
     # --------------------------------------------
-    ecl_par_12 = (e_12, w_12, i_12, r_sum_sma_12, r_ratio_12, sb_ratio_12)
+    ecl_par_10 = (e_10, w_10, i_10, r_sum_sma_10, r_ratio_10, sb_ratio_10)
     ecl_timings = (mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.csv')
-    out_13 = optimise_phys_eclipse(times, signal, signal_err, ecl_par_12, p_orb_7, t_zero_11, ecl_timings, const_7,
-                                   slope_7, f_n_7, a_n_7, ph_n_7, i_sectors, t_stats, file_name, **kwargs_1)
-    par_opt_13 = out_13
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.hdf5')
+    out_11 = optimise_phys_eclipse(times, signal, signal_err, ecl_par_10, p_orb_5, t_zero_9, ecl_timings, const_5,
+                                   slope_5, f_n_5, a_n_5, ph_n_5, i_sectors, t_stats, file_name, **kwargs_1)
+    par_opt_11 = out_11
     # ----------------------------------------
-    # --- [14] --- Eclipse model disentangling
+    # --- [12] --- Eclipse model disentangling
     # ----------------------------------------
-    model_ecl_13_simple = tsfit.eclipse_physical_lc(times, p_orb_7, t_zero_11, *par_opt_13)
-    residual = signal - model_ecl_13_simple
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14a.hdf5')
-    out_14a = iterative_prewhitening(times, residual, signal_err, i_sectors, t_stats, file_name, **kwargs_1)
-    const_14a, slope_14a, f_n_14a, a_n_14a, ph_n_14a = out_14a
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14b.hdf5')
-    out_14b = optimise_sinusoid(times, residual, signal_err, const_14a, slope_14a, f_n_14a, a_n_14a, ph_n_14a,
+    model_ecl_11_simple = tsfit.eclipse_physical_lc(times, p_orb_5, t_zero_9, *par_opt_11)
+    residual = signal - model_ecl_11_simple
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12a.hdf5')
+    out_12a = iterative_prewhitening(times, residual, signal_err, i_sectors, t_stats, file_name, **kwargs_1)
+    const_12a, slope_12a, f_n_12a, a_n_12a, ph_n_12a = out_12a
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_12b.hdf5')
+    out_12b = optimise_sinusoid(times, residual, signal_err, const_12a, slope_12a, f_n_12a, a_n_12a, ph_n_12a,
                                 i_sectors, t_stats, file_name, **kwargs_1)
-    const_14b, slope_14b, f_n_14b, a_n_14b, ph_n_14b = out_14b
+    const_12b, slope_12b, f_n_12b, a_n_12b, ph_n_12b = out_12b
     # --------------------------------
-    # --- [15] --- Optimise full model
+    # --- [13] --- Optimise full model
     # --------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15b.csv')
-    out_15 = optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb_7, t_zero_11, par_opt_13, const_14b,
-                                            slope_14b, f_n_14b, a_n_14b, ph_n_14b, t_zero_err_11, ecl_err,
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.hdf5')
+    out_13 = optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb_5, t_zero_9, par_opt_11, const_12b,
+                                            slope_12b, f_n_12b, a_n_12b, ph_n_12b, t_zero_err_9, ecl_err_10,
                                             i_sectors, t_stats, file_name, **kwargs_1)
-    return out_8, out_9, out_10b, out_11, out_12, out_13, out_14b, out_15
+    return out_6, out_7, out_8b, out_9, out_10, out_11, out_12b, out_13
 
 
 def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, noise_level, i_sectors, t_stats,
@@ -2281,7 +2070,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
     harmonics, harmonic_n = af.select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol=freq_res / 2, sigma_f=3)
     passed_h = np.zeros(len(f_n), dtype=bool)
     passed_h[harmonics] = True
-    # save the results
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
@@ -2293,7 +2082,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
     timings_err = None
     timings_hdi = None
     var_stats = None
-    stats = [t_tot, t_mean, t_int, -1, -1, noise_level]
+    stats = [t_tot, t_mean, t_mean_s, t_int, -1, -1, noise_level]
     desc = 'Credible frequency selection'
     ut.save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_mean, ecl_err, ecl_hdi, timings,
                             timings_err, timings_hdi, var_stats, stats, i_sectors, description=desc, data_id=data_id)
@@ -2412,7 +2201,7 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
     ratios_2 = depths / std_2
     ratios_3 = depths / std_3
     ratios_4 = depths / std_4
-    # save the results
+    # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = None
     sin_hdi = None
@@ -2424,7 +2213,7 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
     timings_err = None
     timings_hdi = None
     var_stats = [std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4]
-    stats = [t_tot, t_mean, t_int, -1, -1, -1]
+    stats = [t_tot, t_mean, t_mean_s, t_int, -1, -1, -1]
     desc = 'Variability versus eclipse depth statistics'
     ut.save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_mean, ecl_err, ecl_hdi, timings,
                             timings_err, timings_hdi, var_stats, stats, i_sectors, description=desc, data_id=data_id)
@@ -2476,55 +2265,55 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
 
     Returns
     -------
-    out_16: tuple
+    out_14: tuple
         output of analysis_frequency_selection
-    out_17: tuple
+    out_15: tuple
         output of analysis_variability_amplitudes
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     kwargs_1 = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     kwargs_2 = {'logger': logger, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the eclipse depths
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_11.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
     if not os.path.isfile(file_name):
         if verbose:
-            print('No eclipse analysis results found')
+            print('No frequency analysis results found')
         return (None,) * 2
-    results_11 = ut.read_parameters_hdf5(file_name, verbose=verbose)
-    _, _, _, _, _, _, _, timings, _, _, _, _, _, _ = results_11
-    depths_11 = timings[10:]
+    results_9 = ut.read_parameters_hdf5(file_name, verbose=verbose)
+    _, _, _, _, _, _, _, timings, _, _, _, _, _, _ = results_9
+    depths_9 = timings[10:]
     # read in the eclipse analysis results
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_13.hdf5')
     if not os.path.isfile(file_name):
         if verbose:
             print('No eclipse analysis results found')
         return (None,) * 2
-    results_15 = ut.read_parameters_hdf5(file_name, verbose=verbose)
-    sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, stats, _, _ = results_15
-    const_15, slope_15, f_n_15, a_n_15, ph_n_15 = sin_mean
-    p_orb_15, t_zero_15, _, _, _, _, r_rat_15, sb_rat_15, e_15, w_15, i_15, r_sum_15 = ecl_mean
-    ecl_par_15 = (e_15, w_15, i_15, r_sum_15, r_rat_15, sb_rat_15)
-    t_tot, t_mean, t_int, n_param_15, bic_15, noise_level_15 = stats
-    model_ecl_15 = tsfit.eclipse_physical_lc(times, p_orb_15, t_zero_15, *ecl_par_15)
+    results_13 = ut.read_parameters_hdf5(file_name, verbose=verbose)
+    sin_mean, _, _, _, ecl_mean, _, _, _, _, _, _, stats, _, _ = results_13
+    const_13, slope_13, f_n_13, a_n_13, ph_n_13 = sin_mean
+    p_orb_13, t_zero_13, _, _, _, _, r_rat_13, sb_rat_13, e_13, w_13, i_13, r_sum_13 = ecl_mean
+    ecl_par_13 = (e_13, w_13, i_13, r_sum_13, r_rat_13, sb_rat_13)
+    t_tot, t_mean, t_mean_s, t_int, n_param_13, bic_13, noise_level_13 = stats
+    model_ecl_13 = tsfit.eclipse_physical_lc(times, p_orb_13, t_zero_13, *ecl_par_13)
     # ---------------------------------------------
-    # --- [16] --- Frequency and harmonic selection
+    # --- [14] --- Frequency and harmonic selection
     # ---------------------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_16a.csv')
-    out_16 = frequency_selection(times, signal, model_ecl_15, p_orb_15, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
-                                 noise_level_15, i_sectors, t_stats, file_name, **kwargs_1)
-    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_16
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_14.hdf5')
+    out_14 = frequency_selection(times, signal, model_ecl_13, p_orb_13, const_13, slope_13, f_n_13, a_n_13, ph_n_13,
+                                 noise_level_13, i_sectors, t_stats, file_name, **kwargs_1)
+    # pass_nh_sigma, pass_nh_snr, passed_nh_b = out_14
     # -----------------------------------
-    # --- [17] --- Variability amplitudes
+    # --- [15] --- Variability amplitudes
     # -----------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_17.csv')
-    out_17 = variability_amplitudes(times, signal, model_ecl_15, p_orb_15, const_15, slope_15, f_n_15, a_n_15, ph_n_15,
-                                    depths_11, i_sectors, t_stats, file_name, **kwargs_1)
-    # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_17
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_15.hdf5')
+    out_15 = variability_amplitudes(times, signal, model_ecl_13, p_orb_13, const_13, slope_13, f_n_13, a_n_13, ph_n_13,
+                                    depths_9, i_sectors, t_stats, file_name, **kwargs_1)
+    # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_15
     # ---------------------------------
-    # --- [18] --- Amplitude modulation
+    # --- [16] --- Amplitude modulation
     # ---------------------------------
     # use wavelet transform or smth to see which star is pulsating
-    return out_16, out_17
+    return out_14, out_15
 
 
 def custom_logger(save_dir, target_id, verbose):
@@ -2698,7 +2487,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     # do the analysis
     out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args)
     # if not full output, stop
-    if not (len(out_a[0]) < 8):
+    if not (len(out_a[0]) < 5):
         out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
         if not np.any([item is None for item in out_b]):
             out_c = analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)

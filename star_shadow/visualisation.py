@@ -85,23 +85,15 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     freqs_3, ampls_3 = tsf.astropy_scargle(times, signal - models[2] - np.all(models[2] == 0) * np.mean(signal))
     freqs_4, ampls_4 = tsf.astropy_scargle(times, signal - models[3] - np.all(models[3] == 0) * np.mean(signal))
     freqs_5, ampls_5 = tsf.astropy_scargle(times, signal - models[4] - np.all(models[4] == 0) * np.mean(signal))
-    freqs_6, ampls_6 = tsf.astropy_scargle(times, signal - models[5] - np.all(models[5] == 0) * np.mean(signal))
-    freqs_7, ampls_7 = tsf.astropy_scargle(times, signal - models[6] - np.all(models[6] == 0) * np.mean(signal))
-    freqs_8, ampls_8 = tsf.astropy_scargle(times, signal - models[7] - np.all(models[7] == 0) * np.mean(signal))
-    freqs_9, ampls_9 = tsf.astropy_scargle(times, signal - models[8] - np.all(models[8] == 0) * np.mean(signal))
     # get error values
     err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_sectors)
     err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_sectors)
     err_3 = tsf.formal_uncertainties(times, signal - models[2], a_n_i[2], i_sectors)
     err_4 = tsf.formal_uncertainties(times, signal - models[3], a_n_i[3], i_sectors)
     err_5 = tsf.formal_uncertainties(times, signal - models[4], a_n_i[4], i_sectors)
-    err_6 = tsf.formal_uncertainties(times, signal - models[5], a_n_i[5], i_sectors)
-    err_7 = tsf.formal_uncertainties(times, signal - models[6], a_n_i[6], i_sectors)
-    err_8 = tsf.formal_uncertainties(times, signal - models[7], a_n_i[7], i_sectors)
-    err_9 = tsf.formal_uncertainties(times, signal - models[8], a_n_i[8], i_sectors)
     # max plot value
-    if (len(f_n_i[8]) > 0):
-        y_max = max(np.max(ampls), np.max(a_n_i[8]))
+    if (len(f_n_i[4]) > 0):
+        y_max = max(np.max(ampls), np.max(a_n_i[4]))
     else:
         y_max = np.max(ampls)
     # plot
@@ -110,25 +102,17 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     if (len(f_n_i[0]) > 0):
         ax.plot(freqs_1, ampls_1, label='extraction residual')
     if (len(f_n_i[1]) > 0):
-        ax.plot(freqs_2, ampls_2, label='NL-LS fit residual')
+        ax.plot(freqs_2, ampls_2, label='NL-LS optimisation residual')
     if (len(f_n_i[2]) > 0):
-        ax.plot(freqs_3, ampls_3, label='fixed harmonics residual')
+        ax.plot(freqs_3, ampls_3, label='coupled harmonics residual')
     if (len(f_n_i[3]) > 0):
-        ax.plot(freqs_4, ampls_4, label='additional harmonics residual')
+        ax.plot(freqs_4, ampls_4, label='additional frequencies residual')
     if (len(f_n_i[4]) > 0):
-        ax.plot(freqs_5, ampls_5, label='first NL-LS fit residual with harmonics')
-    if (len(f_n_i[5]) > 0):
-        ax.plot(freqs_6, ampls_6, label='additional non-harmonics residual')
-    if (len(f_n_i[6]) > 0):
-        ax.plot(freqs_7, ampls_7, label='second NL-LS fit residual with harmonics')
-    if (len(f_n_i[7]) > 0):
-        ax.plot(freqs_8, ampls_8, label='Reduced frequencies')
-    if (len(f_n_i[8]) > 0):
-        ax.plot(freqs_9, ampls_9, label='third NL-LS fit residual with harmonics')
+        ax.plot(freqs_5, ampls_5, label='NL-LS fit residual with harmonics residual')
     # period
-    if (p_orb_i[8] > 0):
-        ax.errorbar([1 / p_orb_i[8], 1 / p_orb_i[8]], [0, y_max], xerr=[0, p_err_i[8] / p_orb_i[8]**2],
-                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[7]:1.4f}d)')
+    if (p_orb_i[4] > 0):
+        ax.errorbar([1 / p_orb_i[4], 1 / p_orb_i[4]], [0, y_max], xerr=[0, p_err_i[4] / p_orb_i[4]**2],
+                    linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[4]:1.4f}d)')
     elif (p_orb_i[2] > 0):
         ax.errorbar([1 / p_orb_i[2], 1 / p_orb_i[2]], [0, y_max], xerr=[0, p_err_i[2] / p_orb_i[2]**2],
                     linestyle='--', capsize=2, c='k', label=f'orbital frequency (p={p_orb_i[2]:1.4f}d)')
@@ -148,19 +132,7 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     for i in range(len(f_n_i[4])):
         ax.errorbar([f_n_i[4][i], f_n_i[4][i]], [0, a_n_i[4][i]], xerr=[0, err_5[2][i]], yerr=[0, err_5[3][i]],
                     linestyle=':', capsize=2, c='tab:brown')
-    for i in range(len(f_n_i[5])):
-        ax.errorbar([f_n_i[5][i], f_n_i[5][i]], [0, a_n_i[5][i]], xerr=[0, err_6[2][i]], yerr=[0, err_6[3][i]],
-                    linestyle=':', capsize=2, c='tab:pink')
-    for i in range(len(f_n_i[6])):
-        ax.errorbar([f_n_i[6][i], f_n_i[6][i]], [0, a_n_i[6][i]], xerr=[0, err_7[2][i]], yerr=[0, err_7[3][i]],
-                    linestyle=':', capsize=2, c='tab:grey')
-    for i in range(len(f_n_i[7])):
-        ax.errorbar([f_n_i[7][i], f_n_i[7][i]], [0, a_n_i[7][i]], xerr=[0, err_8[2][i]], yerr=[0, err_8[3][i]],
-                    linestyle=':', capsize=2, c='tab:olive')
-    for i in range(len(f_n_i[8])):
-        ax.errorbar([f_n_i[8][i], f_n_i[8][i]], [0, a_n_i[8][i]], xerr=[0, err_9[2][i]], yerr=[0, err_9[3][i]],
-                    linestyle=':', capsize=2, c='tab:cyan')
-        ax.annotate(f'{i + 1}', (f_n_i[8][i], a_n_i[8][i]))
+        ax.annotate(f'{i + 1}', (f_n_i[4][i], a_n_i[4][i]))
     ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
@@ -1394,24 +1366,93 @@ def plot_lc_disentangled_freqs_h(times, signal, p_orb, t_zero, timings, const_r,
     return
 
 
-def plot_mcmc_pair(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
-    """Show the pymc3 sampling results in several pair plots"""
-    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
-                 coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]},
-                 marginals=True, kind=['scatter', 'kde'])
-    az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
-                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
-                 marginals=True, kind=['scatter', 'kde'])
-    az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'incl', 'phi_0', 'r_rat', 'sb_rat'],
-                 marginals=True, kind=['scatter', 'kde'])
+def plot_trace_sinusoids(inf_data, const, slope, f_n, a_n, ph_n):
+    """Show the pymc3 sampling results in a trace plot"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    above_pi = (ph_n >= np.pi)
+    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    par_lines = [('const', {}, const), ('slope', {}, slope), ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n)]
+    az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return
 
 
-def plot_mcmc_trace(inf_data, t_zero, ecosw, esinw, i, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+def plot_pair_harmonics(inf_data, p_orb, const, slope, f_n, a_n, ph_n, save_file=None, show=True):
+    """Show the pymc3 sampling results in several pair plots"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    above_pi = (ph_n >= np.pi)
+    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    ref_values = {'p_orb': p_orb, 'const': const, 'slope': slope,
+                  'f_n': f_n[non_harm], 'a_n': a_n[non_harm], 'ph_n': ph_n[non_harm],
+                  'f_h': f_n[harmonics], 'a_h': a_n[harmonics], 'ph_h': ph_n[harmonics]}
+    kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
+              'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
+              'reference_values': ref_values, 'show': show}
+    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+                 coords={'f_n_dim_0': [0, 1, 2], 'a_n_dim_0': [0, 1, 2], 'ph_n_dim_0': [0, 1, 2]}, **kwargs)
+    az.plot_pair(inf_data, var_names=['p_orb', 'f_n'], coords={'f_n_dim_0': np.arange(9)}, **kwargs)
+    ax = az.plot_pair(inf_data, var_names=['p_orb', 'const', 'slope', 'f_n', 'a_n', 'ph_n', 'a_h', 'ph_h'],
+                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0],
+                         'a_h_dim_0': [0], 'ph_h_dim_0': [0]},
+                 **kwargs)
+    # save if wanted (only last plot - most interesting one)
+    if save_file is not None:
+        fig = ax.ravel()[0].figure
+        fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    return
+
+
+def plot_trace_harmonics(inf_data, p_orb, const, slope, f_n, a_n, ph_n):
     """Show the pymc3 sampling results in a trace plot"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    above_pi = (ph_n >= np.pi)
+    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    par_lines = [('p_orb', {}, p_orb), ('const', {}, const), ('slope', {}, slope),
+                 ('f_n', {}, f_n[non_harm]), ('a_n', {}, a_n[non_harm]), ('ph_n', {}, ph_n[non_harm]),
+                 ('f_h', {}, f_n[harmonics]), ('a_h', {}, a_n[harmonics]), ('ph_h', {}, ph_n[harmonics])]
+    az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
+    return
+
+
+def plot_pair_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n,
+                      save_file=None, show=True):
+    """Show the pymc3 sampling results in several pair plots"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    above_pi = (ph_n >= np.pi)
+    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    ref_values = {'t_zero': t_zero, 'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
+                  'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'r_ratio': r_rat, 'sb_ratio': sb_rat}
+    kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
+              'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
+              'reference_values': ref_values, 'show': show}
+    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+                 coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]}, **kwargs)
+    ax1 = az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
+                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
+                 **kwargs)
+    ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat'], **kwargs)
+    # save if wanted (only last plot - most interesting one)
+    if save_file is not None:
+        fig_save_file = save_file.replace('.png', '_a.png')
+        fig = ax1.ravel()[0].figure
+        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+        fig_save_file = save_file.replace('.png', '_b.png')
+        fig = ax2.ravel()[0].figure
+        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    return
+
+
+def plot_trace_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+    """Show the pymc3 sampling results in a trace plot"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    above_pi = (ph_n >= np.pi)
+    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
     par_lines = [('t_zero', {}, t_zero), ('const', {}, const), ('slope', {}, slope),
                  ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n),
-                 ('e_cos_w', {}, ecosw), ('e_sin_w', {}, esinw), ('incl', {}, i),
+                 ('ecosw', {}, ecosw), ('esinw', {}, esinw), ('cosi', {}, cosi),
                  ('phi_0', {}, phi_0), ('r_ratio', {}, r_rat), ('sb_ratio', {}, sb_rat)]
     az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return

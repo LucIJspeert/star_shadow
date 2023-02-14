@@ -359,9 +359,9 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     
     Returns
     -------
-     : numpy.ndarray[int]
+    harmonics: numpy.ndarray[int]
         Indices of the frequencies in f_n that are deemed harmonics
-     : numpy.ndarray[int]
+    harmonic_n: numpy.ndarray[int]
         Corresponding harmonic numbers (base frequency is 1)
     
     Notes
@@ -369,6 +369,12 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     A frequency is only accepted as harmonic if it is within 1e-9 of the pattern
     (by default). This can now be user defined for more flexibility.
     """
+    # guard against zero period
+    if (p_orb == 0):
+        harmonics = np.zeros(0, dtype=np.int_)
+        harmonic_n = np.zeros(0, dtype=np.int_)
+        return harmonics, harmonic_n
+        
     # make the pattern of harmonics
     domain = (0, np.max(f_n) + 0.5 / p_orb)
     harmonic_pattern, harmonic_n = construct_harmonic_range(1 / p_orb, domain)
@@ -384,7 +390,10 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     d_nn = np.abs(f_n[i_nn] - harmonic_pattern)
     # check that the closest neighbours are reasonably close to the harmonic
     m_cn = (d_nn < min(f_tol, 1 / (2 * p_orb)))  # distance must be smaller than tolerance (and never larger than 1/2P)
-    return sorter[i_nn[m_cn]], harmonic_n[m_cn]
+    # keep the ones left over
+    harmonics = sorter[i_nn[m_cn]]
+    harmonic_n = harmonic_n[m_cn]
+    return harmonics, harmonic_n
 
 
 @nb.njit(cache=True)
@@ -2789,8 +2798,10 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
         r_sum_vals[k] = out[3]
         r_rat_vals[k] = out[4]
         sb_rat_vals[k] = out[5]
-        if verbose & ((k + 1) % 200 == 0):
-            print(f'parameter calculations {int(k / (n_gen) * 100)}% done')
+        if verbose & (k % 50 == 0):
+            print(f'Parameter calculations {int(k / (n_gen) * 100)}% done', end='\r')
+    if verbose:
+        print(f'Parameter calculations 100% done')
     # delete the skipped parameters
     normal_t_1 = np.delete(normal_t_1, i_delete)
     normal_t_2 = np.delete(normal_t_2, i_delete)

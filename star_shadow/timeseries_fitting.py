@@ -23,7 +23,7 @@ from . import utility as ut
 
 
 @nb.njit(cache=True)
-def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=False):
+def objective_sinusoids(params, times, signal, signal_err, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves.
     
     Parameters
@@ -43,8 +43,6 @@ def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=Fa
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
     
     Returns
     -------
@@ -68,10 +66,6 @@ def objective_sinusoids(params, times, signal, signal_err, i_sectors, verbose=Fa
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     resid = signal - model_linear - model_sinusoid
     ln_likelihood = tsf.calc_likelihood(resid / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
@@ -237,7 +231,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
 
 
 @nb.njit(cache=True)
-def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n, i_sectors, verbose=False):
+def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
 
@@ -263,8 +257,6 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
     
     Returns
     -------
@@ -297,10 +289,6 @@ def objective_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n,
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     resid = signal - model_linear - model_sinusoid
     ln_likelihood = tsf.calc_likelihood(resid / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
@@ -515,7 +503,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
 
 
 @nb.njit(cache=True)
-def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, harmonic_n, i_sectors, verbose=False):
+def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, harmonic_n, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
 
@@ -544,8 +532,6 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
     
     Returns
     -------
@@ -568,10 +554,6 @@ def objective_third_light(params, times, signal, signal_err, p_orb, a_h, ph_h, h
     model = model + tsf.linear_curve(times, const, slope, i_sectors)
     model = ut.model_crowdsap(model, 1 - light_3, i_sectors)  # incorporate third light
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
@@ -821,8 +803,8 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     return -ln_likelihood
 
 
-def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope, f_n, a_n, ph_n,
-                          i_sectors, verbose=False):
+def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+                          verbose=False):
     """Perform least-squares fit for improved eclipse timings using an empirical model.
 
     Parameters
@@ -840,10 +822,9 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, dep
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
+        Eclipse depth of the primary and secondary,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float], None
-        Eclipse depth of the primary and secondary, depth_1, depth_2
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -875,8 +856,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, dep
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    d_1, d_2 = depths
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     # make a mask for the eclipses, as only the eclipses will be fitted
@@ -912,7 +892,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, dep
 
 
 @nb.njit(cache=True)
-def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, t_zero, i_sectors, verbose):
+def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, t_zero, i_sectors):
     """Objective function for a set of eclipse timings and harmonics
 
     Parameters
@@ -937,8 +917,6 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, t
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -969,10 +947,6 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, t
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
@@ -1080,7 +1054,6 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
-        par_bounds.extend([(None, None) for _ in range(2 * n_sect + 3 * len(res_freqs[group]))])
         arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors, verbose)
         output = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments,
                                       method='Nelder-Mead', bounds=par_bounds,
@@ -1465,7 +1438,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
 
 
 @nb.njit(cache=True)
-def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sectors, verbose=False):
+def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize
     for an eclipse model plus a sum of sine waves.
 
@@ -1521,15 +1494,11 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 
 # @nb.njit(cache=True)  # will not work due to ellc
-def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors, verbose=False):
+def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize
     for an ellc model plus a sum of sine waves.
 
@@ -1554,8 +1523,6 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
 
     Returns
     -------
@@ -1586,10 +1553,6 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
     # calculate the likelihood
     model = model_linear + model_sines + model_ecl
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
-    # to keep track, sometimes print the value
-    if verbose:
-        if np.random.randint(10000) == 0:
-            print('log-likelihood:', ln_likelihood)
     return -ln_likelihood
 
 

@@ -15,6 +15,7 @@ import numba as nb
 import astropy.timeseries as apy
 
 from . import analysis_functions as af
+from . import utility as ut
 
 
 @nb.njit(cache=True)
@@ -136,9 +137,9 @@ def mark_folded_gaps(times, p_orb, width):
     # fold the time series
     t_fold_edges, _, _ = fold_time_series(times, p_orb, 0, t_ext_1=0, t_ext_2=0)
     if np.all(t_fold_edges > 0):
-        t_fold_edges = np.append([0], t_fold_edges)
+        t_fold_edges = np.append(0, t_fold_edges)
     if np.all(t_fold_edges < p_orb):
-        t_fold_edges = np.append(t_fold_edges, [p_orb])
+        t_fold_edges = np.append(t_fold_edges, p_orb)
     # mark the gaps
     t_sorted = np.sort(t_fold_edges)
     t_diff = t_sorted[1:] - t_sorted[:-1]  # np.diff(a)
@@ -1657,9 +1658,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         model_linear = linear_curve(times, const, slope, i_sectors)
         model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
         resid = signal - model_linear - model_sinusoid
-        f_n = np.append(f_n, [n / p_orb])
-        a_n = np.append(a_n, [scargle_ampl_single(times, resid, n / p_orb)])
-        ph_n = np.append(ph_n, [scargle_phase_single(times, resid, n / p_orb)])
+        f_n = np.append(f_n, n / p_orb)
+        a_n = np.append(a_n, scargle_ampl_single(times, resid, n / p_orb))
+        ph_n = np.append(ph_n, scargle_phase_single(times, resid, n / p_orb))
         # make sure the phase stays within + and - pi
         ph_n[-1] = np.mod(ph_n[-1] + np.pi, 2 * np.pi) - np.pi
         # as a last model-refining step, redetermine the constant
@@ -1682,6 +1683,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
+@nb.njit(cache=True)
 def extract_single(times, signal, f0=0, fn=0, verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
@@ -1731,7 +1733,8 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
         if verbose:
-            print(f'Edge of frequency range {freqs[p1]:1.6f} at position {p1} during extraction phase 1.')
+            freq_str = ut.float_to_str(freqs[p1], 6)  # convert to string for Numba
+            print(f'Edge of frequency range {freq_str} at position {p1} during extraction phase 1.')
     # now refine once by increasing the frequency resolution x100
     f_left_1 = max(freqs[p1] - df, df / 10)  # may not get too low
     f_right_1 = freqs[p1] + df
@@ -1740,7 +1743,8 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     # check if we pick the boundary frequency
     if (p2 in [0, len(f_refine_1) - 1]):
         if verbose:
-            print(f'Edge of frequency range {f_refine_1[p2]:1.6f} at position {p2} during extraction phase 2.')
+            freq_str = ut.float_to_str(f_refine_1[p2], 6)  # convert to string for Numba
+            print(f'Edge of frequency range {freq_str} at position {p2} during extraction phase 2.')
     f_final = f_refine_1[p2]
     a_final = a_refine_1[p2]
     # finally, compute the phase (and make sure it stays within + and - pi)
@@ -1749,106 +1753,9 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def refine_subset(times, signal, signal_err, close_f, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
-    """Refine a subset of frequencies that are within the Rayleigh criterion of each other.
-    
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    close_f: list[int], numpy.ndarray[int]
-        Indices of the subset of frequencies to be refined
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
-    
-    Returns
-    -------
-    const: numpy.ndarray[float]
-        Updated y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        Updated slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        Updated frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        Updated amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        Updated phases of a number of sine waves
-    
-    See Also
-    --------
-    extract_all
-    
-    Notes
-    -----
-    Intended as a sub-loop within another extraction routine (extract_all),
-    can work standalone too.
-    """
-    freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    n_sectors = len(i_sectors)
-    n_f = len(f_n)
-    # determine initial bic
-    model_linear = linear_curve(times, const, slope, i_sectors)
-    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
-    resid = signal - model_linear - model_sinusoid
-    f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
-    n_param = 2 * n_sectors + 3 * n_f
-    bic_prev = np.inf
-    bic = calc_bic(resid / signal_err, n_param)
-    # stop the loop when the BIC increases
-    i = 0
-    while (np.round(bic_prev - bic, 2) > 0):
-        # last frequencies are accepted
-        f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
-        bic_prev = bic
-        if verbose:
-            print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}')
-        # remove each frequency one at a time to re-extract them
-        for j in close_f:
-            model_linear = linear_curve(times, const, slope, i_sectors)
-            model_sinusoid = sum_sines(times, np.delete(f_n_temp, j), np.delete(a_n_temp, j), np.delete(ph_n_temp, j))
-            resid = signal - model_linear - model_sinusoid
-            f_j, a_j, ph_j = extract_single(times, resid, f0=f_n_temp[j] - freq_res, fn=f_n_temp[j] + freq_res,
-                                            verbose=verbose)
-            f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
-        # as a last model-refining step, redetermine the constant and slope
-        model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
-        const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
-        model_linear = linear_curve(times, const, slope, i_sectors)
-        # now subtract all from the signal and calculate BIC before moving to the next iteration
-        resid = signal - model_linear - model_sinusoid
-        bic = calc_bic(resid / signal_err, n_param)
-        i += 1
-    if verbose:
-        print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
-    # redo the constant and slope without the last iteration of changes
-    resid = signal - sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_pars(times, resid, i_sectors)
-    return const, slope, f_n, a_n, ph_n
-
-
-def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                            verbose=False):
+def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
-    taking into account (and not changing) harmonics.
+    taking into account (and not changing the frequencies of) harmonics if present.
     
     Parameters
     ----------
@@ -1861,7 +1768,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     p_orb: float
-        Orbital period of the eclipsing binary in days
+        Orbital period of the eclipsing binary in days (may be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1920,7 +1827,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
         f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
         bic_prev = bic
         if verbose:
-            print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}')
+            print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}', end='\r')
         # remove each frequency one at a time to re-extract them
         for j in close_f:
             model_linear = linear_curve(times, const, slope, i_sectors)
@@ -1944,8 +1851,7 @@ def refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, sl
         bic = calc_bic(resid / signal_err, n_param)
         i += 1
     if verbose:
-        print(f'Refining terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
+        print(f'Refining iteration {i} not included with BIC= {bic:1.2f}, delta-BIC= {bic_prev - bic:1.2f}')
     # redo the constant and slope without the last iteration of changes
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
@@ -2030,8 +1936,8 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
         if (i > 0) & (len(close_f) > 1):
-            refine_out = refine_subset(times, signal, signal_err, close_f, const, slope, f_n_temp, a_n_temp, ph_n_temp,
-                                       i_sectors, verbose=verbose)
+            refine_out = refine_subset(times, signal, signal_err, close_f, 0, const, slope, f_n_temp, a_n_temp,
+                                       ph_n_temp, i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
@@ -2051,9 +1957,9 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=True):
-    """Extract additional frequencies starting from an existing set with harmonics.
+def extract_additional(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+    """Extract additional frequencies starting from an existing set
+    taking into account any harmonics if present.
     
     Parameters
     ----------
@@ -2064,7 +1970,7 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
-        Orbital period of the eclipsing binary in days
+        Orbital period of the eclipsing binary in days (may be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2140,8 +2046,8 @@ def extract_additional_frequencies(times, signal, signal_err, p_orb, const, slop
         # now iterate over close frequencies (around f_i) a number of times to improve them
         close_f = af.f_within_rayleigh(i, f_n_temp, freq_res)
         if (i > 0) & (len(close_f) > 1):
-            refine_out = refine_subset_harmonics(times, signal, signal_err, close_f, p_orb, const, slope, f_n_temp,
-                                                 a_n_temp, ph_n_temp, i_sectors, verbose=verbose)
+            refine_out = refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n_temp,
+                                       a_n_temp, ph_n_temp, i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
@@ -2266,8 +2172,9 @@ def extract_additional_harmonics(times, signal, signal_err, p_orb, const, slope,
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
-    """Attempt to reduce the number of frequencies.
+def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+    """Attempt to reduce the number of frequencies
+    taking into account any harmonics if present.
     
     Parameters
     ----------
@@ -2277,6 +2184,8 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days (may be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2314,15 +2223,18 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     It is attempted to replace these by a single frequency.
     """
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
     n_freq = np.arange(len(f_n))
     n_sectors = len(i_sectors)
+    n_harm = len(harmonics)
     # first check if any frequency can be left out (after the fit, this may be possible)
     remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
     # determine initial bic
     model_linear = linear_curve(times, const, slope, i_sectors)
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     resid = signal - model_linear - model_sinusoid
-    n_param = 2 * n_sectors + 3 * len(f_n)
+    n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n) - n_harm)
     bic_init = calc_bic(resid / signal_err, n_param)
     bic_prev = bic_init
     n_prev = -1
@@ -2341,162 +2253,12 @@ def reduce_frequencies(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
                 const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
                 model_linear = linear_curve(times, const, slope, i_sectors)
                 resid = signal - model_linear - model_sinusoid
-                n_param = 2 * n_sectors + 3 * len(f_n_temp)
+                harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_temp, p_orb, f_tol=1e-9)
+                n_param = 2 * n_sectors + 1 + 2 * len(harmonics) + 3 * (len(f_n_temp) - len(harmonics))
                 bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed freqs
-                    remove_single = np.append(remove_single, [i])
-                    bic_prev = bic
-    f_n = np.delete(f_n, remove_single)
-    a_n = np.delete(a_n, remove_single)
-    ph_n = np.delete(ph_n, remove_single)
-    if verbose:
-        print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f}')
-    # Now go on to trying to replace sets of frequencies that are close together (first without harmonics)
-    # make an array of sets of frequencies to be investigated for replacement
-    close_f_g = af.chains_within_rayleigh(f_n, freq_res)
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_g for p1 in range(len(g) - 1) for p2 in range(p1 + 1, len(g))]
-    s_indices = np.arange(len(f_sets))
-    remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by 1 freq)
-    used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
-    f_new, a_new, ph_new = np.zeros((3, 0))
-    n_prev = -1
-    # while frequencies are added to the remove list, continue loop
-    while (len(remove_sets) > n_prev):
-        n_prev = len(remove_sets)
-        for i, set_i in enumerate(f_sets):
-            if i not in used_sets:
-                # temporary arrays for this iteration (remove combos, remove current set, add new freqs)
-                remove = np.append([k for j in remove_sets for k in f_sets[j]], set_i).astype(int)
-                f_n_temp = np.append(np.delete(f_n, remove), f_new)
-                a_n_temp = np.append(np.delete(a_n, remove), a_new)
-                ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
-                # make a model not including the freqs of this iteration
-                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
-                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
-                model_linear = linear_curve(times, const, slope, i_sectors)
-                resid = signal - model_linear - model_sinusoid
-                # extract a single freq to try replacing the pair (set)
-                edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
-                f_i, a_i, ph_i = extract_single(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
-                # make a model including the new freq
-                model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
-                                           np.append(ph_n_temp, ph_i))
-                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
-                model_linear = linear_curve(times, const, slope, i_sectors)
-                resid = signal - model_linear - model_sinusoid
-                # calculate bic
-                n_param = 2 * n_sectors + 3 * len(f_n_temp)
-                bic = calc_bic(resid / signal_err, n_param)
-                if (np.round(bic_prev - bic, 2) > 0):
-                    # add to list of removed sets
-                    remove_sets = np.append(remove_sets, [i])
-                    # do not look at sets with the same freqs as the just removed set anymore
-                    overlap = s_indices[[np.any([j in set_i for j in subset]) for subset in f_sets]]
-                    used_sets = np.unique(np.append(used_sets, [overlap]))
-                    # remember the new frequency
-                    f_new, a_new, ph_new = np.append(f_new, [f_i]), np.append(a_new, [a_i]), np.append(ph_new, [ph_i])
-                    bic_prev = bic
-    f_n = np.append(np.delete(f_n, [k for i in remove_sets for k in f_sets[i]]), f_new)
-    a_n = np.append(np.delete(a_n, [k for i in remove_sets for k in f_sets[i]]), a_new)
-    ph_n = np.append(np.delete(ph_n, [k for i in remove_sets for k in f_sets[i]]), ph_new)
-    if verbose:
-        n_f_removed = len([k for i in remove_sets for k in f_sets[i]])
-        print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_f_removed} frequencies). '
-              f'BIC= {bic_prev:1.2f}')
-    # lastly re-determine slope and const
-    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
-    const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
-    return const, slope, f_n, a_n, ph_n
-
-
-def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                 verbose=False):
-    """Attempt to reduce the number of frequencies taking into
-    account harmonics.
-    
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
-    
-    Returns
-    -------
-    const: numpy.ndarray[float]
-        (Updated) y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        (Updated) slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        (Updated) frequencies of a (lower) number of sine waves
-    a_n: numpy.ndarray[float]
-        (Updated) amplitudes of a (lower) number of sine waves
-    ph_n: numpy.ndarray[float]
-        (Updated) phases of a (lower) number of sine waves
-    
-    Notes
-    -----
-    Checks whether the BIC can be improved by removing a frequency. Special attention
-    is given to frequencies that are within the Rayleigh criterion of each other.
-    It is attempted to replace these by a single frequency.
-    Harmonics are not removed (amplitude/phase can be updated).
-    """
-    freq_res = 1.5 / np.ptp(times)  # frequency resolution
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    n_sectors = len(i_sectors)
-    n_harm = len(harmonics)
-    # first check if any frequency can be left out (after the fit, this may be possible)
-    remove_single = np.zeros(0, dtype=int)  # single frequencies to remove
-    # determine initial bic
-    model_linear = linear_curve(times, const, slope, i_sectors)
-    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
-    resid = signal - model_linear - model_sinusoid
-    n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n) - n_harm)
-    bic_init = calc_bic(resid / signal_err, n_param)
-    bic_prev = bic_init
-    n_prev = -1
-    # while frequencies are added to the remove list, continue loop
-    while (len(remove_single) > n_prev):
-        n_prev = len(remove_single)
-        for i in non_harm:
-            if i not in remove_single:
-                # temporary arrays for this iteration (remove freqs, remove current freq)
-                remove = np.append(remove_single, i)
-                f_n_temp = np.delete(f_n, remove)
-                a_n_temp = np.delete(a_n, remove)
-                ph_n_temp = np.delete(ph_n, remove)
-                # make a model not including the freq of this iteration
-                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
-                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
-                model_linear = linear_curve(times, const, slope, i_sectors)
-                resid = signal - model_linear - model_sinusoid
-                n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) - n_harm)
-                bic = calc_bic(resid / signal_err, n_param)
-                if (np.round(bic_prev - bic, 2) > 0):
-                    # add to list of removed freqs
-                    remove_single = np.append(remove_single, [i])
+                    remove_single = np.append(remove_single, i)
                     bic_prev = bic
     f_n = np.delete(f_n, remove_single)
     a_n = np.delete(a_n, remove_single)
@@ -2504,14 +2266,21 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     if verbose:
         print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f} '
               f'(delta-BIC= {bic_init - bic_prev:1.2f})')
-    # Now go on to trying to replace sets of frequencies that are close together (first without harmonics)
+    # Now go on to trying to replace sets of frequencies that are close together
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    # make an array of sets of frequencies to be investigated for replacement
+    # make an array of sets of frequencies (non-harmonic) to be investigated for replacement
     close_f_groups = af.chains_within_rayleigh(f_n[non_harm], freq_res)
     close_f_groups = [non_harm[group] for group in close_f_groups]  # convert to the right indices
     f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1)
               for p2 in range(p1 + 1, len(g))]
+    # make an array of sets of frequencies (now with harmonics) to be investigated for replacement
+    close_f_groups = af.chains_within_rayleigh(f_n, freq_res)
+    f_sets_h = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1)
+              for p2 in range(p1 + 1, len(g)) if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
+    # join the two lists, and remember which is which
+    harm_sets = np.arange(len(f_sets), len(f_sets) + len(f_sets_h))
+    f_sets.extend(f_sets_h)
     s_indices = np.arange(len(f_sets))
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by 1 freq)
     used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
@@ -2532,9 +2301,15 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
                 model_linear = linear_curve(times, const, slope, i_sectors)
                 resid = signal - model_linear - model_sinusoid
-                # extract a single freq to try replacing the pair (set)
-                edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
-                f_i, a_i, ph_i = extract_single(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
+                # extract a single freq to try replacing the set
+                if i in harm_sets:
+                    harm_i = [h for h in set_i if h in harmonics]
+                    f_i = f_n[harm_i]  # fixed f
+                    a_i = scargle_ampl(times, resid, f_n[harm_i])
+                    ph_i = scargle_phase(times, resid, f_n[harm_i])
+                else:
+                    edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
+                    f_i, a_i, ph_i = extract_single(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
                 # make a model including the new freq
                 model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
                                            np.append(ph_n_temp, ph_i))
@@ -2546,12 +2321,12 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
                 bic = calc_bic(resid / signal_err, n_param)
                 if (np.round(bic_prev - bic, 2) > 0):
                     # add to list of removed sets
-                    remove_sets = np.append(remove_sets, [i])
+                    remove_sets = np.append(remove_sets, i)
                     # do not look at sets with the same freqs as the just removed set anymore
                     overlap = s_indices[[np.any([j in set_i for j in subset]) for subset in f_sets]]
-                    used_sets = np.unique(np.append(used_sets, [overlap]))
+                    used_sets = np.unique(np.append(used_sets, overlap))
                     # remember the new frequency
-                    f_new, a_new, ph_new = np.append(f_new, [f_i]), np.append(a_new, [a_i]), np.append(ph_new, [ph_i])
+                    f_new, a_new, ph_new = np.append(f_new, f_i), np.append(a_new, a_i), np.append(ph_new, ph_i)
                     bic_prev = bic
     f_n = np.append(np.delete(f_n, [k for i in remove_sets for k in f_sets[i]]), f_new)
     a_n = np.append(np.delete(a_n, [k for i in remove_sets for k in f_sets[i]]), a_new)
@@ -2559,61 +2334,6 @@ def reduce_frequencies_harmonics(times, signal, signal_err, p_orb, const, slope,
     if verbose:
         n_f_removed = len([k for i in remove_sets for k in f_sets[i]])
         print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_f_removed} frequencies). '
-              f'BIC= {bic_prev:1.2f}')
-    # make an array of sets of frequencies to be investigated (now with harmonics)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    close_f_groups = af.chains_within_rayleigh(f_n, freq_res)
-    f_sets = [g[np.arange(p1, p2 + 1)] for g in close_f_groups for p1 in range(len(g) - 1)
-              for p2 in range(p1 + 1, len(g)) if np.any([g_f in harmonics for g_f in g[np.arange(p1, p2 + 1)]])]
-    s_indices = np.arange(len(f_sets))
-    remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by a harmonic)
-    used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
-    f_new, a_new, ph_new = np.zeros((3, 0))
-    n_prev = -1
-    # while frequencies are added to the remove list, continue loop
-    while (len(remove_sets) > n_prev):
-        n_prev = len(remove_sets)
-        for i, set_i in enumerate(f_sets):
-            if i not in used_sets:
-                # temporary arrays for this iteration (remove combos, remove current set, add new freqs)
-                remove = np.append([k for j in remove_sets for k in f_sets[j]], set_i).astype(int)
-                f_n_temp = np.append(np.delete(f_n, remove), f_new)
-                a_n_temp = np.append(np.delete(a_n, remove), a_new)
-                ph_n_temp = np.append(np.delete(ph_n, remove), ph_new)
-                # make a model not including the freqs of this iteration
-                model_sinusoid = sum_sines(times, f_n_temp, a_n_temp, ph_n_temp)
-                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
-                model_linear = linear_curve(times, const, slope, i_sectors)
-                resid = signal - model_linear - model_sinusoid
-                # extract the amplitude and phase of the harmonic(s)
-                harm_i = [h for h in set_i if h in harmonics]
-                f_i = f_n[harm_i]  # fixed f
-                a_i = scargle_ampl(times, resid, f_n[harm_i])
-                ph_i = scargle_phase(times, resid, f_n[harm_i])
-                # make a model including the new freq
-                model_sinusoid = sum_sines(times, np.append(f_n_temp, f_i), np.append(a_n_temp, a_i),
-                                           np.append(ph_n_temp, ph_i))
-                const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)  # redetermine const and slope
-                model_linear = linear_curve(times, const, slope, i_sectors)
-                resid = signal - model_linear - model_sinusoid
-                # calculate bic
-                n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (len(f_n_temp) + len(f_i) - n_harm)
-                bic = calc_bic(resid / signal_err, n_param)
-                if (np.round(bic_prev - bic, 2) > 0):
-                    # add to list of removed sets
-                    remove_sets = np.append(remove_sets, [i])
-                    # do not look at sets with the same freqs as the just removed set anymore
-                    overlap = s_indices[[np.any([j in set_i for j in subset]) for subset in f_sets]]
-                    used_sets = np.unique(np.append(used_sets, [overlap]))
-                    # remember the new frequency
-                    f_new, a_new, ph_new = np.append(f_new, [f_i]), np.append(a_new, [a_i]), np.append(ph_new, [ph_i])
-                    bic_prev = bic
-    f_n = np.append(np.delete(f_n, [k for i in remove_sets for k in f_sets[i]]), f_new)
-    a_n = np.append(np.delete(a_n, [k for i in remove_sets for k in f_sets[i]]), a_new)
-    ph_n = np.append(np.delete(ph_n, [k for i in remove_sets for k in f_sets[i]]), ph_new)
-    if verbose:
-        n_f_removed = len([k for i in remove_sets for k in f_sets[i]])
-        print(f'Frequency sets replaced by just harmonic(s): {len(remove_sets)} ({n_f_removed} frequencies). '
               f'BIC= {bic_prev:1.2f}')
     # lastly re-determine slope and const
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
