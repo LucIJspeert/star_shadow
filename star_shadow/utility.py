@@ -1738,8 +1738,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         f_h_5, a_h_5, ph_h_5 = np.array([[], [], []])
     # stick together for sending to plot function
     models = [model_1, model_2, model_3, model_4, model_5]
-    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_3, p_orb_5]
-    p_err_i = [0, 0, p_err_3, p_err_3, p_err_3, p_err_5]
+    p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5]
+    p_err_i = [0, 0, p_err_3, p_err_3, p_err_5]
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5]
     # get the low harmonics
@@ -1748,23 +1748,23 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         if (len(harmonics) > 0):
             low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
             f_hl_5, a_hl_5, ph_hl_5 = f_n_5[harmonics[low_h]], a_n_5[harmonics[low_h]], ph_n_5[harmonics[low_h]]
-    # load initial timing results (8)
-    file_name = os.path.join(load_dir, f'{target_id}_analysis_8.csv')
+    # load initial timing results (6)
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_6.hdf5')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_2 = file_name.replace(fn_ext, '_ecl_indices' + fn_ext)
+    file_name_2 = file_name.replace(fn_ext, '_ecl_indices.csv')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         _, _, _, _, ecl_mean, _, _, timings, timings_err, _, _, _, _, _ = results
-        _, t_zero_8, _, _, _, _, _, _, _, _, _, _ = ecl_mean
-        timings_8, depths_8 = timings[:10], timings[10:]
-        timings_err_8, depths_err_8 = timings_err[:10], timings_err[10:]
-        ecl_indices_8 = read_results_ecl_indices(file_name)
+        _, t_zero_6, _, _, _, _, _, _, _, _, _, _ = ecl_mean
+        timings_6, depths_6 = timings[:10], timings[10:]
+        timings_err_6, depths_err_6 = timings_err[:6], timings_err[6:]
+        ecl_indices_6 = read_results_ecl_indices(file_name)
     elif os.path.isfile(file_name_2):
-        ecl_indices_8 = read_results_ecl_indices(file_name)
+        ecl_indices_6 = read_results_ecl_indices(file_name)
     if os.path.isfile(file_name) | os.path.isfile(file_name_2):
-        ecl_indices_8 = np.atleast_2d(ecl_indices_8)
-        if (len(ecl_indices_8) == 0):
-            del ecl_indices_8  # delete the empty array to not do the plot
+        ecl_indices_6 = np.atleast_2d(ecl_indices_6)
+        if (len(ecl_indices_6) == 0):
+            del ecl_indices_6  # delete the empty array to not do the plot
     # load timing results (9)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
@@ -1773,7 +1773,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         const_9, slope_9, f_n_9, a_n_9, ph_n_9 = sin_mean
         _, t_zero_9, _, _, _, _, _, _, _, _, _, _ = ecl_mean
         timings_9, depths_9 = timings[:10], timings[10:]
-        timings_err_9, depths_err_9 = timings_err[:10], timings_err[10:]
+        timings_err_9, depths_err_9 = timings_err[:6], timings_err[6:]
         t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = stats
         _, _, p_t_corr = af.linear_regression_uncertainty(p_orb_5, t_tot, sigma_t=t_int)
     # load parameter results from formulae (10)
@@ -1832,7 +1832,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             else:
                 file_name = None
             plot_data = [p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1]] + plot_data
-            vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, save_file=file_name, show=show)
+            vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, annotate=False,
+                                      save_file=file_name, show=show)
             if save_dir is not None:
                 file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_lc_harmonics_{plot_nr}.png')
             else:
@@ -1857,7 +1858,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_derivatives_lh.png')
         else:
             file_name = None
-        vis.plot_lc_derivatives(p_orb_5, f_h_5, a_h_5, ph_h_5, f_hl_5, a_hl_5, ph_hl_5, ecl_indices_8,
+        vis.plot_lc_derivatives(p_orb_5, f_h_5, a_h_5, ph_h_5, f_hl_5, a_hl_5, ph_hl_5, ecl_indices_6,
                                 save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
@@ -1866,8 +1867,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_initial_timings_lh.png')
         else:
             file_name = None
-        vis.plot_lc_eclipse_timestamps(times, signal, p_orb_5, t_zero_8, timings_8, depths_8, timings_err_8,
-                                       depths_err_8, const_5, slope_5, f_n_5, a_n_5, ph_n_5, f_hl_5, a_hl_5,
+        vis.plot_lc_eclipse_timestamps(times, signal, p_orb_5, t_zero_6, timings_6, depths_6, timings_err_6,
+                                       depths_err_6, const_5, slope_5, f_n_5, a_n_5, ph_n_5, f_hl_5, a_hl_5,
                                        ph_hl_5, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
@@ -1876,7 +1877,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_empirical_timings.png')
         else:
             file_name = None
-        vis.plot_lc_empirical_model(times, signal, p_orb_5, t_zero_8, timings_8, depths_8, const_9, slope_9,
+        vis.plot_lc_empirical_model(times, signal, p_orb_5, t_zero_6, timings_6, depths_6, const_9, slope_9,
                                     f_n_9, a_n_9, ph_n_9, t_zero_9, timings_9, depths_9,
                                     timings_err_9, depths_err_9, i_sectors, save_file=file_name, show=show)
     except NameError:
@@ -1886,16 +1887,15 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_timings_elements.png')
         else:
             file_name = None
-        vis.plot_corner_eclipse_parameters(p_orb_5, timings_9, depths_9, *dists_in_10, e_10, w_10, i_10,
-                                           r_sum_10, r_rat_10, sb_rat_10, *dists_out_10,
-                                           save_file=file_name, show=show)
+        vis.plot_corner_eclipse_parameters(p_orb_5, timings_9, depths_9, *dists_in_10, e_10, w_10, i_10, r_sum_10,
+                                           r_rat_10, sb_rat_10, *dists_out_10, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     except ValueError:
         pass  # no dynamic range for some variable
     try:
         if save_dir is not None:
-            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_initial_physical.png')
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_physical_initial.png')
         else:
             file_name = None
         vis.plot_lc_light_curve_fit(times, signal, p_orb_5, t_zero_9, timings_9, const_5, slope_5,

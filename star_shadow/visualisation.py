@@ -44,23 +44,24 @@ def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, p
     y_max = max(np.max(ampls), np.max(a_n))
     # plot
     fig, ax = plt.subplots()
-    ax.plot(freqs, ampls, label='signal')
-    if (len(f_n) > 0):
-        ax.plot(freqs_r, ampls_r, label='residual')
-    if (p_orb > 0):
+    if (len(harmonics) > 0):
         ax.errorbar([1 / p_orb, 1 / p_orb], [0, y_max], xerr=[0, p_err / p_orb**2],
                     linestyle='-', capsize=2, c='tab:grey', label=f'orbital frequency (p={p_orb:1.4f}d +-{p_err:1.4f})')
         for i in range(2, np.max(harmonic_n) + 1):
             ax.plot([i / p_orb, i / p_orb], [0, y_max], linestyle='-', c='tab:grey', alpha=0.3)
+        ax.errorbar([], [], xerr=[], yerr=[], linestyle='-', capsize=2, c='tab:red', label='extracted harmonics')
+    ax.plot(freqs, ampls, c='tab:blue', label='signal')
+    ax.plot(freqs_r, ampls_r, c='tab:orange', label='residual')
     for i in range(len(f_n)):
         if i in harmonics:
             ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
                         linestyle='-', capsize=2, c='tab:red')
         else:
             ax.errorbar([f_n[i], f_n[i]], [0, a_n[i]], xerr=[0, errors[2][i]], yerr=[0, errors[3][i]],
-                        linestyle='-', capsize=2, c='tab:brown')
+                        linestyle='-', capsize=2, c='tab:pink')
         if annotate:
             ax.annotate(f'{i + 1}', (f_n[i], a_n[i]))
+    ax.errorbar([], [], xerr=[], yerr=[], linestyle='-', capsize=2, c='tab:pink', label='extracted frequencies')
     ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
@@ -213,6 +214,7 @@ def plot_lc_eclipse_timestamps(times, signal, p_orb, t_zero, timings, depths, ti
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
+    t_mean = np.mean(times)
     # plotting bounds
     t_ext_1 = t_1_1 - 6 * t_1_1_err
     t_ext_2 = t_1_2 + 6 * t_1_2_err
@@ -1217,11 +1219,11 @@ def plot_pd_disentangled_freqs(times, signal, p_orb, t_zero, noise_level, const_
             label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
         if k in passed_r_i:
-            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:red')
+            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]],  c='tab:red')
         else:
-            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], linestyle='--', c='tab:brown')
-    ax.plot([], [], linestyle='--', c='tab:red', label='disentangled sinusoids passing criteria')
-    ax.plot([], [], linestyle='--', c='tab:brown', label='disentangled sinusoids')
+            ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]], c='tab:pink')
+    ax.plot([], [], c='tab:red', label='disentangled sinusoids passing criteria')
+    ax.plot([], [], c='tab:pink', label='disentangled sinusoids')
     ax.set_xlim(freqs[0] - freq_range * 0.05, freqs[-1] + freq_range * 0.05)
     plt.xlabel('frequency (1/d)')
     plt.ylabel('amplitude')
@@ -1379,27 +1381,27 @@ def plot_trace_sinusoids(inf_data, const, slope, f_n, a_n, ph_n):
 def plot_pair_harmonics(inf_data, p_orb, const, slope, f_n, a_n, ph_n, save_file=None, show=True):
     """Show the pymc3 sampling results in several pair plots"""
     # convert phases to interval [-pi, pi] from [0, 2pi]
-    above_pi = (ph_n >= np.pi)
-    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    ref_values = {'p_orb': p_orb, 'const': const, 'slope': slope,
-                  'f_n': f_n[non_harm], 'a_n': a_n[non_harm], 'ph_n': ph_n[non_harm],
-                  'f_h': f_n[harmonics], 'a_h': a_n[harmonics], 'ph_h': ph_n[harmonics]}
-    kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
-              'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
-              'reference_values': ref_values, 'show': show}
-    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
-                 coords={'f_n_dim_0': [0, 1, 2], 'a_n_dim_0': [0, 1, 2], 'ph_n_dim_0': [0, 1, 2]}, **kwargs)
-    az.plot_pair(inf_data, var_names=['p_orb', 'f_n'], coords={'f_n_dim_0': np.arange(9)}, **kwargs)
-    ax = az.plot_pair(inf_data, var_names=['p_orb', 'const', 'slope', 'f_n', 'a_n', 'ph_n', 'a_h', 'ph_h'],
-                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0],
-                         'a_h_dim_0': [0], 'ph_h_dim_0': [0]},
-                 **kwargs)
-    # save if wanted (only last plot - most interesting one)
-    if save_file is not None:
-        fig = ax.ravel()[0].figure
-        fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    # above_pi = (ph_n >= np.pi)
+    # ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    # non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    # ref_values = {'p_orb': p_orb, 'const': const, 'slope': slope,
+    #               'f_n': f_n[non_harm], 'a_n': a_n[non_harm], 'ph_n': ph_n[non_harm],
+    #               'f_h': f_n[harmonics], 'a_h': a_n[harmonics], 'ph_h': ph_n[harmonics]}
+    # kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
+    #           'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
+    #           'reference_values': ref_values, 'show': show}
+    # az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+    #              coords={'f_n_dim_0': [0, 1, 2], 'a_n_dim_0': [0, 1, 2], 'ph_n_dim_0': [0, 1, 2]}, **kwargs)
+    # az.plot_pair(inf_data, var_names=['p_orb', 'f_n'], coords={'f_n_dim_0': np.arange(9)}, **kwargs)
+    # ax = az.plot_pair(inf_data, var_names=['p_orb', 'const', 'slope', 'f_n', 'a_n', 'ph_n', 'a_h', 'ph_h'],
+    #              coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0],
+    #                      'a_h_dim_0': [0], 'ph_h_dim_0': [0]},
+    #              **kwargs)
+    # # save if wanted (only last plot - most interesting one)
+    # if save_file is not None:
+    #     fig = ax.ravel()[0].figure
+    #     fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     return
 
 
@@ -1421,27 +1423,27 @@ def plot_pair_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat
                       save_file=None, show=True):
     """Show the pymc3 sampling results in several pair plots"""
     # convert phases to interval [-pi, pi] from [0, 2pi]
-    above_pi = (ph_n >= np.pi)
-    ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
-    ref_values = {'t_zero': t_zero, 'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
-                  'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'r_ratio': r_rat, 'sb_ratio': sb_rat}
-    kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
-              'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
-              'reference_values': ref_values, 'show': show}
-    az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
-                 coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]}, **kwargs)
-    ax1 = az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
-                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
-                 **kwargs)
-    ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat'], **kwargs)
-    # save if wanted (only last plot - most interesting one)
-    if save_file is not None:
-        fig_save_file = save_file.replace('.png', '_a.png')
-        fig = ax1.ravel()[0].figure
-        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
-        fig_save_file = save_file.replace('.png', '_b.png')
-        fig = ax2.ravel()[0].figure
-        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    # above_pi = (ph_n >= np.pi)
+    # ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    # ref_values = {'t_zero': t_zero, 'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
+    #               'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'r_ratio': r_rat, 'sb_ratio': sb_rat}
+    # kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
+    #           'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
+    #           'reference_values': ref_values, 'show': show}
+    # az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+    #              coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]}, **kwargs)
+    # ax1 = az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
+    #              coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
+    #              **kwargs)
+    # ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat'], **kwargs)
+    # # save if wanted (only last plot - most interesting one)
+    # if save_file is not None:
+    #     fig_save_file = save_file.replace('.png', '_a.png')
+    #     fig = ax1.ravel()[0].figure
+    #     fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    #     fig_save_file = save_file.replace('.png', '_b.png')
+    #     fig = ax2.ravel()[0].figure
+    #     fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
     return
 
 

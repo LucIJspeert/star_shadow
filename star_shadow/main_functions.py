@@ -945,8 +945,8 @@ def eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_name,
     sin_err = None
     sin_hdi = None
     sin_select = None
-    ecl_mean = np.array([p_orb] + [-1 for _ in range(11)])
-    ecl_err = np.array([p_err] + [-1 for _ in range(11)])
+    ecl_mean = np.array([p_orb, t_zero] + [-1 for _ in range(10)])
+    ecl_err = np.array([p_err, t_1_err] + [-1 for _ in range(10)])
     ecl_hdi = None
     timings = np.array([t_1, t_2, *t_contacts, *t_tangency, *depths])
     timings_err = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1], d_err, d_err])
@@ -1762,7 +1762,7 @@ def optimise_phys_eclipse_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl
                                          noise_level, i_sectors, verbose=verbose)
     inf_data, par_mean, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_mean[:5]
-    t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
+    ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
     # main function done, do the rest for this step
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
