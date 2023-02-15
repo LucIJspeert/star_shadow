@@ -130,7 +130,7 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     par_bounds = [(None, None) for _ in range(2 * n_sect)]
     par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
-    arguments = (times, signal, signal_err, i_sectors, verbose)
+    arguments = (times, signal, signal_err, i_sectors)
     result = sp.optimize.minimize(objective_sinusoids, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
@@ -359,7 +359,7 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
-    arguments = (times, signal, signal_err, harmonic_n, i_sectors, verbose)
+    arguments = (times, signal, signal_err, harmonic_n, i_sectors)
     result = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
@@ -463,7 +463,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     par_init = np.concatenate(([p_orb], res_const, res_slope, a_n[harmonics], ph_n[harmonics]))
     par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
-    arguments = (times, resid, signal_err, harmonic_n, i_sectors, verbose)
+    arguments = (times, resid, signal_err, harmonic_n, i_sectors)
     output = sp.optimize.minimize(objective_sinusoids_harmonics, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
@@ -625,7 +625,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     # start off at third light of 0.01 and stretch parameter of 1.01
     par_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
     par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
-    arguments = (times, signal, signal_err, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, verbose)
+    arguments = (times, signal, signal_err, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors)
     # do the fit
     result = sp.optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
@@ -823,8 +823,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, con
         Eclipse timings of minima and first and last contact points,
         Eclipse timings of the possible flat bottom (internal tangency),
         Eclipse depth of the primary and secondary,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -844,8 +843,8 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, con
 
     Returns
     -------
-    result: Object
-        Fit results object from the scipy optimizer
+    res_timings: Object
+        Fit results from the scipy optimizer, same format as timings
 
     See Also
     --------
@@ -883,12 +882,26 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, t_zero, timings, con
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_empirical_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
+    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = result.x
+    # check bad values for bottom timings
+    if (t_c1_2 > mid_1):
+        t_c1_2 = mid_1
+    if (t_c3_2 > mid_2):
+        t_c3_2 = mid_2
+    # get the rest of the timings of the cubic models and translate them
+    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
+    # shift everything so that mid_1 is zero
+    t_zero = t_zero + mid_1
+    res_timings = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
+    res_timings = res_timings - mid_1
+    res_timings = np.append(res_timings, [d_1, d_2])
     if verbose:
         print('Fit complete')
         print(f'fun: {result.fun}')
         print(f'message: {result.message}')
         print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
-    return result
+    return res_timings
 
 
 @nb.njit(cache=True)
@@ -950,8 +963,8 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, t
     return -ln_likelihood
 
 
-def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, depths, const, slope,
-                                    f_n, a_n, ph_n, i_sectors, f_groups, verbose=False):
+def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n,
+                                    i_sectors, f_groups, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
     and including the cubics eclipse model
 
@@ -970,11 +983,9 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
     timings: numpy.ndarray[float]
         Eclipse timings from the empirical model.
         Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency).
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float]
-        Cubic curve primary and secondary eclipse depth
+        timings of the possible flat bottom (internal tangency),
+        Cubic curve primary and secondary eclipse depth,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -997,8 +1008,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
     Returns
     -------
     res_cubics: numpy.ndarray[float]
-        Updated empirical eclipse model parameters:
-        mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2,
+        Updated empirical eclipse model parameters, same format as timings
     res_const: numpy.ndarray[float]
         Updated y-intercepts of a piece-wise linear curve
     res_slope: numpy.ndarray[float]
@@ -1020,8 +1030,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
     fits on just the given groups of (closely spaced) frequencies, leaving the other
     frequencies as fixed parameters.
     """
-    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2 = timings
-    d_1, d_2 = depths
+    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2 = timings
     cubics_par = np.array([mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2])
     n_groups = len(f_groups)
     n_sect = len(i_sectors)
@@ -1054,7 +1063,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
-        arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors, verbose)
+        arguments = (times, resid, signal_err, p_orb, t_zero, i_sectors)
         output = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments,
                                       method='Nelder-Mead', bounds=par_bounds,
                                       options={'maxfev': 10**4 * len(par_init)})
@@ -1075,7 +1084,21 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, t_zero, ti
             resid_new = resid - model_linear - model_sinusoid
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin)
             print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
-    return res_cubics, res_const, res_slope, res_freqs, res_ampls, res_phases
+    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = res_cubics
+    # check bad values for bottom timings
+    if (t_c1_2 > mid_1):
+        t_c1_2 = mid_1
+    if (t_c3_2 > mid_2):
+        t_c3_2 = mid_2
+    # get the rest of the timings of the cubic models and translate them
+    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
+    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
+    # shift everything so that mid_1 is zero
+    t_zero = t_zero + mid_1
+    res_timings = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2])
+    res_timings = res_timings - mid_1
+    res_timings = np.append(res_timings, [d_1, d_2])
+    return res_timings, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
 @nb.njit(cache=True)
@@ -1210,8 +1233,8 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
 
     Returns
     -------
-    result: Object
-        Fit results object from the scipy optimizer
+    par_out: numpy.ndarray[float]
+        Fit results from the scipy optimizer, like par_init
 
     See Also
     --------
@@ -1245,12 +1268,13 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_physcal_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
+    par_out = result.x
     if verbose:
         print('Fit complete')
         print(f'fun: {result.fun}')
         print(f'message: {result.message}')
         print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
-    return result
+    return par_out
 
 
 def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio, offset):
@@ -1394,8 +1418,8 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     
     Returns
     -------
-    result: Object
-        Fit results object from the scipy optimizer
+    par_out: numpy.ndarray[float]
+        Fit results from the scipy optimizer, like par_init
     
     See Also
     --------
@@ -1429,12 +1453,13 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
     result = sp.optimize.minimize(objective_ellc_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
+    par_out = result.x
     if verbose:
         print('Fit complete')
         print(f'fun: {result.fun}')
         print(f'message: {result.message}')
         print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
-    return result
+    return par_out
 
 
 @nb.njit(cache=True)
@@ -1649,7 +1674,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin_g)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
-        arguments = (times, resid, signal_err, p_orb, i_sectors, verbose)
+        arguments = (times, resid, signal_err, p_orb, i_sectors)
         if (model is 'ellc'):
             obj_fun = objective_sinusoids_ellc
         else:

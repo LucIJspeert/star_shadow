@@ -1447,6 +1447,111 @@ def plot_pair_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat
     return
 
 
+def plot_corner_eclipse_mcmc(inf_data, p_orb, const, slope, f_n, a_n, ph_n, save_file=None, show=True):
+    """Show the pymc3 sampling results in two corner plots"""
+    # convert phases to interval [-pi, pi] from [0, 2pi]
+    # above_pi = (ph_n >= np.pi)
+    # ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
+    # harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    # non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    # ref_values = {'p_orb': p_orb, 'const': const, 'slope': slope,
+    #               'f_n': f_n[non_harm], 'a_n': a_n[non_harm], 'ph_n': ph_n[non_harm],
+    #               'f_h': f_n[harmonics], 'a_h': a_n[harmonics], 'ph_h': ph_n[harmonics]}
+    # kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
+    #           'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
+    #           'reference_values': ref_values, 'show': show}
+    # az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
+    #              coords={'f_n_dim_0': [0, 1, 2], 'a_n_dim_0': [0, 1, 2], 'ph_n_dim_0': [0, 1, 2]}, **kwargs)
+    # az.plot_pair(inf_data, var_names=['p_orb', 'f_n'], coords={'f_n_dim_0': np.arange(9)}, **kwargs)
+    # ax = az.plot_pair(inf_data, var_names=['p_orb', 'const', 'slope', 'f_n', 'a_n', 'ph_n', 'a_h', 'ph_h'],
+    #              coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0],
+    #                      'a_h_dim_0': [0], 'ph_h_dim_0': [0]},
+    #              **kwargs)
+    # # save if wanted (only last plot - most interesting one)
+    # if save_file is not None:
+    #     fig = ax.ravel()[0].figure
+    #     fig.savefig(save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    # stacked parameter chains
+    const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
+    slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
+    f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
+    a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
+    ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
+    ecosw_ch = inf_data.posterior.ecosw.stack(dim=['chain', 'draw']).to_numpy()
+    esinw_ch = inf_data.posterior.esinw.stack(dim=['chain', 'draw']).to_numpy()
+    cosi_ch = inf_data.posterior.cosi.stack(dim=['chain', 'draw']).to_numpy()
+    phi_0_ch = inf_data.posterior.phi_0.stack(dim=['chain', 'draw']).to_numpy()
+    r_rat_ch = inf_data.posterior.r_rat.stack(dim=['chain', 'draw']).to_numpy()
+    sb_rat_ch = inf_data.posterior.sb_rat.stack(dim=['chain', 'draw']).to_numpy()
+    # parameter transforms
+    e_ch = np.sqrt(ecosw_ch**2 + esinw_ch**2)
+    w_ch = np.arctan2(esinw_ch, ecosw_ch) % (2 * np.pi)
+    i_ch = np.arccos(cosi_ch)
+    r_sum_ch = np.sqrt((1 - np.sin(i_ch)**2 * np.cos(phi_0_ch)**2) * (1 - e_ch**2))
+    
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    d_1, d_2 = depths
+    # for if the w-distribution crosses over at 2 pi
+    if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
+        w_vals = np.copy(w_vals)
+    else:
+        w_vals = np.copy(w_vals)
+        mask = (np.sign((w / np.pi * 180 - 180) * (w_vals / np.pi * 180 - 180)) < 0)
+        w_vals[mask] = w_vals[mask] + np.sign(w / np.pi * 180 - 180) * 2 * np.pi
+    # input
+    value_names = np.array([r'$p_{orb}$', r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
+                            r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
+    values = np.array([p_orb, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
+    dist_data = np.column_stack((p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
+                                 t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals))
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
+    if not np.all(nonzero_range):
+        fig.suptitle(f'Input distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
+    else:
+        fig.suptitle('Input distributions')
+    plt.tight_layout()
+    fig.subplots_adjust(wspace=0, hspace=0)
+    if save_file is not None:
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_in.png')
+        else:
+            fig_save_file = save_file + '_in.png'
+        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    # corner plot
+    value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
+                            r'$\frac{sb_2}{sb_1}$'])
+    values = np.array([e, w / np.pi * 180, i / np.pi * 180, r_sum_sma, r_ratio, sb_ratio])
+    dist_data = np.column_stack((e_vals, w_vals / np.pi * 180, i_vals / np.pi * 180, rsumsma_vals, rratio_vals,
+                                 sbratio_vals))
+    value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
+    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
+                        labels=value_names[nonzero_range], quiet=True)
+    if not np.all(nonzero_range):
+        fig.suptitle(f'Output distributions ({np.sum(nonzero_range)} of {len(nonzero_range)} shown)')
+    else:
+        fig.suptitle('Output distributions')
+    plt.tight_layout()
+    if save_file is not None:
+        if save_file.endswith('.png'):
+            fig_save_file = save_file.replace('.png', '_out.png')
+        else:
+            fig_save_file = save_file + '_out.png'
+        fig.savefig(fig_save_file, dpi=120, format='png')  # 16 by 9 at 120 dpi is 1080p
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    return
+
+
 def plot_trace_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
     """Show the pymc3 sampling results in a trace plot"""
     # convert phases to interval [-pi, pi] from [0, 2pi]
