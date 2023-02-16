@@ -1531,11 +1531,10 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     timings: numpy.ndarray[float]
         Eclipse timings of minima and first and last contact points,
         Timings of the possible flat bottom (internal tangency),
-        Primary and secondary eclipse depth,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     noise_level: float
         The noise level (standard deviation of the residuals)
     i_sectors: numpy.ndarray[int]
@@ -1557,8 +1556,8 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     The given sinusoids must be those from after disentangling,
     so that they don't contain the eclipses anymore.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err = timings_err
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     model_sines = sum_sines(times, f_n, a_n, ph_n)
     model_line = linear_curve(times, const, slope, i_sectors)
