@@ -53,8 +53,8 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
     p_orb: float
         The orbital period with which the time series is folded
     t_zero: float, None
-        Reference zero point in time (with respect to the
-        time series mean time) when the phase equals zero
+        Reference zero point in time (with respect to the time series mean time)
+        when the phase equals zero
     t_ext_1: float
         Negative time interval to extend the folded time series to the left.
     t_ext_2: float
@@ -1416,7 +1416,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
 
 
 @nb.njit(cache=True)
-def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
+def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
     """Determine the noise level crossing time of the eclipse slopes
 
     Parameters
@@ -1427,8 +1427,6 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
         Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1440,9 +1438,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Timings of the possible flat bottom (internal tangency),
-        Primary and secondary eclipse depth
+        Eclipse timings: minima, first/last contact points, internal tangency and depths,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     noise_level: float
         The noise level (standard deviation of the residuals)
@@ -1471,7 +1467,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_sines - model_line
     # use the eclipse model to find the derivative peaks
-    t_folded, _, _ = fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
+    t_folded, _, _ = fold_time_series(times, p_orb, 0, t_ext_1=0, t_ext_2=0)
     mask_1_1 = (t_folded > t_1_1 + p_orb) & (t_folded < t_b_1_1 + p_orb)
     mask_1_2 = (t_folded > t_b_1_2) & (t_folded < t_1_2)
     mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
@@ -1504,7 +1500,7 @@ def measure_crossing_time(times, signal, p_orb, t_zero, const, slope, f_n, a_n, 
 
 
 @nb.njit(cache=True)
-def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph_n, timings, timings_err, noise_level,
+def measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, timings_err, noise_level,
                         i_sectors):
     """Estimate the error in the depth measurements based on the noise level.
 
@@ -1516,8 +1512,6 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
         Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
-    t_zero: float
-        Time of deepest minimum with respect to the mean time
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1529,8 +1523,7 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
     timings: numpy.ndarray[float]
-        Eclipse timings of minima and first and last contact points,
-        Timings of the possible flat bottom (internal tangency),
+        Eclipse timings: minima, first/last contact points, internal tangency,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
@@ -1566,7 +1559,7 @@ def measure_depth_error(times, signal, p_orb, t_zero, const, slope, f_n, a_n, ph
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     # use the full bottom if nonzero
-    t_folded, _, _ = fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
+    t_folded, _, _ = fold_time_series(times, p_orb, 0, t_ext_1=0, t_ext_2=0)
     if (t_b_1_2 - t_b_1_1 > dur_b_1_err):
         mask_b_1 = ((t_folded > t_b_1_1) & (t_folded < t_b_1_2))
         mask_b_1 = mask_b_1 | ((t_folded > p_orb + t_b_1_1) & (t_folded < p_orb + t_b_1_2))

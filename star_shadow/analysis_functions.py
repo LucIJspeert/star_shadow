@@ -947,8 +947,7 @@ def curve_explorer_root_angle(func, x0, walk_sign, args):
 
 
 @nb.njit(cache=True)
-def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2,
-                            t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2):
+def measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2):
     """Measure the depths of the eclipses from the harmonic model given
     the timing measurements
     
@@ -960,12 +959,10 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
         Corresponding amplitudes of the sinusoids
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
-    t_zero: float
-        Time of the deepest minimum with respect to the mean time
     t_1: float
-        Time of primary minimum in domain [0, p_orb)
+        Time of primary minimum with respect to the mean time
     t_2: float
-        Time of secondary minimum in domain [0, p_orb)
+        Time of secondary minimum with respect to t_1
     t_1_1: float
         Time of primary first contact
     t_1_2: float
@@ -996,14 +993,14 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
     else:
         t_model_b_1 = np.array([t_1])
     if (t_b_2_2 - t_b_2_1 > 0):
-        t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000)
+        t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000) + t_1
     else:
-        t_model_b_2 = np.array([t_2])
-    model_h_b_1 = tsf.sum_sines(t_model_b_1 + t_zero, f_h, a_h, ph_h, t_shift=False)
-    model_h_b_2 = tsf.sum_sines(t_model_b_2 + t_zero, f_h, a_h, ph_h, t_shift=False)
+        t_model_b_2 = np.array([t_2 + t_1])
+    model_h_b_1 = tsf.sum_sines(t_model_b_1, f_h, a_h, ph_h, t_shift=False)
+    model_h_b_2 = tsf.sum_sines(t_model_b_2, f_h, a_h, ph_h, t_shift=False)
     # calculate the harmonic model at the eclipse edges
-    t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h, t_shift=False)
+    t_model = np.array([t_1_1, t_1_2, t_2_1 + t_1, t_2_2 + t_1])
+    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h, t_shift=False)
     # calculate depths based on the average level at contacts and the minima
     depth_1 = (model_h[0] + model_h[1]) / 2 - np.mean(model_h_b_1)
     depth_2 = (model_h[2] + model_h[3]) / 2 - np.mean(model_h_b_2)
@@ -1011,7 +1008,7 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, t_1_1, t_1_2, t_2_
 
 
 @nb.njit(cache=True)
-def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
+def height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2):
     """Measure the flux level at the contact points from the harmonic model given
     the timing measurements
 
@@ -1023,8 +1020,6 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
         Corresponding amplitudes of the sinusoids
     ph_h: numpy.ndarray[float]
         Corresponding phases of the sinusoids
-    t_zero: float
-        Time of the deepest minimum with respect to the mean time
     t_1_1: float
         Time of primary first contact
     t_1_2: float
@@ -1044,10 +1039,13 @@ def height_at_contact(f_h, a_h, ph_h, t_zero, t_1_1, t_1_2, t_2_1, t_2_2):
     Notes
     -----
     Can also be used for other time points like the internal tangency
+    
+    Time measurements all need to be with respect to the phase zero point
+    (the mean time).
     """
     # calculate the harmonic model at the eclipse time points
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
-    model_h = 1 + tsf.sum_sines(t_model + t_zero, f_h, a_h, ph_h, t_shift=False)
+    model_h = 1 + tsf.sum_sines(t_model, f_h, a_h, ph_h, t_shift=False)
     # calculate depths based on the average level at contacts and the minima
     height_1 = (model_h[0] + model_h[1]) / 2
     height_2 = (model_h[2] + model_h[3]) / 2
@@ -1075,22 +1073,18 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     
     Returns
     -------
-    t_zero: float, None
-        Time of the deepest minimum with respect to the mean time
     t_1: float, None
-        Time of primary minimum in domain [0, p_orb)
-        Shifted by t_zero so that deepest minimum occurs at 0
+        Time of primary minimum with respect to the mean time
     t_2: float, None
-        Time of secondary minimum in domain [0, p_orb)
-        Shifted by t_zero so that deepest minimum occurs at 0
+        Time of secondary minimum with respect to t_1
     t_contacts: tuple[float], None
-        Measurements of the times of contact in the order:
+        Measurements of the times of contact:
         t_1_1, t_1_2, t_2_1, t_2_2
+    t_int_tan: tuple[float], None
+        Measurements of the times near internal tangency:
+        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     depths: numpy.ndarray[float], None
         Measurements of the eclipse depths in units of a_n
-    t_int_tan: tuple[float], None
-        Measurements of the times near internal tangency in the order:
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
     t_i_1_err: numpy.ndarray[float], None
         Measurement error estimates of the first contact(s)
     t_i_2_err: numpy.ndarray[float], None
@@ -1101,10 +1095,12 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     
     Notes
     -----
-    The result is ordered according to depth so that the deepest eclipse is the first.
-    Timings are shifted by t_zero so that deepest minimum occurs at 0.
+    The result is ordered according to depth so that the deepest eclipse is first.
     
-    t_zero is measured with respect to the phase (ph_h) zero point.
+    t_1, t_1_1, t_1_2, t_b_1_1 and t_b_1_2 are measured with respect to the
+    phase (ph_h) zero point (which is the mean time).
+    
+    t_2, t_2_1, t_2_2, t_b_2_1 and t_b_2_2 are measured with respect to t_1.
     """
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.linspace(0, 2 * p_orb, 10**6)
@@ -1286,29 +1282,29 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     t_i_1_err = t_i_1_err[sorter]
     t_i_2_err = t_i_2_err[sorter]
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
-    t_zero = ecl_min[0]
-    ecl_min = (ecl_min - t_zero) % p_orb
-    ecl_mid = (ecl_mid - t_zero) % p_orb
+    t_1 = ecl_min[0]
+    t_2 = (ecl_min[1] - t_1) % p_orb
+    ecl_mid = (ecl_mid - t_1) % p_orb
     if ecl_mid[0] > (p_orb - widths[0] / 2):
         ecl_mid[0] = ecl_mid[0] - p_orb
-    ecl_mid_b = (ecl_mid_b - t_zero) % p_orb
+    ecl_mid_b = (ecl_mid_b - t_1) % p_orb
     if ecl_mid_b[0] > (p_orb - widths[0] / 2):
         ecl_mid_b[0] = ecl_mid_b[0] - p_orb
     # define in terms of time points
-    t_1, t_2 = ecl_min[0], ecl_min[1]
     t_1_1 = ecl_mid[0] - (widths[0] / 2)  # time of primary first contact
     t_1_2 = ecl_mid[0] + (widths[0] / 2)  # time of primary last contact
     t_2_1 = ecl_mid[1] - (widths[1] / 2)  # time of secondary first contact
     t_2_2 = ecl_mid[1] + (widths[1] / 2)  # time of secondary last contact
-    t_contacts = (t_1_1, t_1_2, t_2_1, t_2_2)
     t_b_1_1 = ecl_mid_b[0] - (widths_b[0] / 2)  # time of primary first internal tangency
     t_b_1_2 = ecl_mid_b[0] + (widths_b[0] / 2)  # time of primary last internal tangency
     t_b_2_1 = ecl_mid_b[1] - (widths_b[1] / 2)  # time of secondary first internal tangency
     t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
-    t_int_tan = (t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2)
+    # make adjustments to the times of primary eclipse
+    t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1, t_2_2)
+    t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1, t_b_2_2)
     # redetermine depths a tiny bit more precisely
-    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_zero, t_1, t_2, *t_contacts, *t_int_tan)
-    return t_zero, t_1, t_2, t_contacts, depths, t_int_tan, t_i_1_err, t_i_2_err, ecl_indices
+    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
+    return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, ecl_indices
 
 
 def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):
@@ -2232,6 +2228,42 @@ def eclipse_times(p_orb, t_zero, e, w, i, r_sum_sma, r_ratio):
     return t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
 
 
+def eclipse_depths(e, w, i, r_sum_sma, r_ratio, sb_ratio):
+    """Theoretical eclipse depths at minimum
+    
+    Parameters
+    ----------
+    e: float
+        Eccentricity of the orbit
+    w: float
+        Argument of periastron
+    i: float
+        Inclination of the orbit
+    r_sum_sma: float
+        Sum of radii in units of the semi-major axis
+    r_ratio: float
+        Radius ratio r_2/r_1
+    sb_ratio: float
+        Surface brightness ratio sb_2/sb_1
+    
+    Returns
+    -------
+    depth_1: float
+        Depth of primary minimum
+    depth_2: float
+        Depth of secondary minimum
+    
+    Notes
+    -----
+    Not to be confused with eclipse_depth
+    """
+    # minimise for the phases of minima (theta)
+    theta_1, theta_2, theta_3, theta_4 = minima_phase_angles(e, w, i)
+    phases_min = np.array([theta_1, theta_2])
+    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    return depth_1, depth_2
+
+
 def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, d_1, d_2, t_1_err, t_2_err,
                           t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, d_1_err, d_2_err):
     """Minimise this function to obtain an inclination estimate
@@ -2318,8 +2350,8 @@ def objective_inclination(i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2
     r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
     r_ratio = 1
     sb_ratio = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
-    depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
+    phases_min = np.array([theta_1, theta_2])
+    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -2435,8 +2467,8 @@ def objective_ecl_param(params, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     sb_ratio = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
-    depth_1 = eclipse_depth(np.array([theta_1]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
-    depth_2 = eclipse_depth(np.array([theta_2]), e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)[0]
+    phases_min = np.array([theta_1, theta_2])
+    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
