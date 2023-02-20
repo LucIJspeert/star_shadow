@@ -1467,11 +1467,11 @@ def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, ti
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_sines - model_line
     # use the eclipse model to find the derivative peaks
-    t_folded, _, _ = fold_time_series(times, p_orb, 0, t_ext_1=0, t_ext_2=0)
-    mask_1_1 = (t_folded > t_1_1 + p_orb) & (t_folded < t_b_1_1 + p_orb)
-    mask_1_2 = (t_folded > t_b_1_2) & (t_folded < t_1_2)
-    mask_2_1 = (t_folded > t_2_1) & (t_folded < t_b_2_1)
-    mask_2_2 = (t_folded > t_b_2_2) & (t_folded < t_2_2)
+    t_folded, _, _ = fold_time_series(times, p_orb, t_1, t_ext_1=0, t_ext_2=0)
+    mask_1_1 = (t_folded > t_1_1 - t_1 + p_orb) & (t_folded < t_b_1_1 - t_1 + p_orb)
+    mask_1_2 = (t_folded > t_b_1_2 - t_1) & (t_folded < t_1_2 - t_1)
+    mask_2_1 = (t_folded > t_2_1 - t_1) & (t_folded < t_b_2_1 - t_1)
+    mask_2_2 = (t_folded > t_b_2_2 - t_1) & (t_folded < t_2_2 - t_1)
     # get timing error by dividing noise level by slopes
     if (np.sum(mask_1_1) > 2):
         y_inter, slope = linear_pars(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
@@ -1799,6 +1799,7 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     n_f = len(f_n)
+    n_g = len(close_f)  # number of frequencies being updated
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     # determine initial bic
     model_linear = linear_curve(times, const, slope, i_sectors)
@@ -1809,13 +1810,10 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     bic_prev = np.inf
     bic = calc_bic(resid / signal_err, n_param)
     # stop the loop when the BIC increases
-    i = 0
     while (np.round(bic_prev - bic, 2) > 0):
         # last frequencies are accepted
         f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
         bic_prev = bic
-        if verbose:
-            print(f'Refining iteration {i}, {n_f} frequencies, BIC= {bic:1.2f}', end='\r')
         # remove each frequency one at a time to re-extract them
         for j in close_f:
             model_linear = linear_curve(times, const, slope, i_sectors)
@@ -1837,9 +1835,10 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
         # now subtract all from the signal and calculate BIC before moving to the next iteration
         resid = signal - model_linear - model_sinusoid
         bic = calc_bic(resid / signal_err, n_param)
-        i += 1
+        if verbose:
+            print(f'Refine  N_f= {n_f}, BIC= {bic:1.2f} (delta= {bic_prev - bic:1.2f}), N_refine= {n_g}', end='\r')
     if verbose:
-        print(f'Refining iteration {i} not included with BIC= {bic:1.2f}, delta-BIC= {bic_prev - bic:1.2f}')
+        print(f'Refine  N_f= {n_f}, BIC= {bic:1.2f} (delta= {bic_prev - bic:1.2f}), N_refine= {n_g}, not included.')
     # redo the constant and slope without the last iteration of changes
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
@@ -1916,8 +1915,6 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
         # last frequency is accepted
         f_n, a_n, ph_n = np.copy(f_n_temp), np.copy(a_n_temp), np.copy(ph_n_temp)
         bic_prev = bic
-        if verbose:
-            print(f'Iteration {i}, {len(f_n)} frequencies, BIC= {bic:1.2f}')
         # attempt to extract the next frequency
         f_i, a_i, ph_i = extract_single(times, resid, verbose=verbose)
         f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_temp, f_i), np.append(a_n_temp, a_i), np.append(ph_n_temp, ph_i)
@@ -1936,9 +1933,11 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
         n_param = 2 * n_sectors + 3 * len(f_n_temp)
         bic = calc_bic(resid / signal_err, n_param)
         i += 1
+        if verbose:
+            print(f'Extract N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {bic_prev - bic:1.2f}), '
+                  f'f= {f_i:1.6f}, a= {a_i:1.6f}')
     if verbose:
-        print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
+        print(f'Extraction terminated. Last iteration not included in final frequency list. N_f= {len(f_n)}')
     # redo the constant and slope without the last iteration frequencies
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
@@ -2026,8 +2025,6 @@ def extract_additional(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
         # last frequency is accepted
         f_n, a_n, ph_n = f_n_temp, a_n_temp, ph_n_temp
         bic_prev = bic
-        if verbose:
-            print(f'Iteration {i}, {len(f_n)} frequencies, BIC= {bic:1.2f}')
         # attempt to extract the next frequency
         f_i, a_i, ph_i = extract_single(times, resid, verbose=verbose)
         f_n_temp, a_n_temp, ph_n_temp = np.append(f_n_temp, f_i), np.append(a_n_temp, a_i), np.append(ph_n_temp, ph_i)
@@ -2046,9 +2043,11 @@ def extract_additional(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
         n_param = 2 * n_sectors + 1 + 2 * n_harmonics + 3 * (len(f_n_temp) - n_harmonics)
         bic = calc_bic(resid / signal_err, n_param)
         i += 1
+        if verbose:
+            print(f'Extract N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {bic_prev - bic:1.2f}), '
+                  f'f= {f_i:1.6f}, a= {a_i:1.6f}')
     if verbose:
-        print(f'Extraction terminated. Iteration {i} not included with BIC= {bic:1.2f}, '
-              f'delta-BIC= {bic_prev - bic:1.2f}')
+        print(f'Extraction terminated. Last iteration not included in final frequency list. N_f= {len(f_n)}')
     # redo the constant and slope without the last iteration frequencies
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
@@ -2253,7 +2252,7 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
     ph_n = np.delete(ph_n, remove_single)
     if verbose:
         print(f'Single frequencies removed: {len(remove_single)}. BIC= {bic_prev:1.2f} '
-              f'(delta-BIC= {bic_init - bic_prev:1.2f})')
+              f'(delta= {bic_init - bic_prev:1.2f})')
     # Now go on to trying to replace sets of frequencies that are close together
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -2273,6 +2272,7 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
     remove_sets = np.zeros(0, dtype=int)  # sets of frequencies to replace (by 1 freq)
     used_sets = np.zeros(0, dtype=int)  # sets that are not to be examined anymore
     f_new, a_new, ph_new = np.zeros((3, 0))
+    bic_init = bic_prev  # new bic init for next loop
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
     while (len(remove_sets) > n_prev):
@@ -2322,7 +2322,7 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
     if verbose:
         n_f_removed = len([k for i in remove_sets for k in f_sets[i]])
         print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_f_removed} frequencies). '
-              f'BIC= {bic_prev:1.2f}')
+              f'BIC= {bic_prev:1.2f} (delta= {bic_init - bic_prev:1.2f})')
     # lastly re-determine slope and const
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)

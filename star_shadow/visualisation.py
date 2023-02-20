@@ -238,7 +238,7 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1 + t_1, t_2_2 + t_1)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
     h_top_1 = h_1 + offset
@@ -256,43 +256,43 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     ax.plot([t_2, t_2], s_minmax, '--', c='tab:pink')
     ax.plot([t_1_1 - t_1, t_1_1 - t_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges/minima/depths')
     ax.plot([t_1_2 - t_1, t_1_2 - t_1], s_minmax, '--', c='tab:purple')
-    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
-    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
+    ax.plot([t_2_1 - t_1, t_2_1 - t_1], s_minmax, '--', c='tab:purple')
+    ax.plot([t_2_2 - t_1, t_2_2 - t_1], s_minmax, '--', c='tab:purple')
     ax.plot([t_1_1 - t_1, t_1_2 - t_1], [h_bot_1, h_bot_1], '--', c='tab:purple')
-    ax.plot([t_2_1, t_2_2], [h_bot_2, h_bot_2], '--', c='tab:purple')
+    ax.plot([t_2_1 - t_1, t_2_2 - t_1], [h_bot_2, h_bot_2], '--', c='tab:purple')
     ax.plot([t_1_1 - t_1, t_1_2 - t_1], [h_top_1, h_top_1], '--', c='tab:purple')
-    ax.plot([t_2_1, t_2_2], [h_top_2, h_top_2], '--', c='tab:purple')
+    ax.plot([t_2_1 - t_1, t_2_2 - t_1], [h_top_2, h_top_2], '--', c='tab:purple')
     # 1 sigma errors
     ax.fill_between([-t_1_err, t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:red', alpha=0.3)
-    ax.fill_between([t_2 - t_2_err, t_2 + t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2 - t_1 - t_2_err, t_2 - t_1 + t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.3)
     ax.fill_between([t_1_1 - t_1 - t_1_1_err, t_1_1 - t_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
     ax.fill_between([t_1_2 - t_1 - t_1_2_err, t_1_2 - t_1 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_2_1 - t_2_1_err, t_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_1 - t_1 - t_2_1_err, t_2_1 - t_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
-    ax.fill_between([t_2_2 - t_2_2_err, t_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2_2 - t_1 - t_2_2_err, t_2_2 - t_1 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:purple', alpha=0.3)
     ax.fill_between([t_1_1 - t_1, t_1_2 - t_1], y1=[h_bot_1 + depths_err[0], h_bot_1 + depths_err[0]],
                     y2=[h_bot_1 - depths_err[0], h_bot_1 - depths_err[0]], color='tab:purple', alpha=0.3)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + depths_err[1], h_bot_2 + depths_err[1]],
+    ax.fill_between([t_2_1 - t_1, t_2_2 - t_1], y1=[h_bot_2 + depths_err[1], h_bot_2 + depths_err[1]],
                     y2=[h_bot_2 - depths_err[1], h_bot_2 - depths_err[1]], color='tab:purple', alpha=0.3)
     # 3 sigma errors
     ax.fill_between([-3 * t_1_err, 3 * t_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:red', alpha=0.2)
-    ax.fill_between([t_2 - 3 * t_2_err, t_2 + 3 * t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax.fill_between([t_2 - t_1 - 3 * t_2_err, t_2 - t_1 + 3 * t_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                     color='tab:red', alpha=0.2)
     ax.fill_between([t_1_1 - t_1 - 3 * t_1_1_err, t_1_1 - t_1 + 3 * t_1_1_err],
                     y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:purple', alpha=0.2)
     ax.fill_between([t_1_2 - t_1 - 3 * t_1_2_err, t_1_2 - t_1 + 3 * t_1_2_err],
                     y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_1 - 3 * t_2_1_err, t_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_2 - 3 * t_2_2_err, t_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                    color='tab:purple', alpha=0.2)
+    ax.fill_between([t_2_1 - t_1 - 3 * t_2_1_err, t_2_1 - t_1 + 3 * t_2_1_err],
+                    y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:purple', alpha=0.2)
+    ax.fill_between([t_2_2 - t_1 - 3 * t_2_2_err, t_2_2 - t_1 + 3 * t_2_2_err],
+                    y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:purple', alpha=0.2)
     ax.fill_between([t_1_1 - t_1, t_1_2 - t_1], y1=[h_bot_1 + 3 * depths_err[0], h_bot_1 + 3 * depths_err[0]],
                     y2=[h_bot_1 - 3 * depths_err[0], h_bot_1 - 3 * depths_err[0]], color='tab:purple', alpha=0.2)
-    ax.fill_between([t_2_1, t_2_2], y1=[h_bot_2 + 3 * depths_err[1], h_bot_2 + 3 * depths_err[1]],
+    ax.fill_between([t_2_1 - t_1, t_2_2 - t_1], y1=[h_bot_2 + 3 * depths_err[1], h_bot_2 + 3 * depths_err[1]],
                     y2=[h_bot_2 - 3 * depths_err[1], h_bot_2 - 3 * depths_err[1]], color='tab:purple', alpha=0.2)
     # flat bottom
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1):
@@ -301,26 +301,26 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
         # 1 sigma errors
         ax.fill_between([t_b_1_1 - t_1 - t_1_1_err, t_b_1_1 - t_1 + t_1_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
-        ax.fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_1_2 - t_1 - t_1_2_err, t_b_1_2 - t_1 + t_1_2_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
         # 3 sigma errors
         ax.fill_between([t_b_1_1 - t_1 - 3 * t_1_1_err, t_b_1_1 - t_1 + 3 * t_1_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_1_2 - 3 * t_1_2_err, t_b_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_1_2 - t_1 - 3 * t_1_2_err, t_b_1_2 - t_1 + 3 * t_1_2_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
-        ax.plot([t_b_2_1, t_b_2_1], s_minmax, '--', c='tab:brown')
-        ax.plot([t_b_2_2, t_b_2_2], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_2_1 - t_1, t_b_2_1 - t_1], s_minmax, '--', c='tab:brown')
+        ax.plot([t_b_2_2 - t_1, t_b_2_2 - t_1], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax.fill_between([t_b_2_1 - t_2_1_err, t_b_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
-        ax.fill_between([t_b_2_2 - t_2_2_err, t_b_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_2_1 - t_1 - t_2_1_err, t_b_2_1 - t_1 + t_2_1_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
+        ax.fill_between([t_b_2_2 - t_1 - t_2_2_err, t_b_2_2 - t_1 + t_2_2_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax.fill_between([t_b_2_1 - 3 * t_2_1_err, t_b_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_2_2 - 3 * t_2_2_err, t_b_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
-                        color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_2_1 - t_1 - 3 * t_2_1_err, t_b_2_1 - t_1 + 3 * t_2_1_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
+        ax.fill_between([t_b_2_2 - t_1 - 3 * t_2_2_err, t_b_2_2 - t_1 + 3 * t_2_2_err],
+                        y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1) | ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax.plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax.set_xlabel(r'$(time - t_0)\ mod\ P_{orb}$ (d)')
@@ -1001,7 +1001,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(signal), np.max(signal)]
     # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1 + t_zero, t_2_2 + t_zero)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # unpack and define parameters
     opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat = par_ellc
@@ -1023,10 +1023,10 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
                     label=f'upper bound {par_names[par_i]}')
     ax.fill_between(t_extended[sorter], y1=model[sorter], y2=model_m[sorter], color='tab:purple', alpha=0.3,
                     label=f'lower bound {par_names[par_i]}')
-    ax.plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label=r'eclipse edges')
-    ax.plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
-    ax.plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
-    ax.plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
+    ax.plot([t_1_1 - t_1, t_1_1 - t_1], s_minmax, '--', c='grey', label=r'eclipse edges')
+    ax.plot([t_1_2 - t_1, t_1_2 - t_1], s_minmax, '--', c='grey')
+    ax.plot([t_2_1 - t_1, t_2_1 - t_1], s_minmax, '--', c='grey')
+    ax.plot([t_2_2 - t_1, t_2_2 - t_1], s_minmax, '--', c='grey')
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax.set_ylabel('normalised flux')
     ax.set_title(f'{par_names[par_i]} = {par_ellc[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})')

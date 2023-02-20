@@ -890,8 +890,7 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     reducing chances of confusion. If nothing is found, however, it will attempt
     again with the full model of harmonics.
     
-    Times of primary eclispe are measured with respect to the mean time,
-    times of secondary eclipse are measured with respect to the primary minimum.
+    Times of eclispe are measured with respect to the mean time
     """
     t_a = time.time()
     # guard for existing file when not overwriting
@@ -1075,8 +1074,7 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
     Only the part of the cubic function between the two local
     extrema is used (so the discriminant is always positive).
     
-    Times of primary eclispe are measured with respect to the mean time,
-    times of secondary eclipse are measured with respect to the primary minimum.
+    Times of eclispe are measured with respect to the mean time.
     
     The steps taken are:
     1) initial eclipse model fit on the non-harmonic sinusoids model subtracted light curve
@@ -1157,8 +1155,8 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
     sin_select = None
-    ecl_mean = np.array([p_orb] + [-1 for _ in range(11)])
-    ecl_err = np.array([p_err] + [-1 for _ in range(11)])
+    ecl_mean = np.array([p_orb, t_1] + [-1 for _ in range(11)])
+    ecl_err = np.array([p_err, t_1_err] + [-1 for _ in range(11)])
     ecl_hdi = None
     timings_err = np.array([*timings_err, *depths_err])
     timings_hdi = None

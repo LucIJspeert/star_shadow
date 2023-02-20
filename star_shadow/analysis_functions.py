@@ -993,13 +993,13 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
     else:
         t_model_b_1 = np.array([t_1])
     if (t_b_2_2 - t_b_2_1 > 0):
-        t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000) + t_1
+        t_model_b_2 = np.linspace(t_b_2_1, t_b_2_2, 1000)
     else:
-        t_model_b_2 = np.array([t_2 + t_1])
+        t_model_b_2 = np.array([t_2])
     model_h_b_1 = tsf.sum_sines(t_model_b_1, f_h, a_h, ph_h, t_shift=False)
     model_h_b_2 = tsf.sum_sines(t_model_b_2, f_h, a_h, ph_h, t_shift=False)
     # calculate the harmonic model at the eclipse edges
-    t_model = np.array([t_1_1, t_1_2, t_2_1 + t_1, t_2_2 + t_1])
+    t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h, t_shift=False)
     # calculate depths based on the average level at contacts and the minima
     depth_1 = (model_h[0] + model_h[1]) / 2 - np.mean(model_h_b_1)
@@ -1076,7 +1076,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     t_1: float, None
         Time of primary minimum with respect to the mean time
     t_2: float, None
-        Time of secondary minimum with respect to t_1
+        Time of secondary minimum with respect to the mean time
     t_contacts: tuple[float], None
         Measurements of the times of contact:
         t_1_1, t_1_2, t_2_1, t_2_2
@@ -1299,9 +1299,10 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     t_b_1_2 = ecl_mid_b[0] + (widths_b[0] / 2)  # time of primary last internal tangency
     t_b_2_1 = ecl_mid_b[1] - (widths_b[1] / 2)  # time of secondary first internal tangency
     t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
-    # make adjustments to the times of primary eclipse
-    t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1, t_2_2)
-    t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1, t_b_2_2)
+    # translate the timings by the time of primary minimum with respect to the mean time
+    t_2 = t_2 + t_1
+    t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1 + t_1, t_2_2 + t_1)
+    t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1 + t_1, t_b_2_2 + t_1)
     # redetermine depths a tiny bit more precisely
     depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
     return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, ecl_indices

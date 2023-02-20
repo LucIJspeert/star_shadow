@@ -686,9 +686,10 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c
     The timings are deduced from the cubic curves in case the discriminant
     is positive and the slope at the inflection point has the right sign.
     """
-    # translate the timings of the primary eclipse by t_1
+    # translate the timings by the time of primary minimum with respect to t_mean
     t_zero = mid_1
     mid_1, t_c1_1, t_c1_2 = mid_1 - t_zero, t_c1_1 - t_zero, t_c1_2 - t_zero
+    mid_2, t_c3_1, t_c3_2 = mid_2 - t_zero, t_c3_1 - t_zero, t_c3_2 - t_zero
     # edges must not surpass middle
     t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)
     # fold the time series
@@ -859,7 +860,8 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_1, t_ext_1=0, t_ext_2=0)
     # make a mask for the eclipses, as only the eclipses will be fitted
-    mask = ((t_folded > p_orb + t_1_1 - t_1) | (t_folded < t_1_2 - t_1)) | ((t_folded > t_2_1) & (t_folded < t_2_2))
+    mask = ((t_folded > p_orb + t_1_1 - t_1) | (t_folded < t_1_2 - t_1))
+    mask = mask | ((t_folded > t_2_1 - t_1) & (t_folded < t_2_2 - t_1))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
@@ -868,7 +870,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     # determine a lc offset to match the harmonic model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1 + t_1, t_2_2 + t_1)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds (to avoid weird behaviour)
     mid_1 = (t_1_1 + t_1_2) / 2
@@ -972,10 +974,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
     p_orb: float
         Orbital period of the eclipsing binary in days
     timings: numpy.ndarray[float]
-        Eclipse timings from the empirical model.
-        Timings of minima and first and last contact points,
-        timings of the possible flat bottom (internal tangency),
-        Cubic curve primary and secondary eclipse depth,
+        Eclipse timings: minima, first/last contact points, internal tangency and depths,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
@@ -1248,7 +1247,7 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1 + t_zero, t_2_2 + t_zero)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
     par_init = (ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio)
@@ -1434,7 +1433,7 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1 + t_zero, t_2_2 + t_zero)
+    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
     par_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
