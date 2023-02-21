@@ -1,11 +1,11 @@
 numpy
 scipy
 numba
+h5py
 astropy
 pymc3
 fastprogress
 theano
 arviz
-h5py
 matplotlib
 corner

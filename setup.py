@@ -9,7 +9,7 @@ from setuptools import setup
 # package version
 MAJOR = 1
 MINOR = 0
-ATTR = '0'
+ATTR = '1'
 # full acronym
 ACRONYM = ('Satellite Time-series Analysis Routine using Sinusoids and Harmonics Automatedly '
            'for Double stars with Occultations and Waves')
@@ -25,6 +25,7 @@ setup(name="star_shadow",
       package_data={'star_shadow': ['star_shadow/data/tess_sectors.dat', 'star_shadow/data/mpl_stylesheet.dat']},
       include_package_data=True,
       python_requires='>=3.6',
-      install_requires=['numpy', 'scipy', 'numba', 'astropy', 'arviz', 'h5py', 'matplotlib', 'corner']
+      install_requires=['numpy', 'scipy', 'numba', 'h5py', 'astropy', 'pymc3', 'fastprogress', 'theano', 'arviz',
+                        'matplotlib', 'corner'],
       extras_require={'ellc': ['ellc']}
      )
