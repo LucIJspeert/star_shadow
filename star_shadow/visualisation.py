@@ -253,7 +253,7 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
                label='(non-harmonics + linear) model residual')
     ax.plot(t_model, model_h + offset, c='tab:red', label='harmonics')
     ax.plot([0, 0], s_minmax, '--', c='tab:pink')
-    ax.plot([t_2, t_2], s_minmax, '--', c='tab:pink')
+    ax.plot([t_2 - t_1, t_2 - t_1], s_minmax, '--', c='tab:pink')
     ax.plot([t_1_1 - t_1, t_1_1 - t_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges/minima/depths')
     ax.plot([t_1_2 - t_1, t_1_2 - t_1], s_minmax, '--', c='tab:purple')
     ax.plot([t_2_1 - t_1, t_2_1 - t_1], s_minmax, '--', c='tab:purple')
@@ -482,130 +482,125 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
                             timings_err, depths_err, i_sectors, save_file=None, show=True):
     """Shows the initial and final simple empirical cubic function eclipse model
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    depth_1, depth_2 = depths
-    t_1_em, t_2_em, t_1_1_em, t_1_2_em, t_2_1_em, t_2_2_em, t_b_1_1_em, t_b_1_2_em, t_b_2_1_em, t_b_2_2_em = timings_em
+    # unpack/define parameters
+    t_zero_init = timings[0]
+    t_zero = timings_em[0]
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings_em
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
-    depth_em_1, depth_em_2 = depths_em
+    depth_1, depth_2 = depths_em
     depth_1_err, depth_2_err = depths_err
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
-    # translate timings to (0, p_orb)
-    t_1, t_1_1, t_1_2, t_b_1_1, t_b_1_2 = np.array([t_1, t_1_1, t_1_2, t_b_1_1, t_b_1_2]) - t_1
-    t_1_em, t_1_1_em, t_1_2_em = np.array([t_1_em, t_1_1_em, t_1_2_em]) - t_1_em
-    t_b_1_1_em, t_b_1_2_em = t_b_1_1_em - t_1_em, t_b_1_2_em - t_1_em
     # plotting bounds
-    t_ext_1 = min(t_1_1, t_1_1_em)
-    t_ext_2 = max(t_1_2, t_1_2_em)
+    t_ext_1 = min(timings[2] - t_zero_init, t_1_1 - t_zero)
+    t_ext_2 = max(timings[3] - t_zero_init, t_1_2 - t_zero)
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_1, t_ext_1=t_ext_1, t_ext_2=t_ext_2)
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_ext_1, t_ext_2=t_ext_2)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     sorter = np.argsort(t_extended)
     # sinusoid and linear models
     model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+    model_sinusoid = np.concatenate((model_sinusoid[ext_left], model_sinusoid, model_sinusoid[ext_right]))
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-    # cubic model - get the parameters for the cubics from the fit parameters
-    t_model = np.arange(t_ext_1, p_orb + t_ext_2, 0.001)
-    mid_1 = (t_1_1 + t_1_2) / 2
-    mid_2 = (t_2_1 + t_2_2) / 2
-    model_ecl_init = tsfit.eclipse_empirical_lc(t_model, p_orb, mid_1, mid_2, t_1_1, t_2_1,
-                                                t_b_1_1, t_b_2_1, depth_1, depth_2)
-    model_ecl = tsfit.eclipse_empirical_lc(t_model, p_orb, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
-                                           t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
-    # add residual harmonic sinusoids to model
-    model_ecl_2 = tsfit.eclipse_empirical_lc(times, p_orb, t_1_em, t_2_em, t_1_1_em, t_2_1_em,
-                                             t_b_1_1_em, t_b_2_1_em, depth_em_1, depth_em_2)
+    model_linear = np.concatenate((model_linear[ext_left], model_linear, model_linear[ext_right]))
     model_sin_lin = model_sinusoid + model_linear
-    model_sin_lin = np.concatenate((model_sin_lin[ext_left], model_sin_lin, model_sin_lin[ext_right]))
-    model_ecl_sin_lin = model_ecl_2 + model_sinusoid + model_linear
-    model_ecl_sin_lin = np.concatenate((model_ecl_sin_lin[ext_left], model_ecl_sin_lin, model_ecl_sin_lin[ext_right]))
+    # cubic model - get the parameters for the cubics from the fit parameters
+    mid_1 = (timings[2] + timings[3]) / 2
+    mid_2 = (timings[4] + timings[5]) / 2
+    model_ecl_init = tsfit.eclipse_empirical_lc(times, p_orb, mid_1, mid_2, timings[2], timings[4],
+                                                timings[6], timings[8], depths[0], depths[1])
+    model_ecl_init = np.concatenate((model_ecl_init[ext_left], model_ecl_init, model_ecl_init[ext_right]))
+    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2)
+    model_ecl = np.concatenate((model_ecl[ext_left], model_ecl, model_ecl[ext_right]))
+    model_ecl_sin_lin = model_ecl + model_sinusoid + model_linear
     # residuals
-    resid_ecl = signal - model_ecl_2 - 1
-    resid_ecl = np.concatenate((resid_ecl[ext_left], resid_ecl, resid_ecl[ext_right]))
-    resid_full = signal - model_ecl_2 - 1 - model_sinusoid - model_linear
-    resid_full = np.concatenate((resid_full[ext_left], resid_full, resid_full[ext_right]))
+    resid_ecl = s_extended - model_ecl - 1
+    resid_full = s_extended - model_ecl - 1 - model_sinusoid - model_linear
     # some plotting parameters
     s_minmax = np.array([np.min(signal), np.max(signal)])
     s_minmax_r = np.array([np.min(resid_ecl), np.max(resid_ecl)])
+    # translate for plotting
+    timings = timings - t_zero_init
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings_em - t_zero
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(t_extended, s_extended, marker='.', label='original signal')
     ax[0].plot(t_extended[sorter], model_ecl_sin_lin[sorter] + 1, c='tab:grey', alpha=0.8,
-               label='final (linear + sinusoid + simple empirical eclipse) model')
-    ax[0].plot(t_model, model_ecl_init + 1, c='tab:orange', label='initial simple empirical eclipse model')
-    ax[0].plot(t_model, model_ecl + 1, c='tab:red', label='final simple empirical eclipse model')
-    ax[0].plot([t_1_1, t_1_1], s_minmax, ':', c='tab:grey', label=r'old eclipse edges (low harmonics)')
-    ax[0].plot([t_1_2, t_1_2], s_minmax, ':', c='tab:grey')
-    ax[0].plot([t_2_1, t_2_1], s_minmax, ':', c='tab:grey')
-    ax[0].plot([t_2_2, t_2_2], s_minmax, ':', c='tab:grey')
-    ax[0].plot([t_1_1_em, t_1_1_em], s_minmax, '--', c='tab:purple', label=r'new eclipse edges (cubics)')
-    ax[0].plot([t_1_2_em, t_1_2_em], s_minmax, '--', c='tab:purple')
-    ax[0].plot([t_2_1_em, t_2_1_em], s_minmax, '--', c='tab:purple')
-    ax[0].plot([t_2_2_em, t_2_2_em], s_minmax, '--', c='tab:purple')
-    ax[0].plot([t_1_1_em, t_1_2_em], [1, 1], '--', c='tab:purple')
-    ax[0].plot([t_1_1_em, t_1_2_em], [1 - depth_em_1, 1 - depth_em_1], '--', c='tab:purple')
-    ax[0].plot([t_2_1_em, t_2_2_em], [1, 1], '--', c='tab:purple')
-    ax[0].plot([t_2_1_em, t_2_2_em], [1 - depth_em_2, 1 - depth_em_2], '--', c='tab:purple')
+               label='final (linear + sinusoid + empirical eclipse) model')
+    ax[0].plot(t_extended[sorter], model_ecl_init[sorter] + 1, c='tab:orange', label='initial empirical eclipse model')
+    ax[0].plot(t_extended[sorter], model_ecl[sorter] + 1, c='tab:red', label='final empirical eclipse model')
+    ax[0].plot([timings[2], timings[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges (harmonics)')
+    ax[0].plot([timings[3], timings[3]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([timings[4], timings[4]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([timings[5], timings[5]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label='eclipse edges (cubics)')
+    ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
+    ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
+    ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
+    ax[0].plot([t_1_1, t_1_2], [1, 1], '--', c='tab:purple')
+    ax[0].plot([t_1_1, t_1_2], [1 - depth_1, 1 - depth_1], '--', c='tab:purple')
+    ax[0].plot([t_2_1, t_2_2], [1, 1], '--', c='tab:purple')
+    ax[0].plot([t_2_1, t_2_2], [1 - depth_2, 1 - depth_2], '--', c='tab:purple')
     # 1 sigma errors
-    ax[0].fill_between([t_1_1_em - t_1_1_err, t_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_1_1 - t_1_1_err, t_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
-    ax[0].fill_between([t_1_2_em - t_1_2_err, t_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_1_2 - t_1_2_err, t_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_2_1_em - t_2_1_err, t_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_2_1 - t_2_1_err, t_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_2_2_em - t_2_2_err, t_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_2_2 - t_2_2_err, t_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + depth_1_err, 1 - depth_em_1 + depth_1_err],
-                       y2=[1 - depth_em_1 - depth_1_err, 1 - depth_em_1 - depth_1_err], color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + depth_2_err, 1 - depth_em_2 + depth_2_err],
-                       y2=[1 - depth_em_2 - depth_2_err, 1 - depth_em_2 - depth_2_err], color='tab:purple', alpha=0.3)
+    ax[0].fill_between([t_1_1, t_1_2], y1=[1 - depth_1 + depth_1_err, 1 - depth_1 + depth_1_err],
+                       y2=[1 - depth_1 - depth_1_err, 1 - depth_1 - depth_1_err], color='tab:purple', alpha=0.3)
+    ax[0].fill_between([t_2_1, t_2_2], y1=[1 - depth_2 + depth_2_err, 1 - depth_2 + depth_2_err],
+                       y2=[1 - depth_2 - depth_2_err, 1 - depth_2 - depth_2_err], color='tab:purple', alpha=0.3)
     # 3 sigma errors
-    ax[0].fill_between([t_1_1_em - 3 * t_1_1_err, t_1_1_em + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_1_1 - 3 * t_1_1_err, t_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_1_2_em - 3 * t_1_2_err, t_1_2_em + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_1_2 - 3 * t_1_2_err, t_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_1_em - 3 * t_2_1_err, t_2_1_em + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_2_1 - 3 * t_2_1_err, t_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_2_em - 3 * t_2_2_err, t_2_2_em + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+    ax[0].fill_between([t_2_2 - 3 * t_2_2_err, t_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_1_1_em, t_1_2_em], y1=[1 - depth_em_1 + 3 * depth_1_err, 1 - depth_em_1 + 3 * depth_1_err],
-                       y2=[1 - depth_em_1 - 3 * depth_1_err, 1 - depth_em_1 - 3 * depth_1_err],
+    ax[0].fill_between([t_1_1, t_1_2], y1=[1 - depth_1 + 3 * depth_1_err, 1 - depth_1 + 3 * depth_1_err],
+                       y2=[1 - depth_1 - 3 * depth_1_err, 1 - depth_1 - 3 * depth_1_err],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_1_em, t_2_2_em], y1=[1 - depth_em_2 + 3 * depth_2_err, 1 - depth_em_2 + 3 * depth_2_err],
-                       y2=[1 - depth_em_2 - 3 * depth_2_err, 1 - depth_em_2 - 3 * depth_2_err],
+    ax[0].fill_between([t_2_1, t_2_2], y1=[1 - depth_2 + 3 * depth_2_err, 1 - depth_2 + 3 * depth_2_err],
+                       y2=[1 - depth_2 - 3 * depth_2_err, 1 - depth_2 - 3 * depth_2_err],
                        color='tab:purple', alpha=0.2)
     # flat bottom
-    if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1):
-        ax[0].plot([t_b_1_1_em, t_b_1_1_em], s_minmax, '--', c='tab:brown')
-        ax[0].plot([t_b_1_2_em, t_b_1_2_em], s_minmax, '--', c='tab:brown')
+    if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1):
+        ax[0].plot([t_b_1_1, t_b_1_1], s_minmax, '--', c='tab:brown')
+        ax[0].plot([t_b_1_2, t_b_1_2], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax[0].fill_between([t_b_1_1_em - t_1_1_err, t_b_1_1_em + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_1_1 - t_1_1_err, t_b_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
-        ax[0].fill_between([t_b_1_2_em - t_1_2_err, t_b_1_2_em + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_1_1_em - 3 * t_1_1_err, t_b_1_1_em + 3 * t_1_1_err], y1=s_minmax[[0, 0]],
+        ax[0].fill_between([t_b_1_1 - 3 * t_1_1_err, t_b_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]],
                            y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_1_2_em - 3 * t_1_2_err, t_b_1_2_em + 3 * t_1_2_err], y1=s_minmax[[0, 0]],
+        ax[0].fill_between([t_b_1_2 - 3 * t_1_2_err, t_b_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]],
                            y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.2)
-    if ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
-        ax[0].plot([t_b_2_1_em, t_b_2_1_em], s_minmax, '--', c='tab:brown')
-        ax[0].plot([t_b_2_2_em, t_b_2_2_em], s_minmax, '--', c='tab:brown')
+    if ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
+        ax[0].plot([t_b_2_1, t_b_2_1], s_minmax, '--', c='tab:brown')
+        ax[0].plot([t_b_2_2, t_b_2_2], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax[0].fill_between([t_b_2_1_em - t_2_1_err, t_b_2_1_em + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_2_1 - t_2_1_err, t_b_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
-        ax[0].fill_between([t_b_2_2_em - t_2_2_err, t_b_2_2_em + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_2_2 - t_2_2_err, t_b_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_2_1_em - 3 * t_2_1_err, t_b_2_1_em + 3 * t_2_1_err], y1=s_minmax[[0, 0]],
+        ax[0].fill_between([t_b_2_1 - 3 * t_2_1_err, t_b_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]],
                            y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_2_2_em - 3 * t_2_2_err, t_b_2_2_em + 3 * t_2_2_err], y1=s_minmax[[0, 0]],
+        ax[0].fill_between([t_b_2_2 - 3 * t_2_2_err, t_b_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]],
                            y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.2)
-    if ((t_b_1_2_em - t_b_1_1_em) / dur_b_1_err > 1) | ((t_b_2_2_em - t_b_2_1_em) / dur_b_2_err > 1):
+    if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1) | ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax[0].plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax[0].set_ylabel('normalised flux')
     ax[0].legend()
@@ -613,14 +608,14 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     ax[1].scatter(t_extended, resid_ecl, marker='.', label='(linear + sinusoid) model residual')
     ax[1].scatter(t_extended, resid_full, marker='.', label='(linear + sinusoid + eclipse) model residual')
     ax[1].plot(t_extended[sorter], model_sin_lin[sorter], c='tab:grey', alpha=0.8, label='(linear + sinusoid) model')
-    ax[1].plot([t_1_1, t_1_1], s_minmax_r, ':', c='tab:grey', label=r'old eclipse edges (low harmonics)')
-    ax[1].plot([t_1_2, t_1_2], s_minmax_r, ':', c='tab:grey')
-    ax[1].plot([t_2_1, t_2_1], s_minmax_r, ':', c='tab:grey')
-    ax[1].plot([t_2_2, t_2_2], s_minmax_r, ':', c='tab:grey')
-    ax[1].plot([t_1_1_em, t_1_1_em], s_minmax_r, '--', c='tab:purple', label=r'new eclipse edges (cubics)')
-    ax[1].plot([t_1_2_em, t_1_2_em], s_minmax_r, '--', c='tab:purple')
-    ax[1].plot([t_2_1_em, t_2_1_em], s_minmax_r, '--', c='tab:purple')
-    ax[1].plot([t_2_2_em, t_2_2_em], s_minmax_r, '--', c='tab:purple')
+    ax[1].plot([timings[2], timings[2]], s_minmax_r, ':', c='tab:grey', label='previous eclipse edges (harmonics)')
+    ax[1].plot([timings[3], timings[3]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([timings[4], timings[4]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([timings[5], timings[5]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='tab:purple', label='eclipse edges (cubics)')
+    ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='tab:purple')
+    ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='tab:purple')
+    ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='tab:purple')
     ax[1].set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax[1].set_ylabel('normalised flux')
     ax[1].legend()
@@ -1088,13 +1083,14 @@ def plot_lc_physical_model(times, signal, p_orb, t_zero, const_r, slope_r, f_n_r
     return
 
 
-def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, ecl_par_init,
-                             ecl_par, passed_r, passed_h, i_sectors, save_file=None, show=True):
+def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings, const, slope, f_n, a_n, ph_n,
+                             ecl_par_init, ecl_par, passed_r, passed_h, i_sectors, save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
     """
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
+    timings_init = timings_init - timings_init[0]
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings - t_zero
     # make the model times array, one full period plus the primary eclipse halves
     t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
@@ -1137,7 +1133,11 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings, const, slope
                label='(linear + sinusoid + eclipse) model')
     ax[0].plot(t_extended[sorter], model_ecl_init[sorter], c='tab:orange', label='initial eclipse model')
     ax[0].plot(t_extended[sorter], model_ecl_2[sorter], c='tab:red', label='eclipse model')
-    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='previous eclipse edges')
+    ax[0].plot([timings_init[2], timings_init[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges (cubics)')
+    ax[0].plot([timings_init[3], timings_init[3]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([timings_init[4], timings_init[4]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([timings_init[5], timings_init[5]], s_minmax, ':', c='tab:grey')
+    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='grey', label='eclipse edges (physical)')
     ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='grey')
     ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='grey')
     ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='grey')
@@ -1149,7 +1149,12 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings, const, slope
     ax[1].plot(t_extended[sorter], model_sin_lin[sorter], c='tab:grey', alpha=0.8, label='(linear + sinusoid) model')
     ax[1].plot(t_extended[sorter], model_r_h[sorter], c='tab:brown', alpha=0.8, label='candidate harmonics')
     ax[1].plot(t_extended[sorter], model_r_p_h[sorter], c='tab:red', label='candidate harmonics passing criteria')
-    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='previous eclipse edges')
+    ax[1].plot([timings_init[2], timings_init[2]], s_minmax_r, ':', c='tab:grey',
+               label='previous eclipse edges (cubics)')
+    ax[1].plot([timings_init[3], timings_init[3]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([timings_init[4], timings_init[4]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([timings_init[5], timings_init[5]], s_minmax_r, ':', c='tab:grey')
+    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='grey', label='eclipse edges (physical)')
     ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='grey')
     ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='grey')
     ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='grey')

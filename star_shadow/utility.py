@@ -1783,7 +1783,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         _, t_zero_9, ecosw_9, esinw_9, cosi_9, phi_0_9, r_rat_9, sb_rat_9, e_9, w_9, i_9, r_sum_9 = ecl_mean
         timings_9, depths_9 = timings[:10], timings[10:]
         t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = stats
-        par_opt_9 = np.array([e_9, w_9, i_9, r_sum_9, r_rat_9, sb_rat_9])
+        ecl_par_9 = np.array([e_9, w_9, i_9, r_sum_9, r_rat_9, sb_rat_9])
         inf_data_9 = read_inference_data(file_name)
     # include n_freqs/n_freqs_passed (10)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_10.hdf5')
@@ -1871,7 +1871,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         else:
             file_name = None
         vis.plot_lc_physical_model(times, signal, p_orb_5, t_zero_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9,
-                                   par_opt_9, passed_b_10, i_sectors, save_file=file_name, show=show)
+                                   ecl_par_9, passed_b_10, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     try:
@@ -1879,8 +1879,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_physical_eclipse_h.png')
         else:
             file_name = None
-        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_9, timings_9, const_9, slope_9, f_n_9, a_n_9,
-                                     ph_n_9, ecl_par_8, par_opt_9, passed_b_10, passed_h_10, i_sectors,
+        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_9, timings_7,  timings_9, const_9, slope_9,
+                                     f_n_9, a_n_9, ph_n_9, ecl_par_8, ecl_par_9, passed_b_10, passed_h_10, i_sectors,
                                      save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
@@ -1900,7 +1900,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         else:
             file_name = None
         vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_9, noise_level_5, const_9, slope_9, f_n_9, a_n_9,
-                                       ph_n_9, passed_b_10, par_opt_9, i_sectors, save_file=file_name, show=show)
+                                       ph_n_9, passed_b_10, ecl_par_9, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     return None

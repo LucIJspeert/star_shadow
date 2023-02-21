@@ -210,7 +210,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
-            print(f'Starting fit of group {i + 1} of {n_groups}')
+            print(f'Fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -456,7 +456,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     res_freqs, res_ampls, res_phases = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     # fit the harmonics (first group)
     if verbose:
-        print(f'Starting fit of orbital harmonics')
+        print(f'Fit of orbital harmonics')
     # remove harmonic frequencies
     resid = signal - tsf.sum_sines(times, np.delete(res_freqs, harmonics), np.delete(res_ampls, harmonics),
                                    np.delete(res_phases, harmonics))
@@ -482,7 +482,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
-            print(f'Starting fit of group {i + 1} of {n_groups}')
+            print(f'Fit of group {i + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -1038,7 +1038,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Starting fit of group {k + 1} of {n_groups}')
+            print(f'Fit of group {k + 1} of {n_groups}')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -1069,11 +1069,14 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
+            mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = res_cubics
             model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            resid_new = resid - model_linear - model_sinusoid
-            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin)
-            print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
+            model_ecl = 1 + eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+            resid_new = resid - (model_linear + model_sinusoid + model_ecl)
+            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 8)
+            print(f'Fit of group {k + 1} of {n_groups} - Fit convergence: {output.success}. '
+                  f'N_iter: {int(output.nit)}. BIC: {bic:1.2f}')
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = res_cubics
     # check bad values for bottom timings
     if (t_c1_2 > mid_1):
@@ -1257,10 +1260,17 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
                                   options={'maxiter': 10000})
     par_out = result.x
     if verbose:
-        print('Fit complete')
-        print(f'fun: {result.fun}')
-        print(f'message: {result.message}')
-        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
+        opt_ecosw, opt_esinw, opt_cosi, opt_phi_0, opt_r_rat, opt_sb_rat = par_out
+        opt_e = np.sqrt(opt_ecosw**2 + opt_esinw**2)
+        opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
+        opt_i = np.arccos(opt_cosi)
+        opt_r_sum = af.r_sum_sma_from_phi_0(opt_e, opt_i, opt_phi_0)
+        model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+        model_ecl = eclipse_physical_lc(times, p_orb, t_zero, opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
+        resid_new = resid - (model_linear + model_sinusoid + model_ecl)
+        bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
+        print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return par_out
 
 
@@ -1443,15 +1453,18 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
                                   options={'maxiter': 10000})
     par_out = result.x
     if verbose:
-        print('Fit complete')
-        print(f'fun: {result.fun}')
-        print(f'message: {result.message}')
-        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
+        opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat = par_out
+        model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+        model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
+        model_ecl = wrap_ellc_lc(times, p_orb, t_zero, opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
+        resid_new = resid - (model_linear + model_sinusoid + model_ecl)
+        bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
+        print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return par_out
 
 
 @nb.njit(cache=True)
-def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sectors):
+def objective_eclipse_sinusoids(params, times, signal, signal_err, p_orb, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize
     for an eclipse model plus a sum of sine waves.
 
@@ -1511,7 +1524,7 @@ def objective_sinusoids_eclipse(params, times, signal, signal_err, p_orb, i_sect
 
 
 # @nb.njit(cache=True)  # will not work due to ellc
-def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors):
+def objective_ellc_sinusoids(params, times, signal, signal_err, p_orb, i_sectors):
     """This is the objective function to give to scipy.optimize.minimize
     for an ellc model plus a sum of sine waves.
 
@@ -1569,8 +1582,8 @@ def objective_sinusoids_ellc(params, times, signal, signal_err, p_orb, i_sectors
     return -ln_likelihood
 
 
-def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope,
-                                         f_n, a_n, ph_n, i_sectors, f_groups, model='simple', verbose=False):
+def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope,
+                                  f_n, a_n, ph_n, i_sectors, f_groups, model='simple', verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
     and including an eclipse light curve model
 
@@ -1650,7 +1663,7 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
     # update the parameters for each group
     for i, group in enumerate(f_groups):
         if verbose:
-            print(f'Starting fit of group {i + 1} of {n_groups}')
+            print(f'Fit of group {i + 1} of {n_groups}')
         n_sin_g = len(res_freqs[group])
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
@@ -1664,9 +1677,9 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
         arguments = (times, resid, signal_err, p_orb, i_sectors)
         if (model is 'ellc'):
-            obj_fun = objective_sinusoids_ellc
+            obj_fun = objective_ellc_sinusoids
         else:
-            obj_fun = objective_sinusoids_eclipse
+            obj_fun = objective_eclipse_sinusoids
         output = sp.optimize.minimize(obj_fun, x0=par_init, args=arguments, method='Nelder-Mead',
                                       bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
         # separate results
@@ -1683,9 +1696,11 @@ def fit_multi_sinusoid_eclipse_per_group(times, signal, signal_err, p_orb, t_zer
         if verbose:
             model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            resid_new = resid - model_linear - model_sinusoid
-            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin)
-            print(f'Fit convergence: {output.success}. N_iter: {output.nit}. BIC: {bic:1.2f}')
+            model_ecl = eclipse_physical_lc(times, p_orb, *res_ecl_par)
+            resid_new = resid - (model_linear + model_sinusoid + model_ecl)
+            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
+            print(f'Fit of group {i + 1} of {n_groups} - Fit convergence: {output.success}. '
+                  f'N_iter: {output.nit}. BIC: {bic:1.2f}')
     res_t_zero = res_ecl_par[0]
     res_ecl_par = res_ecl_par[1:]
     return res_t_zero, res_ecl_par, res_const, res_slope, res_freqs, res_ampls, res_phases

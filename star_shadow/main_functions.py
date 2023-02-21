@@ -1155,8 +1155,8 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = None
     sin_select = None
-    ecl_mean = np.array([p_orb, t_1] + [-1 for _ in range(11)])
-    ecl_err = np.array([p_err, t_1_err] + [-1 for _ in range(11)])
+    ecl_mean = np.array([p_orb, t_1] + [-1 for _ in range(10)])
+    ecl_err = np.array([p_err, t_1_err] + [-1 for _ in range(10)])
     ecl_hdi = None
     timings_err = np.array([*timings_err, *depths_err])
     timings_hdi = None
@@ -1503,7 +1503,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # get theoretical timings and depths
     timings = af.eclipse_times(p_orb, t_zero, e, w, i, r_sum, r_rat)
-    depths = af.eclipse_depths(e, w, i, r_sum_sma, r_ratio, sb_ratio)
+    depths = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
     # main function done, do the rest for this step
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
