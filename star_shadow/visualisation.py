@@ -976,40 +976,57 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     return
 
 
-def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
-                        par_ellc, par_i, par_bounds, save_file=None, show=True):
-    """Shows an overview of the eclipses over one period with the determination
-    of orbital parameters using both the eclipse timings and the ellc light curve
-    models over three consecutive fits.
+def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n, a_n, ph_n, i_sectors,
+                        ecl_par, par_i, par_bounds, save_file=None, show=True):
+    """Shows the difference one parameter makes in the eclipse model
+    for three different values
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero,
+                                                           t_ext_1=t_1_1 - t_1, t_ext_2=t_1_2 - t_1)
     sorter = np.argsort(t_extended)
+    t_mean_ext = np.mean(t_extended)
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
+    ecl_signal = signal - model_nh - model_line
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(signal), np.max(signal)]
     # determine a lc offset to match the model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
-    # unpack and define parameters
-    opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat = par_ellc
-    # make the ellc models
-    model = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat,
-                               opt_sb_rat, 0)
-    par_p = np.copy(par_ellc)
-    par_n = np.copy(par_ellc)
+    # unpack all ecl_par
+    ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = ecl_par
+    # make the default eclipse model
+    model = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, e, w, i, r_sum, r_rat, sb_rat)
+    # depending on par_i, we need to do stuff
+    par_p = np.copy(ecl_par)
+    par_n = np.copy(ecl_par)
     par_p[par_i] = par_bounds[1]
     par_n[par_i] = par_bounds[0]
-    model_p = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, par_p[0], par_p[1], par_p[2], par_p[3], par_p[4], par_p[5], 0)
-    model_m = tsfit.wrap_ellc_lc(t_extended, p_orb, 0, par_n[0], par_n[1], par_n[2], par_n[3], par_n[4], par_n[5], 0)
-    par_names = ['f_c', 'f_s', 'i', 'r_sum', 'r_rat', 'sb_rat']
+    if par_i in [0, 1, 2, 3, 4]:
+        # do not use the alternative parametrisation, so compute everything again
+        par_p[6] = np.sqrt(par_p[0]**2 + par_p[1]**2)
+        par_p[7] = np.arctan2(par_p[1], par_p[0]) % (2 * np.pi)
+        par_n[6] = np.sqrt(par_n[0]**2 + par_n[1]**2)
+        par_n[7] = np.arctan2(par_n[1], par_n[0]) % (2 * np.pi)
+        par_p[8] = np.arccos(par_p[2])
+        par_n[8] = np.arccos(par_n[2])
+        par_p[9] = np.sqrt((1 - np.sin(par_p[8])**2 * np.cos(par_p[3])**2) * (1 - par_p[6]**2))
+        par_n[9] = np.sqrt((1 - np.sin(par_n[8])**2 * np.cos(par_n[3])**2) * (1 - par_n[6]**2))
+        # par_p[4] =
+        # par_n[4] =
+    # make the other models
+    ecl_par_p = np.append(par_p[6:], par_p[4:6])
+    ecl_par_n = np.append(par_n[6:], par_n[4:6])
+    model_p = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *ecl_par_p)
+    model_m = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *ecl_par_n)
+    # list of names
+    par_names = ['ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat', 'e', 'w', 'i', 'r_sum']
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
@@ -1024,7 +1041,7 @@ def plot_lc_ellc_errors(times, signal, p_orb, t_zero, timings, const, slope, f_n
     ax.plot([t_2_2 - t_1, t_2_2 - t_1], s_minmax, '--', c='grey')
     ax.set_xlabel(r'$(time - t_0) mod(P_{orb})$ (d)')
     ax.set_ylabel('normalised flux')
-    ax.set_title(f'{par_names[par_i]} = {par_ellc[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})')
+    ax.set_title(f'{par_names[par_i]} = {ecl_par[par_i]:1.4f}, bounds: ({par_bounds[0]:1.4f}, {par_bounds[1]:1.4f})')
     plt.legend()
     plt.tight_layout()
     if save_file is not None:
