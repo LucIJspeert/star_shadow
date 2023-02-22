@@ -67,6 +67,8 @@ Either function can be used for a set of light curves by using:
 
     sts.analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count() - 2, **kwargs):
 
+Note: the very first time the program is run, it will take a long time. This is because code is being compiled by Numba.
+
 
 ### Explanation of output
 
