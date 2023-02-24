@@ -392,32 +392,6 @@ def projected_separation(e, w, i, theta):
     return sep
 
 
-def phi_0_from_r_sum_sma(e, i, r_sum_sma):
-    """Formula for the angle phi_0 from the sum of radii in units
-    of the semi-major axis
-
-    Parameters
-    ----------
-    e: float, numpy.ndarray[float]
-        Eccentricity
-    i: float, numpy.ndarray[float]
-        Inclination of the orbit
-    r_sum_sma: float, numpy.ndarray[float]
-        Sum of radii in units of the semi-major axis
-
-    Returns
-    -------
-    phi_0: float, numpy.ndarray[float]
-        Auxiliary angle, see Kopal 1959
-    
-    Notes
-    -----
-    Taken from analysis_functions and without JIT-ting
-    """
-    phi_0 = np.arccos(np.sqrt(1 - r_sum_sma**2 / (1 - e**2)) / np.sin(i))
-    return phi_0
-
-
 def covered_area(d, r_1, r_2):
     """Area covered for two overlapping circles separated by a certain distance
 
@@ -1123,7 +1097,7 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
-    phi_0 = phi_0_from_r_sum_sma(e, i, r_sum)
+    phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = ecl_par_err
     # setup
     t_mean = np.mean(times)
@@ -1202,7 +1176,7 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     e_ch = np.sqrt(ecosw_ch**2 + esinw_ch**2)
     w_ch = np.arctan2(esinw_ch, ecosw_ch) % (2 * np.pi)
     i_ch = np.arccos(cosi_ch)
-    r_sum_ch = np.sqrt((1 - np.sin(i_ch)**2 * np.cos(phi_0_ch)**2) * (1 - e_ch**2))
+    r_sum_ch = af.r_sum_sma_from_phi_0(e_ch, i_ch, phi_0_ch)
     # parameter means
     const_m = np.mean(const_ch, axis=1).flatten()
     slope_m = np.mean(slope_ch, axis=1).flatten()

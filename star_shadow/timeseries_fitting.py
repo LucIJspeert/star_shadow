@@ -1248,14 +1248,14 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
+    signal_err_ext = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
     par_init = (ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio)
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
-    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
+    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err_ext[mask], p_orb)
     result = sp.optimize.minimize(objective_physcal_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
     par_out = result.x
@@ -1268,8 +1268,8 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
         model_linear = tsf.linear_curve(times, const, slope, i_sectors)
         model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
         model_ecl = eclipse_physical_lc(times, p_orb, t_zero, opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
-        resid_new = resid - (model_linear + model_sinusoid + model_ecl)
-        bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
+        resid = signal - (model_linear + model_sinusoid + model_ecl)
+        bic = tsf.calc_bic(resid / signal_err, 2 * len(const) + 3 * len(f_n) + 1 + len(par_out))
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return par_out
 
@@ -1441,14 +1441,14 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    signal_err = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
+    signal_err_ext = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # initial parameters and bounds
     par_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
-    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
+    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err_ext[mask], p_orb)
     result = sp.optimize.minimize(objective_ellc_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
     par_out = result.x
@@ -1457,8 +1457,8 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
         model_linear = tsf.linear_curve(times, const, slope, i_sectors)
         model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
         model_ecl = wrap_ellc_lc(times, p_orb, t_zero, opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
-        resid_new = resid - (model_linear + model_sinusoid + model_ecl)
-        bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
+        resid = signal - (model_linear + model_sinusoid + model_ecl)
+        bic = tsf.calc_bic(resid / signal_err, 2 * len(const) + 3 * len(f_n) + 1 + len(par_out))
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return par_out
 

@@ -1935,7 +1935,7 @@ def r_sum_sma_from_phi_0(e, i, phi_0):
         Sum of radii in units of the semi-major axis
     """
     r_sum_sma = np.sqrt((1 - np.sin(i)**2 * np.cos(phi_0)**2)) * (1 - e**2)  # (1 - e**2) not sqrt as in Kopal
-    r_sum_sma = max(r_sum_sma, 0)  # prevent it going below zero (i.e. for e>1)
+    r_sum_sma = r_sum_sma - r_sum_sma * (r_sum_sma == 0)
     return r_sum_sma
 
 
@@ -1958,8 +1958,64 @@ def phi_0_from_r_sum_sma(e, i, r_sum_sma):
     phi_0: float, numpy.ndarray[float]
         Auxiliary angle, see Kopal 1959
     """
-    phi_0 = np.arccos(np.sqrt(1 - r_sum_sma**2 / (1 - e**2)) / np.sin(i))
+    phi_0 = np.arccos(np.sqrt(1 - r_sum_sma**2 / (1 - e**2)**2) / np.sin(i))
     return phi_0
+
+
+@nb.njit(cache=True)
+def r_ratio_from_rho_0(e, w, i, phi_0, rho_0):
+    """Formula for the sum of radii in units of the semi-major axis
+     from the angle phi_0
+
+    Parameters
+    ----------
+    e: float, numpy.ndarray[float]
+        Eccentricity
+    w: float, numpy.ndarray[float]
+        Argument of periastron
+    i: float, numpy.ndarray[float]
+        Inclination of the orbit
+    phi_0: float, numpy.ndarray[float]
+        Auxiliary angle, see Kopal 1959
+    rho_0: float, numpy.ndarray[float]
+        Auxiliary scaled distance
+
+    Returns
+    -------
+    r_ratio: float, numpy.ndarray[float]
+        Radius ratio r_2/r_1
+    """
+    sin_2_i = np.sin(i)**2
+    r_2 = (1 - e**2)**2 * (1 - sin_2_i) / (1 + e * np.sin(w))**2 - rho_0
+    r_ratio = r_2 / (np.sqrt(1 - sin_2_i * np.cos(phi_0)**2) * (1 - e**2) - r_2)  # r_2 / (r_sum - r_2)
+    return r_ratio
+
+
+@nb.njit(cache=True)
+def rho_0_from_r_ratio(e, w, i, r_sum_sma, r_ratio):
+    """Formula for the angle phi_0 from the sum of radii in units
+    of the semi-major axis
+
+    Parameters
+    ----------
+    e: float, numpy.ndarray[float]
+        Eccentricity
+    w: float, numpy.ndarray[float]
+        Argument of periastron
+    i: float, numpy.ndarray[float]
+        Inclination of the orbit
+    r_sum_sma: float, numpy.ndarray[float]
+        Sum of radii in units of the semi-major axis
+    r_ratio: float, numpy.ndarray[float]
+        Radius ratio r_2/r_1
+
+    Returns
+    -------
+    rho_0: float, numpy.ndarray[float]
+        Auxiliary scaled distance
+    """
+    rho_0 = (1 - e**2)**2 * (1 - np.sin(i)**2) / (1 + e * np.sin(w))**2 - r_sum_sma * r_ratio / (1 + r_ratio)
+    return rho_0
 
 
 @nb.njit(cache=True)

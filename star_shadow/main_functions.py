@@ -1647,7 +1647,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb_5, np.ptp(times), sigma_t=t_int)
     out_8 = convert_timings_to_elements(p_orb_5, timings_7, p_err_5, timings_err_7, p_t_corr, file_name,
                                         **kwargs_2)
-    e_8, w_8, i_8, r_sum_sma_8, r_ratio_8, sb_ratio_8 = out_8[:6]
+    e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8 = out_8[:6]
     errors_8, formal_errors_8, dists_in_8, dists_out_8 = out_8[6:]
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = errors_8
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors_8
@@ -1664,7 +1664,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     phi_0_err_8 = max(phi_0_err[0], phi_0_err[1], sigma_phi_0)
     ecl_err_8 = np.array([e_err_8, w_err_8, i_err_8, r_sum_err_8, r_rat_err_8, sb_rat_err_8,
                         ecosw_err_8, esinw_err_8, cosi_err_8, phi_0_err_8])
-    ecl_par_8 = (e_8, w_8, i_8, r_sum_sma_8, r_ratio_8, sb_ratio_8)
+    ecl_par_8 = (e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8)
     if (e_8 > 0.99):
         return (None,) * 4  # unphysical parameters
     # --------------------------------------------------
