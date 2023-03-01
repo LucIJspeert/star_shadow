@@ -1671,7 +1671,6 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-@nb.njit(cache=True)
 def extract_single(times, signal, f0=0, fn=0, verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
@@ -1709,20 +1708,24 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     The extracted frequency is based on the highest amplitude in the
     periodogram (over the interval where it is calculated). The highest
     peak is oversampled by a factor 100 to get a precise measurement.
+    
+    If and only if the full periodogram is calculated using the defaults
+    for f0 and fn, the fast implementation of astropy scargle is used.
+    It is accurate to a very high degree when used like this and gives
+    a significant speed increase.
     """
     df = 0.1 / np.ptp(times)  # default frequency sampling is about 1/10 of frequency resolution
-    # inconsistency with astropy_scargle for small freq intervals
-    # if (f0 == 0) & (fn == 0):
-    #     freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
-    # else:
     # full LS periodogram
-    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+    if (f0 == 0) & (fn == 0):
+        # inconsistency with astropy_scargle for small freq intervals, so only do the full pd
+        freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+    else:
+        freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
         if verbose:
-            freq_str = ut.float_to_str(freqs[p1], 6)  # convert to string for Numba
-            print(f'Edge of frequency range {freq_str} at position {p1} during extraction phase 1.')
+            print(f'Edge of frequency range {freqs[p1]} at position {p1} during extraction phase 1.')
     # now refine once by increasing the frequency resolution x100
     f_left_1 = max(freqs[p1] - df, df / 10)  # may not get too low
     f_right_1 = freqs[p1] + df
@@ -1731,8 +1734,7 @@ def extract_single(times, signal, f0=0, fn=0, verbose=True):
     # check if we pick the boundary frequency
     if (p2 in [0, len(f_refine_1) - 1]):
         if verbose:
-            freq_str = ut.float_to_str(f_refine_1[p2], 6)  # convert to string for Numba
-            print(f'Edge of frequency range {freq_str} at position {p2} during extraction phase 2.')
+            print(f'Edge of frequency range {f_refine_1[p2]} at position {p2} during extraction phase 2.')
     f_final = f_refine_1[p2]
     a_final = a_refine_1[p2]
     # finally, compute the phase (and make sure it stays within + and - pi)
@@ -1840,8 +1842,8 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
         bic = calc_bic(resid / signal_err, n_param)
         d_bic = bic_prev - bic  # delta-BIC
         if verbose:
-            print(f'N_f= {n_f}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic}) - N_refine= {n_g}, '
-                  f'f= {f_j:1.6f}, a= {a_j:1.6f}', end='\r')
+            print(f'N_f= {n_f}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic:1.2f}) '
+                  f'- N_refine= {n_g}, f= {f_j:1.6f}, a= {a_j:1.6f}', end='\r')
     if verbose:
         print(f'N_f= {len(f_n)}, BIC= {bic_prev:1.2f} (total= {bic_init - bic_prev}) - end refinement', end='\r')
     # redo the constant and slope without the last iteration of changes
@@ -1944,10 +1946,10 @@ def extract_all(times, signal, signal_err, i_sectors, verbose=True):
         d_bic = bic_prev - bic  # delta-BIC
         i += 1
         if verbose:
-            print(f'N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic}) - '
+            print(f'N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic:1.2f}) - '
                   f'f= {f_i:1.6f}, a= {a_i:1.6f}', end='\r')
     if verbose:
-        print(f'N_f= {len(f_n)}, BIC= {bic_prev:1.2f} (delta= {bic_init - bic_prev}) - end extraction')
+        print(f'N_f= {len(f_n)}, BIC= {bic_prev:1.2f} (delta= {bic_init - bic_prev:1.2f}) - end extraction')
     # redo the constant and slope without the last iteration frequencies
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
@@ -2059,10 +2061,10 @@ def extract_additional(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
         d_bic = bic_prev - bic  # delta-BIC
         i += 1
         if verbose:
-            print(f'N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic}) - '
+            print(f'N_f= {len(f_n_temp)}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic:1.2f}) - '
                   f'f= {f_i:1.6f}, a= {a_i:1.6f}', end='\r')
     if verbose:
-        print(f'N_f= {len(f_n)}, BIC= {bic_prev:1.2f} (delta= {bic_init - bic_prev}) - end extraction')
+        print(f'N_f= {len(f_n)}, BIC= {bic_prev:1.2f} (delta= {bic_init - bic_prev:1.2f}) - end extraction')
     # redo the constant and slope without the last iteration frequencies
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     const, slope = linear_pars(times, signal - model_sinusoid, i_sectors)
