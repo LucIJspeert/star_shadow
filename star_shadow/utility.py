@@ -779,7 +779,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
     The file contains the data sets (array-like) and attributes
     to describe the data, in hdf5 format.
     
-    Any missing data is filled up with -1
+    Any missing data is filled up with -1, 0 or True
     """
     # check for Nones
     if sin_mean is None:
@@ -789,7 +789,7 @@ def save_parameters_hdf5(file_name, sin_mean, sin_err, sin_hdi, sin_select, ecl_
     if sin_hdi is None:
         sin_hdi = [np.zeros((1, 2)) for _ in range(5)]
     if sin_select is None:
-        sin_select = [np.array([True for _ in range(len(sin_mean[2]))]) for _ in range(3)]
+        sin_select = [np.ones(len(sin_mean[2]), dtype=bool) for _ in range(3)]
     if ecl_mean is None:
         ecl_mean = -np.ones(12)
     if ecl_err is None:
@@ -1419,6 +1419,9 @@ def save_inference_data(file_name, inf_data):
     -------
     None
     """
+    if inf_data is None:
+        return None
+    
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
     inf_data.to_netcdf(file_name_mc)
