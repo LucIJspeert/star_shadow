@@ -847,7 +847,7 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     # -----------------------------------------------
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
     out_5 = optimise_sinusoid_h(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4, i_sectors,
-                                t_stats, file_name_5, **arg_dict)
+                                t_stats, file_name_5, method=method, **arg_dict)
     p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
     # save final freqs and linear curve in ascii format
     ut.convert_hdf5_to_ascii(file_name_5)
@@ -2142,8 +2142,8 @@ def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False,
     return p_orb
 
 
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, data_id='none', overwrite=False,
-               verbose=False):
+def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, method='sampler', data_id='none',
+               overwrite=False, verbose=False):
     """Do all steps of the analysis
 
     Parameters
@@ -2167,6 +2167,8 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    method: str
+        Method of optimization. Can be 'sampler' or 'fitter'.
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -2194,7 +2196,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     # keyword arguments in common between some functions
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args)
+    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, method, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 5):
         out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
