@@ -786,55 +786,65 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}  # these stay the same
-    # -------------------------------------------------------
-    # --- [1] --- Initial iterative extraction of frequencies
-    # -------------------------------------------------------
-    file_name_1 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
-    out_1 = iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_name_1, **arg_dict)
-    const_1, slope_1, f_n_1, a_n_1, ph_n_1 = out_1
-    if (len(f_n_1) == 0):
-        logger.info('No frequencies found.')
-        p_orb_i = [0]
-        const_i = [const_1]
-        slope_i = [slope_1]
-        f_n_i = [f_n_1]
-        a_n_i = [a_n_1]
-        ph_n_i = [ph_n_1]
-        return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
-    # ----------------------------------------------------------------
-    # --- [2] --- Multi-sinusoid non-linear least-squares optimisation
-    # ----------------------------------------------------------------
-    file_name_2 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
-    out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
-                              file_name_2, method=method, **arg_dict)
-    const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
-    # --------------------------------------------------------------------------
-    # --- [3] --- Measure the orbital period and couple the harmonic frequencies
-    # --------------------------------------------------------------------------
-    file_name_3 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
-    out_3 = couple_harmonics(times, signal, signal_err, p_orb, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors,
-                             t_stats, file_name_3, **arg_dict)
-    p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
-    # save info and exit in the following cases (and log message)
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res / 2)
-    if (t_tot / p_orb_3 < 1.1):
-        logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
-                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-    elif (len(harmonics) < 2):
-        logger.info(f'Not enough harmonics found: {len(harmonics)}; '
-                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-        # return previous results
-    elif (t_tot / p_orb_3 < 2):
-        logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
-                    f'period (days): {p_orb_3}; time-base (days): {t_tot}')
-    if (t_tot / p_orb_3 < 1.1) | (len(harmonics) < 2):
-        p_orb_i = [0, 0, p_orb_3]
-        const_i = [const_1, const_2, const_2]
-        slope_i = [slope_1, slope_2, slope_2]
-        f_n_i = [f_n_1, f_n_2, f_n_2]
-        a_n_i = [a_n_1, a_n_2, a_n_2]
-        ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
-        return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+    if (p_orb == 0):
+        # -------------------------------------------------------
+        # --- [1] --- Initial iterative extraction of frequencies
+        # -------------------------------------------------------
+        file_name_1 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
+        out_1 = iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_name_1, **arg_dict)
+        const_1, slope_1, f_n_1, a_n_1, ph_n_1 = out_1
+        if (len(f_n_1) == 0):
+            logger.info('No frequencies found.')
+            p_orb_i = [0]
+            const_i = [const_1]
+            slope_i = [slope_1]
+            f_n_i = [f_n_1]
+            a_n_i = [a_n_1]
+            ph_n_i = [ph_n_1]
+            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+        # ----------------------------------------------------------------
+        # --- [2] --- Multi-sinusoid non-linear least-squares optimisation
+        # ----------------------------------------------------------------
+        file_name_2 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
+        out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
+                                  file_name_2, method=method, **arg_dict)
+        const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
+        # --------------------------------------------------------------------------
+        # --- [3] --- Measure the orbital period and couple the harmonic frequencies
+        # --------------------------------------------------------------------------
+        file_name_3 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
+        out_3 = couple_harmonics(times, signal, signal_err, p_orb, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors,
+                                 t_stats, file_name_3, **arg_dict)
+        p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
+        # save info and exit in the following cases (and log message)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res / 2)
+        if (t_tot / p_orb_3 < 1.1):
+            logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                        f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+        elif (len(harmonics) < 2):
+            logger.info(f'Not enough harmonics found: {len(harmonics)}; '
+                        f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+            # return previous results
+        elif (t_tot / p_orb_3 < 2):
+            logger.info(f'Period over time-base is less than two: {t_tot / p_orb_3}; '
+                        f'period (days): {p_orb_3}; time-base (days): {t_tot}')
+        if (t_tot / p_orb_3 < 1.1) | (len(harmonics) < 2):
+            p_orb_i = [0, 0, p_orb_3]
+            const_i = [const_1, const_2, const_2]
+            slope_i = [slope_1, slope_2, slope_2]
+            f_n_i = [f_n_1, f_n_2, f_n_2]
+            a_n_i = [a_n_1, a_n_2, a_n_2]
+            ph_n_i = [ph_n_1, ph_n_2, ph_n_2]
+            return p_orb_i, const_i, slope_i, f_n_i, a_n_i, ph_n_i
+    else:
+        # if an orbital period was given, we can skip the first three steps and start with an empty frequency list
+        p_orb_3 = p_orb
+        const_1, const_2, const_3 = np.array([[], [], []])
+        slope_1, slope_2, slope_3 = np.array([[], [], []])
+        const_3, slope_3 = tsf.linear_pars(times, signal, i_sectors)  # get piecewise linear curves
+        f_n_1, f_n_2, f_n_3 = np.array([[], [], []])
+        a_n_1, a_n_2, a_n_3 = np.array([[], [], []])
+        ph_n_1, ph_n_2, ph_n_3 = np.array([[], [], []])
     # -----------------------------------------------------
     # --- [4] --- Attempt to extract additional frequencies
     # -----------------------------------------------------
@@ -2196,7 +2206,8 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     # keyword arguments in common between some functions
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, method, **kw_args)
+    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, method=method,
+                                **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 5):
         out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)

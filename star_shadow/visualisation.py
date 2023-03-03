@@ -1000,7 +1000,7 @@ def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
     # unpack all ecl_par
-    ecosw, esinw, cosi, phi_0, rho_0, sb_rat, e, w, i, r_sum, r_rat = ecl_par
+    ecosw, esinw, cosi, phi_0, rho, eta, e, w, i, r_sum, r_rat, sb_rat = ecl_par
     # make the default eclipse model
     model = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, e, w, i, r_sum, r_rat, sb_rat)
     # depending on par_i, we need to do stuff
@@ -1008,25 +1008,25 @@ def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n
     par_n = np.copy(ecl_par)
     par_p[par_i] = par_bounds[1]
     par_n[par_i] = par_bounds[0]
-    if par_i in [0, 1, 2, 3, 4]:
+    if par_i in [0, 1, 2, 3, 4, 5]:
         # do not use the alternative parametrisation, so compute everything again
         par_p[6] = np.sqrt(par_p[0]**2 + par_p[1]**2)
-        par_p[7] = np.arctan2(par_p[1], par_p[0]) % (2 * np.pi)
         par_n[6] = np.sqrt(par_n[0]**2 + par_n[1]**2)
+        par_p[7] = np.arctan2(par_p[1], par_p[0]) % (2 * np.pi)
         par_n[7] = np.arctan2(par_n[1], par_n[0]) % (2 * np.pi)
         par_p[8] = np.arccos(par_p[2])
         par_n[8] = np.arccos(par_n[2])
-        par_p[9] = np.sqrt((1 - np.sin(par_p[8])**2 * np.cos(par_p[3])**2) * (1 - par_p[6]**2))
-        par_n[9] = np.sqrt((1 - np.sin(par_n[8])**2 * np.cos(par_n[3])**2) * (1 - par_n[6]**2))
-        par_p[10] = af.r_ratio_from_rho_0(par_p[6], par_p[7], par_p[8], par_p[3], par_p[4])
-        par_n[10] = af.r_ratio_from_rho_0(par_n[6], par_n[7], par_n[8], par_n[3], par_n[4])
+        par_p[9] = af.r_sum_sma_from_phi_0(par_p[6], par_p[8], par_p[3])
+        par_n[9] = af.r_sum_sma_from_phi_0(par_n[6], par_n[8], par_n[3])
+        par_p[10] = par_p[2]**2 / par_p[4]
+        par_n[10] = par_n[2]**2 / par_n[4]
+        par_p[11] = par_p[5] * (1 + par_p[1])**2 / (1 + par_p[2])
+        par_n[11] = par_n[5] * (1 + par_n[1])**2 / (1 + par_n[2])
     # make the other models
-    ecl_par_p = np.append(par_p[6:], par_p[5])
-    ecl_par_n = np.append(par_n[6:], par_n[5])
-    model_p = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *ecl_par_p)
-    model_m = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *ecl_par_n)
+    model_p = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *par_p[6:])
+    model_m = tsfit.eclipse_physical_lc(t_extended, p_orb, -t_mean_ext, *par_n[6:])
     # list of names
-    par_names = ['ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat', 'e', 'w', 'i', 'r_sum']
+    par_names = ['ecosw', 'esinw', 'cosi', 'phi_0', 'rho', 'eta', 'e', 'w', 'i', 'r_sum', 'r_rat', 'sb_rat']
     # plot
     fig, ax = plt.subplots()
     ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
