@@ -1847,16 +1847,16 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
                                       i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
-    # try:
-    if save_dir is not None:
-        file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_empirical_timings.png')
-    else:
-        file_name = None
-    vis.plot_lc_empirical_model(times, signal, p_orb_5, timings_6, depths_6, const_7, slope_7,
-                                f_n_7, a_n_7, ph_n_7, timings_7, depths_7, timings_err_7, depths_err_7, i_sectors,
-                                save_file=file_name, show=show)
-    # except NameError:
-    #     pass  # some variable wasn't loaded (file did not exist)
+    try:
+        if save_dir is not None:
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_empirical_timings.png')
+        else:
+            file_name = None
+        vis.plot_lc_empirical_model(times, signal, p_orb_5, timings_6, depths_6, const_7, slope_7,
+                                    f_n_7, a_n_7, ph_n_7, timings_7, depths_7, timings_err_7, depths_err_7, i_sectors,
+                                    save_file=file_name, show=show)
+    except NameError:
+        pass  # some variable wasn't loaded (file did not exist)
     try:
         if save_dir is not None:
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_timings_elements.png')
@@ -1882,7 +1882,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_physical_eclipse_h.png')
         else:
             file_name = None
-        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_9, timings_7,  timings_9, const_9, slope_9,
+        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_9, timings_7, timings_9, const_9, slope_9,
                                      f_n_9, a_n_9, ph_n_9, ecl_par_8, ecl_par_9, passed_b_10, passed_h_10, i_sectors,
                                      save_file=file_name, show=show)
     except NameError:
