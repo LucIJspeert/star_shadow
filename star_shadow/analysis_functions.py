@@ -1984,10 +1984,20 @@ def r_ratio_from_rho_0(e, w, i, phi_0, rho_0):
     -------
     r_ratio: float, numpy.ndarray[float]
         Radius ratio r_2/r_1
+    
+    Notes
+    -----
+    Using rho_0 can be advantagous in case of partial eclipses, however,
+    some information is given up: we don't know which star is which size.
+    (if we assume main sequence, star 1 - the primary - is the bigger one)
     """
-    sin_2_i = np.sin(i)**2
-    r_2 = (1 - e**2)**2 * (1 - sin_2_i) / (1 + e * np.sin(w))**2 - rho_0
-    r_ratio = r_2 / (np.sqrt(1 - sin_2_i * np.cos(phi_0)**2) * (1 - e**2) - r_2)  # r_2 / (r_sum - r_2)
+    esinw = e * np.sin(w)
+    r_sum = r_sum_sma_from_phi_0(e, i, phi_0)
+    d_term = (1 - e**2)**2 * np.cos(phi_0) * np.sin(phi_0) * np.cos(i) / (1 + esinw)**2
+    # we lose some information: we don't know which star is which size
+    r_1 = r_sum / 2 + np.sqrt(rho_0 + d_term - r_sum**2) / 2
+    r_2 = r_sum / 2 - np.sqrt(rho_0 + d_term - r_sum**2) / 2
+    r_ratio = r_2 / r_1
     return r_ratio
 
 
@@ -2014,7 +2024,11 @@ def rho_0_from_r_ratio(e, w, i, r_sum_sma, r_ratio):
     rho_0: float, numpy.ndarray[float]
         Auxiliary scaled distance
     """
-    rho_0 = (1 - e**2)**2 * (1 - np.sin(i)**2) / (1 + e * np.sin(w))**2 - r_sum_sma * r_ratio / (1 + r_ratio)
+    r_1 = r_sum_sma / (1 + r_ratio)
+    r_2 = r_sum_sma * r_ratio / (1 + r_ratio)
+    esinw = e * np.sin(w)
+    phi_0 = phi_0_from_r_sum_sma(e, i, r_sum_sma)
+    rho_0 = 2 * r_1**2 + 2 * r_2**2 - (1 - e**2)**2 * np.cos(phi_0) * np.sin(phi_0) * np.cos(i) / (1 + esinw)**2
     return rho_0
 
 
