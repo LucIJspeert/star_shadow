@@ -514,8 +514,8 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     model_ecl = np.concatenate((model_ecl[ext_left], model_ecl, model_ecl[ext_right]))
     model_ecl_sin_lin = model_ecl + model_sinusoid + model_linear
     # residuals
-    resid_ecl = s_extended - model_ecl - 1
-    resid_full = s_extended - model_ecl - 1 - model_sinusoid - model_linear
+    resid_ecl = s_extended - model_ecl
+    resid_full = s_extended - model_ecl - model_sinusoid - model_linear
     # some plotting parameters
     s_minmax = np.array([np.min(signal), np.max(signal)])
     s_minmax_r = np.array([np.min(resid_ecl), np.max(resid_ecl)])
@@ -525,10 +525,10 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     # plot
     fig, ax = plt.subplots(nrows=2, sharex=True)
     ax[0].scatter(t_extended, s_extended, marker='.', label='original signal')
-    ax[0].plot(t_extended[sorter], model_ecl_sin_lin[sorter] + 1, c='tab:grey', alpha=0.8,
+    ax[0].plot(t_extended[sorter], model_ecl_sin_lin[sorter], c='tab:grey', alpha=0.8,
                label='final (linear + sinusoid + empirical eclipse) model')
-    ax[0].plot(t_extended[sorter], model_ecl_init[sorter] + 1, c='tab:orange', label='initial empirical eclipse model')
-    ax[0].plot(t_extended[sorter], model_ecl[sorter] + 1, c='tab:red', label='final empirical eclipse model')
+    ax[0].plot(t_extended[sorter], model_ecl_init[sorter], c='tab:orange', label='initial empirical eclipse model')
+    ax[0].plot(t_extended[sorter], model_ecl[sorter], c='tab:red', label='final empirical eclipse model')
     ax[0].plot([timings[2], timings[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges (harmonics)')
     ax[0].plot([timings[3], timings[3]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings[4], timings[4]], s_minmax, ':', c='tab:grey')

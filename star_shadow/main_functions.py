@@ -1128,7 +1128,7 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
                                         i_sectors, verbose=verbose)
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = out_a
         # extract the leftover signal from the residuals
-    model_ecl = 1 + tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
+    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
     resid_ecl = signal - model_ecl
     # extract all frequencies with the iterative scheme
     out_b = tsf.extract_all(times, resid_ecl, signal_err, i_sectors, verbose=verbose)

@@ -496,7 +496,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
         if verbose:
             model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            resid_new = resid - model_linear - model_sinusoid
+            resid_new = signal - (model_linear + model_sinusoid)
             bic = tsf.calc_bic(resid_new / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
             print(f'BIC in fit convergence message above invalid. Actual BIC: {bic:1.2f}')
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
@@ -761,6 +761,8 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c
         model_ecl[mask_3] = cubic_3 - max_3
     if np.any(mask_4):
         model_ecl[mask_4] = cubic_4 - max_3
+    # add one to get the lc to be representative of a flux-normalized curve
+    model_ecl = model_ecl + 1
     return model_ecl
 
 
@@ -795,8 +797,7 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     # midpoints, l.h.s. cubic time points, depths
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
     # the model
-    t_mean = np.mean(times)
-    model = 1 + eclipse_empirical_lc(times, p_orb, mid_1 - t_mean, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+    model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # determine likelihood for the model
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
     # make sure we don't allow impossible stuff
@@ -857,18 +858,13 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     in essence identical (and numerically more stable due to the logarithm).
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
-    # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
-    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_1, t_ext_1=0, t_ext_2=0)
-    # make a mask for the eclipses, as only the eclipses will be fitted
-    mask = ((t_folded > p_orb + t_1_1 - t_1) | (t_folded < t_1_2 - t_1))
-    mask = mask | ((t_folded > t_2_1 - t_1) & (t_folded < t_2_2 - t_1))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_linear + 1
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
@@ -880,7 +876,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
     par_bounds = ((t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
                   (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None))
-    args = (times[mask], ecl_signal[mask] + offset, signal_err[mask], p_orb)
+    args = (times, ecl_signal + offset, signal_err, p_orb)
     result = sp.optimize.minimize(objective_empirical_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = result.x
@@ -894,10 +890,10 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
     res_timings = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2])
     if verbose:
-        print('Fit complete')
-        print(f'fun: {result.fun}')
-        print(f'message: {result.message}')
-        print(f'nfev: {result.nfev}, nit: {result.nit}, status: {result.status}, success: {result.success}')
+        model_ecl = eclipse_empirical_lc(times, p_orb, *result.x)
+        resid = ecl_signal - model_ecl
+        bic = tsf.calc_bic(resid / signal_err, 2 * len(const) + 3 * len(f_n[non_harm]) + 9)
+        print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return res_timings
 
 
@@ -948,7 +944,7 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, i
     if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
         return 10**9
     # the model
-    model_ecl = 1 + eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
+    model_ecl = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)
@@ -1038,7 +1034,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}')
+            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -1069,12 +1065,11 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
         res_ampls[group] = out_ampls
         res_phases[group] = out_phases
         if verbose:
-            mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = res_cubics
             model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
-            model_ecl = 1 + eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-            resid_new = resid - (model_linear + model_sinusoid + model_ecl)
-            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 8)
+            model_ecl = eclipse_empirical_lc(times, p_orb, *res_cubics)
+            resid_new = signal - (model_linear + model_sinusoid + model_ecl)
+            bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 9)
             print(f'Fit of group {k + 1} of {n_groups} - Fit convergence: {output.success}. '
                   f'N_iter: {int(output.nit)}. BIC: {bic:1.2f}')
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = res_cubics
@@ -1238,15 +1233,13 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
     ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio = par_init
     # make a time series spanning a full orbital eclipse from primary first contact to primary last contact
     t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
-    # make a mask for the eclipses, as only the eclipses will be fitted
-    mask = ((t_extended > t_1_1) & (t_extended < t_1_2)) | ((t_extended > t_2_1) & (t_extended < t_2_2))
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_linear + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     signal_err_ext = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
@@ -1255,7 +1248,7 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
     # initial parameters and bounds
     par_init = (ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio)
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
-    args = (t_extended[mask], ecl_signal[mask] + offset, signal_err_ext[mask], p_orb)
+    args = (t_extended, ecl_signal + offset, signal_err_ext, p_orb)
     result = sp.optimize.minimize(objective_physcal_lc, par_init, args=args, method='nelder-mead', bounds=par_bounds,
                                   options={'maxiter': 10000})
     par_out = result.x
@@ -1265,11 +1258,9 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings, cons
         opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
         opt_i = np.arccos(opt_cosi)
         opt_r_sum = af.r_sum_sma_from_phi_0(opt_e, opt_i, opt_phi_0)
-        model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-        model_sinusoid = tsf.sum_sines(times, f_n, a_n, ph_n)
         model_ecl = eclipse_physical_lc(times, p_orb, t_zero, opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
-        resid = signal - (model_linear + model_sinusoid + model_ecl)
-        bic = tsf.calc_bic(resid / signal_err, 2 * len(const) + 3 * len(f_n) + 1 + len(par_out))
+        resid = signal - (model_nh + model_linear - 1 + model_ecl)
+        bic = tsf.calc_bic(resid / signal_err, 2 * len(const) + 3 * len(f_n[non_harm]) + 1 + len(par_out))
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
     return par_out
 
@@ -1438,8 +1429,8 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
-    model_line = tsf.linear_curve(times, const, slope, i_sectors)
-    ecl_signal = signal - model_nh - model_line + 1
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    ecl_signal = signal - model_nh - model_linear + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     signal_err_ext = np.concatenate((signal_err[ext_left], signal_err, signal_err[ext_right]))
     # determine a lc offset to match the harmonic model at the edges
@@ -1697,7 +1688,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
             model_linear = tsf.linear_curve(times, res_const, res_slope, i_sectors)
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             model_ecl = eclipse_physical_lc(times, p_orb, *res_ecl_par)
-            resid_new = resid - (model_linear + model_sinusoid + model_ecl)
+            resid_new = signal - (model_linear + model_sinusoid + model_ecl)
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
             print(f'Fit of group {i + 1} of {n_groups} - Fit convergence: {output.success}. '
                   f'N_iter: {output.nit}. BIC: {bic:1.2f}')
