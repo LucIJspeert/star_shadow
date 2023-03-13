@@ -1127,10 +1127,9 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
     out_a = tsfit.fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slope, f_n, a_n, ph_n,
                                         i_sectors, verbose=verbose)
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = out_a
-        # extract the leftover signal from the residuals
-    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
-    resid_ecl = signal - model_ecl
-    # extract all frequencies with the iterative scheme
+    # extract the leftover signal from the residuals with the iterative scheme
+    model_eclipse = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
+    resid_ecl = signal - model_eclipse
     out_b = tsf.extract_all(times, resid_ecl, signal_err, i_sectors, verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_c = tsf.reduce_frequencies(times, resid_ecl, signal_err, 0, *out_b, i_sectors, verbose=verbose)
@@ -1142,10 +1141,10 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, const, s
     timings, const, slope, f_n, a_n, ph_n = out_d
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
     # construct model for errors in sines
-    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
+    model_eclipse = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2)
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)  # the linear part of the model
     model_sines = tsf.sum_sines(times, f_n, a_n, ph_n)  # the sinusoid part of the model
-    resid = signal - (model_linear + model_sines + model_ecl)
+    resid = signal - (model_linear + model_sines + model_eclipse)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
     # more stats
     n_param = 8 + 2 * len(const) + 3 * len(f_n)
@@ -1502,10 +1501,9 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     opt_i = np.arccos(opt_cosi)
     opt_r_sum = af.r_sum_sma_from_phi_0(opt_e, opt_i, opt_phi_0)
     ecl_par = (opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
-    # extract the leftover signal from the residuals
+    # extract the leftover signal from the residuals with the iterative scheme
     model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *ecl_par)
     resid_ecl = signal - model_eclipse
-    # extract all frequencies with the iterative scheme
     out_b = tsf.extract_all(times, resid_ecl, signal_err, i_sectors, verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_c = tsf.reduce_frequencies(times, resid_ecl, signal_err, 0, *out_b, i_sectors, verbose=verbose)
@@ -1513,8 +1511,8 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     # make model including everything to calculate noise level
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
-    model_ecl = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *ecl_par)
-    resid = signal - (model_lin + model_sin + model_ecl)
+    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *ecl_par)
+    resid = signal - (model_lin + model_sin + model_eclipse)
     noise_level = np.std(resid)
     # formal linear and sinusoid parameter errors
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
@@ -1536,8 +1534,8 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     # main function done, do the rest for this step
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
-    model_ecl = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
-    resid = signal - (model_lin + model_sin + model_ecl)
+    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
+    resid = signal - (model_lin + model_sin + model_eclipse)
     n_param = 2 + 6 + 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
@@ -1703,8 +1701,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     return out_6, out_7, out_8, out_9
 
 
-def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, noise_level, i_sectors, t_stats,
-                        file_name, data_id='none', overwrite=False, verbose=False):
+def frequency_selection(times, signal, model_eclipse, p_orb, const, slope, f_n, a_n, ph_n, noise_level, i_sectors,
+                        t_stats, file_name, data_id='none', overwrite=False, verbose=False):
     """Selects the credible frequencies from the given set,
     ignoring the harmonics
     
@@ -1714,7 +1712,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    model_ecl: numpy.ndarray[float]
+    model_eclipse: numpy.ndarray[float]
         Model of the eclipses at the same times
     p_orb: float
         Orbital period of the eclipsing binary in days
@@ -1774,7 +1772,7 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
     # obtain the errors on the sine waves (dependends on residual and thus model)
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
-    residuals = signal - (model_lin + model_sin + model_ecl)
+    residuals = signal - (model_lin + model_sin + model_eclipse)
     errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     # find the insignificant frequencies
@@ -1818,8 +1816,8 @@ def frequency_selection(times, signal, model_ecl, p_orb, const, slope, f_n, a_n,
     return passed_sigma, passed_snr, passed_both, passed_h
 
 
-def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n, depths, i_sectors, t_stats,
-                           file_name, data_id='none', overwrite=False, verbose=False):
+def variability_amplitudes(times, signal, model_eclipse, p_orb, const, slope, f_n, a_n, ph_n, depths, i_sectors,
+                           t_stats, file_name, data_id='none', overwrite=False, verbose=False):
     """Determine several levels of variability
 
     Parameters
@@ -1828,7 +1826,7 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    model_ecl: numpy.ndarray[float]
+    model_eclipse: numpy.ndarray[float]
         Model of the eclipses at the same times
     p_orb: float
         Orbital period of the eclipsing binary in days
@@ -1910,10 +1908,10 @@ def variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a
     model_sin_lh = tsf.sum_sines(times, f_n[low_h], a_n[low_h], ph_n[low_h])
     model_sin_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     # add models to other models
-    model_lin_ecl = model_lin + model_ecl
-    model_lin_lh_ecl = model_lin + model_sin_lh + model_ecl
-    model_lin_nh_ecl = model_lin + model_sin_nh + model_ecl
-    model_lin_sin_ecl = model_lin + model_sin + model_ecl
+    model_lin_ecl = model_lin + model_eclipse
+    model_lin_lh_ecl = model_lin + model_sin_lh + model_eclipse
+    model_lin_nh_ecl = model_lin + model_sin_nh + model_eclipse
+    model_lin_sin_ecl = model_lin + model_sin + model_eclipse
     # determine amplitudes of leftover variability
     std_1 = np.std(signal - model_lin_sin_ecl)
     std_2 = np.std(signal - model_lin_ecl)
