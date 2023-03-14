@@ -400,7 +400,8 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
         out_a = const, slope, f_n, a_n, ph_n  # return previous results
     else:
         # couple the harmonics to the period. likely removes more frequencies that need re-extracting
-        out_a = tsf.fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors)
+        out_a = tsf.fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                           verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_b = tsf.reduce_frequencies(times, signal, signal_err, p_orb, *out_a, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
