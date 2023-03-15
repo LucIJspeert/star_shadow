@@ -937,7 +937,7 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     elif (not os.path.isfile(file_name)) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print('Not enough eclipses found last time (see log)')
-        return (None,) * 4
+        return (None,) * 3
     
     if verbose:
         print(f'Measuring eclipse time points and depths.')
@@ -960,11 +960,11 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     if np.all([item is None for item in output]):
         logger.info(f'No eclipse signatures found above the noise level of {noise_level}')
         # save only indices file
-        return (None,) * 6
+        return (None,) * 3
     elif np.any([item is None for item in output]):
         logger.info('No two eclipses found passing the criteria')
         # save only indices file
-        return (None,) * 5 + (ecl_indices,)
+        return (None,) * 2 + (ecl_indices,)
     # define some errors
     t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2 + p_err**2) / 3  # this is an estimate
     t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2 + p_err**2) / 3  # this is an estimate

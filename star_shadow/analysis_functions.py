@@ -1111,7 +1111,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
-        return (None,) * 9  # No eclipse signatures found above the noise level
+        return (None,) * 8  # No eclipse signatures found above the noise level
     # 24 or fewer (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
     n_prominent = 24
     ecl_peaks = np.argsort(props['prominences'])[-n_prominent:]
@@ -1209,7 +1209,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
     # check that we have some eclipses
     if (len(ecl_indices) < 2):
-        return (None,) * 8 + (ecl_indices,)
+        return (None,) * 7 + (ecl_indices,)
     # make the timing measurement
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
     t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
@@ -1258,7 +1258,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
             comb_remove.append(i)
     combinations = np.delete(combinations, comb_remove, axis=0)
     if (len(combinations) == 0):
-        return (None,) * 8 + (ecl_indices,)
+        return (None,) * 7 + (ecl_indices,)
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
