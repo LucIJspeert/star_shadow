@@ -1949,7 +1949,7 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
         model_sinusoid_r = sum_sines(times, f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f])
         model_sinusoid_r -= sum_sines(times, np.array([f_i]), np.array([a_i]), np.array([ph_i]))
         if (len(close_f) > 1):
-            refine_out = refine_subset(times, signal, signal_err, close_f, 0, const, slope, f_n_temp, a_n_temp,
+            refine_out = refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n_temp, a_n_temp,
                                        ph_n_temp, i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
