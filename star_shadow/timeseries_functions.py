@@ -1737,7 +1737,69 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def extract_single_harmonic(times, signal, signal_err, p_orb, i_sectors, f_n=None, verbose=True):
+    """Extract the highest amplitude harmonic from the signal
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    f_n: None, numpy.ndarray[float]
+        The frequencies of a number of sine waves (can be empty or None)
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    f_h: float
+        Frequency of the extracted sinusoid
+    a_h: float
+        Amplitude of the extracted sinusoid
+    ph_h: float
+        Phase of the extracted sinusoid
+
+    Notes
+    -----
+    Looks for missing harmonics and picks the one that increases
+    the likelihood most.
+    Assumes the harmonics are already fixed multiples of 1/p_orb
+    as can be achieved with fix_harmonic_frequency.
+    """
+    if f_n is None:
+        f_n = np.array([])
+    # setup
+    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
+    # extract the existing harmonics using the period
+    if (len(f_n) > 0):
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    else:
+        harmonics, harmonic_n = np.array([], dtype=int), np.array([], dtype=int)
+    n_harm = len(harmonics)
+    # make a list of not-present possible harmonics
+    h_candidate = np.arange(1, p_orb * f_max, dtype=int)
+    h_candidate = np.delete(h_candidate, harmonic_n - 1)  # harmonic_n minus one is the position
+    # calculate the harmonic candidates
+    f_c = h_candidate / p_orb
+    a_c = scargle_ampl(times, signal, f_c)
+    ph_c = scargle_phase(times, signal, f_c)
+    ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi  # make sure the phase stays within + and - pi
+    # select the highest amplitude
+    i_best = np.argmax(a_c)
+    f_h, a_h, ph_h = f_c[i_best], a_c[i_best], ph_c[i_best]
+    return f_h, a_h, ph_h
+
+
+def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
     taking into account (and not changing the frequencies of) harmonics if present.
     
@@ -1978,7 +2040,7 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=False):
+def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=True):
     """Tries to extract more harmonics from the signal
     
     Parameters
@@ -2092,7 +2154,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n
     return const, slope, f_n, a_n, ph_n
 
 
-def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Fixes the frequency of harmonics to the theoretical value, then
     re-determines the amplitudes and phases.
 
@@ -2200,11 +2262,6 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         cur_resid -= model_sinusoid_n
     # lastly re-determine slope and const
     const, slope = linear_pars(times, cur_resid, i_sectors)
-    
-    # todo: refine subset
-    # out = refine_subset(times, signal, signal_err, non_harm, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-    #                     verbose=verbose)
-    # const, slope, f_n, a_n, ph_n = out
     if verbose:
         model_linear = linear_curve(times, const, slope, i_sectors)
         resid = cur_resid - model_linear
@@ -2216,7 +2273,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
 
 
 @nb.njit(cache=True)
-def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt the removal of individual frequencies
     
     Parameters
@@ -2318,7 +2375,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
 
 
 @nb.njit(cache=True)
-def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt the replacement of groups of frequencies by a single one
 
     Parameters
@@ -2460,7 +2517,7 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt to reduce the number of frequencies taking into account any harmonics if present.
     
     Parameters

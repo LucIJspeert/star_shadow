@@ -767,7 +767,7 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c
 
 
 @nb.njit(cache=True)
-def objective_empirical_lc(params, times, signal, signal_err, p_orb):
+def objective_empirical_lc(params, times, signal, signal_err, ecl_mask, p_orb):
     """Objective function for a set of eclipse timings
 
     Parameters
@@ -782,6 +782,8 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
         Measurement values of the time series
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
+    ecl_mask: numpy.ndarray[bool]
+        Boolean mask covering the eclipses if desired.
     p_orb: float
         Orbital period of the eclipsing binary in days
 
@@ -798,8 +800,8 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = params
     # the model
     model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-    # determine likelihood for the model
-    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)  # need minus the likelihood for minimisation
+    # determine likelihood for the model (need minus the likelihood for minimisation)
+    ln_likelihood = tsf.calc_likelihood((signal[ecl_mask] - model[ecl_mask]) / signal_err[ecl_mask])
     # make sure we don't allow impossible stuff
     if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
         return -ln_likelihood + 10**9
@@ -865,6 +867,10 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_linear + 1
+    # make a mask for the eclipses, as only the eclipses will be fitted
+    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_1, t_ext_1=0, t_ext_2=0)
+    mask = (((t_folded > t_1_1 - t_1 + p_orb) | (t_folded < t_1_2 - t_1))
+            | ((t_folded > t_2_1 - t_1) & (t_folded < t_2_2 - t_1)))
     # determine a lc offset to match the harmonic model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
     offset = 1 - (h_1 + h_2) / 2
@@ -876,7 +882,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, const, slop
     par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2])
     par_bounds = ((t_1_1, t_1_2), (t_2_1, t_2_2), (t_1_1 - dur_1, t_1_2), (t_2_1 - dur_2, t_2_2),
                   (t_b_1_1 - dur_1, t_1_2), (t_b_2_1 - dur_2, t_2_2), (0, None), (0, None))
-    args = (times, ecl_signal + offset, signal_err, p_orb)
+    args = (times, ecl_signal + offset, signal_err, mask, p_orb)
     result = sp.optimize.minimize(objective_empirical_lc, par_init, args=args, method='nelder-mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2 = result.x
