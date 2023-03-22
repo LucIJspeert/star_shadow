@@ -1042,7 +1042,7 @@ def height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2):
     
     Time measurements all need to be with respect to the phase zero point
     (the mean time).
-    """
+    """# todo: remove use
     # calculate the harmonic model at the eclipse time points
     t_model = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
     model_h = 1 + tsf.sum_sines(t_model, f_h, a_h, ph_h, t_shift=False)
@@ -2578,6 +2578,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+        t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     
@@ -2602,7 +2603,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     psi_0: Auxiliary angle like phi_0 but for the eclipse bottoms
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
-    args_i = (p_orb, *timings_tau[:6], depths[0], depths[1], *timings_err, *depths_err)
+    args_i = (p_orb, *timings_tau[:6], depths[0], depths[1], *timings_err[:6], *depths_err)
     bounds_i = (np.pi / 4, np.pi / 2)
     res = sp.optimize.minimize_scalar(objective_inclination, args=args_i, method='bounded', bounds=bounds_i)
     i = res.x
@@ -2626,7 +2627,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err):
     # prepare for fit of: ecosw, esinw, i, r_sum_sma and r_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     par_init = (ecosw, esinw, i, r_sum_sma, 1)
-    args_ep = (p_orb, *timings_tau, *depths, *timings_err, *depths_err)
+    args_ep = (p_orb, *timings_tau, *depths, *timings_err[:6], *depths_err)
     bounds_ep = ((-1, 1), (-1, 1), (np.pi / 8, np.pi / 2), (0, 1), rr_bounds)
     res = sp.optimize.minimize(objective_ecl_param, par_init, args=args_ep, method='nelder-mead', bounds=bounds_ep)
     ecosw, esinw, i, r_sum_sma, r_ratio = res.x
@@ -2780,7 +2781,8 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
         Error in the orbital period
     timings_err: numpy.ndarray[float]
         Error estimates for the eclipse timings,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+        t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
     p_t_corr: float
@@ -2811,7 +2813,8 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     depth_1, depth_2 = depths
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
+    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = timings_err[6:]
     depth_1_err, depth_2_err = depths_err
     # generate input distributions
     rng = np.random.default_rng()

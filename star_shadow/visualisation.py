@@ -479,15 +479,17 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, f_he, a_he, ph_he, ecl_indices, s
 
 
 def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope, f_n, a_n, ph_n, timings_em, depths_em,
-                            timings_err, depths_err, i_sectors, save_file=None, show=True):
+                            heights_em, timings_err, depths_err, i_sectors, save_file=None, show=True):
     """Shows the initial and final simple empirical cubic function eclipse model
     """
     # unpack/define parameters
     t_zero_init = timings[0]
     t_zero = timings_em[0]
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings_em
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
+    t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[6:]
     depth_1, depth_2 = depths_em
+    h_1, h_2 = heights_em
     depth_1_err, depth_2_err = depths_err
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
@@ -508,9 +510,10 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     mid_1 = (timings[2] + timings[3]) / 2
     mid_2 = (timings[4] + timings[5]) / 2
     model_ecl_init = tsfit.eclipse_empirical_lc(times, p_orb, mid_1, mid_2, timings[2], timings[4],
-                                                timings[6], timings[8], depths[0], depths[1])
+                                                timings[6], timings[8], depths[0], depths[1], 1, 1)
     model_ecl_init = np.concatenate((model_ecl_init[ext_left], model_ecl_init, model_ecl_init[ext_right]))
-    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2)
+    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2,
+                                           h_1, h_2)
     model_ecl = np.concatenate((model_ecl[ext_left], model_ecl, model_ecl[ext_right]))
     model_ecl_sin_lin = model_ecl + model_sinusoid + model_linear
     # residuals
@@ -537,10 +540,10 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
-    ax[0].plot([t_1_1, t_1_2], [1, 1], '--', c='tab:purple')
-    ax[0].plot([t_1_1, t_1_2], [1 - depth_1, 1 - depth_1], '--', c='tab:purple')
-    ax[0].plot([t_2_1, t_2_2], [1, 1], '--', c='tab:purple')
-    ax[0].plot([t_2_1, t_2_2], [1 - depth_2, 1 - depth_2], '--', c='tab:purple')
+    ax[0].plot([t_1_1, t_1_2], [h_1, h_1], '--', c='tab:purple')
+    ax[0].plot([t_1_1, t_1_2], [h_1 - depth_1, h_1 - depth_1], '--', c='tab:purple')
+    ax[0].plot([t_2_1, t_2_2], [h_2, h_2], '--', c='tab:purple')
+    ax[0].plot([t_2_1, t_2_2], [h_2 - depth_2, h_2 - depth_2], '--', c='tab:purple')
     # 1 sigma errors
     ax[0].fill_between([t_1_1 - t_1_1_err, t_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3, label=r'1 and 3 $\sigma$ error')
@@ -550,10 +553,10 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
                        color='tab:purple', alpha=0.3)
     ax[0].fill_between([t_2_2 - t_2_2_err, t_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_1_1, t_1_2], y1=[1 - depth_1 + depth_1_err, 1 - depth_1 + depth_1_err],
-                       y2=[1 - depth_1 - depth_1_err, 1 - depth_1 - depth_1_err], color='tab:purple', alpha=0.3)
-    ax[0].fill_between([t_2_1, t_2_2], y1=[1 - depth_2 + depth_2_err, 1 - depth_2 + depth_2_err],
-                       y2=[1 - depth_2 - depth_2_err, 1 - depth_2 - depth_2_err], color='tab:purple', alpha=0.3)
+    ax[0].fill_between([t_1_1, t_1_2], y1=[h_1 - depth_1 + depth_1_err, h_1 - depth_1 + depth_1_err],
+                       y2=[h_1 - depth_1 - depth_1_err, h_1 - depth_1 - depth_1_err], color='tab:purple', alpha=0.3)
+    ax[0].fill_between([t_2_1, t_2_2], y1=[h_2 - depth_2 + depth_2_err, h_2 - depth_2 + depth_2_err],
+                       y2=[h_2 - depth_2 - depth_2_err, h_2 - depth_2 - depth_2_err], color='tab:purple', alpha=0.3)
     # 3 sigma errors
     ax[0].fill_between([t_1_1 - 3 * t_1_1_err, t_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
@@ -563,11 +566,11 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
                        color='tab:purple', alpha=0.2)
     ax[0].fill_between([t_2_2 - 3 * t_2_2_err, t_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_1_1, t_1_2], y1=[1 - depth_1 + 3 * depth_1_err, 1 - depth_1 + 3 * depth_1_err],
-                       y2=[1 - depth_1 - 3 * depth_1_err, 1 - depth_1 - 3 * depth_1_err],
+    ax[0].fill_between([t_1_1, t_1_2], y1=[h_1 - depth_1 + 3 * depth_1_err, h_1 - depth_1 + 3 * depth_1_err],
+                       y2=[h_1 - depth_1 - 3 * depth_1_err, h_1 - depth_1 - 3 * depth_1_err],
                        color='tab:purple', alpha=0.2)
-    ax[0].fill_between([t_2_1, t_2_2], y1=[1 - depth_2 + 3 * depth_2_err, 1 - depth_2 + 3 * depth_2_err],
-                       y2=[1 - depth_2 - 3 * depth_2_err, 1 - depth_2 - 3 * depth_2_err],
+    ax[0].fill_between([t_2_1, t_2_2], y1=[h_2 - depth_2 + 3 * depth_2_err, h_2 - depth_2 + 3 * depth_2_err],
+                       y2=[h_2 - depth_2 - 3 * depth_2_err, h_2 - depth_2 - 3 * depth_2_err],
                        color='tab:purple', alpha=0.2)
     # flat bottom
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1):
