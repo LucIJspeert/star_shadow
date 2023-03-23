@@ -1112,7 +1112,9 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings
     timings_init = timings_init - timings_init[0]
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings - t_zero
     # make the model times array, one full period plus the primary eclipse halves
-    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_1_1, t_ext_2=t_1_2)
+    t_ext_l = min(t_1_1, timings_init[2])
+    t_ext_r = max(t_1_2, timings_init[3])
+    t_extended, ext_left, ext_right = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=t_ext_l, t_ext_2=t_ext_r)
     s_extended = np.concatenate((signal[ext_left], signal, signal[ext_right]))
     sorter = np.argsort(t_extended)
     # sinusoid and linear models
@@ -1151,8 +1153,8 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings
     ax[0].scatter(t_extended, s_extended, marker='.', label='original signal')
     ax[0].plot(t_extended[sorter], model_ecl_sin_lin[sorter], c='tab:grey', alpha=0.8,
                label='(linear + sinusoid + eclipse) model')
-    ax[0].plot(t_extended[sorter], model_ecl_init[sorter], c='tab:orange', label='initial eclipse model')
-    ax[0].plot(t_extended[sorter], model_ecl_2[sorter], c='tab:red', label='eclipse model')
+    ax[0].plot(t_extended[sorter], model_ecl_init[sorter], c='tab:orange', label='initial physical eclipse model')
+    ax[0].plot(t_extended[sorter], model_ecl_2[sorter], c='tab:red', label='final physical eclipse model')
     ax[0].plot([timings_init[2], timings_init[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges (cubics)')
     ax[0].plot([timings_init[3], timings_init[3]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings_init[4], timings_init[4]], s_minmax, ':', c='tab:grey')
@@ -1208,7 +1210,7 @@ def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, noise_level, const_
     f_c, f_s = e**0.5 * np.cos(w), e**0.5 * np.sin(w)
     # make the ellc model
     if (model == 'ellc'):
-        ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat, 0)
+        ecl_model = tsfit.wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat)
     else:
         ecl_model = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     ecl_resid = signal - ecl_model

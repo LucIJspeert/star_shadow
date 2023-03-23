@@ -1577,14 +1577,14 @@ def save_summary(target_id, save_dir, data_id='none'):
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis_5.hdf5')
     if os.path.isfile(file_name_5):
         results = read_parameters_hdf5(file_name_5, verbose=False)
-        p_orb, _, _, _, _, _, _, _, _, _, _, _ = results['phys_mean']
-        p_err, _, _, _, _, _, _, _, _, _, _, _ = results['phys_err']
+        p_orb, _ = results['ephem']
+        p_err, _ = results['ephem_err']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         prew_par = [p_orb, p_err, n_param, bic, noise_level]
     elif os.path.isfile(file_name_3):
         results = read_parameters_hdf5(file_name_3, verbose=False)
-        p_orb, _, _, _, _, _, _, _, _, _, _, _ = results['phys_mean']
-        p_err, _, _, _, _, _, _, _, _, _, _, _ = results['phys_err']
+        p_orb, _ = results['ephem']
+        p_err, _ = results['ephem_err']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         prew_par = [p_orb, p_err, n_param, bic, noise_level]
     # load timing results (7)
@@ -1598,10 +1598,10 @@ def save_summary(target_id, save_dir, data_id='none'):
     file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        _, _, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
-        _, _, sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum = results['phys_err']
-        _, _, ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:8]
-        e_err, w_err, i_err, r_sum_err = results['phys_hdi'][8:]
+        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
+        sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum = results['phys_err']
+        ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
+        e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
         elem = [e, e_err[1], e_err[0], sigma_e, w, w_err[1], w_err[0], sigma_w, i, i_err[1], i_err[0],
                 r_sum, r_sum_err[1], r_sum_err[0], sigma_r_sum, r_rat, r_rat_err[1], r_rat_err[0],
                 sb_rat, sb_rat_err[1], sb_rat_err[0]]
@@ -1610,7 +1610,8 @@ def save_summary(target_id, save_dir, data_id='none'):
     file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        _, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
+        _, t_zero = results['ephem']
+        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         fit_par = [e, w, i, r_sum, r_rat, sb_rat, n_param, bic, noise_level]
     # include n_freqs/n_freqs_passed (10)

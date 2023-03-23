@@ -1360,9 +1360,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out
 
 
-def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings, ecl_par, const, slope, f_n, a_n, ph_n,
-                               t_zero_err, phys_err, i_sectors, t_stats, file_name, data_id='none', overwrite=False,
-                               verbose=False):
+def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
+                               t_zero_err, phys_err, i_sectors, t_stats, file_name, method='sampler', data_id='none',
+                               overwrite=False, verbose=False):
     """Optimise the parameters of the physical eclipse, sinusoid and linear model
 
     Parameters
@@ -1377,9 +1377,6 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of the deepest minimum with respect to the mean time
-    timings: numpy.ndarray[float]
-        Eclipse timings: minima, first/last contact points, internal tangency and depths,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     ecl_par: numpy.ndarray[float]
         Initial eclipse parameters to start the fit, consisting of:
         e, w, i, r_sum, r_rat, sb_rat
@@ -1409,6 +1406,8 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    method: str
+        Method of optimization. Can be 'sampler' or 'fitter'.
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1463,7 +1462,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     e = min(e, 0.999)  # prevent unbound orbits
     phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
     par_init = (e * np.cos(w), e * np.sin(w), np.cos(i), phi_0, r_rat, sb_rat)
-    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, timings[:6], const, slope, f_n, a_n,
+    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n,
                                        ph_n, par_init, i_sectors, verbose=verbose)
     # get e, w, i, phi_0 from fitting parameters
     opt_ecosw, opt_esinw, opt_cosi, opt_phi_0, opt_r_rat, opt_sb_rat = out_a
@@ -1492,10 +1491,20 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
     f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
     # Monte Carlo sampling of full model
-    out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
-                                        t_zero_err, phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level,
-                                        i_sectors, verbose=verbose)
-    inf_data, par_mean, par_hdi = out_d
+    inf_data, par_mean, sin_hdi, phys_hdi = None, None, None, None
+    if method == 'fitter':
+        f_groups = af.chains_within_rayleigh(f_n, 1.5 / t_tot)
+        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope,
+                                                       f_n, a_n, ph_n, i_sectors, f_groups, model='simple',
+                                                       verbose=verbose)
+        par_mean = list(out_d[:5]) + [*out_d[5]]
+    else:
+        out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
+                                            t_zero_err, phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
+                                            noise_level, i_sectors, verbose=verbose)
+        inf_data, par_mean, par_hdi = out_d
+        sin_hdi = par_hdi[:5]
+        phys_hdi = np.array(par_hdi[5:])
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
@@ -1515,11 +1524,9 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
-    sin_hdi = par_hdi[:5]
     ephem = np.array([p_orb, t_zero])
     ephem_err = np.array([p_err, t_err])
     phys_mean = np.array([ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum])
-    phys_hdi = par_hdi[5:]
     timings = np.append(timings, depths)
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
     desc = 'Optimised linear + sinusoid + eclipse model.'
@@ -1537,8 +1544,8 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, timings
     return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
-def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, data_id='none',
-                     overwrite=False, verbose=False):
+def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, method='sampler',
+                     data_id='none', overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
 
@@ -1564,6 +1571,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    method: str
+        Method of optimization. Can be 'sampler' or 'fitter'.
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1664,9 +1673,9 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [9] --- Optimise elements with physical model
     # --------------------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
-    out_9 = optimise_physical_elements(times, signal, signal_err, p_orb_5, timings_7[0], timings_7, ecl_par_8,
-                                        const_5, slope_5, f_n_5, a_n_5, ph_n_5, timings_err_7[0], phys_err_8, i_sectors,
-                                        t_stats, file_name, **arg_dict)
+    out_9 = optimise_physical_elements(times, signal, signal_err, p_orb_5, timings_7[0], ecl_par_8, const_5, slope_5,
+                                       f_n_5, a_n_5, ph_n_5, timings_err_7[0], phys_err_8, i_sectors, t_stats,
+                                       file_name, method=method, **arg_dict)
     return out_6, out_7, out_8, out_9
 
 
@@ -1772,7 +1781,7 @@ def frequency_selection(times, signal, model_eclipse, p_orb, const, slope, f_n, 
     if verbose:
         print(f'\033[1;32;48mNon-harmonic frequencies selected.\033[0m')
         print(f'\033[0;32;48mNumber of frequencies passed: {np.sum(passed_both)} of {len(f_n)}. '
-              f'Candidate harmonics: {np.sum(passed_h)}. Time taken: {t_b - t_a:1.1f}s\033[0m\n')
+              f'Candidate harmonics: {np.sum(passed_h)}. \nTime taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_sigma, passed_snr, passed_both, passed_h
 
 
@@ -2157,7 +2166,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
                                 **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 5):
-        out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
+        out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, method=method, **kw_args)
         if not np.any([item is None for item in out_b]):
             out_c = analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
     # create summary file
