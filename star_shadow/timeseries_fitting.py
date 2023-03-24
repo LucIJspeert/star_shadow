@@ -781,7 +781,7 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c
 
 
 @nb.njit(cache=True)
-def objective_empirical_lc(params, times, signal, signal_err, p_orb, ecl_mask=None):
+def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     """Objective function for a set of eclipse timings
 
     Parameters
@@ -810,14 +810,12 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb, ecl_mask=No
     --------
     eclipse_cubics_model
     """
-    if ecl_mask is None:
-        ecl_mask = np.ones(len(times), dtype=np.bool_)
     # midpoints, l.h.s. cubic time points, depths, height adjustments
     mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = params
     # the model
     model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2)
     # determine likelihood for the model (need minus the likelihood for minimisation)
-    ln_likelihood = tsf.calc_likelihood((signal[ecl_mask] - model[ecl_mask]) / signal_err[ecl_mask])
+    ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)
     # make sure we don't allow impossible stuff
     if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
         return -ln_likelihood + 10**9
