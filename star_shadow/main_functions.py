@@ -601,7 +601,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     inf_data, par_mean, sin_hdi, ephem_hdi = None, None, None, None
     if method == 'fitter':
         par_mean = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, const, slope,
-                                                                 f_n, a_n, ph_n, i_sectors, verbose=verbose)
+                                                                f_n, a_n, ph_n, i_sectors, verbose=verbose)
     else:
         # make model including everything to calculate noise level
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1087,8 +1087,8 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
         print(f'Optimisation of empirical model and sinusoids')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # fit for the cubic model parameters with fixed sinusoids
-    out_a = tsfit.fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err, const, slope,
-                                        f_n, a_n, ph_n, i_sectors, verbose=verbose)
+    out_a = tsfit.fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err, i_sectors,
+                                        verbose=verbose)
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2, h_1, h_2 = out_a
     heights = np.array([h_1, h_2])
     # extract the leftover signal from the residuals with the iterative scheme
@@ -1454,10 +1454,9 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         print(f'Starting multi-sine NL-LS optimisation with physical eclipse model.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # convert some parameters and fit initial physical model
-    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n,
-                                       ph_n, ecl_par, i_sectors, verbose=verbose)
+    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, ecl_par, i_sectors, verbose=verbose)
     # extract the leftover signal from the residuals with the iterative scheme
-    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a)
+    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a[:6])
     resid_ecl = signal - model_eclipse
     out_b = tsf.extract_sinusoids(times, resid_ecl, signal_err, i_sectors, verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
@@ -1477,11 +1476,11 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     # Monte Carlo sampling of full model
     inf_data, par_mean, sin_hdi, phys_hdi = None, None, None, None
     if method == 'fitter':
-        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a, const, slope,
+        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
                                                     f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
         par_mean = list(out_d[:5]) + [*out_d[5:]]
     else:
-        out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a, const, slope, f_n, a_n, ph_n,
+        out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a[:6], const, slope, f_n, a_n, ph_n,
                                             t_zero_err, phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
                                             noise_level, i_sectors, verbose=verbose)
         inf_data, par_mean, par_hdi = out_d

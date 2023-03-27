@@ -890,6 +890,7 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals = dists_in[:7]
     t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals = dists_in[7:]
     e_vals, w_vals, i_vals, r_sum_vals, r_rat_vals, sb_rat_vals = dists_out
+    good_val = (e_vals != 1)
     # for if the w-distribution crosses over at 2 pi
     if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_vals = np.copy(w_vals)
@@ -906,7 +907,8 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     ecosw_vals = e_vals * np.cos(w_vals)
     esinw_vals = e_vals * np.sin(w_vals)
     cosi_vals = np.cos(i_vals)
-    phi_0_vals = af.phi_0_from_r_sum_sma(e, i, r_sum_vals)
+    phi_0_vals = af.phi_0_from_r_sum_sma(e_vals, i_vals, r_sum_vals)
+    good_val &= np.isfinite(phi_0_vals)
     # input corner plot
     value_names = np.array([r'$p_{orb}$', r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
                             r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
@@ -914,7 +916,7 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     dist_data = np.column_stack((p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals,
                                  t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
-    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    nonzero_range = (value_range != 0) & np.isfinite(value_range)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], truths=values[nonzero_range],
                         labels=value_names[nonzero_range], quiet=True)
     if not np.all(nonzero_range):
@@ -935,9 +937,10 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
         plt.close()
     # output distributions corner plot
     value_names = np.array(['e cos(w)', 'e sin(w)', 'cos(i)', 'phi_0', r'$\frac{r_2}{r_1}$', r'$\frac{sb_2}{sb_1}$'])
-    dist_data = np.column_stack((ecosw_vals, esinw_vals, cosi_vals, phi_0_vals, r_rat_vals, sb_rat_vals))
+    dist_data = np.column_stack((ecosw_vals[good_val], esinw_vals[good_val], cosi_vals[good_val],
+                                 phi_0_vals[good_val], r_rat_vals[good_val], sb_rat_vals[good_val]))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
-    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    nonzero_range = (value_range != 0) & np.isfinite(value_range)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
     corner.overplot_lines(fig, ecl_par_a[nonzero_range], color='tab:blue')
     corner.overplot_points(fig, [ecl_par_a[nonzero_range]], marker='s', color='tab:blue')
@@ -957,7 +960,7 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
                             r'$\frac{sb_2}{sb_1}$'])
     dist_data = np.column_stack((e_vals, w_vals * r2d, i_vals * r2d, r_sum_vals, r_rat_vals, sb_rat_vals))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
-    nonzero_range = (value_range != 0) & (value_range != np.inf)  # nonzero and finite
+    nonzero_range = (value_range != 0) & np.isfinite(value_range)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
     corner.overplot_lines(fig, ecl_par_b[nonzero_range], color='tab:blue')
     corner.overplot_points(fig, [ecl_par_b[nonzero_range]], marker='s', color='tab:blue')
