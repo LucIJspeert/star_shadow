@@ -263,7 +263,7 @@ def get_tess_sectors(times, bjd_ref=2457000.0):
     """
     # the 0.5 offset comes from test results, and the fact that no exact JD were found (just calendar days)
     script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
-    data_dir = script_dir.replace('star_shadow/star_shadow', 'star_shadow/data')
+    data_dir = script_dir.replace('star_shadow', 'data')
     jd_sectors = np.loadtxt(os.path.join(data_dir, 'tess_sectors.dat'), usecols=(2, 3)) - bjd_ref
     # use a quick searchsorted to get the positions of the sector transitions
     i_start = np.searchsorted(times, jd_sectors[:, 0])
@@ -520,7 +520,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
 
 
 def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
-    """Groups frequencies into sets of 10 to 15 for multi-sine fitting
+    """Groups frequencies into sets of g_min to g_max for multi-sine fitting
     
     Parameters
     ----------
@@ -806,9 +806,11 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
     if sin_mean is None:
         sin_mean = [np.zeros(1) for _ in range(5)]
     if sin_err is None:
-        sin_err = [np.zeros(1) for _ in range(5)]
+        sin_err = [np.zeros(len(sin_mean[0])) for _ in range(2)]
+        sin_err += [np.zeros(len(sin_mean[2])) for _ in range(3)]
     if sin_hdi is None:
-        sin_hdi = [np.zeros((1, 2)) for _ in range(5)]
+        sin_hdi = [np.zeros((len(sin_mean[0]), 2)) for _ in range(2)]
+        sin_hdi += [np.zeros((len(sin_mean[2]), 2)) for _ in range(3)]
     if sin_select is None:
         sin_select = [np.ones(len(sin_mean[2]), dtype=bool) for _ in range(3)]
     if ephem is None:

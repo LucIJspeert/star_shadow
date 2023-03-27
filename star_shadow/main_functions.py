@@ -182,9 +182,8 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     # use the chosen optimisation method
     inf_data, par_mean, par_hdi = None, None, None
     if method == 'fitter':
-        f_groups = af.chains_within_rayleigh(f_n, freq_res)
         par_mean = tsfit.fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a_n, ph_n,
-                                                       i_sectors, f_groups, verbose=verbose)
+                                                       i_sectors, verbose=verbose)
     else:
         # make model including everything to calculate noise level
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
@@ -598,13 +597,11 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     if verbose:
         print(f'Starting multi-sine NL-LS optimisation with harmonics.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
-    freq_res = 1.5 / t_tot  # Rayleigh criterion
     # use the chosen optimisation method
-    inf_data, par_mean, par_hdi = None, None, [None, None]
+    inf_data, par_mean, sin_hdi, ephem_hdi = None, None, None, None
     if method == 'fitter':
-        f_groups = af.chains_within_rayleigh(f_n, freq_res)
-        par_mean = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, const, slope, 
-                                                                 f_n, a_n, ph_n, i_sectors, f_groups, verbose=verbose)
+        par_mean = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, const, slope,
+                                                                 f_n, a_n, ph_n, i_sectors, verbose=verbose)
     else:
         # make model including everything to calculate noise level
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
@@ -622,6 +619,8 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
         output = mcf.sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err, c_err, sl_err,
                                        f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=verbose)
         inf_data, par_mean, par_hdi = output
+        sin_hdi = par_hdi[1:]
+        ephem_hdi = np.array([par_hdi[0], [-1, -1]])
     p_orb, const, slope, f_n, a_n, ph_n = par_mean
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -637,10 +636,8 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
-    sin_hdi = par_hdi[1:]
     ephem = np.array([p_orb, -1])
     ephem_err = np.array([p_err, -1])
-    ephem_hdi = np.array([par_hdi[0], [-1, -1]])
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
     desc = 'Multi-sine NL-LS optimisation results with coupled harmonics.'
     ut.save_parameters_hdf5(file_name, sin_mean=sin_mean, sin_err=sin_err, sin_hdi=sin_hdi, ephem=ephem,
@@ -1103,9 +1100,8 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
     out_c = tsf.reduce_frequencies(times, resid_ecl, signal_err, 0, *out_b, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
     # fit for the cubic model parameters simultaneously with sinusoids
-    f_groups = ut.group_frequencies_for_fit(out_c[3], g_min=10, g_max=15)
     out_d = tsfit.fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, out_a[:12], heights, *out_c,
-                                                  i_sectors, f_groups, verbose=verbose)
+                                                  i_sectors, verbose=verbose)
     cubic_pars, const, slope, f_n, a_n, ph_n = out_d
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2, h_1, h_2 = cubic_pars
     timings = cubic_pars[:12]
@@ -1458,21 +1454,10 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         print(f'Starting multi-sine NL-LS optimisation with physical eclipse model.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # convert some parameters and fit initial physical model
-    e, w, i, r_sum, r_rat, sb_rat = ecl_par
-    e = min(e, 0.999)  # prevent unbound orbits
-    phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
-    par_init = (e * np.cos(w), e * np.sin(w), np.cos(i), phi_0, r_rat, sb_rat)
     out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, const, slope, f_n, a_n,
-                                       ph_n, par_init, i_sectors, verbose=verbose)
-    # get e, w, i, phi_0 from fitting parameters
-    opt_ecosw, opt_esinw, opt_cosi, opt_phi_0, opt_r_rat, opt_sb_rat = out_a
-    opt_e = np.sqrt(opt_ecosw**2 + opt_esinw**2)
-    opt_w = np.arctan2(opt_esinw, opt_ecosw) % (2 * np.pi)
-    opt_i = np.arccos(opt_cosi)
-    opt_r_sum = af.r_sum_sma_from_phi_0(opt_e, opt_i, opt_phi_0)
-    ecl_par = (opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
+                                       ph_n, ecl_par, i_sectors, verbose=verbose)
     # extract the leftover signal from the residuals with the iterative scheme
-    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *ecl_par)
+    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a)
     resid_ecl = signal - model_eclipse
     out_b = tsf.extract_sinusoids(times, resid_ecl, signal_err, i_sectors, verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
@@ -1481,7 +1466,6 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     # make model including everything to calculate noise level
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
-    model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *ecl_par)
     resid = signal - (model_lin + model_sin + model_eclipse)
     noise_level = np.std(resid)
     # formal linear and sinusoid parameter errors
@@ -1493,13 +1477,11 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     # Monte Carlo sampling of full model
     inf_data, par_mean, sin_hdi, phys_hdi = None, None, None, None
     if method == 'fitter':
-        f_groups = af.chains_within_rayleigh(f_n, 1.5 / t_tot)
-        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope,
-                                                       f_n, a_n, ph_n, i_sectors, f_groups, model='simple',
-                                                       verbose=verbose)
-        par_mean = list(out_d[:5]) + [*out_d[5]]
+        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a, const, slope,
+                                                    f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
+        par_mean = list(out_d[:5]) + [*out_d[5:]]
     else:
-        out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
+        out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a, const, slope, f_n, a_n, ph_n,
                                             t_zero_err, phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
                                             noise_level, i_sectors, verbose=verbose)
         inf_data, par_mean, par_hdi = out_d
@@ -2135,6 +2117,8 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
         previous analysis results.
     method: str
         Method of optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives better error estimates and more accurate results
+        Fitter can be much faster on large datasets but compromises on accuracy
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -2177,7 +2161,8 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     return None
 
 
-def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id='none', overwrite=False, verbose=False):
+def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='sampler', data_id='none', overwrite=False,
+                      verbose=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
@@ -2194,6 +2179,10 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id='none', overwr
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
+    method: str
+        Method of optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives better error estimates and more accurate results
+        Fitter can be much faster on large datasets but compromises on accuracy
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -2219,12 +2208,13 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, data_id='none', overwr
         i_sectors = np.array([[0, len(times)]])  # no sector information
     i_half_s = i_sectors  # in this case no differentiation between half or full sectors
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, target_id, save_dir, data_id=data_id,
+    analyse_eb(times, signal, signal_err, p_orb, i_half_s, target_id, save_dir, method=method, data_id=data_id,
                overwrite=overwrite, verbose=verbose)
     return None
 
 
-def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id='none', overwrite=False, verbose=False):
+def analyse_from_tic(tic, all_files, p_orb=0, method='sampler', data_id='none', save_dir=None, overwrite=False,
+                     verbose=False):
     """Do all steps of the analysis for a given TIC number
     
     Parameters
@@ -2237,11 +2227,15 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id='none', ove
         with the corresponding TIC number are selected.
     p_orb: float
         Orbital period of the eclipsing binary in days
+    method: str
+        Method of optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives better error estimates and more accurate results
+        Fitter can be much faster on large datasets but compromises on accuracy
+    data_id: int, str
+        Identification for the dataset used
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
-    data_id: int, str
-        Identification for the dataset used
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
@@ -2259,7 +2253,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, save_dir=None, data_id='none', ove
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, tic, save_dir, data_id=data_id,
+    analyse_eb(times, signal, signal_err, p_orb, i_half_s, tic, save_dir, method=method, data_id=data_id,
                overwrite=overwrite, verbose=verbose)
     return None
 
