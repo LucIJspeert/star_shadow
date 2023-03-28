@@ -1601,7 +1601,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
     out_6 = find_eclipse_timings(times, p_orb_5, f_n_5, a_n_5, ph_n_5, p_err_5, noise_level_5, file_name, **arg_dict)
     timings_6, timings_err_6, ecl_indices_6 = out_6
-    if np.any([item is None for item in out_6]) | (depths_6[0] <= 0) | (depths_6[1] <= 0):
+    if np.any([item is None for item in out_6]):
         return (None,) * 4  # could not find eclipses for some reason
     elif (timings_6[10] <= 0) | (timings_6[11] <= 0):
         return (None,) * 4  # negative depths
