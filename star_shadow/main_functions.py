@@ -1932,7 +1932,7 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the eclipse depths
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
     if not os.path.isfile(file_name):
         if verbose:
             print('No frequency analysis results found')
