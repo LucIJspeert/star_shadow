@@ -1617,7 +1617,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
         Updated phases of a number of sine waves
     res_ecl_par: numpy.ndarray[float]
         Updated eclipse parameters, consisting of:
-        ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, e, w, i, r_sum_sma
+        ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, e, w, i, r_sum
 
     Notes
     -----
@@ -1683,13 +1683,13 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
             e = np.sqrt(ecosw**2 + esinw**2)
             w = np.arctan2(esinw, ecosw) % (2 * np.pi)
             i = np.arccos(cosi)
-            r_sum_sma = af.r_sum_sma_from_phi_0(e, i, phi_0)
+            r_sum = af.r_sum_sma_from_phi_0(e, i, phi_0)
             if (model is 'ellc'):
                 f_c = res_ecl_par[0] / np.sqrt(e)
                 f_s = res_ecl_par[1] / np.sqrt(e)
-                model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
+                model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat)
             else:
-                model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio)
+                model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
             resid_new = signal - (model_linear + model_sinusoid + model_ecl)
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
             print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}. N_iter: {output.nit}.')
@@ -1698,6 +1698,6 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
     e = np.sqrt(ecosw**2 + esinw**2)
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     i = np.arccos(cosi)
-    r_sum_sma = af.r_sum_sma_from_phi_0(e, i, phi_0)
+    r_sum = af.r_sum_sma_from_phi_0(e, i, phi_0)
     res_ecl_par = np.array([ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum])
     return res_const, res_slope, res_freqs, res_ampls, res_phases, res_ecl_par
