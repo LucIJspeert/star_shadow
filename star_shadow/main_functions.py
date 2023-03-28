@@ -905,15 +905,20 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
     # we use the lowest harmonics
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
+    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
     output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
-    # if at first we don't succeed, try all harmonics
+    # if at first we don't succeed, try more harmonics
     if np.any([item is None for item in output]):
-        output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+        low_h = (harmonic_n <= 40)  # restrict harmonics to avoid interference of high frequencies
+        output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
         t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
+        # if still we don't succeed, try all harmonics
+        if np.any([item is None for item in output]):
+            output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+            t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
     if np.all([item is None for item in output]):
