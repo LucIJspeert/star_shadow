@@ -1483,7 +1483,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     if method == 'fitter':
         out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
                                                     f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
-        par_mean = list(out_d[:5]) + [*out_d[5:]]
+        par_mean = list(out_d[:5]) + [*out_d[5]]
     else:
         out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a[:6], const, slope, f_n, a_n, ph_n,
                                             t_zero_err, phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err,
