@@ -263,66 +263,6 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     return periods, pd_all
 
 
-def noise_spectrum(times, signal, window_width=1.):
-    """Calculate the noise spectrum by a convolution with a flat window of a certain width.
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    window_width: float
-        The width of the window used to compute the noise spectrum,
-        in inverse unit of the times array (i.e. 1/d if time is in d).
-
-    Returns
-    -------
-    noise: numpy.ndarray[float]
-        The noise spectrum in the frequency interval of the periodogram,
-        in the same units as ampls.
-    """
-    # calculate the periodogram
-    freqs, ampls = astropy_scargle(times, signal)  # use defaults to get full amplitude spectrum
-    # determine the number of points to extend the spectrum with for convolution
-    n_points = int(np.ceil(window_width / np.abs(freqs[1] - freqs[0])))  # .astype(int)
-    window = np.full(n_points, 1 / n_points)
-    # extend the array with mirrors for convolution
-    ext_ampls = np.concatenate((ampls[(n_points - 1)::-1], ampls, ampls[:-(n_points + 1):-1]))
-    ext_noise = np.convolve(ext_ampls, window, 'same')
-    # cut back to original interval
-    noise = ext_noise[n_points:-n_points]
-    # extra correction to account for convolve mode='full' instead of 'same' (needed for JIT-ting)
-    # noise = noise[n_points//2 - 1:-n_points//2]
-    return noise
-
-
-def noise_at_freq(fs, times, signal, window_width=0.5):
-    """Calculate the noise at a given set of frequencies
-    
-    Parameters
-    ----------
-    fs: numpy.ndarray[float]
-        The frequencies at which to calculate the noise
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    window_width: float
-        The width of the window used to compute the noise spectrum,
-        in inverse unit of the times array (i.e. 1/d if time is in d).
-
-    Returns
-    -------
-    noise: numpy.ndarray[float]
-        The noise level calculated from a window around the frequency in the periodogram
-    """
-    freqs, ampls = astropy_scargle(times, signal)  # use defaults to get full amplitude spectrum
-    margin = window_width / 2
-    noise = np.array([np.average(ampls[(freqs > f - margin) & (freqs <= f + margin)]) for f in fs])
-    return noise
-
-
 # @nb.njit()  # not sped up (in this form)
 def spectral_window(times, freqs):
     """Computes the modulus square of the spectral window W_N(f) of a set of
