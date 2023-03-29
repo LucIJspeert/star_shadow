@@ -1875,7 +1875,6 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         timings_9, depths_9 = results['timings'][:10], results['timings'][10:]
         t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = results['stats']
         ecl_par_9 = np.array([e_9, w_9, i_9, r_sum_9, r_rat_9, sb_rat_9])
-        inf_data_9 = read_inference_data(file_name)
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
     if os.path.isfile(file_name_mc):

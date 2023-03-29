@@ -239,19 +239,18 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     # determine a lc offset to match the model at the edges
     h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
-    offset = 1 - (h_1 + h_2) / 2
     # some plotting parameters
-    h_top_1 = h_1 + offset
-    h_top_2 = h_2 + offset
-    h_bot_1 = h_1 - depths[0] + offset
-    h_bot_2 = h_2 - depths[1] + offset
+    h_top_1 = h_1
+    h_top_2 = h_2
+    h_bot_1 = h_1 - depths[0]
+    h_bot_2 = h_2 - depths[1]
     s_minmax = np.array([np.min(signal), np.max(signal)])
     # plot (shift al timings of primary eclipse by t_1)
     fig, ax = plt.subplots()
     ax.scatter(t_extended, s_extended, marker='.', label='original folded signal')
-    ax.scatter(t_extended, ecl_signal + offset, marker='.', c='tab:orange',
+    ax.scatter(t_extended, ecl_signal, marker='.', c='tab:orange',
                label='(non-harmonics + linear) model residual')
-    ax.plot(t_model, model_h + offset, c='tab:red', label='harmonics')
+    ax.plot(t_model, model_h, c='tab:red', label='harmonics')
     ax.plot([0, 0], s_minmax, '--', c='tab:pink')
     ax.plot([t_2 - t_1, t_2 - t_1], s_minmax, '--', c='tab:pink')
     ax.plot([t_1_1 - t_1, t_1_1 - t_1], s_minmax, '--', c='tab:purple', label=r'eclipse edges/minima/depths')
@@ -1002,9 +1001,6 @@ def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n
     ecl_signal = signal - model_nh - model_line
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
     s_minmax = [np.min(signal), np.max(signal)]
-    # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
-    offset = 1 - (h_1 + h_2) / 2
     # unpack all ecl_par
     ecosw, esinw, cosi, phi_0, rho_0, eta, e, w, i, r_sum, r_rat, sb_rat = ecl_par
     # make the default eclipse model
@@ -1035,7 +1031,7 @@ def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n
     par_names = ['ecosw', 'esinw', 'cosi', 'phi_0', 'rho_0', 'eta', 'e', 'w', 'i', 'r_sum', 'r_rat', 'sb_rat']
     # plot
     fig, ax = plt.subplots()
-    ax.scatter(t_extended, ecl_signal + offset, marker='.', label='eclipse signal')
+    ax.scatter(t_extended, ecl_signal, marker='.', label='eclipse signal')
     ax.plot(t_extended[sorter], model[sorter], c='tab:orange', label='best parameters')
     ax.fill_between(t_extended[sorter], y1=model[sorter], y2=model_p[sorter], color='tab:orange', alpha=0.3,
                     label=f'upper bound {par_names[par_i]}')
