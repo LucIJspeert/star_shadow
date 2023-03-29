@@ -1250,6 +1250,10 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # now pick out two consecutive, fully covered eclipses
     indices = np.arange(len(ecl_indices))
     combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
+    # also pick out two candidates skipping one candidate
+    combinations_2 = np.array([[i, j] for i, j in zip(indices[:-2], indices[2:])])
+    if (len(combinations_2) > 0):
+        combinations = np.append(combinations, combinations_2, axis=0)
     # check overlap of the eclipses
     comb_remove = []
     for i, comb in enumerate(combinations):
