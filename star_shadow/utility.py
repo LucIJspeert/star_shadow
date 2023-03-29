@@ -1808,13 +1808,16 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         model_5 = model_linear + model_sinusoid
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_5, f_tol=1e-9)
         f_h_5, a_h_5, ph_h_5 = f_n_5[harmonics], a_n_5[harmonics], ph_n_5[harmonics]
-        inf_data_5 = read_inference_data(file_name)
     else:
         const_5, slope_5, f_n_5, a_n_5, ph_n_5 = np.array([[], [], [], [], []])
         p_orb_5, p_err_5 = 0, 0
         n_param_5, bic_5, noise_level_5 = 0, 0, 0
         model_5 = np.zeros(len(times))
         f_h_5, a_h_5, ph_h_5 = np.array([[], [], []])
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
+    if os.path.isfile(file_name_mc):
+        inf_data_5 = read_inference_data(file_name)
     # stick together for sending to plot function
     models = [model_1, model_2, model_3, model_4, model_5]
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5]
@@ -1872,6 +1875,10 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         timings_9, depths_9 = results['timings'][:10], results['timings'][10:]
         t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = results['stats']
         ecl_par_9 = np.array([e_9, w_9, i_9, r_sum_9, r_rat_9, sb_rat_9])
+        inf_data_9 = read_inference_data(file_name)
+    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
+    file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
+    if os.path.isfile(file_name_mc):
         inf_data_9 = read_inference_data(file_name)
     # include n_freqs/n_freqs_passed (10)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_10.hdf5')
