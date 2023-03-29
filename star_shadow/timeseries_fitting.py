@@ -1646,7 +1646,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}')
+            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
         n_sin_g = len(res_freqs[group])
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
