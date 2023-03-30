@@ -1213,17 +1213,19 @@ def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, noise_level, const_
     else:
         ecl_model = tsfit.eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     ecl_resid = signal - ecl_model
+    full_resid = ecl_resid - model_r
     # make periodograms
     freqs, ampls = tsf.astropy_scargle(times, ecl_resid)
     freq_range = np.ptp(freqs)
-    freqs_1, ampls_1 = tsf.astropy_scargle(times, ecl_resid - model_r)
+    freqs_1, ampls_1 = tsf.astropy_scargle(times, full_resid)
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
+    noise_spectrum = tsf.scargle_noise_spectrum(times, full_resid, window_width=1.0)
     # plot
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='residual after eclipse model subtraction')
     ax.plot(freqs_1, ampls_1, label='final residual')
-    ax.plot(freqs[[0, -1]], [snr_threshold * noise_level, snr_threshold * noise_level], c='tab:grey', alpha=0.7,
-            label=f'S/N threshold ({snr_threshold})')
+    ax.plot(freqs, noise_spectrum, c='tab:grey', alpha=0.7, label='Lomb-Scargle noise level')
+    ax.plot(freqs, snr_threshold * noise_spectrum, c='tab:green', alpha=0.7, label=f'S/N threshold ({snr_threshold})')
     for k in range(len(f_n_r)):
         if k in passed_r_i:
             ax.plot([f_n_r[k], f_n_r[k]], [0, a_n_r[k]],  c='tab:red')

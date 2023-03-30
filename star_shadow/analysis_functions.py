@@ -148,15 +148,15 @@ def remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1
 
 
 @nb.njit(cache=True)
-def remove_insignificant_snr(a_n, noise_level, n_points):
+def remove_insignificant_snr(a_n, noise_at_f, n_points):
     """Removes insufficiently significant frequencies in terms of S/N.
     
     Parameters
     ----------
     a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
-    noise_level: float
-        The noise level (standard deviation of the residuals)
+    noise_at_f: numpy.ndarray[float]
+        The noise level at each frequency
     n_points: int
         Number of data points
     
@@ -170,13 +170,15 @@ def remove_insignificant_snr(a_n, noise_level, n_points):
     Frequencies with an amplitude less than the S/N threshold are removed,
     using a threshold appropriate for TESS as function of the number of
     data points.
+    
+    The noise_at_f here captures the amount of noise on fitting a
+    sinusoid of a certain frequency to all data points.
+    Not to be confused with the noise on the individual data points of the
+    time series.
     """
     snr_threshold = ut.signal_to_noise_threshold(n_points)
-    # amplitude not significant enough
-    a_insig_1 = (a_n / noise_level < snr_threshold)
-    # red noise S/N limit
-    # a_insig_2 = np.zeros(len(a_n), dtype=np.bool_)
-    # remove = np.arange(len(a_n))[a_insig_1 | a_insig_2]
+    # signal-to-noise below threshold
+    a_insig_1 = (a_n / noise_at_f < snr_threshold)
     remove = np.arange(len(a_n))[a_insig_1]
     return remove
 
