@@ -780,6 +780,136 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c
 
 
 @nb.njit(cache=True)
+def eclipse_empirical_lc_2(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2):
+    """Separates the out-of-eclipse harmonic signal from the other harmonics
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    mid_1: float
+        Time of mid-eclipse 1
+    mid_2: float
+        Time of mid-eclipse 2
+    dur_1: float
+        Duration of eclipse 1
+    dur_2: float
+        Duration of eclipse 2
+    dur_b_1: float
+        Duration of a flat bottom of eclipse 1
+    dur_b_2: float
+        Duration of a flat bottom of eclipse 2
+    d_1: float
+        Depth of eclipse 1
+    d_2: float
+        Depth of eclipse 2
+    h_1: float
+        Height of the top of eclipse 1
+    h_2: float
+        Height of the top of eclipse 2
+
+    Returns
+    -------
+    model_ecl: numpy.ndarray[float]
+        symmetric eclipse model using cubic functions
+
+    Notes
+    -----
+    The timings are deduced from the cubic curves in case the discriminant
+    is positive and the slope at the inflection point has the right sign.
+
+    Eclipses are connected with a cubic polynomial to allow varying their height.
+    """
+    # translate the timings by the time of primary minimum with respect to t_mean
+    t_zero = mid_1
+    mid_1, mid_2 = mid_1 - t_zero, mid_2 - t_zero
+    # compute the times of eclipse contact and tangency
+    t_c1_1, t_c2_1 = mid_1 - dur_1 / 2, mid_1 + dur_1 / 2
+    t_c1_2, t_c2_2 = mid_1 - dur_b_1 / 2, mid_1 + dur_b_1 / 2
+    t_c3_1, t_c4_1 = mid_2 - dur_2 / 2, mid_2 + dur_2 / 2
+    t_c3_2, t_c4_2 = mid_2 - dur_b_2 / 2, mid_2 + dur_b_2 / 2
+    # fold the time series
+    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
+    t_folded_adj = np.copy(t_folded)
+    t_folded_adj[t_folded > p_orb + t_c1_1] -= p_orb  # stick eclipse 1 back together
+    # make masks for the right time intervals
+    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < t_c1_2)
+    mask_2 = (t_folded_adj > t_c2_2) & (t_folded_adj <= t_c2_1)
+    mask_3 = (t_folded >= t_c3_1) & (t_folded < t_c3_2)
+    mask_4 = (t_folded > t_c4_2) & (t_folded <= t_c4_1)
+    # compute the cubic curves if there are points left
+    if (np.any(mask_1) & np.any(mask_2)):
+        # parameters for the cubic function
+        c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, h_1, t_c1_2, h_1 - d_1)
+        mean_t_c1 = (t_c1_1 + t_c1_2) / 2
+        # cubic function of the primary ingress
+        mean_t_1 = np.mean(t_folded_adj[mask_1])
+        cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1 - mean_t_1)
+        # cubic function of the primary egress
+        mean_t_2 = np.mean(2 * mid_1 - t_folded_adj[mask_2])
+        cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1 - mean_t_2)
+    else:
+        cubic_1 = np.ones(np.sum(mask_1)) * h_1
+        cubic_2 = np.ones(np.sum(mask_2)) * h_1
+    if (np.any(mask_3) & np.any(mask_4)):
+        # parameters for the cubic function
+        c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, h_2, t_c3_2, h_2 - d_2)
+        mean_t_c3 = (t_c3_1 + t_c3_2) / 2
+        # cubic function of the secondary ingress
+        mean_t_3 = np.mean(t_folded[mask_3])
+        cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3 - mean_t_3)
+        # cubic function of the secondary egress
+        mean_t_4 = np.mean(2 * mid_2 - t_folded[mask_4])
+        cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3 - mean_t_4)
+    else:
+        cubic_3 = np.ones(np.sum(mask_3)) * h_2
+        cubic_4 = np.ones(np.sum(mask_4)) * h_2
+    # make lines for the bottom of the eclipse
+    mask_b_1 = (t_folded_adj >= t_c1_2) & (t_folded_adj <= t_c2_2)
+    mask_b_2 = (t_folded >= t_c3_2) & (t_folded <= t_c4_2)
+    if not (np.any(mask_1) & np.any(mask_2)):
+        mask_b_1 = np.zeros(len(t_folded), dtype=np.bool_)  # if no eclipse, also no bottom
+    if not (np.any(mask_3) & np.any(mask_4)):
+        mask_b_2 = np.zeros(len(t_folded), dtype=np.bool_)  # if no eclipse, also no bottom
+    line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * (h_1 - d_1)
+    line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * (h_2 - d_2)
+    # make connecting lines
+    mask_12 = (t_folded > t_c2_1) & (t_folded < t_c3_1)  # from 1 to 2
+    mask_21 = (t_folded > t_c4_1) & (t_folded < t_c1_1 + p_orb)  # from 2 to 1
+    if np.any(mask_12) & (h_1 != h_2):
+        # parameters for the cubic function
+        c12_a, c12_b, c12_c, c12_d = tsf.cubic_pars_two_points(t_c2_1, h_1, t_c3_1, h_2)
+        mean_t_c12 = (t_c2_1 + t_c3_1) / 2
+        # cubic function of the connection from 1 to 2
+        mean_t_12 = np.mean(t_folded_adj[mask_12])
+        cubic_12 = tsf.cubic_curve(t_folded_adj[mask_12], c12_a, c12_b, c12_c, c12_d, t_zero=mean_t_c12 - mean_t_12)
+    else:
+        cubic_12 = np.ones(np.sum(mask_12)) * h_1
+    if np.any(mask_21) & (h_1 != h_2):
+        # parameters for the cubic function
+        c21_a, c21_b, c21_c, c21_d = tsf.cubic_pars_two_points(t_c4_1, h_2, t_c1_1 + p_orb, h_1)
+        mean_t_c21 = (t_c4_1 + t_c1_1 + p_orb) / 2
+        # cubic function of the connection from 2 to 1
+        mean_t_21 = np.mean(t_folded[mask_21])
+        cubic_21 = tsf.cubic_curve(t_folded[mask_21], c21_a, c21_b, c21_c, c21_d, t_zero=mean_t_c21 - mean_t_21)
+    else:
+        cubic_21 = np.ones(np.sum(mask_21)) * h_2
+    # stick together the eclipse model (for t_folded_adj)
+    model_ecl = np.ones(len(t_folded))
+    model_ecl[mask_12] = cubic_12
+    model_ecl[mask_21] = cubic_21
+    model_ecl[mask_b_1] = line_b_1
+    model_ecl[mask_b_2] = line_b_2
+    model_ecl[mask_1] = cubic_1
+    model_ecl[mask_2] = cubic_2
+    model_ecl[mask_3] = cubic_3
+    model_ecl[mask_4] = cubic_4
+    return model_ecl
+
+
+@nb.njit(cache=True)
 def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     """Objective function for a set of eclipse timings
 
@@ -810,7 +940,14 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     eclipse_cubics_model
     """
     # midpoints, l.h.s. cubic time points, depths, height adjustments
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = params
+    # mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = params
+    
+    mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = params
+    t_c1_1 = mid_1 - dur_1 / 2
+    t_c3_1 = mid_2 - dur_2 / 2
+    t_c1_2 = mid_1 - dur_b_1 / 2
+    t_c3_2 = mid_2 - dur_b_2 / 2
+    
     # the model
     model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2)
     # determine likelihood for the model (minus this for minimisation)
@@ -878,15 +1015,33 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
     dur_1 = t_1_2 - t_1_1
     dur_2 = t_2_2 - t_2_1
     h_minmax = (np.min(ecl_signal), np.max(ecl_signal))
-    par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2, 1, 1])
+    # par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2, 1, 1])
+    # par_bounds = ((t_1_1 + dur_1 / 4, t_1_2 - dur_1 / 4), (t_2_1 + dur_2 / 4, t_2_2 - dur_2 / 4),
+    #               (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
+    #               (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
+    #               (0, 2 * d_1), (0, 2 * d_2), h_minmax, h_minmax)
+    
+    dur_b_1 = t_b_1_2 - t_b_1_1
+    dur_b_2 = t_b_2_2 - t_b_2_1
+    par_init = np.array([mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, 1, 1])
     par_bounds = ((t_1_1 + dur_1 / 4, t_1_2 - dur_1 / 4), (t_2_1 + dur_2 / 4, t_2_2 - dur_2 / 4),
-                  (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
-                  (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
+                  (0, 2 * dur_1), (0, 2 * dur_2),
+                  (0, 2 * dur_1), (0, 2 * dur_2),
                   (0, 2 * d_1), (0, 2 * d_2), h_minmax, h_minmax)
+    
     args = (times, ecl_signal, signal_err, p_orb)
     result = sp.optimize.minimize(objective_empirical_lc, par_init, args=args, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = result.x
+    
+    
+    mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = result.x
+    t_c1_1 = mid_1 - dur_1 / 2
+    t_c3_1 = mid_2 - dur_2 / 2
+    t_c1_2 = mid_1 - dur_b_1 / 2
+    t_c3_2 = mid_2 - dur_b_2 / 2
+    
+    
+    # mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = result.x
     # check bad values for bottom timings
     if (t_c1_2 > mid_1):
         t_c1_2 = mid_1
