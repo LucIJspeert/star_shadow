@@ -1219,7 +1219,7 @@ def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, noise_level, const_
     freq_range = np.ptp(freqs)
     freqs_1, ampls_1 = tsf.astropy_scargle(times, full_resid)
     snr_threshold = ut.signal_to_noise_threshold(len(signal))
-    noise_spectrum = tsf.scargle_noise_spectrum(times, full_resid, window_width=1.0)
+    noise_spectrum = tsf.scargle_noise_spectrum(times, full_resid)
     # plot
     fig, ax = plt.subplots()
     ax.plot(freqs, ampls, label='residual after eclipse model subtraction')

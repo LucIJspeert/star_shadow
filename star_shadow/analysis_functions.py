@@ -471,9 +471,10 @@ def select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol, sigma_f=3):
     harmonics, harm_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=f_tol)
     # frequency error overlaps with theoretical harmonic
     passed_h = np.zeros(len(harmonics), dtype=np.bool_)
-    for i, j in enumerate(harmonics):
-        f_theo = harm_n[j] / p_orb
-        overlap_h = (f_n[j] + sigma_f * f_n_err[j] > f_theo) & (f_n[j] - sigma_f * f_n_err[j] < f_theo)
+    for i, (h, n) in enumerate(zip(harmonics, harm_n)):
+        f_theo = n / p_orb
+        margin = sigma_f * f_n_err[h]
+        overlap_h = (f_n[h] + margin > f_theo) & (f_n[h] - margin < f_theo)
         if overlap_h:
             passed_h[i] = True
     harmonics_passed = harmonics[passed_h]

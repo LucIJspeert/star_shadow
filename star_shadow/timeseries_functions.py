@@ -279,8 +279,8 @@ def scargle_noise_spectrum(times, resid, window_width=1.0):
     Returns
     -------
     noise: numpy.ndarray[float]
-        The noise spectrum in the frequency interval of the periodogram,
-        in the same units as ampls.
+        The noise spectrum calculated as the mean in a frequency window
+        in the residual periodogram
     
     Notes
     -----
@@ -322,7 +322,8 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
     Returns
     -------
     noise: numpy.ndarray[float]
-        The noise level calculated from a window around the frequency in the periodogram
+        The noise level calculated as the mean in a window around the
+        frequency in the residual periodogram
     
     Notes
     -----
@@ -333,7 +334,9 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
     """
     freqs, ampls = astropy_scargle(times, resid)  # use defaults to get full amplitude spectrum
     margin = window_width / 2
-    noise = np.array([np.mean(ampls[(freqs > f - margin) & (freqs <= f + margin)]) for f in fs])
+    # mask the frequency ranges and compute the noise
+    f_masks = [(freqs > f - margin) & (freqs <= f + margin) for f in fs]
+    noise = np.array([np.mean(ampls[mask]) for mask in f_masks])
     return noise
 
 
