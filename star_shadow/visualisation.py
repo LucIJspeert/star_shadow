@@ -485,6 +485,8 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     t_zero_init = timings[0]
     t_zero = timings_em[0]
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings_em
+    dur_1, dur_2 = (t_1_2 - t_1_1), (t_2_2 - t_2_1)
+    dur_b_1, dur_b_2 = (t_b_1_2 - t_b_1_1), (t_b_2_2 - t_b_2_1)
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
     t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[6:]
     depth_1, depth_2 = depths_em
@@ -508,10 +510,12 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     # cubic model - get the parameters for the cubics from the fit parameters
     mid_1 = (timings[2] + timings[3]) / 2
     mid_2 = (timings[4] + timings[5]) / 2
-    model_ecl_init = tsfit.eclipse_empirical_lc(times, p_orb, mid_1, mid_2, timings[2], timings[4],
-                                                timings[6], timings[8], depths[0], depths[1], 1, 1)
+    dur_1_init, dur_2_init = (timings[3] - timings[2]), (timings[5] - timings[4])
+    dur_b_1_init, dur_b_2_init = (timings[7] - timings[6]), (timings[9] - timings[8])
+    model_ecl_init = tsfit.eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1_init, dur_2_init,
+                                                dur_b_1_init, dur_b_2_init, depths[0], depths[1], 1, 1)
     model_ecl_init = np.concatenate((model_ecl_init[ext_left], model_ecl_init, model_ecl_init[ext_right]))
-    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2,
+    model_ecl = tsfit.eclipse_empirical_lc(times, p_orb, t_1, t_2, dur_1, dur_2, dur_b_1, dur_b_2, depth_1, depth_2,
                                            h_1, h_2)
     model_ecl = np.concatenate((model_ecl[ext_left], model_ecl, model_ecl[ext_right]))
     model_ecl_sin_lin = model_ecl + model_sinusoid + model_linear

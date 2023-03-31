@@ -645,142 +645,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
 
 
 @nb.njit(cache=True)
-def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2):
-    """Separates the out-of-eclipse harmonic signal from the other harmonics
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    mid_1: float
-        Time of mid-eclipse 1
-    mid_2: float
-        Time of mid-eclipse 2
-    t_c1_1: float
-        Time of local maximum in cubic, eclipse 1
-    t_c3_1: float
-        Time of local maximum in cubic, eclipse 2
-    t_c1_2: float
-        Time of local minimum in cubic, eclipse 1
-        May be to the left of the middle
-    t_c3_2: float
-        Time of local minimum in cubic, eclipse 2
-        May be to the left of the middle
-    d_1: float
-        Height difference between local cubic extrema,
-        May not correspond directly to the depths of eclipse 1
-    d_2: float
-        Height difference between local cubic extrema,
-        May not correspond directly to the depths of eclipse 2
-    h_1: float
-        Height of the top cubic extremum of eclipse 1
-    h_2: float
-        Height of the top cubic extremum of eclipse 2
-
-    Returns
-    -------
-    model_ecl: numpy.ndarray[float]
-        symmetric eclipse model using cubic functions
-    
-    Notes
-    -----
-    The timings are deduced from the cubic curves in case the discriminant
-    is positive and the slope at the inflection point has the right sign.
-    
-    Eclipses are connected with a cubic polynomial to allow varying their height.
-    """
-    # translate the timings by the time of primary minimum with respect to t_mean
-    t_zero = mid_1
-    mid_1, t_c1_1, t_c1_2 = mid_1 - t_zero, t_c1_1 - t_zero, t_c1_2 - t_zero
-    mid_2, t_c3_1, t_c3_2 = mid_2 - t_zero, t_c3_1 - t_zero, t_c3_2 - t_zero
-    # edges must not surpass middle
-    t_c1_2, t_c3_2 = min(t_c1_2, mid_1), min(t_c3_2, mid_2)
-    # the mirrored time points
-    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    # fold the time series
-    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
-    t_folded_adj = np.copy(t_folded)
-    t_folded_adj[t_folded > p_orb + t_c1_1] -= p_orb  # stick eclipse 1 back together
-    # make masks for the right time intervals
-    mask_1 = (t_folded_adj >= t_c1_1) & (t_folded_adj < t_c1_2)
-    mask_2 = (t_folded_adj > t_c2_2) & (t_folded_adj <= t_c2_1)
-    mask_3 = (t_folded >= t_c3_1) & (t_folded < t_c3_2)
-    mask_4 = (t_folded > t_c4_2) & (t_folded <= t_c4_1)
-    # compute the cubic curves if there are points left
-    if (np.any(mask_1) & np.any(mask_2)):
-        # parameters for the cubic function
-        c1_a, c1_b, c1_c, c1_d = tsf.cubic_pars_two_points(t_c1_1, h_1, t_c1_2, h_1 - d_1)
-        mean_t_c1 = (t_c1_1 + t_c1_2) / 2
-        # cubic function of the primary ingress
-        mean_t_1 = np.mean(t_folded_adj[mask_1])
-        cubic_1 = tsf.cubic_curve(t_folded_adj[mask_1], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-mean_t_1)
-        # cubic function of the primary egress
-        mean_t_2 = np.mean(2 * mid_1 - t_folded_adj[mask_2])
-        cubic_2 = tsf.cubic_curve(2 * mid_1 - t_folded_adj[mask_2], c1_a, c1_b, c1_c, c1_d, t_zero=mean_t_c1-mean_t_2)
-    else:
-        cubic_1 = np.ones(np.sum(mask_1)) * h_1
-        cubic_2 = np.ones(np.sum(mask_2)) * h_1
-    if (np.any(mask_3) & np.any(mask_4)):
-        # parameters for the cubic function
-        c3_a, c3_b, c3_c, c3_d = tsf.cubic_pars_two_points(t_c3_1, h_2, t_c3_2, h_2 - d_2)
-        mean_t_c3 = (t_c3_1 + t_c3_2) / 2
-        # cubic function of the secondary ingress
-        mean_t_3 = np.mean(t_folded[mask_3])
-        cubic_3 = tsf.cubic_curve(t_folded[mask_3], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-mean_t_3)
-        # cubic function of the secondary egress
-        mean_t_4 = np.mean(2 * mid_2 - t_folded[mask_4])
-        cubic_4 = tsf.cubic_curve(2 * mid_2 - t_folded[mask_4], c3_a, c3_b, c3_c, c3_d, t_zero=mean_t_c3-mean_t_4)
-    else:
-        cubic_3 = np.ones(np.sum(mask_3)) * h_2
-        cubic_4 = np.ones(np.sum(mask_4)) * h_2
-    # make lines for the bottom of the eclipse
-    mask_b_1 = (t_folded_adj >= t_c1_2) & (t_folded_adj <= t_c2_2)
-    mask_b_2 = (t_folded >= t_c3_2) & (t_folded <= t_c4_2)
-    if not (np.any(mask_1) & np.any(mask_2)):
-        mask_b_1 = np.zeros(len(t_folded), dtype=np.bool_)  # if no eclipse, also no bottom
-    if not (np.any(mask_3) & np.any(mask_4)):
-        mask_b_2 = np.zeros(len(t_folded), dtype=np.bool_)  # if no eclipse, also no bottom
-    line_b_1 = np.ones(len(t_folded_adj[mask_b_1])) * (h_1 - d_1)
-    line_b_2 = np.ones(len(t_folded_adj[mask_b_2])) * (h_2 - d_2)
-    # make connecting lines
-    mask_12 = (t_folded > t_c2_1) & (t_folded < t_c3_1)  # from 1 to 2
-    mask_21 = (t_folded > t_c4_1) & (t_folded < t_c1_1 + p_orb)  # from 2 to 1
-    if np.any(mask_12) & (h_1 != h_2):
-        # parameters for the cubic function
-        c12_a, c12_b, c12_c, c12_d = tsf.cubic_pars_two_points(t_c2_1, h_1, t_c3_1, h_2)
-        mean_t_c12 = (t_c2_1 + t_c3_1) / 2
-        # cubic function of the connection from 1 to 2
-        mean_t_12 = np.mean(t_folded_adj[mask_12])
-        cubic_12 = tsf.cubic_curve(t_folded_adj[mask_12], c12_a, c12_b, c12_c, c12_d, t_zero=mean_t_c12-mean_t_12)
-    else:
-        cubic_12 = np.ones(np.sum(mask_12)) * h_1
-    if np.any(mask_21) & (h_1 != h_2):
-        # parameters for the cubic function
-        c21_a, c21_b, c21_c, c21_d = tsf.cubic_pars_two_points(t_c4_1, h_2, t_c1_1 + p_orb, h_1)
-        mean_t_c21 = (t_c4_1 + t_c1_1 + p_orb) / 2
-        # cubic function of the connection from 2 to 1
-        mean_t_21 = np.mean(t_folded[mask_21])
-        cubic_21 = tsf.cubic_curve(t_folded[mask_21], c21_a, c21_b, c21_c, c21_d, t_zero=mean_t_c21-mean_t_21)
-    else:
-        cubic_21 = np.ones(np.sum(mask_21)) * h_2
-    # stick together the eclipse model (for t_folded_adj)
-    model_ecl = np.ones(len(t_folded))
-    model_ecl[mask_12] = cubic_12
-    model_ecl[mask_21] = cubic_21
-    model_ecl[mask_b_1] = line_b_1
-    model_ecl[mask_b_2] = line_b_2
-    model_ecl[mask_1] = cubic_1
-    model_ecl[mask_2] = cubic_2
-    model_ecl[mask_3] = cubic_3
-    model_ecl[mask_4] = cubic_4
-    return model_ecl
-
-
-@nb.njit(cache=True)
-def eclipse_empirical_lc_2(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2):
+def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2):
     """Separates the out-of-eclipse harmonic signal from the other harmonics
 
     Parameters
@@ -918,7 +783,7 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     params: numpy.ndarray[float]
         The parameters of a light curve model made of cubics.
         Has to be ordered in the following way:
-        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2]
+        [mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2]
     times: numpy.ndarray[float]
         Timestamps of the time series, zero point at primary minimum
     signal: numpy.ndarray[float]
@@ -939,21 +804,14 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     --------
     eclipse_cubics_model
     """
-    # midpoints, l.h.s. cubic time points, depths, height adjustments
-    # mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = params
-    
+    # midpoints, durations, depths, height adjustments
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = params
-    t_c1_1 = mid_1 - dur_1 / 2
-    t_c3_1 = mid_2 - dur_2 / 2
-    t_c1_2 = mid_1 - dur_b_1 / 2
-    t_c3_2 = mid_2 - dur_b_2 / 2
-    
     # the model
-    model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2)
+    model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2)
     # determine likelihood for the model (minus this for minimisation)
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)
     # make sure we don't allow impossible stuff
-    if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
+    if (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0) | (d_1 < 0) | (d_2 < 0):
         return -ln_likelihood + 10**9
     return -ln_likelihood
 
@@ -988,8 +846,11 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
     Returns
     -------
     res_cubics: numpy.ndarray[float]
-        Updated empirical eclipse model parameters, same format as timings,
-        plus heights of the top of both eclipses
+        Updated empirical eclipse model parameters,
+        mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2
+    res_timings: numpy.ndarray[float]
+        Eclipse timings: minima, first/last contact points, internal tangency and depths,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     
     See Also
     --------
@@ -997,8 +858,8 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
 
     Notes
     -----
-    Times of primary eclispe are measured with respect to the mean time,
-    times of secondary eclipse are measured with respect to the primary minimum.
+    Times of primary and secondary eclispe are measured with respect to the mean time.
+    Eclipses are symmetrical in this model.
     
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
@@ -1015,12 +876,6 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
     dur_1 = t_1_2 - t_1_1
     dur_2 = t_2_2 - t_2_1
     h_minmax = (np.min(ecl_signal), np.max(ecl_signal))
-    # par_init = np.array([mid_1, mid_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, d_1, d_2, 1, 1])
-    # par_bounds = ((t_1_1 + dur_1 / 4, t_1_2 - dur_1 / 4), (t_2_1 + dur_2 / 4, t_2_2 - dur_2 / 4),
-    #               (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
-    #               (t_1_1 - t_1_1_err, t_1_2 - dur_1 / 4), (t_2_1 - t_2_1_err, t_2_2 - dur_2 / 4),
-    #               (0, 2 * d_1), (0, 2 * d_2), h_minmax, h_minmax)
-    
     dur_b_1 = t_b_1_2 - t_b_1_1
     dur_b_2 = t_b_2_2 - t_b_2_1
     par_init = np.array([mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, 1, 1])
@@ -1028,36 +883,24 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
                   (0, 2 * dur_1), (0, 2 * dur_2),
                   (0, 2 * dur_1), (0, 2 * dur_2),
                   (0, 2 * d_1), (0, 2 * d_2), h_minmax, h_minmax)
-    
     args = (times, ecl_signal, signal_err, p_orb)
     result = sp.optimize.minimize(objective_empirical_lc, par_init, args=args, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxiter': 10000})
-    
-    
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = result.x
-    t_c1_1 = mid_1 - dur_1 / 2
-    t_c3_1 = mid_2 - dur_2 / 2
-    t_c1_2 = mid_1 - dur_b_1 / 2
-    t_c3_2 = mid_2 - dur_b_2 / 2
-    
-    
-    # mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = result.x
-    # check bad values for bottom timings
-    if (t_c1_2 > mid_1):
-        t_c1_2 = mid_1
-    if (t_c3_2 > mid_2):
-        t_c3_2 = mid_2
-    # get the rest of the timings of the cubic models and translate them
-    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    res_cubics = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2,
-                           h_1, h_2])
+    # compute the times of eclipse contact and tangency
+    t_1_1, t_1_2 = mid_1 - dur_1 / 2, mid_1 + dur_1 / 2
+    t_b_1_1, t_b_1_2 = mid_1 - dur_b_1 / 2, mid_1 + dur_b_1 / 2
+    t_2_1, t_2_2 = mid_2 - dur_2 / 2, mid_2 + dur_2 / 2
+    t_b_2_1, t_b_2_2 = mid_2 - dur_b_2 / 2, mid_2 + dur_b_2 / 2
+    # collect into arrays
+    res_cubics = np.array([mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2])
+    res_timings = np.array([mid_1, mid_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
     if verbose:
-        model_ecl = eclipse_empirical_lc(times, p_orb, *result.x)
+        model_ecl = eclipse_empirical_lc(times, p_orb, *res_cubics)
         resid = ecl_signal - model_ecl
         bic = tsf.calc_bic(resid / signal_err, 1 + len(result.x))
         print(f'Fit convergence: {result.success}. N_iter: {result.nit}. BIC: {bic:1.2f}')
-    return res_cubics
+    return res_cubics, res_timings
 
 
 @nb.njit(cache=True)
@@ -1070,7 +913,7 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, i
         The parameters of a light curve model made of cubics,
         plus a set of harmonic sinusoids.
         Has to be ordered in the following way:
-        [mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2,
+        [mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2,
          const, a_h_1, a_h_2, ..., ph_h_1, ph_h_2, ...]
     times: numpy.ndarray[float]
         Timestamps of the time series
@@ -1097,17 +940,17 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, i
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = (len(params) - 10 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = params[0:10]
+    mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = params[0:10]
     const = params[10:10 + n_sect]
     slope = params[10 + n_sect:10 + 2 * n_sect]
     freqs = params[10 + 2 * n_sect:10 + 2 * n_sect + n_sin]
     ampls = params[10 + 2 * n_sect + n_sin:10 + 2 * n_sect + 2 * n_sin]
     phases = params[10 + 2 * n_sect + 2 * n_sin:10 + 2 * n_sect + 3 * n_sin]
     # make sure we don't allow impossible stuff
-    if (mid_1 < t_c1_1) | (mid_2 < t_c3_1) | (t_c1_2 < t_c1_1) | (t_c3_2 < t_c3_1) | (d_1 < 0) | (d_2 < 0):
+    if (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0) | (d_1 < 0) | (d_2 < 0):
         return 10**9
     # the model
-    model_ecl = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2)
+    model_ecl = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2)
     # make the sinusoid model
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
     model_sines = tsf.sum_sines(times, freqs, ampls, phases)
@@ -1117,7 +960,7 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, i
     return -ln_likelihood
 
 
-def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, heights, const, slope, f_n, a_n, ph_n,
+def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, cubic_pars, const, slope, f_n, a_n, ph_n,
                                     i_sectors, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
     and including the cubics eclipse model
@@ -1135,8 +978,9 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, h
     timings: numpy.ndarray[float]
         Eclipse timings: minima, first/last contact points, internal tangency and depths,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
-    heights: numpy.ndarray[float]
-        Height of the tops of both eclipses
+    cubic_pars: numpy.ndarray[float]
+        Empirical eclipse model parameters,
+        mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -1157,8 +1001,11 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, h
     Returns
     -------
     res_cubics: numpy.ndarray[float]
-        Updated empirical eclipse model parameters, same format as timings,
-        plus heights of the top of both eclipses
+        Updated empirical eclipse model parameters,
+        mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2
+    res_timings: numpy.ndarray[float]
+        Eclipse timings: minima, first/last contact points, internal tangency and depths,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
     res_const: numpy.ndarray[float]
         Updated y-intercepts of a piece-wise linear curve
     res_slope: numpy.ndarray[float]
@@ -1176,19 +1023,20 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, h
     
     Notes
     -----
+    Times of primary and secondary eclispe are measured with respect to the mean time.
+    Eclipses are symmetrical in this model.
+    
     In reducing the overall runtime of the NL-LS fit, this will improve the
     fits on just the given groups of (closely spaced) frequencies, leaving the other
     frequencies as fixed parameters.
     """
-    mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2 = timings
-    h_1, h_2 = heights
-    cubics_par = np.array([mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2])
+    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
     f_groups = ut.group_frequencies_for_fit(a_n, g_min=15, g_max=20)
     n_groups = len(f_groups)
     n_sect = len(i_sectors)
     n_sin = len(f_n)
     # make a copy of the initial parameters
-    res_cubics = np.copy(cubics_par)
+    res_cubics = np.copy(cubic_pars)
     res_const = np.copy(np.atleast_1d(const))
     res_slope = np.copy(np.atleast_1d(slope))
     res_freqs = np.copy(f_n)
@@ -1208,10 +1056,8 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, h
         # fit only the frequencies in this group (and eclipse model, constant and slope)
         par_init = np.concatenate((res_cubics, res_const, res_slope, res_freqs[group], res_ampls[group],
                                    res_phases[group]))
-        dur_1 = t_c2_1 - t_c1_1
-        dur_2 = t_c4_1 - t_c3_1
-        par_bounds = [(t_c1_1, t_c2_1), (t_c3_1, t_c4_1), (t_c1_1 - dur_1, t_c2_1), (t_c3_1 - dur_2, t_c4_1),
-                      (t_c1_2 - dur_1, t_c2_1), (t_c3_2 - dur_2, t_c4_1), (0, None), (0, None), h_minmax, h_minmax]
+        par_bounds = [(t_1_1, t_1_2), (t_2_1, t_2_2), (0, None), (0, None), (0, None), (0, None), (0, None), (0, None),
+                      h_minmax, h_minmax]
         n_gr = len(res_freqs[group])
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
@@ -1238,18 +1084,14 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, h
             resid_new = signal - (model_linear + model_sinusoid + model_ecl)
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 11)
             print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}. N_iter: {int(output.nit)}.')
-    mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2, h_1, h_2 = res_cubics
-    # check bad values for bottom timings
-    if (t_c1_2 > mid_1):
-        t_c1_2 = mid_1
-    if (t_c3_2 > mid_2):
-        t_c3_2 = mid_2
-    # get the rest of the timings of the cubic models and translate them
-    t_c2_1, t_c2_2 = 2 * mid_1 - t_c1_1, 2 * mid_1 - t_c1_2
-    t_c4_1, t_c4_2 = 2 * mid_2 - t_c3_1, 2 * mid_2 - t_c3_2
-    res_cubics = np.array([mid_1, mid_2, t_c1_1, t_c2_1, t_c3_1, t_c4_1, t_c1_2, t_c2_2, t_c3_2, t_c4_2, d_1, d_2,
-                           h_1, h_2])
-    return res_cubics, res_const, res_slope, res_freqs, res_ampls, res_phases
+    mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = res_cubics
+    # compute the times of eclipse contact and tangency
+    t_1_1, t_1_2 = mid_1 - dur_1 / 2, mid_1 + dur_1 / 2
+    t_b_1_1, t_b_1_2 = mid_1 - dur_b_1 / 2, mid_1 + dur_b_1 / 2
+    t_2_1, t_2_2 = mid_2 - dur_2 / 2, mid_2 + dur_2 / 2
+    t_b_2_1, t_b_2_2 = mid_2 - dur_b_2 / 2, mid_2 + dur_b_2 / 2
+    res_timings = np.array([mid_1, mid_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2])
+    return res_cubics, res_timings, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
 @nb.njit(cache=True)

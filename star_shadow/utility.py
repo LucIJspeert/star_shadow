@@ -745,14 +745,14 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         Hdi values for the ephemerides, p_hdi and t_zero_hdi
     emp_mean: None, numpy.ndarray[float]
         Parameter mean values for the empirical eclipse model in the order they appear below.
-        t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2, height_1, height_2
+        t_1, t_2, dur_1, dur_2, dur_b_1, dur_b_2, depth_1, depth_2, height_1, height_2
     emp_err: None, numpy.ndarray[float]
         Parameter error values for the empirical eclipse model in the order they appear below.
-        t_1_err, t_2_err, t_1_1_err, t_2_1_err, t_b_1_1_err, t_b_2_1_err,
+        t_1_err, t_2_err, dur_1_err, dur_2_err, dur_b_1_err, dur_b_2_err,
         depth_1_err, depth_2_err, height_1_err, height_2_err
     emp_hdi: None, numpy.ndarray[float]
         Parameter hdi values for the empirical eclipse model in the order they appear below.
-        t_1_hdi, t_2_hdi, t_1_1_hdi, t_2_1_hdi, t_b_1_1_hdi, t_b_2_1_hdi,
+        t_1_hdi, t_2_hdi, dur_1_hdi, dur_2_hdi, dur_b_1_hdi, dur_b_2_hdi,
         depth_1_hdi, depth_2_hdi, height_1_hdi, height_2_hdi
     phys_mean: None, numpy.ndarray[float]
         Parameter mean values for the physical eclipse model in the order they appear below.
@@ -949,14 +949,14 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         file.create_dataset('mid_2', data=np.array([emp_mean[1], emp_err[1], emp_hdi[1, 0], emp_hdi[1, 1]]))
         file['mid_2'].attrs['description'] = 'time of secondary minimum with respect to t_zero'
         # start and end of ingress
-        file.create_dataset('t_c1_1', data=np.array([emp_mean[2], emp_err[2], emp_hdi[2, 0], emp_hdi[2, 1]]))
-        file['t_c1_1'].attrs['description'] = 'time of primary first contact with respect to t_zero'
-        file.create_dataset('t_c3_1', data=np.array([emp_mean[3], emp_err[3], emp_hdi[3, 0], emp_hdi[3, 1]]))
-        file['t_c3_1'].attrs['description'] = 'time of secondary first contact with respect to t_zero'
-        file.create_dataset('t_c1_2', data=np.array([emp_mean[4], emp_err[4], emp_hdi[4, 0], emp_hdi[4, 1]]))
-        file['t_c1_2'].attrs['description'] = 'time of primary first internal tangency with respect to t_zero'
-        file.create_dataset('t_c3_2', data=np.array([emp_mean[5], emp_err[5], emp_hdi[5, 0], emp_hdi[5, 1]]))
-        file['t_c3_2'].attrs['description'] = 'time of secondary first internal tangency with respect to t_zero'
+        file.create_dataset('dur_1', data=np.array([emp_mean[2], emp_err[2], emp_hdi[2, 0], emp_hdi[2, 1]]))
+        file['dur_1'].attrs['description'] = 'duration of primary eclipse'
+        file.create_dataset('dur_2', data=np.array([emp_mean[3], emp_err[3], emp_hdi[3, 0], emp_hdi[3, 1]]))
+        file['dur_2'].attrs['description'] = 'duration of secondary eclipse'
+        file.create_dataset('dur_b_1', data=np.array([emp_mean[4], emp_err[4], emp_hdi[4, 0], emp_hdi[4, 1]]))
+        file['dur_b_1'].attrs['description'] = 'duration of primary eclipse flat bottom'
+        file.create_dataset('dur_b_2', data=np.array([emp_mean[5], emp_err[5], emp_hdi[5, 0], emp_hdi[5, 1]]))
+        file['dur_b_2'].attrs['description'] = 'duration of secondary eclipse flat bottom'
         # depths and heights
         file.create_dataset('d_1', data=np.array([emp_mean[6], emp_err[6], emp_hdi[6, 0], emp_hdi[6, 1]]))
         file['d_1'].attrs['description'] = 'depth of primary minimum (median normalised flux)'
@@ -1076,14 +1076,14 @@ def read_parameters_hdf5(file_name, verbose=False):
             Hdi values for the ephemerides, p_hdi and t_zero_hdi
         emp_mean: None, numpy.ndarray[float]
             Parameter mean values for the empirical eclipse model in the order they appear below.
-            t_1, t_2, t_1_1, t_2_1, t_b_1_1, t_b_2_1, depth_1, depth_2, height_1, height_2
+            t_1, t_2, dur_1, dur_2, dur_b_1, dur_b_2, depth_1, depth_2, height_1, height_2
         emp_err: None, numpy.ndarray[float]
             Parameter error values for the empirical eclipse model in the order they appear below.
-            t_1_err, t_2_err, t_1_1_err, t_2_1_err, t_b_1_1_err, t_b_2_1_err,
+            t_1_err, t_2_err, dur_1_err, dur_2_err, dur_b_1_err, dur_b_2_err,
             depth_1_err, depth_2_err, height_1_err, height_2_err
         emp_hdi: None, numpy.ndarray[float]
             Parameter hdi values for the empirical eclipse model in the order they appear below.
-            t_1_hdi, t_2_hdi, t_1_1_hdi, t_2_1_hdi, t_b_1_1_hdi, t_b_2_1_hdi,
+            t_1_hdi, t_2_hdi, dur_1_hdi, dur_2_hdi, dur_b_1_hdi, dur_b_2_hdi,
             depth_1_hdi, depth_2_hdi, height_1_hdi, height_2_hdi
         phys_mean: None, numpy.ndarray[float]
             Parameter mean values for the physical eclipse model in the order they appear below.
@@ -1173,10 +1173,10 @@ def read_parameters_hdf5(file_name, verbose=False):
         # the empirical eclipse model parameters
         mid_1 = np.copy(file['mid_1'])
         mid_2 = np.copy(file['mid_2'])
-        t_c1_1 = np.copy(file['t_c1_1'])
-        t_c3_1 = np.copy(file['t_c3_1'])
-        t_c1_2 = np.copy(file['t_c1_2'])
-        t_c3_2 = np.copy(file['t_c3_2'])
+        dur_1 = np.copy(file['dur_1'])
+        dur_2 = np.copy(file['dur_2'])
+        dur_b_1 = np.copy(file['dur_b_1'])
+        dur_b_2 = np.copy(file['dur_b_2'])
         d_1 = np.copy(file['d_1'])
         d_2 = np.copy(file['d_2'])
         h_1 = np.copy(file['h_1'])
@@ -1219,11 +1219,11 @@ def read_parameters_hdf5(file_name, verbose=False):
     ephem = [p_orb[0], t_zero[0]]
     ephem_err = [p_orb[1], t_zero[1]]
     ephem_hdi = [p_orb[2:4], t_zero[2:4]]
-    emp_mean = np.array([mid_1[0], mid_2[0], t_c1_1[0], t_c3_1[0], t_c1_2[0], t_c3_2[0],
+    emp_mean = np.array([mid_1[0], mid_2[0], dur_1[0], dur_2[0], dur_b_1[0], dur_b_2[0],
                          d_1[0], d_2[0], h_1[0], h_2[0]])
-    emp_err = np.array([mid_1[1], mid_2[1], t_c1_1[1], t_c3_1[1], t_c1_2[1], t_c3_2[1],
+    emp_err = np.array([mid_1[1], mid_2[1], dur_1[1], dur_2[1], dur_b_1[1], dur_b_2[1],
                         d_1[1], d_2[1], h_1[1], h_2[1]])
-    emp_hdi = np.array([mid_1[2:4], mid_2[2:4], t_c1_1[2:4], t_c3_1[2:4], t_c1_2[2:4], t_c3_2[2:4],
+    emp_hdi = np.array([mid_1[2:4], mid_2[2:4], dur_1[2:4], dur_2[2:4], dur_b_1[2:4], dur_b_2[2:4],
                         d_1[2:4], d_2[2:4], h_1[2:4], h_2[2:4]])
     phys_mean = np.array([ecosw[0], esinw[0], cosi[0], phi_0[0], r_rat[0], sb_rat[0], e[0], w[0], i[0], r_sum[0]])
     phys_err = np.array([ecosw[1], esinw[1], cosi[1], phi_0[1], r_rat[1], sb_rat[1], e[1], w[1], i[1], r_sum[1]])
