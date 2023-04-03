@@ -1568,7 +1568,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     prew_par = -np.ones(5)
     timings_par = -np.ones(28)
     form_par = -np.ones(21)
-    fit_par = -np.ones(9)
+    fit_par = -np.ones(33)
     freqs_par = -np.ones(5, dtype=int)
     level_par = -np.ones(12)
     t_tot, t_mean = 0, 0
@@ -1604,9 +1604,9 @@ def save_summary(target_id, save_dir, data_id='none'):
         sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum = results['phys_err']
         ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
         e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
-        elem = [e, e_err[1], e_err[0], sigma_e, w, w_err[1], w_err[0], sigma_w, i, i_err[1], i_err[0],
-                r_sum, r_sum_err[1], r_sum_err[0], sigma_r_sum, r_rat, r_rat_err[1], r_rat_err[0],
-                sb_rat, sb_rat_err[1], sb_rat_err[0]]
+        elem = [e, w, i, r_sum, r_rat, sb_rat, sigma_e, sigma_w, sigma_r_sum,
+                e_err[1], e_err[0], w_err[1], w_err[0], i_err[1], i_err[0],
+                r_sum_err[1], r_sum_err[0], r_rat_err[1], r_rat_err[0], sb_rat_err[1], sb_rat_err[0]]
         form_par = elem
     # load parameter results from full fit (9)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
@@ -1614,8 +1614,14 @@ def save_summary(target_id, save_dir, data_id='none'):
         results = read_parameters_hdf5(file_name, verbose=False)
         _, t_zero = results['ephem']
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
+        ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
+        e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
-        fit_par = [e, w, i, r_sum, r_rat, sb_rat, n_param, bic, noise_level]
+        fit_par = [ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum,
+                   ecosw_err[0], ecosw_err[1], esinw_err[0], esinw_err[1], cosi_err[0], cosi_err[1],
+                   phi_0_err[0], phi_0_err[1], r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1],
+                   e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1], r_sum_err[0], r_sum_err[1],
+                   n_param, bic, noise_level]
     # include n_freqs/n_freqs_passed (10)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_10.hdf5')
     if os.path.isfile(file_name):
@@ -1631,14 +1637,20 @@ def save_summary(target_id, save_dir, data_id='none'):
         level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4]
     # file header with all variable names
     hdr = ['id', 'stage', 't_tot', 't_mean', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
-           't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2', 't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2',
-           'depth_1', 'depth_2', 't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
+           't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
+           't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
+           't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
            't_b_1_1_err', 't_b_1_2_err', 't_b_2_1_err', 't_b_2_2_err', 'd_1_err', 'd_2_err',
            'p_t_corr', 'n_param_emp', 'bic_emp', 'noise_level_emp',
-           'e_form', 'e_low', 'e_upp', 'e_sig', 'w_form', 'w_low', 'w_upp', 'w_sig', 'i_form', 'i_low', 'i_upp',
-           'r_sum_form', 'r_sum_low', 'r_sum_upp', 'r_sum_sig', 'r_rat_form',
-           'r_rat_low', 'r_rat_upp', 'sb_rat_form', 'sb_rat_low', 'sb_rat_upp',
-           'e_phys', 'w_phys', 'i_phys', 'r_sum_phys', 'r_rat_phys', 'sb_rat_phys',
+           'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
+           'e_sig', 'w_sig', 'r_sum_sig',
+           'e_low', 'e_upp', 'w_low', 'w_upp', 'i_low', 'i_upp',
+           'r_sum_low', 'r_sum_upp', 'r_rat_low', 'r_rat_upp', 'sb_rat_low', 'sb_rat_upp',
+           'ecosw_phys', 'esinw_phys', 'cosi_phys', 'phi_0_phys', 'r_rat_phys', 'sb_rat_phys',
+           'e_phys', 'w_phys', 'i_phys', 'r_sum_phys',
+           'ecosw_err_l', 'ecosw_err_u', 'esinw_err_l', 'esinw_err_u', 'cosi_err_l', 'cosi_err_u',
+           'phi_0_err_l', 'phi_0_err_u', 'r_rat_err_l', 'r_rat_err_u', 'sb_rat_err_l', 'sb_rat_err_u',
+           'e_err_l', 'e_err_u', 'w_err_l', 'w_err_u', 'i_err_l', 'i_err_u', 'r_sum_err_l', 'r_sum_err_u',
            'n_param_phys', 'bic_phys', 'noise_level_phys',
            'total_freqs', 'passed_sigma', 'passed_snr', 'passed_both', 'passed_harmonics',
            'std_1', 'std_2', 'std_3', 'std_4', 'ratio_1_1', 'ratio_1_2', 'ratio_2_1', 'ratio_2_2',
@@ -1666,21 +1678,33 @@ def save_summary(target_id, save_dir, data_id='none'):
             'error in depth of primary minimum', 'error in depth of secondary minimum',
             'correlation between period and t_zero', 'number of free parameters after the eclipse timing phase',
             'BIC after the eclipse timing phase', 'noise level after the eclipse timing phase',
-            'eccentricity from timing formulae',
-            'upper error estimate in e', 'lower error estimate in e', 'formal uncorrelated error in e',
-            'argument of periastron (radians) from timing formulae',
-            'upper error estimate in w', 'lower error estimate in w', 'formal uncorrelated error in w',
+            'eccentricity from timing formulae', 'argument of periastron (radians) from timing formulae',
             'inclination (radians) from timing formulae',
-            'upper error estimate in i', 'lower error estimate in i',
             'sum of radii divided by the semi-major axis of the relative orbit from timing formulae',
+            'radius ratio r2/r1 from timing formulae', 'surface brightness ratio sb2/sb1 from timing formulae',
+            'formal uncorrelated error in e', 'formal uncorrelated error in w', 'formal uncorrelated error in r_sum',
+            'upper error estimate in e', 'lower error estimate in e',
+            'upper error estimate in w', 'lower error estimate in w',
+            'upper error estimate in i', 'lower error estimate in i',
             'upper error estimate in r_sum', 'lower error estimate in r_sum',
-            'formal uncorrelated error in r_sum',
             'upper error estimate in r_rat', 'lower error estimate in r_rat',
-            'radius ratio r2/r1 from timing formulae',
-            'surface brightness ratio sb2/sb1 from timing formulae',
             'upper error estimate in sb_rat', 'lower error estimate in sb_rat',
-            'eccentricity', 'argument of periastron', 'inclination (radians)', 'sum of fractional radii',
-            'radius ratio', 'surface brightness ratio', 'number of parameters after physical model optimisation',
+            'e cos(w) of the physical model', 'e sin(w) of the physical model',
+            'cos(i) of the physical model', 'phi_0 of the physical model',
+            'radius ratio of the physical model', 'surface brightness ratio of the physical model',
+            'eccentricity of the physical model', 'argument of periastron of the physical model',
+            'inclination (radians) of the physical model', 'sum of fractional radii of the physical model',
+            'lower HDI error estimate in ecosw', 'upper HDI error estimate in ecosw',
+            'lower HDI error estimate in esinw', 'upper HDI error estimate in esinw',
+            'lower HDI error estimate in cosi', 'upper HDI error estimate in cosi',
+            'lower HDI error estimate in phi_0', 'upper HDI error estimate in phi_0',
+            'lower HDI error estimate in r_rat', 'upper HDI error estimate in r_rat',
+            'lower HDI error estimate in sb_rat', 'upper HDI error estimate in sb_rat',
+            'lower HDI error estimate in e', 'upper HDI error estimate in e',
+            'lower HDI error estimate in w', 'upper HDI error estimate in w',
+            'lower HDI error estimate in i', 'upper HDI error estimate in i',
+            'lower HDI error estimate in r_sum', 'upper HDI error estimate in r_sum',
+            'number of parameters after physical model optimisation',
             'BIC after physical model optimisation', 'noise level after physical model optimisation',
             'total number of frequencies', 'number of frequencies that passed the sigma test',
             'number of frequencies that passed the S/R test', 'number of frequencies that passed both tests',
