@@ -1169,7 +1169,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
             gap_cond_1 = (t_ingress > tg[0]) & (t_ingress < tg[-1])  # ingress not in gap
             gap_cond_2 = (t_egress > tg[0]) & (t_egress < tg[-1])  # egress not in gap
             gap_cond_3 = gap_cond_1 | gap_cond_2 | ((t_ingress < tg[0]) & (t_egress > tg[-1]))
-            gap_cond_3 &= ((tg[-1] - tg[0]) / (t_egress - t_ingress)) > 0.75  # too much eclipse in gap
+            gap_cond_3 &= ((tg[-1] - tg[0]) / (t_egress - t_ingress)) > 0.5  # too much eclipse in gap
             if gap_cond_1 | gap_cond_2 | gap_cond_3:
                 gap_cond = False  # at least one side in gap or too big a gap
         condition &= gap_cond
