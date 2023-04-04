@@ -1235,8 +1235,11 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, i_s
     # make sure we remove trends
     const, slope = tsf.linear_pars(times, signal - np.mean(signal), i_sectors)
     ecl_signal = signal - tsf.linear_curve(times, const, slope, i_sectors)
+    # remove initial model to obtain initial offset level
+    model_init = eclipse_physical_lc(times, p_orb, t_zero, *par_init)
+    offset_init = np.mean(ecl_signal - model_init)
     # initial parameters and bounds
-    par_init = (ecosw, esinw, cosi, phi_0, r_rat, sb_rat, 0)
+    par_init = (ecosw, esinw, cosi, phi_0, r_rat, sb_rat, offset_init)
     par_bounds = ((-1, 1), (-1, 1), (0, 1), (0, 1), (0.001, 1000), (0.001, 1000), (-1, 1))
     args = (times, ecl_signal, signal_err, p_orb, t_zero)
     result = sp.optimize.minimize(objective_physcal_lc, par_init, args=args, method='Nelder-Mead', bounds=par_bounds,
