@@ -811,7 +811,8 @@ def objective_empirical_lc(params, times, signal, signal_err, p_orb):
     # determine likelihood for the model (minus this for minimisation)
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)
     # make sure we don't allow impossible stuff
-    if (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0) | (d_1 < 0) | (d_2 < 0):
+    dur_zero = (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0)
+    if dur_zero | (dur_b_1 > dur_1) | (dur_b_2 > dur_2) | (d_1 < 0) | (d_2 < 0):
         return -ln_likelihood + 10**9
     return -ln_likelihood
 
@@ -947,7 +948,8 @@ def objective_empirical_sinusoids_lc(params, times, signal, signal_err, p_orb, i
     ampls = params[10 + 2 * n_sect + n_sin:10 + 2 * n_sect + 2 * n_sin]
     phases = params[10 + 2 * n_sect + 2 * n_sin:10 + 2 * n_sect + 3 * n_sin]
     # make sure we don't allow impossible stuff
-    if (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0) | (d_1 < 0) | (d_2 < 0):
+    dur_zero = (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0)
+    if dur_zero | (dur_b_1 > dur_1) | (dur_b_2 > dur_2) | (d_1 < 0) | (d_2 < 0):
         return 10**9
     # the model
     model_ecl = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2)
