@@ -1726,7 +1726,7 @@ def frequency_selection(times, signal, model_eclipse, p_orb, const, slope, f_n, 
     errors = tsf.formal_uncertainties(times, residuals, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     # find the insignificant frequencies
-    remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3., sigma_f=1.)
+    remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3, sigma_f=3)
     # apply the signal-to-noise threshold
     noise_at_f = tsf.scargle_noise_at_freq(f_n, times, residuals)
     remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, n_points)
