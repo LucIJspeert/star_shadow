@@ -1565,7 +1565,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     Meant both as a quick overview of the results and to facilitate
     the compilation of a catalogue of a set of results
     """
-    prew_par = -np.ones(5)
+    prew_par = -np.ones(7)
     timings_par = -np.ones(28)
     form_par = -np.ones(21)
     fit_par = -np.ones(33)
@@ -1581,14 +1581,16 @@ def save_summary(target_id, save_dir, data_id='none'):
         results = read_parameters_hdf5(file_name_5, verbose=False)
         p_orb, _ = results['ephem']
         p_err, _ = results['ephem_err']
+        p_hdi, _ = results['ephem_hdi']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
-        prew_par = [p_orb, p_err, n_param, bic, noise_level]
+        prew_par = [p_orb, p_err, p_hdi[0], p_hdi[1], n_param, bic, noise_level]
     elif os.path.isfile(file_name_3):
         results = read_parameters_hdf5(file_name_3, verbose=False)
         p_orb, _ = results['ephem']
         p_err, _ = results['ephem_err']
+        p_hdi, _ = results['ephem_hdi']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
-        prew_par = [p_orb, p_err, n_param, bic, noise_level]
+        prew_par = [p_orb, p_err, p_hdi[0], p_hdi[1], n_param, bic, noise_level]
     # load timing results (7)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
@@ -1636,7 +1638,8 @@ def save_summary(target_id, save_dir, data_id='none'):
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results['var_stats']
         level_par = [std_1, std_2, std_3, std_4, *ratios_1, *ratios_2, *ratios_3, *ratios_4]
     # file header with all variable names
-    hdr = ['id', 'stage', 't_tot', 't_mean', 'period', 'p_err', 'n_param_prew', 'bic_prew', 'noise_level_prew',
+    hdr = ['id', 'stage', 't_tot', 't_mean', 'period', 'p_err', 'p_err_l', 'p_err_u',
+           'n_param_prew', 'bic_prew', 'noise_level_prew',
            't_1', 't_2', 't_1_1', 't_1_2', 't_2_1', 't_2_2',
            't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
            't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
@@ -1658,6 +1661,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     # descriptions of all variables
     desc = ['target identifier', 'furthest stage the analysis reached', 'total time base of observations in days',
             'time series mean time reference point', 'orbital period in days', 'error in the orbital period',
+            'lower HDI error estimate in period', 'upper HDI error estimate in period',
             'number of free parameters after the prewhitening phase', 'BIC after the prewhitening phase',
             'noise level after the prewhitening phase',
             'time of primary minimum with respect to the mean time', 'time of secondary minimum with respect to t_1',
