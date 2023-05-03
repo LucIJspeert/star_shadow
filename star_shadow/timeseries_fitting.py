@@ -1126,18 +1126,19 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ra
     model: numpy.ndarray[float]
         Eclipse light curve model for the given time points
     """
-    # position angle along the orbit
-    thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)
+    # calculate time shift between primary minimum and superior conjunction
+    t_shift = p_orb / (2 * np.pi) * af.integral_kepler_2(af.true_anomaly(theta_1, w)-2*np.pi, af.true_anomaly(0, w), e)
     # make the simple model
+    thetas = np.arange(0, 2 * np.pi, 0.001)  # position angle along the orbit
     ecl_model = 1 - af.eclipse_depth(thetas, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
     # determine the model times
-    nu_1 = af.true_anomaly(theta_1, w)  # zero to good approximation
-    nu_2 = af.true_anomaly(theta_1 + thetas, w)  # integral endpoints
+    nu_1 = af.true_anomaly(0, w)
+    nu_2 = af.true_anomaly(thetas, w)  # integral endpoints
     t_model = p_orb / (2 * np.pi) * af.integral_kepler_2(nu_1, nu_2, e)
     # interpolate the model (probably faster than trying to calculate the times)
-    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0)
+    t_folded, _, _ = tsf.fold_time_series(times, p_orb, t_zero + t_shift, t_ext_1=0, t_ext_2=0)
     interp_model = np.interp(t_folded, t_model, ecl_model)
     return interp_model
 
