@@ -408,7 +408,6 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     Translated from Fortran (and just as fast when JIT-ted with Numba!)
         Computation of Scargles periodogram without explicit tau
         calculation, with iteration (Method Cuypers)
-        (is this the same: https://ui.adsabs.harvard.edu/abs/1989ApJ...338..277P/abstract ?)
     
     The times array is mean subtracted to reduce correlation between
     frequencies and phases. The signal array is mean subtracted to avoid

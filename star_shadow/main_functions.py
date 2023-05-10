@@ -1114,16 +1114,19 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
     # estimate the errors on individual timings by adding in square with the integration time
     t_1_i_i_err = np.sqrt(t_1_i_nct**2 + t_int**2)  # error for eclipse 1 edges
     t_2_i_i_err = np.sqrt(t_2_i_nct**2 + t_int**2)  # error for eclipse 2 edges
+    t_zero_i_err = np.sqrt(min(t_1_i_nct, t_2_i_nct)**2 + t_int**2)
     # estimate the errors on final timings with linear regression model
-    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_zero_i_err)
     t_1_err, t_2_err = t_err, t_err
     _, t_1_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_i_i_err)
     _, t_2_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_i_i_err)
     timings_err = np.array([t_1_err, t_2_err, t_1_i_err, t_1_i_err, t_2_i_err, t_2_i_err,
                             t_1_i_err, t_1_i_err, t_2_i_err, t_2_i_err])
     # determine depth error estimates using the noise level
-    depth_1_err, depth_2_err = tsf.measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings[:10],
-                                                       timings_err, noise_level, i_sectors)
+    depth_1_i_err, depth_2_i_err = tsf.measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n,
+                                                           timings[:10], timings_err, noise_level, i_sectors)
+    _, depth_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=depth_1_i_err)
+    _, depth_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=depth_2_i_err)
     depths_err = np.array([depth_1_err, depth_2_err])
     # check eclipse significance
     dur_1_err, dur_2_err = np.sqrt(t_1_i_err**2 + t_1_i_err**2), np.sqrt(t_2_i_err**2 + t_2_i_err**2)
@@ -1189,8 +1192,8 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
               f't_b_1_2: {timings[7]:.{rnd_t_b_1_2}f} (+-{timings_err[7]:.{rnd_t_b_1_2}f}), \n'
               f't_b_2_1: {timings[8]:.{rnd_t_b_2_1}f} (+-{timings_err[8]:.{rnd_t_b_2_1}f}), '
               f't_b_2_2: {timings[9]:.{rnd_t_b_2_2}f} (+-{timings_err[9]:.{rnd_t_b_2_2}f}), \n'
-              f'duration_1: {dur_b_1:.{rnd_bot_1}f} (+-{dur_1_err:.{rnd_bot_1}f}), '
-              f'duration_2: {dur_b_2:.{rnd_bot_2}f} (+-{dur_2_err:.{rnd_bot_2}f}). \n'
+              f'b_duration_1: {dur_b_1:.{rnd_bot_1}f} (+-{dur_1_err:.{rnd_bot_1}f}), '
+              f'b_duration_2: {dur_b_2:.{rnd_bot_2}f} (+-{dur_2_err:.{rnd_bot_2}f}). \n'
               f'd_1: {timings[10]:.{rnd_d_1}f} (+-{depths_err[0]:.{rnd_d_1}f}), '
               f'd_2: {timings[11]:.{rnd_d_2}f} (+-{depths_err[1]:.{rnd_d_2}f}). \n'
               f'h_1: {cubic_pars[8]:.{rnd_h_1}f} (+-{depths_err[0]:.{rnd_h_1}f}), '
