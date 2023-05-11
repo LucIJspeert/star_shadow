@@ -1566,7 +1566,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     the compilation of a catalogue of a set of results
     """
     prew_par = -np.ones(7)
-    timings_par = -np.ones(28)
+    timings_par = -np.ones(27)
     form_par = -np.ones(21)
     fit_par = -np.ones(33)
     freqs_par = -np.ones(5, dtype=int)
@@ -1596,8 +1596,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
-        _, _, p_t_corr = af.linear_regression_uncertainty(prew_par[0], t_tot, sigma_t=t_int)
-        timings_par = [*results['timings'], *results['timings_err'], p_t_corr, n_param, bic, noise_level]
+        timings_par = [*results['timings'], *results['timings_err'], n_param, bic, noise_level]
     # load parameter results from formulae (8)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
@@ -1644,7 +1643,7 @@ def save_summary(target_id, save_dir, data_id='none'):
            't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
            't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
            't_b_1_1_err', 't_b_1_2_err', 't_b_2_1_err', 't_b_2_2_err', 'd_1_err', 'd_2_err',
-           'p_t_corr', 'n_param_emp', 'bic_emp', 'noise_level_emp',
+           'n_param_emp', 'bic_emp', 'noise_level_emp',
            'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
            'e_sig', 'w_sig', 'r_sum_sig',
            'e_low', 'e_upp', 'w_low', 'w_upp', 'i_low', 'i_upp',
@@ -1680,7 +1679,7 @@ def save_summary(target_id, save_dir, data_id='none'):
             'error in start of (flat) eclipse bottom left of secondary minimum',
             'error in end of (flat) eclipse bottom right of secondary minimum',
             'error in depth of primary minimum', 'error in depth of secondary minimum',
-            'correlation between period and t_zero', 'number of free parameters after the eclipse timing phase',
+            'number of free parameters after the eclipse timing phase',
             'BIC after the eclipse timing phase', 'noise level after the eclipse timing phase',
             'eccentricity from timing formulae', 'argument of periastron (radians) from timing formulae',
             'inclination (radians) from timing formulae',
@@ -1882,7 +1881,6 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         heights_7 = results['emp_mean'][8:]
         timings_err_7, depths_err_7 = results['timings_err'][:10], results['timings_err'][10:]
         t_tot, t_mean, t_mean_s, t_int, n_param_7, bic_7, noise_level_7 = results['stats']
-        _, _, p_t_corr = af.linear_regression_uncertainty(p_orb_5, t_tot, sigma_t=t_int)
     # load parameter results from formulae (8)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
