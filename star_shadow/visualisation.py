@@ -220,7 +220,8 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     last contact points as well as minima indicated.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
+    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = timings_err[6:]
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     t_mean = np.mean(times)
@@ -298,27 +299,27 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
         ax.plot([t_b_1_1 - t_1, t_b_1_1 - t_1], s_minmax, '--', c='tab:brown')
         ax.plot([t_b_1_2 - t_1, t_b_1_2 - t_1], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax.fill_between([t_b_1_1 - t_1 - t_1_1_err, t_b_1_1 - t_1 + t_1_1_err],
+        ax.fill_between([t_b_1_1 - t_1 - t_b_1_1_err, t_b_1_1 - t_1 + t_b_1_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
-        ax.fill_between([t_b_1_2 - t_1 - t_1_2_err, t_b_1_2 - t_1 + t_1_2_err],
+        ax.fill_between([t_b_1_2 - t_1 - t_b_1_2_err, t_b_1_2 - t_1 + t_b_1_2_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax.fill_between([t_b_1_1 - t_1 - 3 * t_1_1_err, t_b_1_1 - t_1 + 3 * t_1_1_err],
+        ax.fill_between([t_b_1_1 - t_1 - 3 * t_b_1_1_err, t_b_1_1 - t_1 + 3 * t_b_1_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_1_2 - t_1 - 3 * t_1_2_err, t_b_1_2 - t_1 + 3 * t_1_2_err],
+        ax.fill_between([t_b_1_2 - t_1 - 3 * t_b_1_2_err, t_b_1_2 - t_1 + 3 * t_b_1_2_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax.plot([t_b_2_1 - t_1, t_b_2_1 - t_1], s_minmax, '--', c='tab:brown')
         ax.plot([t_b_2_2 - t_1, t_b_2_2 - t_1], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax.fill_between([t_b_2_1 - t_1 - t_2_1_err, t_b_2_1 - t_1 + t_2_1_err],
+        ax.fill_between([t_b_2_1 - t_1 - t_b_2_1_err, t_b_2_1 - t_1 + t_b_2_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
-        ax.fill_between([t_b_2_2 - t_1 - t_2_2_err, t_b_2_2 - t_1 + t_2_2_err],
+        ax.fill_between([t_b_2_2 - t_1 - t_b_2_2_err, t_b_2_2 - t_1 + t_b_2_2_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax.fill_between([t_b_2_1 - t_1 - 3 * t_2_1_err, t_b_2_1 - t_1 + 3 * t_2_1_err],
+        ax.fill_between([t_b_2_1 - t_1 - 3 * t_b_2_1_err, t_b_2_1 - t_1 + 3 * t_b_2_1_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
-        ax.fill_between([t_b_2_2 - t_1 - 3 * t_2_2_err, t_b_2_2 - t_1 + 3 * t_2_2_err],
+        ax.fill_between([t_b_2_2 - t_1 - 3 * t_b_2_2_err, t_b_2_2 - t_1 + 3 * t_b_2_2_err],
                         y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1) | ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax.plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
