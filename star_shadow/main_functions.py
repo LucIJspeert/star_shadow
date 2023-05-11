@@ -268,8 +268,8 @@ def find_orbital_period(times, signal, f_n, t_tot):
     # refine by using a dense sampling
     f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.00001 / base_p)
     n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res, f_nyquist)
-    h_measure = n_harm_r * completeness_r
-    mask_peak = (n_harm_r == np.max(n_harm_r))
+    h_measure = n_harm_r * completeness_r  # compute h_measure for constraining a domain
+    mask_peak = (h_measure > np.max(h_measure) / 1.5)  # constrain the domain of the search
     i_min_dist = np.argmin(distance_r[mask_peak])
     p_orb = 1 / f_refine[mask_peak][i_min_dist]
     # check twice the period as well
@@ -277,8 +277,8 @@ def find_orbital_period(times, signal, f_n, t_tot):
     # refine by using a dense sampling
     f_refine_2 = np.arange(0.99 / base_p2, 1.01 / base_p2, 0.00001 / base_p2)
     n_harm_r_2, completeness_r_2, distance_r_2 = af.harmonic_series_length(f_refine_2, f_n, freq_res, f_nyquist)
-    h_measure_2 = n_harm_r_2 * completeness_r_2
-    mask_peak_2 = (n_harm_r_2 == np.max(n_harm_r_2))
+    h_measure_2 = n_harm_r_2 * completeness_r_2 # compute h_measure for constraining a domain
+    mask_peak_2 = (h_measure_2 > np.max(h_measure_2) / 1.5)  # constrain the domain of the search
     i_min_dist_2 = np.argmin(distance_r_2[mask_peak_2])
     p_orb_2 = 1 / f_refine_2[mask_peak_2][i_min_dist_2]
     # compare the length and completeness to decide, using a threshold
