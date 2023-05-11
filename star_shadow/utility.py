@@ -845,7 +845,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         i_sectors = -np.ones((1, 2))
     # unpack timings
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err  = timings_err[:6]
+    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
@@ -1595,8 +1595,10 @@ def save_summary(target_id, save_dir, data_id='none'):
     file_name = os.path.join(save_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
+        p_err, _ = results['ephem_err']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         timings_par = [*results['timings'], *results['timings_err'], n_param, bic, noise_level]
+        prew_par[1] = p_err
     # load parameter results from formulae (8)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
@@ -1613,7 +1615,6 @@ def save_summary(target_id, save_dir, data_id='none'):
     file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        _, t_zero = results['ephem']
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
         ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
         e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
@@ -1864,7 +1865,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         timings_6, depths_6 = results['timings'][:10], results['timings'][10:]
-        timings_err_6, depths_err_6 = results['timings_err'][:6], results['timings_err'][6:]
+        timings_err_6, depths_err_6 = results['timings_err'][:10], results['timings_err'][10:]
         ecl_indices_6 = read_results_ecl_indices(file_name)
     elif os.path.isfile(file_name_2):
         ecl_indices_6 = read_results_ecl_indices(file_name)
