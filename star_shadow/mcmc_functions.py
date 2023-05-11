@@ -958,9 +958,8 @@ def sample_sinusoid_emp_eclipse(times, signal, p_orb, timings, const, slope, f_n
     return inf_data, par_means, par_hdi
 
 
-def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, t_zero_err,
-                            ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors,
-                            verbose=False):
+def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, ecl_par_err,
+                            c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=False):
     """NUTS sampling of a linear + sinusoid + eclipse model
 
     Parameters
@@ -986,8 +985,6 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    t_zero_err: float
-        Uncertainty in the time of the deepest minimum
     ecl_par_err: numpy.ndarray[float]
         Uncertainty in the initial eclipse parameters to start the fit, consisting of:
         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err
