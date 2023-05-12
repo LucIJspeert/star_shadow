@@ -2920,6 +2920,7 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     if verbose:
         print(f'Parameter calculations 100% done')
     # delete the skipped parameters
+    normal_p = np.delete(normal_p, i_delete)
     normal_t_1 = np.delete(normal_t_1, i_delete)
     normal_t_2 = np.delete(normal_t_2, i_delete)
     normal_t_1_1 = np.delete(normal_t_1_1, i_delete)
