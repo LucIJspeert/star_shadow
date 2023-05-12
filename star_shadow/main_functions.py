@@ -1114,13 +1114,11 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
     # determine noise-crossing-times using the noise level and slopes
     t_1_i_nct, t_2_i_nct = tsf.measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings,
                                                      noise_level, i_sectors)
-    # estimate the individual error on the timing of one whole eclipse
-    t_zero_i_err = np.sqrt(min(t_1_i_nct, t_2_i_nct)**2 / 2 + t_int**2)
-    # estimate the errors on individual timings by adding in square with the integration time
-    t_1_i_i_err = np.sqrt(t_1_i_nct**2 + t_int**2)  # error for eclipse 1 edges
-    t_2_i_i_err = np.sqrt(t_2_i_nct**2 + t_int**2)  # error for eclipse 2 edges
+    # estimate the errors on individual timings by adding half t_int in square with half the integration time
+    t_1_i_i_err = np.sqrt(t_1_i_nct**2 + t_int**2) / 2  # error for eclipse 1 edges
+    t_2_i_i_err = np.sqrt(t_2_i_nct**2 + t_int**2) / 2  # error for eclipse 2 edges
     # estimate the errors on final timings with linear regression model for the full set of eclipses
-    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_zero_i_err)
+    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int/2)
     t_1_err, t_2_err = t_err, t_err
     _, t_1_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_i_i_err)
     _, t_2_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_i_i_err)
