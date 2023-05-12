@@ -1468,9 +1468,9 @@ def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, ti
 
     Returns
     -------
-    t_1_i_err: float
+    t_1_i_nct: float
         Noise crossing time of primary first/last contact
-    t_2_i_err: float
+    t_2_i_nct: float
         Noise crossing time of secondary first/last contact
 
     Notes
@@ -1489,31 +1489,31 @@ def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, ti
     mask_1_2 = (t_folded > t_b_1_2 - t_1) & (t_folded < t_1_2 - t_1)
     mask_2_1 = (t_folded > t_2_1 - t_1) & (t_folded < t_b_2_1 - t_1)
     mask_2_2 = (t_folded > t_b_2_2 - t_1) & (t_folded < t_2_2 - t_1)
-    # get timing error by dividing noise level by slopes
+    # get noise crossing time by dividing noise level by slopes
     if (np.sum(mask_1_1) > 2):
         y_inter, slope = linear_pars(t_folded[mask_1_1], ecl_signal[mask_1_1], np.array([[0, len(t_folded[mask_1_1])]]))
     else:
         slope = np.array([depth_1 / (t_b_1_1 - t_1_1)])
-    t_1_1_err = abs(noise_level / slope[0])
+    t_1_1_nct = abs(noise_level / slope[0])
     if (np.sum(mask_1_2) > 2):
         y_inter, slope = linear_pars(t_folded[mask_1_2], ecl_signal[mask_1_2], np.array([[0, len(t_folded[mask_1_2])]]))
     else:
         slope = np.array([depth_1 / (t_1_2 - t_b_1_2)])
-    t_1_2_err = abs(noise_level / slope[0])
+    t_1_2_nct = abs(noise_level / slope[0])
     if (np.sum(mask_2_1) > 2):
         y_inter, slope = linear_pars(t_folded[mask_2_1], ecl_signal[mask_2_1], np.array([[0, len(t_folded[mask_2_1])]]))
     else:
         slope = np.array([depth_2 / (t_b_2_1 - t_2_1)])
-    t_2_1_err = abs(noise_level / slope[0])
+    t_2_1_nct = abs(noise_level / slope[0])
     if (np.sum(mask_2_2) > 2):
         y_inter, slope = linear_pars(t_folded[mask_2_2], ecl_signal[mask_2_2], np.array([[0, len(t_folded[mask_2_2])]]))
     else:
         slope = np.array([depth_2 / (t_2_2 - t_b_2_2)])
-    t_2_2_err = abs(noise_level / slope[0])
+    t_2_2_nct = abs(noise_level / slope[0])
     # assume the slopes to be the same on both sides, so average them
-    t_1_i_err = (t_1_1_err + t_1_2_err) / 2
-    t_2_i_err = (t_2_1_err + t_2_2_err) / 2
-    return t_1_i_err, t_2_i_err
+    t_1_i_nct = (t_1_1_nct + t_1_2_nct) / 2
+    t_2_i_nct = (t_2_1_nct + t_2_2_nct) / 2
+    return t_1_i_nct, t_2_i_nct
 
 
 @nb.njit(cache=True)
