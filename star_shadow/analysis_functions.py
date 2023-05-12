@@ -371,8 +371,8 @@ def find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9):
     A frequency is only accepted as harmonic if it is within 1e-9 of the pattern
     (by default). This can now be user defined for more flexibility.
     """
-    # guard against zero period
-    if (p_orb == 0):
+    # guard against zero period or empty list
+    if (p_orb == 0) | (len(f_n) == 0):
         harmonics = np.zeros(0, dtype=np.int_)
         harmonic_n = np.zeros(0, dtype=np.int_)
         return harmonics, harmonic_n
