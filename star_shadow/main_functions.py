@@ -393,7 +393,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -507,7 +507,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -610,7 +610,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
         noise_level = np.std(resid)
         # formal linear and sinusoid parameter errors
         c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-        p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+        p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
         # do not include those frequencies that have too big uncertainty
         include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
         f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
@@ -632,7 +632,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     bic = tsf.calc_bic(resid / signal_err, n_param)
     noise_level = np.std(resid)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -921,8 +921,8 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
         # save only indices file
         return (None,) * 2 + (ecl_indices,)
     # define some errors
-    t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2 + p_err**2) / 3  # this is an estimate
-    t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2 + p_err**2) / 3  # this is an estimate
+    t_1_err = np.sqrt(t_i_1_err[0]**2 + t_i_2_err[0]**2 + p_err**2) / 3  # this is a rough estimate
+    t_2_err = np.sqrt(t_i_1_err[1]**2 + t_i_2_err[1]**2 + p_err**2) / 3  # this is a rough estimate
     # depth errors from the noise levels at contact points and bottom of eclipse
     d_err = np.sqrt(3 / 2 * noise_level**2)  # sqrt(std(resid)**2/4+std(resid)**2/4+std(resid)**2)
     n_ecl = int(abs(t_tot // p_orb)) + 1  # number of eclipses
@@ -1118,7 +1118,7 @@ def optimise_eclipse_timings(times, signal, signal_err, p_orb, timings, timings_
     t_1_i_i_err = np.sqrt(t_1_i_nct**2 + t_int**2) / 2  # error for eclipse 1 edges
     t_2_i_i_err = np.sqrt(t_2_i_nct**2 + t_int**2) / 2  # error for eclipse 2 edges
     # estimate the errors on final timings with linear regression model for the full set of eclipses
-    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int/2)
+    p_err, t_err, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     t_1_err, t_2_err = t_err, t_err
     _, t_1_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_i_i_err)
     _, t_2_i_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_i_i_err)
@@ -1623,7 +1623,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [8] --- Initial orbital elements
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
-    _, _, p_t_corr = af.linear_regression_uncertainty(p_orb_5, np.ptp(times), sigma_t=t_int)
+    _, _, p_t_corr = af.linear_regression_uncertainty(p_orb_5, np.ptp(times), sigma_t=t_int / 2)
     out_8 = convert_timings_to_elements(p_orb_5, timings_7, p_err_5, timings_err_7, p_t_corr, file_name, **arg_dict)
     e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8 = out_8[:6]
     errors_8, formal_errors_8, dists_in_8, dists_out_8 = out_8[6:]
@@ -2077,7 +2077,7 @@ def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False,
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # find orbital period
     p_orb = find_orbital_period(times, signal, f_n_2, t_tot)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int)
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save p_orb
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
     col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
