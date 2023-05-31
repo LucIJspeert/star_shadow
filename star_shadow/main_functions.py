@@ -2010,7 +2010,7 @@ def customize_logger(save_dir, target_id, verbose):
     return None
 
 
-def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False, verbose=False):
+def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none', overwrite=False, verbose=False):
     """Do the global period search for a given light curve file
 
     Parameters
@@ -2053,16 +2053,17 @@ def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False,
     logger.info('Start of analysis')
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
+    # if sectors not given, take full length
+    if i_sectors is None:
+        i_sectors = np.array([[0, len(times)]])  # no sector information
+    i_half_s = i_sectors  # in this case no differentiation between half or full sectors
+    # calculate some parameters
     t_tot = np.ptp(times)  # total time base of observations
     t_mean = np.mean(times)  # mean time of observations
     t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])  # mean time per observation sector
     t_int = np.median(np.diff(times))  # integration time, taken to be the median time step
     t_stats = [t_tot, t_mean, t_mean_s, t_int]
     kw_args = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
-    # if sectors not given, take full length
-    if i_sectors is None:
-        i_sectors = np.array([[0, len(times)]])  # no sector information
-    i_half_s = i_sectors  # in this case no differentiation between half or full sectors
     # do the prewhitening and frequency optimisation
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
     out_1 = iterative_prewhitening(times, signal, signal_err, i_half_s, t_stats, file_name, **kw_args)
@@ -2073,7 +2074,7 @@ def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False,
         return -1
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
     out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
-                              file_name, **kw_args)
+                              file_name, method=method, **kw_args)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # find orbital period
     p_orb = find_orbital_period(times, signal, f_n_2, t_tot)
