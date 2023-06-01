@@ -282,7 +282,7 @@ def find_orbital_period(times, signal, f_n, t_tot):
     i_min_dist_2 = np.argmin(distance_r_2[mask_peak_2])
     p_orb_2 = 1 / f_refine_2[mask_peak_2][i_min_dist_2]
     # compare the length and completeness to decide, using a threshold
-    minimal_frac = 1.5  # empirically determined threshold
+    minimal_frac = 1.1  # empirically determined threshold
     frac_double = h_measure_2[mask_peak_2][i_min_dist_2] / h_measure[mask_peak][i_min_dist]
     if (frac_double > minimal_frac):
         p_orb = p_orb_2
