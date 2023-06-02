@@ -2041,8 +2041,9 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
     -----
     Results are saved in the same directory as the given file
     
-    Note that the period error may be underestimated, specifically
-    for low eclipse depths.
+    The input files are expected to have three columns with in order:
+    times, signal, signal_err
+    And the timestamps should be in ascending order.
     """
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
     save_dir = os.path.dirname(file_name)
@@ -2198,6 +2199,10 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='sampler', data
     Notes
     -----
     Results are saved in the same directory as the given file
+    
+    The input files are expected to have three columns with in order:
+    times, signal, signal_err
+    And the timestamps should be in ascending order.
     """
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
     save_dir = os.path.dirname(file_name)
