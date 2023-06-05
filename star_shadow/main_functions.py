@@ -2084,7 +2084,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
     col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
     col2 = [p_orb, p_err, t_tot, len(f_n_1)]
-    np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s')
+    np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s', delimiter=',')
     logger.info('End of analysis')
     if verbose:
         print(f'P_orb = {p_orb}, done.')
