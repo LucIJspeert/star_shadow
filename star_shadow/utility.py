@@ -40,8 +40,8 @@ def float_to_str(x, dec=2):
     """
     x_round = np.round(x, dec)
     x_int = int(x_round)
-    x_dec = int(np.round(x_round - x_int, dec) * 10**dec)
-    s = str(x_int) + '.' + str(x_dec)
+    x_dec = int(np.abs(np.round(x_round - x_int, dec)) * 10**dec)
+    s = str(x_int) + '.' + str(x_dec).zfill(dec)
     return s
 
 
