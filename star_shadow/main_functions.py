@@ -2070,8 +2070,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
     out_1 = iterative_prewhitening(times, signal, signal_err, i_half_s, t_stats, file_name, **kw_args)
     const_1, slope_1, f_n_1, a_n_1, ph_n_1 = out_1
     if (len(f_n_1) == 0):
-        if verbose:
-            print('done.')
+        logger.info('No frequencies found.')
         return -1
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
     out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,

@@ -9,7 +9,7 @@ from setuptools import setup
 # package version
 MAJOR = 1
 MINOR = 0
-ATTR = '7a'
+ATTR = '7b'
 # full acronym
 ACRONYM = ('Satellite Time-series Analysis Routine using Sinusoids and Harmonics Automatedly '
            'for Double stars with Occultations and Waves')
