@@ -818,6 +818,8 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     # use the astropy fast algorithm and normalise afterward
     ls = apy.LombScargle(times_ms, signal_ms, fit_mean=False, center_data=False)
     s1 = ls.power(f1, normalization='psd', method='fast')
+    # replace negative by zero (just in case - have seen it happen)
+    s1[s1 < 0] = 0
     # convert to the wanted normalisation
     if norm == 'distribution':  # statistical distribution
         s1 /= np.var(signal_ms)
