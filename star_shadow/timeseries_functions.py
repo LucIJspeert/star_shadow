@@ -2229,10 +2229,9 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
     remove_harm_c = np.zeros(0, dtype=np.int_)
     f_new, a_new, ph_new = np.zeros((3, 0))
     # determine initial bic
-    model_linear = linear_curve(times, const, slope, i_sectors)
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
-    resid = cur_resid - model_linear
+    resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 + 2 * n_harm_init + 3 * (n_freq - n_harm_init)
     bic_init = calc_bic(resid / signal_err, n_param)
     # go through the harmonics by harmonic number and re-extract them (removing all duplicate n's in the process)
@@ -2242,8 +2241,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         model_sinusoid_r = sum_sines(times, f_n[remove], a_n[remove], ph_n[remove])
         cur_resid += model_sinusoid_r
         const, slope = linear_pars(times, resid, i_sectors)  # redetermine const and slope
-        model_linear = linear_curve(times, const, slope, i_sectors)
-        resid = cur_resid - model_linear
+        resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # calculate the new harmonic
         f_i = n / p_orb  # fixed f
         a_i = scargle_ampl_single(times, resid, f_i)
@@ -2271,8 +2269,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         model_sinusoid_r = sum_sines(times, np.array([f_n[i]]), np.array([a_n[i]]), np.array([ph_n[i]]))
         cur_resid += model_sinusoid_r
         const, slope = linear_pars(times, cur_resid, i_sectors)  # redetermine const and slope
-        model_linear = linear_curve(times, const, slope, i_sectors)
-        resid = cur_resid - model_linear
+        resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # extract the updated frequency
         fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
         f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f0=fl, fn=fr, verbose=verbose)
@@ -2283,8 +2280,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
     # lastly re-determine slope and const
     const, slope = linear_pars(times, cur_resid, i_sectors)
     if verbose:
-        model_linear = linear_curve(times, const, slope, i_sectors)
-        resid = cur_resid - model_linear
+        resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (n_freq - n_harm)
         bic = calc_bic(resid / signal_err, n_param)
         print(f'Candidate harmonics replaced: {n_harm_init} ({n_harm} left). ')
@@ -2349,10 +2345,9 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
     # indices of single frequencies to remove
     remove_single = np.zeros(0, dtype=np.int_)
     # determine initial bic
-    model_linear = linear_curve(times, const, slope, i_sectors)
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
     cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
-    resid = cur_resid - model_linear
+    resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
     bic_prev = calc_bic(resid / signal_err, n_param)
     bic_init = bic_prev
@@ -2368,8 +2363,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
             model_sinusoid_r = sum_sines(times, np.array([f_n[i]]), np.array([a_n[i]]), np.array([ph_n[i]]))
             resid = cur_resid + model_sinusoid_r
             const, slope = linear_pars(times, resid, i_sectors)  # redetermine const and slope
-            model_linear = linear_curve(times, const, slope, i_sectors)
-            resid -= model_linear
+            resid -= linear_curve(times, const, slope, i_sectors)
             # number of parameters and bic
             n_harm_i = n_harm - len([h for h in remove_single if h in harmonics]) - 1 * (i in harmonics)
             n_freq_i = n_freq - len(remove_single) - 1 - n_harm_i
