@@ -491,6 +491,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     if verbose:
         print(f'Looking for additional frequencies.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
+    n_f_init = len(f_n)
     # start by looking for more harmonics
     out_a = tsf.extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n, a_n, ph_n, verbose=verbose)
     # look for any additional non-harmonics with the iterative scheme
@@ -520,7 +521,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48m{len(f_n) - len(f_n)} additional frequencies added.\033[0m')
+        print(f'\033[1;32;48m{len(f_n) - n_f_init} additional frequencies added.\033[0m')
         print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
               f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
