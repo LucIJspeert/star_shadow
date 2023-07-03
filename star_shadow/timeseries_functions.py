@@ -1892,11 +1892,11 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     accept = True
     while accept:
         accept = False
-        # remove each frequency one at a time to re-extract them
-        model_linear = linear_curve(times, const, slope, i_sectors)
+        # remove each frequency one at a time to then re-extract them
         for j in close_f:
             cur_resid += sum_sines(times, np.array([f_n_temp[j]]), np.array([a_n_temp[j]]), np.array([ph_n_temp[j]]))
-            resid = cur_resid - model_linear
+            const, slope = linear_pars(times, cur_resid, i_sectors)
+            resid = cur_resid - linear_curve(times, const, slope, i_sectors)
             # if f is a harmonic, don't shift the frequency
             if j in harmonics:
                 f_j = f_n_temp[j]
@@ -2470,10 +2470,9 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     used_sets = np.zeros(0, dtype=np.int_)  # sets that are not to be examined anymore
     f_new, a_new, ph_new = np.zeros((3, 0))
     # determine initial bic
-    model_linear = linear_curve(times, const, slope, i_sectors)
     model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
-    cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
-    resid = cur_resid - model_linear
+    best_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
+    resid = best_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
     bic_prev = calc_bic(resid / signal_err, n_param)
     bic_init = bic_prev
@@ -2489,10 +2488,9 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
             remove = np.append([k for j in remove_sets for k in f_sets[j]], set_i).astype(np.int_)
             # make a model of the removed and new sinusoids and subtract/add it from/to the full sinusoid model
             model_sinusoid_r = sum_sines(times, f_n[set_i], a_n[set_i], ph_n[set_i])
-            resid = cur_resid + model_sinusoid_r
+            resid = best_resid + model_sinusoid_r
             const, slope = linear_pars(times, resid, i_sectors)  # redetermine const and slope
-            model_linear = linear_curve(times, const, slope, i_sectors)
-            resid -= model_linear
+            resid -= linear_curve(times, const, slope, i_sectors)
             # extract a single freq to try replacing the set
             if i in harm_sets:
                 harm_i = np.array([h for h in set_i if h in harmonics])
@@ -2505,10 +2503,9 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
                 f_i, a_i, ph_i = np.array([out[0]]), np.array([out[1]]), np.array([out[2]])
             # make a model including the new freq
             model_sinusoid_n = sum_sines(times, f_i, a_i, ph_i)
-            resid = cur_resid - model_sinusoid_n
+            resid -= model_sinusoid_n
             const, slope = linear_pars(times, resid, i_sectors)  # redetermine const and slope
-            model_linear = linear_curve(times, const, slope, i_sectors)
-            resid -= model_linear
+            resid -= linear_curve(times, const, slope, i_sectors)
             # number of parameters and bic
             n_freq_i = n_freq - sum([len(f_sets[j]) for j in remove_sets]) - len(set_i) + len(f_new) + len(f_i) - n_harm
             n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * n_freq_i
@@ -2521,10 +2518,10 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
                 remove_sets = np.append(remove_sets, i)
                 # remember the new frequency (or the current one if it is a harmonic)
                 f_new, a_new, ph_new = np.append(f_new, f_i), np.append(a_new, a_i), np.append(ph_new, ph_i)
-                cur_resid += model_sinusoid_r - model_sinusoid_n
+                best_resid += model_sinusoid_r - model_sinusoid_n
                 bic_prev = bic
     # lastly re-determine slope and const
-    const, slope = linear_pars(times, cur_resid, i_sectors)
+    const, slope = linear_pars(times, best_resid, i_sectors)
     # finally, remove all the designated sinusoids from the lists and add the new ones
     f_n = np.append(np.delete(f_n, [k for i in remove_sets for k in f_sets[i]]), f_new)
     a_n = np.append(np.delete(a_n, [k for i in remove_sets for k in f_sets[i]]), a_new)
