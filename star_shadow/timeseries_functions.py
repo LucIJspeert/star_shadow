@@ -1294,7 +1294,7 @@ def sum_sines(times, f_n, a_n, ph_n, t_shift=True):
     Notes
     -----
     Assumes the phases are determined with respect
-    to the mean time as zero point.
+    to the mean time as zero point by default.
     """
     if t_shift:
         mean_t = np.mean(times)
@@ -1337,7 +1337,7 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1, t_shift=True):
     Notes
     -----
     Assumes the phases are determined with respect
-    to the mean time as zero point.
+    to the mean time as zero point by default.
     """
     if t_shift:
         mean_t = np.mean(times)
