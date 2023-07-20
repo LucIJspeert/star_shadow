@@ -74,53 +74,6 @@ def dsin_dx(two_pi_t, f, a, ph, d='f', p_orb=0):
 
 
 @nb.njit(cache=True)
-def d2sin_dx2(two_pi_t, f, a, ph, d='ff'):
-    """The second derivative of a sine wave at times t,
-    where x is on of the parameters.
-
-    Parameters
-    ----------
-    two_pi_t: numpy.ndarray[float]
-        Timestamps of the time series times two pi
-    f: float
-        The frequency of a sine waves
-    a: float
-        The amplitude of a sine waves
-    ph: float
-        The phase of a sine waves
-    d: string
-        Which derivative to take
-        Choose ff, aa, phph, fa, fph, aph,
-
-    Returns
-    -------
-    model_deriv: numpy.ndarray[float]
-        Model time series of the derivative of a sine wave to f.
-
-    Notes
-    -----
-    Make sure the phases correspond to the given
-    time zero point.
-    If d='p_orb', it is assumed that f is a harmonic
-    """
-    if d == 'ff':
-        model_deriv = -a * np.sin(two_pi_t * f + ph) * two_pi_t**2
-    elif d == 'aa':
-        model_deriv = np.zeros(len(two_pi_t))
-    elif d == 'phph':
-        model_deriv = -a * np.sin(two_pi_t * f + ph)
-    if (d == 'fa') | (d == 'af'):
-        model_deriv = np.cos(two_pi_t * f + ph) * two_pi_t
-    elif (d == 'fph') | (d == 'phf'):
-        model_deriv = -a * np.sin(two_pi_t * f + ph) * two_pi_t
-    elif (d == 'aph') | (d == 'pha'):
-        model_deriv = np.cos(two_pi_t * f + ph)
-    else:
-        model_deriv = np.zeros(len(two_pi_t))
-    return model_deriv
-
-
-@nb.njit(cache=True)
 def objective_sinusoids(params, times, signal, signal_err, i_sectors):
     """The objective function to give to scipy.optimize.minimize for a sum of sine waves.
 
@@ -224,139 +177,6 @@ def jacobian_sinusoids(params, times, signal, signal_err, i_sectors):
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
     jac = df_1 * df_2
     return jac
-
-
-@nb.njit(cache=True)
-def hessian_sinusoids(params, times, signal, signal_err, i_sectors):
-    """The hessian function to give to scipy.optimize.minimize for a sum of sine waves.
-
-    Parameters
-    ----------
-    params: numpy.ndarray[float]
-        The parameters of a set of sine waves
-        Has to be a flat array and are ordered in the following way:
-        [freq1, freg2, ..., ampl1, ampl2, ..., phase1, phase2, ...]
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-
-    Returns
-    -------
-    jac: float
-        The derivative of minus the (natural)log-likelihood of the residuals
-
-    See Also
-    --------
-    linear_curve and sum_sines for the definition of the parameters.
-    """
-    times_ms = times - np.mean(times)
-    n_sin = len(params) // 3  # each sine has freq, ampl and phase
-    # separate the parameters and make the sinusoid model
-    freqs = params[:n_sin]
-    ampls = params[n_sin:2 * n_sin]
-    phases = params[2 * n_sin:3 * n_sin]
-    model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
-    resid = signal - model_sinusoid
-    # make the linear model and calculate the likelihood derivative (minus this for minimisation)
-    const, slope = tsf.linear_pars(times, resid, i_sectors)
-    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
-    resid -= model_linear
-    # common factors
-    sigma_inv = 1 / signal_err
-    sigma2_inv = sigma_inv / signal_err
-    sigma_resid = resid * sigma_inv
-    sigma2_resid = sigma_resid * sigma_inv
-    two_pi_t = 2 * np.pi * times_ms
-    # factor 1 of d2f/dx_idx_j: -n / S**2
-    s = np.sum(sigma_resid**2)
-    d2f_1 = len(times) / s**2
-    # calculate the rest of the hessian, factor 2 of d2f/dx_idx_j:
-    d2f_2 = np.zeros((3 * n_sin, 3 * n_sin))
-    for i, (fi, ai, phi) in enumerate(zip(freqs, ampls, phases)):
-        i_a = i + n_sin
-        i_ph = i + 2 * n_sin
-        # diagonal
-        d2f_2[i, i] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')**2)
-                            + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='ff')))
-                       - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))**2)
-        d2f_2[i_a, i_a] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='a')**2)
-                                + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='aa')))
-                           - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='a'))**2)
-        d2f_2[i_ph, i_ph] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='ph')**2)
-                                  + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='phph')))
-                             - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='ph'))**2)
-        # off diagonal, same sinusoid
-        d2f_2[i, i_a] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')
-                                     * dsin_dx(two_pi_t, fi, ai, phi, d='a'))
-                              + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='fa')))
-                         - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))
-                         * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='a')))
-        d2f_2[i, i_ph] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')
-                                      * dsin_dx(two_pi_t, fi, ai, phi, d='ph'))
-                               + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='fph')))
-                          - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))
-                          * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='ph')))
-        d2f_2[i_a, i_ph] = (s * (np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='a')
-                                        * dsin_dx(two_pi_t, fi, ai, phi, d='ph'))
-                                 + np.sum(sigma_inv * sigma_resid * d2sin_dx2(two_pi_t, fi, ai, phi, d='aph')))
-                            - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='a'))
-                            * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='ph')))
-        d2f_2[i_a, i] = d2f_2[i, i_a]
-        d2f_2[i_ph, i] = d2f_2[i, i_ph]
-        d2f_2[i_ph, i_a] = d2f_2[i_a, i_ph]
-        # rest of the off-diagonal
-        for j in range(i + 1, n_sin):
-            j_a = j + n_sin
-            j_ph = j + 2 * n_sin
-            fj = freqs[j]
-            aj = ampls[j]
-            phj = phases[j]
-            d2f_2[i, j] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')
-                                      * dsin_dx(two_pi_t, fj, aj, phj, d='f'))
-                           - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))
-                           * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='f')))
-            d2f_2[i, j_a] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')
-                                        * dsin_dx(two_pi_t, fj, aj, phj, d='a'))
-                             - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))
-                             * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='a')))
-            d2f_2[i, j_ph] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='f')
-                                         * dsin_dx(two_pi_t, fj, aj, phj, d='ph'))
-                              - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='f'))
-                              * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='ph')))
-            d2f_2[i_a, j_a] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='a')
-                                          * dsin_dx(two_pi_t, fj, aj, phj, d='a'))
-                               - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='a'))
-                               * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='a')))
-            d2f_2[i_a, j_ph] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='a')
-                                           * dsin_dx(two_pi_t, fj, aj, phj, d='ph'))
-                                - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='a'))
-                                * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='ph')))
-            d2f_2[i_ph, j_ph] = (s * np.sum(sigma2_inv * dsin_dx(two_pi_t, fi, ai, phi, d='ph')
-                                            * dsin_dx(two_pi_t, fj, aj, phj, d='ph'))
-                                 - 2 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fi, ai, phi, d='ph'))
-                                 * np.sum(sigma_inv * sigma_resid * dsin_dx(two_pi_t, fj, aj, phj, d='ph')))
-            d2f_2[j, i] = d2f_2[i, j]
-            d2f_2[j_a, i_a] = d2f_2[i_a, j_a]
-            d2f_2[j_ph, i_ph] = d2f_2[i_ph, j_ph]
-            d2f_2[j_a, i] = d2f_2[i, j_a]
-            d2f_2[i_a, j] = d2f_2[i, j_a]
-            d2f_2[j, i_a] = d2f_2[i, j_a]
-            d2f_2[j_ph, i] = d2f_2[i, j_ph]
-            d2f_2[i_ph, j] = d2f_2[i, j_ph]
-            d2f_2[j, i_ph] = d2f_2[i, j_ph]
-            d2f_2[j_ph, i_a] = d2f_2[i_a, j_ph]
-            d2f_2[i_ph, j_a] = d2f_2[i_a, j_ph]
-            d2f_2[j_a, i_ph] = d2f_2[i_a, j_ph]
-    # hessian = d2f/dx_idx_j (f is objective function)
-    hes = d2f_1 * d2f_2
-    return hes
 
 
 def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
@@ -649,7 +469,7 @@ def jacobian_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n, 
     for i, (f, a, ph) in enumerate(zip(freqs[n_sin:], ampls[n_sin:], phases[n_sin:])):
         i_a = i + 3 * n_sin + 1
         i_ph = i + 3 * n_sin + n_harm + 1
-        df_2[0] -= np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='p_orb'))
+        df_2[0] -= np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='p_orb', p_orb=p_orb))
         df_2[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
         df_2[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
