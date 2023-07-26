@@ -900,17 +900,21 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
-    t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
-    # if at first we don't succeed, try more harmonics
-    if np.any([item is None for item in output]):
-        low_h = (harmonic_n <= 40)  # restrict harmonics to avoid interference of high frequencies
-        output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
-        t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
-        # if still we don't succeed, try all harmonics
-        if np.any([item is None for item in output]):
-            output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
-            t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
+    output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+    t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err, ecl_indices = output
+    
+    
+    # output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
+    # t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
+    # # if at first we don't succeed, try more harmonics
+    # if np.any([item is None for item in output]):
+    #     low_h = (harmonic_n <= 40)  # restrict harmonics to avoid interference of high frequencies
+    #     output = af.measure_eclipses_dt(p_orb, f_h[low_h], a_h[low_h], ph_h[low_h], noise_level, t_gaps)
+    #     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
+    #     # if still we don't succeed, try all harmonics
+    #     if np.any([item is None for item in output]):
+    #         output = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+    #         t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, ecl_indices = output
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
     if np.all([item is None for item in output]):
@@ -934,7 +938,7 @@ def find_eclipse_timings(times, p_orb, f_n, a_n, ph_n, p_err, noise_level, file_
     ephem_err = np.array([p_err, t_1_err])
     timings = np.array([t_1, t_2, *t_contacts, *t_tangency, *depths])
     timings_err = np.array([t_1_err, t_2_err, t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1],
-                           t_i_1_err[0], t_i_2_err[0], t_i_1_err[1], t_i_2_err[1], depth_err, depth_err])
+                            t_b_i_1_err[0], t_b_i_2_err[0], t_b_i_1_err[1], t_b_i_2_err[1], depth_err, depth_err])
     desc = 'Initial eclipse timings and depths.'
     ut.save_parameters_hdf5(file_name, sin_mean=sin_mean, ephem=ephem, ephem_err=ephem_err, timings=timings,
                             timings_err=timings_err, description=desc, data_id=data_id)

@@ -1853,12 +1853,6 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     p_err_i = [0, 0, p_err_3, p_err_3, p_err_5]
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5]
-    # get the low harmonics
-    if (len(f_n_5) > 0):
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_5, p_orb_5, f_tol=1e-9)
-        if (len(harmonics) > 0):
-            low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of ooe signal
-            f_hl_5, a_hl_5, ph_hl_5 = f_n_5[harmonics[low_h]], a_n_5[harmonics[low_h]], ph_n_5[harmonics[low_h]]
     # load initial timing results (6)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_6.hdf5')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
@@ -1951,8 +1945,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_derivatives_lh.png')
         else:
             file_name = None
-        vis.plot_lc_derivatives(p_orb_5, f_h_5, a_h_5, ph_h_5, f_hl_5, a_hl_5, ph_hl_5, ecl_indices_6,
-                                save_file=file_name, show=show)
+        vis.plot_lc_derivatives(p_orb_5, f_h_5, a_h_5, ph_h_5, ecl_indices_6, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     try:
@@ -1961,7 +1954,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         else:
             file_name = None
         vis.plot_lc_timings_harmonics(times, signal, p_orb_5, timings_6, depths_6, timings_err_6,
-                                      depths_err_6, const_5, slope_5, f_n_5, a_n_5, ph_n_5, f_hl_5, a_hl_5, ph_hl_5,
+                                      depths_err_6, const_5, slope_5, f_n_5, a_n_5, ph_n_5, f_h_5, a_h_5, ph_h_5,
                                       i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)

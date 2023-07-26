@@ -1130,7 +1130,7 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p
 
 
-# @nb.njit(cache=True)
+@nb.njit(cache=True)
 def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1, peaks_2_n,
                       minimum_1, zeros_1_in, peaks_2_p):
     """Make a list of indices indicating eclipses out of lists of peaks
@@ -1182,13 +1182,13 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     indices = np.arange(len(peaks_1))
     i_neg = indices[slope_sign == -1]  # negative slope is candidate ingress
     i_pos = indices[slope_sign == 1]  # positive slope is candidate egress
-    combinations = np.zeros((0, 2), dtype=int)
+    combinations = np.zeros((0, 2), dtype=np.int_)
     for i in i_neg:
         egress = i_pos[i_pos > i]  # select all points after i
         ingress = np.repeat(i, len(egress))
         combinations = np.append(combinations, np.column_stack((ingress, egress)), axis=0)
     # make eclipses
-    ecl_indices = np.zeros((0, 13), dtype=int)
+    ecl_indices = np.zeros((0, 13), dtype=np.int_)
     for comb in combinations:
         # restrict duration to half the orbital period
         duration = t_model[minimum_1[comb[1]]] - t_model[minimum_1[comb[0]]]
@@ -1206,32 +1206,28 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
                 gap_cond = False  # at least one side in gap or too big a gap
         condition &= gap_cond
         if condition:
-            # check for prominent eclipse bottom
+            # put the eclipse minimum at or in the middle between the zeros_1_in
+            zeros_1_in_mid = (zeros_1_in[comb[0]] + zeros_1_in[comb[1]]) // 2
+            # adjust peaks_2_p if asymmetry with zeros_1_in
             if (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
-                min_d2_p = np.max(deriv_2[peaks_2_p[comb]])
+                p_2_p_1 = zeros_1_in_mid  # assumption that if p2p is the same, z1i also the same
+                p_2_p_2 = zeros_1_in_mid
             else:
-                min_d2_p = np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1])
-            prom_2_p = np.max(deriv_2[peaks_2_p[comb]]) - min_d2_p  # maximum peaks_2_p minus minimum between
-            if (prom_2_p > 0.1 * np.max(prom_2_n[comb])):
                 p_2_p_1 = peaks_2_p[comb[0]]
                 p_2_p_2 = peaks_2_p[comb[1]]
-            else:
-                p_2_p_1 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
-                p_2_p_2 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
-            p_2_p_mid = (p_2_p_1 + p_2_p_2) // 2  # put the eclipse minimum at or in the middle between the peaks_2_p
             # assemble eclipse indices
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]],
-                   p_2_p_1, zeros_1_in[comb[0]], p_2_p_mid, zeros_1_in[comb[1]], p_2_p_2,
+                   p_2_p_1, zeros_1_in[comb[0]], zeros_1_in_mid, zeros_1_in[comb[1]], p_2_p_2,
                    peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             i_mid_ecl = (ecl[2] + ecl[-3]) // 2
             line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
             line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
             if line_check_1 & line_check_2:
-                ecl_indices = np.vstack((ecl_indices, [ecl]))
+                ecl_indices = np.vstack((ecl_indices, np.array([ecl])))
     # check overlap and pick the highest peaks in deriv_1 in case of overlap
     indices = np.arange(len(ecl_indices))
-    combinations = np.zeros((0, 2), dtype=int)
+    combinations = np.zeros((0, 2), dtype=np.int_)
     for i in indices:
         ecl_2 = indices[indices > i]  # select only eclipses after ecl_1 to avoid doubles
         ecl_1 = np.repeat(i, len(ecl_2))
@@ -1245,11 +1241,13 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
         if (overlap_1 | overlap_2):
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
             ecl_remove.append(comb[np.argmin(peak_height)])
-    ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
+    remove_mask = np.ones(len(ecl_indices), dtype=np.bool_)
+    remove_mask[np.array(ecl_remove)] = False
+    ecl_indices = ecl_indices[remove_mask]  # delete only first two args in numba
     return ecl_indices
 
 
-# @nb.njit(cache=True)
+@nb.njit(cache=True)
 def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     """Measure the times, durations and depths of the eclipses
     
@@ -1284,35 +1282,57 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
         Timing error estimates for the eclipse edges
     t_i_2_err: numpy.ndarray[float]
         Timing error estimates for the eclipse edges
+    t_b_i_1_err: numpy.ndarray[float]
+        Timing error estimates for the eclipse bottoms
+    t_b_i_2_err: numpy.ndarray[float]
+        Timing error estimates for the eclipse bottoms
     
     Notes
     -----
     Intended for use in measure_eclipses_dt,
     in conjunction with mark_eclipse_peaks.
     """
-    # make the timing measurement
+    # make the timing measurements
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
     t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
     t_p2n_1 = t_model[ecl_indices[:, 2]]  # first times of negative extremum deriv_2 (from peaks_2_n)
     t_p2n_2 = t_model[ecl_indices[:, -3]]  # last times of negative extremum deriv_2 (from peaks_2_n)
+    t_z1i_1 = t_model[ecl_indices[:, 5]]  # first times of zero deriv_1 inner (from zero_1_in)
+    t_z1i_2 = t_model[ecl_indices[:, -6]]  # last times of zero deriv_1 inner (from zero_1_in)
+    t_p2p_1 = t_model[ecl_indices[:, 4]]  # first times of positive extremum deriv_2 (from peaks_2_p)
+    t_p2p_2 = t_model[ecl_indices[:, -5]]  # last times of positive extremum deriv_2 (from peaks_2_p)
     # determine the eclipse edges from the midpoint between peaks_2_n and minimum_1
     t_i_1 = (t_m1_1 + t_p2n_1) / 2
     t_i_2 = (t_m1_2 + t_p2n_2) / 2
     indices_t_i_1 = np.searchsorted(t_model, t_i_1)  # if t_model is granular enough, this should be precise enough
     indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
+    # determine the bottom edges from the midpoint between peaks_2_p and zeros_1_in
+    t_b_i_1 = (t_z1i_1 + t_p2p_1) / 2
+    t_b_i_2 = (t_z1i_2 + t_p2p_2) / 2
+    indices_t_b_i_1 = np.searchsorted(t_model, t_b_i_1)  # if t_model is granular enough, this should be precise enough
+    indices_t_b_i_2 = np.searchsorted(t_model, t_b_i_2)  # if t_model is granular enough, this should be precise enough
     # use the intervals as 3 sigma limits on either side
     t_i_1_err = (t_p2n_1 - t_m1_1) / 6
     t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
     t_i_2_err = (t_m1_2 - t_p2n_2) / 6
     t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
+    # do the same for the inner intervals (flat bottom)
+    t_b_i_1_err = (t_z1i_1 - t_p2p_1) / 6
+    t_b_i_1_err[t_b_i_1_err == 0] = 0.00001  # avoid zeros
+    t_b_i_2_err = (t_p2p_2 - t_z1i_2) / 6
+    t_b_i_2_err[t_b_i_2_err == 0] = 0.00001  # avoid zeros
     # convert to midpoints and widths and take the deepest depth measured in two ways
     ecl_min = t_model[ecl_indices[:, 6]]
     ecl_mid = (t_i_1 + t_i_2) / 2
     widths = (t_i_2 - t_i_1)
+    ecl_mid_b = (t_b_i_1 + t_b_i_2) / 2
+    widths_b = (t_b_i_2 - t_b_i_1)
     depths_1 = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 6]]
-    depths_2 = (model_h[indices_t_i_1] - model_h[ecl_indices[:, 4]]
-                + model_h[indices_t_i_2] - model_h[ecl_indices[:, -5]]) / 2
-    depths = np.max([depths_1, depths_2], axis=0)
+    depths_2 = (model_h[indices_t_i_1] - model_h[indices_t_b_i_1]
+                + model_h[indices_t_i_2] - model_h[indices_t_b_i_2]) / 2
+    depths = np.copy(depths_1)
+    d2_larger = (depths_2 > depths_1)
+    depths[d2_larger] = depths_2[d2_larger]  # max no support for optional args numba
     # remove too shallow eclipses
     remove_shallow = (depths > noise_level / 4)
     ecl_min = ecl_min[remove_shallow]
@@ -1321,27 +1341,20 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     depths = depths[remove_shallow]
     t_i_1_err = t_i_1_err[remove_shallow]
     t_i_2_err = t_i_2_err[remove_shallow]
+    t_b_i_1_err = t_b_i_1_err[remove_shallow]
+    t_b_i_2_err = t_b_i_2_err[remove_shallow]
     ecl_indices = ecl_indices[remove_shallow]
-    # estimates of flat bottom
-    t_b_i_1 = t_model[ecl_indices[:, 4]]
-    t_b_i_2 = t_model[ecl_indices[:, -5]]
-    ecl_mid_b = (t_b_i_1 + t_b_i_2) / 2
-    widths_b = (t_b_i_2 - t_b_i_1)
-    return ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err
+    return ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
 
 
-# @nb.njit(cache=True)
-def select_eclipses(p_orb, ecl_indices, ecl_min, widths, depths):
+@nb.njit(cache=True)
+def select_eclipses(p_orb, ecl_min, widths, depths):
     """Select the best combination of primary and secondary
     
     Parameters
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    ecl_indices: numpy.ndarray[float]
-        Two dimensional array of eclipse indices.
-        Each eclipse has indices corresponding to
-        several prominent points.
     ecl_min: numpy.ndarray[float]
         Times of the eclipse minima
     widths: numpy.ndarray[float]
@@ -1355,26 +1368,85 @@ def select_eclipses(p_orb, ecl_indices, ecl_min, widths, depths):
         Best combination of eclipses based on
         the combined depth.
     """
+    n_ecl = len(ecl_min)
     # now pick out two consecutive, fully covered eclipses
-    indices = np.arange(len(ecl_indices))
-    combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
+    indices = np.arange(n_ecl)
+    combinations = np.zeros((n_ecl - 1, 2), dtype=np.int_)
+    for i, (j, k) in enumerate(zip(indices[:-1], indices[1:])):
+        combinations[i] = [j, k]  # numba no like array initialisation of a list comprehension
     # also pick out two candidates skipping one candidate
-    combinations_2 = np.array([[i, j] for i, j in zip(indices[:-2], indices[2:])])
+    combinations_2 = np.zeros((n_ecl - 2, 2), dtype=np.int_)
+    for i, (j, k) in enumerate(zip(indices[:-2], indices[2:])):
+        combinations_2[i] = [j, k]  # numba no like array initialisation of a list comprehension
     if (len(combinations_2) > 0):
         combinations = np.append(combinations, combinations_2, axis=0)
+    # also pick out two candidates skipping two candidates
+    combinations_3 = np.zeros((n_ecl - 3, 2), dtype=np.int_)
+    for i, (j, k) in enumerate(zip(indices[:-3], indices[3:])):
+        combinations_3[i] = [j, k]  # numba no like array initialisation of a list comprehension
+    if (len(combinations_3) > 0):
+        combinations = np.append(combinations, combinations_3, axis=0)
     # check overlap of the eclipses
-    comb_remove = []
+    comb_remove = np.zeros(0, dtype=np.int_)
     for i, comb in enumerate(combinations):
-        comb_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
-        if (comb_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
-            comb_remove.append(i)
-    combinations = np.delete(combinations, comb_remove, axis=0)
+        comb_dist_direct = abs(ecl_min[comb[0]] - ecl_min[comb[1]])
+        comb_dist_wrapped = abs(comb_dist_direct - p_orb)
+        max_width = max(widths[comb[0]] / 2, widths[comb[1]] / 2)
+        if (comb_dist_direct < max_width) | (comb_dist_wrapped < max_width):
+            comb_remove = np.append(comb_remove, i)
+    remove_mask = np.ones(len(combinations), dtype=np.bool_)
+    remove_mask[comb_remove] = False
+    combinations = combinations[remove_mask]  # delete only has first two args in numba
     if (len(combinations) == 0):
-        return np.array([])
+        return np.zeros(0, dtype=np.int_)
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
     return best_comb
+
+
+@nb.njit(cache=True)
+def match_eclipses(ecl_indices_1, ecl_indices_2, depths_2):
+    """Finds which eclipses in 2 match the eclipses in 1
+    
+    Parameters
+    ----------
+    ecl_indices_1: numpy.ndarray[int]
+        Two dimensional array of eclipse indices.
+        Each eclipse has indices corresponding to
+        several prominent points.
+    ecl_indices_2: numpy.ndarray[int]
+        Two dimensional array of eclipse indices.
+        Each eclipse has indices corresponding to
+        several prominent points.
+    depths_2: numpy.ndarray[float]
+        Depths of the eclipses
+    
+    Returns
+    -------
+    matches: numpy.ndarray[float]
+        Indices of array 2 for each of array 1
+    unmatched: numpy.ndarray[bool]
+        Mask of unmatched ecl in array 2
+    """
+    n_ecl_1 = len(ecl_indices_1)
+    n_ecl_2 = len(ecl_indices_2)
+    indices_1 = np.arange(n_ecl_1)
+    indices_2 = np.arange(n_ecl_2)
+    # find the matches in 2 for each ecl in 1
+    matches = -np.ones(n_ecl_1, dtype=np.int_)
+    unmatched = np.ones(n_ecl_2, dtype=np.bool_)
+    for i in indices_1:
+        match = (ecl_indices_1[i, 1] < ecl_indices_2[:, 2]) & (ecl_indices_1[i, -2] > ecl_indices_2[:, -3])
+        unmatched[match] = False  # keeps track of matched 2s
+        if np.sum(match) > 1:
+            j = indices_2[match][np.argmax(depths_2[match])]
+        elif np.sum(match) == 1:
+            j = indices_2[match][0]
+        else:
+            j = -1
+        matches[i] = j
+    return matches, unmatched
 
 
 def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
@@ -1411,9 +1483,13 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     depths: numpy.ndarray[float], None
         Measurements of the eclipse depths in units of a_n
     t_i_1_err: numpy.ndarray[float], None
-        Measurement error estimates of the first contact(s)
+        Measurement error estimates of the first contacts
     t_i_2_err: numpy.ndarray[float], None
-        Measurement error estimates of the last contact(s)
+        Measurement error estimates of the last contacts
+    t_b_i_1_err: numpy.ndarray[float]
+        Measurement error estimates of the first internal tangencies
+    t_b_i_2_err: numpy.ndarray[float]
+        Measurement error estimates of the last internal tangencies
     ecl_indices: numpy.ndarray[int], None
         Indices of several important points in the harmonic model
         as generated here (see function for details)
@@ -1433,23 +1509,53 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     """
     # make a timeframe from 0 to two P to catch both eclipses in full if present
     t_model = np.linspace(0, 2 * p_orb, 10**6)
-    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
-    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
-    # find the eclipses
-    output_a = mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps)
-    peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p = output_a
-    ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
-                                    peaks_2_n, minimum_1, zeros_1_in, peaks_2_p)
-    # check that we have some eclipses
-    if (len(ecl_indices) < 2):
-        return (None,) * 7 + (ecl_indices,)
+    harmonics, harmonic_n = find_harmonics_from_pattern(f_h, p_orb, f_tol=1e-9)
+    for i, n in enumerate([20, 40, np.max(harmonic_n)]):
+        low_h = (harmonic_n <= n)  # restrict harmonics to avoid interference of high frequencies
+        model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
+        deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
+        deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
+        # find the eclipses
+        output_a = mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps)
+        peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p = output_a
+        ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
+                                        peaks_2_n, minimum_1, zeros_1_in, peaks_2_p)
+        # measure them up
+        output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
+        ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b
+        # keep a complete master list of eclispes
+        if (i == 0):
+            ecl_i_master = np.copy(ecl_indices)  # master list
+            ecl_mid_0 = np.copy(ecl_mid)
+            widths_0 = np.copy(widths)
+            depths_0 = np.copy(depths)
+        else:
+            # merge the lists
+            matches, unmatched = match_eclipses(ecl_i_master, ecl_indices, depths)
+            for j, m in enumerate(matches):
+                if (m != -1):
+                    ecl_i_master[j] = ecl_indices[m]
+                    ecl_mid_0[j] = ecl_mid[m]
+                    widths_0[j] = widths[m]
+                    depths_0[j] = depths[m]
+            ecl_i_master = np.vstack((ecl_i_master, ecl_indices[unmatched]))
+            ecl_mid_0 = np.append(ecl_mid_0, ecl_mid[unmatched])
+            widths_0 = np.append(widths_0, widths[unmatched])
+            depths_0 = np.append(depths_0, depths[unmatched])
+            # sort to time
+            sorter = np.argsort(ecl_mid_0)
+            ecl_i_master = ecl_i_master[sorter]
+            ecl_mid_0 = ecl_mid_0[sorter]
+            widths_0 = widths_0[sorter]
+            depths_0 = depths_0[sorter]
+    ecl_indices = ecl_i_master
+    # measure up the final list
     output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
-    ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err = output_b
-    best_comb = select_eclipses(p_orb, ecl_indices, ecl_min, widths, depths)
+    ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b
+    # pick the best pair
+    best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
     if (len(best_comb) == 0):
         return (None,) * 7 + (ecl_indices,)
-    print('succes')
     ecl_indices = ecl_indices[best_comb]
     ecl_min = ecl_min[best_comb]
     ecl_mid = ecl_mid[best_comb]
@@ -1459,6 +1565,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     widths_b = widths_b[best_comb]
     t_i_1_err = t_i_1_err[best_comb]
     t_i_2_err = t_i_2_err[best_comb]
+    t_b_i_1_err = t_b_i_1_err[best_comb]
+    t_b_i_2_err = t_b_i_2_err[best_comb]
     # put the primary (deepest) in front
     sorter = np.argsort(depths)[::-1]  # depths no longer used from this point
     ecl_indices = ecl_indices[sorter]
@@ -1469,6 +1577,8 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     widths_b = widths_b[sorter]
     t_i_1_err = t_i_1_err[sorter]
     t_i_2_err = t_i_2_err[sorter]
+    t_b_i_1_err = t_b_i_1_err[sorter]
+    t_b_i_2_err = t_b_i_2_err[sorter]
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
     t_1 = ecl_min[0]
     t_2 = (ecl_min[1] - t_1) % p_orb
@@ -1493,7 +1603,7 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1 + t_1, t_b_2_2 + t_1)
     # redetermine depths a tiny bit more precisely
     depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
-    return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, ecl_indices
+    return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err, ecl_indices
 
 
 def measure_eclipses_dt_old(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
