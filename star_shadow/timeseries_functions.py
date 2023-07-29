@@ -1611,6 +1611,109 @@ def measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timi
     return depth_1_err, depth_2_err
 
 
+def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors,
+                           t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err):
+    """Estimate individual and combined errors for eclipse timings and depths
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    const: numpy.ndarray[float]
+        The y-intercepts of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slopes of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    timings: numpy.ndarray[float]
+        Eclipse timings: minima, first/last contact points, internal tangency and depths,
+        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2 t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
+    noise_level: float
+        The noise level (standard deviation of the residuals)
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    t_i_1_err: numpy.ndarray[float], None
+        Measurement error estimates of the first contacts
+    t_i_2_err: numpy.ndarray[float], None
+        Measurement error estimates of the last contacts
+    t_b_i_1_err: numpy.ndarray[float]
+        Measurement error estimates of the first internal tangencies
+    t_b_i_2_err: numpy.ndarray[float]
+        Measurement error estimates of the last internal tangencies
+    
+    Returns
+    -------
+    p_err: float
+        Error in the period
+    timings_ind_err: numpy.ndarray[float]
+        Error estimates for the individual eclipse timings and depths,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+        t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
+    timings_err: numpy.ndarray[float]
+        Error estimates for the eclipse timings and depths,
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+        t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
+    """
+    t_tot = np.ptp(times)
+    # determine noise-crossing-times using the noise level and slopes
+    t_1_i_nct, t_2_i_nct = measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings,
+                                                 noise_level, i_sectors)
+    # estimate the errors on individual timings by adding noise crossing time and harmonic estimates
+    t_1_i_nct, t_2_i_nct = t_1_i_nct / 2, t_2_i_nct / 2  # halve the nct for an err estimate
+    t_1_1_ind_err = np.sqrt(t_1_i_nct**2 + t_i_1_err[0]**2)  # error for eclipse 1 edges
+    t_1_2_ind_err = np.sqrt(t_1_i_nct**2 + t_i_2_err[0]**2)  # error for eclipse 1 edges
+    t_2_1_ind_err = np.sqrt(t_2_i_nct**2 + t_i_1_err[1]**2)  # error for eclipse 2 edges
+    t_2_2_ind_err = np.sqrt(t_2_i_nct**2 + t_i_2_err[1]**2)  # error for eclipse 2 edges
+    t_b_1_1_ind_err = np.sqrt(t_1_i_nct**2 + t_b_i_1_err[0]**2)  # error for eclipse 1 bottom
+    t_b_1_2_ind_err = np.sqrt(t_1_i_nct**2 + t_b_i_2_err[0]**2)  # error for eclipse 1 bottom
+    t_b_2_1_ind_err = np.sqrt(t_2_i_nct**2 + t_b_i_1_err[1]**2)  # error for eclipse 2 bottom
+    t_b_2_2_ind_err = np.sqrt(t_2_i_nct**2 + t_b_i_2_err[1]**2)  # error for eclipse 2 bottom
+    # define individual eclipse timing errors from the edge timing errors
+    t_1_ind_err = np.sqrt(t_1_1_ind_err**2 + t_1_2_ind_err**2) / 2
+    t_2_ind_err = np.sqrt(t_2_1_ind_err**2 + t_2_2_ind_err**2) / 2
+    # estimate the timing errors over all eclipses with linear regression model
+    t_1_t_2_err_avg = np.sqrt(t_1_ind_err**2 + t_2_ind_err**2) / 2
+    p_err, _, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_t_2_err_avg)
+    _, t_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_ind_err)
+    _, t_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_ind_err)
+    _, t_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_1_ind_err)
+    _, t_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_2_ind_err)
+    _, t_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_1_ind_err)
+    _, t_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_2_ind_err)
+    _, t_b_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_1_ind_err)
+    _, t_b_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_2_ind_err)
+    _, t_b_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_1_ind_err)
+    _, t_b_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_2_ind_err)
+    # collect in arrays
+    timings_ind_err = np.array([t_1_ind_err, t_2_ind_err, t_1_1_ind_err, t_1_2_ind_err, t_2_1_ind_err, t_2_2_ind_err,
+                                t_b_1_1_ind_err, t_b_1_2_ind_err, t_b_2_1_ind_err, t_b_2_2_ind_err])
+    timings_err = np.array([t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+                            t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err])
+    # determine individual depth error estimates using the noise levels and eclispe bottoms
+    depth_1_ind_err, depth_2_ind_err = measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n,
+                                                           timings[:10], timings_err, noise_level, i_sectors)
+    # estimate the errors on final depths for the full set of eclipses
+    n_ecl = int(abs(t_tot // p_orb)) + 1  # number of cycles
+    depth_1_err = depth_1_ind_err / np.sqrt(n_ecl)
+    depth_2_err = depth_2_ind_err / np.sqrt(n_ecl)
+    # append to timing errors
+    timings_ind_err = np.append(timings_ind_err, [depth_1_ind_err, depth_2_ind_err])
+    timings_err = np.append(timings_err, [depth_1_err, depth_2_err])
+    return p_err, timings_ind_err, timings_err
+
+
 def extract_single(times, signal, f0=0, fn=0, verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
