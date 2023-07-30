@@ -1339,7 +1339,7 @@ def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
     params: numpy.ndarray[float]
         The parameters of a simple eclipse light curve model.
         Has to be ordered in the following way:
-        [ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio]
+        [ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, offset]
     times: numpy.ndarray[float]
         Timestamps of the time series, zero point at primary minimum
     signal: numpy.ndarray[float]
@@ -1365,7 +1365,11 @@ def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
     i = np.arccos(cosi)
     r_sum_sma = af.r_sum_sma_from_phi_0(e, i, phi_0)
-    model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio) + offset
+    # check for unphysical e
+    if (e > 1):
+        model = np.zeros(len(times))
+    else:
+        model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio) + offset
     # determine likelihood for the model (minus this for minimisation)
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)
     # check periastron distance

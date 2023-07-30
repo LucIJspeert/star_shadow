@@ -1434,9 +1434,11 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     return sigma_const, sigma_slope, sigma_f, sigma_a, sigma_ph
 
 
+
 @nb.njit(cache=True)
 def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
     """Determine the noise level crossing time of the eclipse slopes
+    using the harmonic signal
 
     Parameters
     ----------
@@ -1482,7 +1484,9 @@ def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, ti
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2 = timings
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
-    model_sines = sum_sines(times, f_n, a_n, ph_n)
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    model_sines = sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_sines - model_line
     # use the eclipse model to find the derivative peaks

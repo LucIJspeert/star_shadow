@@ -1592,16 +1592,16 @@ def save_summary(target_id, save_dir, data_id='none'):
         p_hdi, _ = results['ephem_hdi']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         prew_par = [p_orb, p_err, p_hdi[0], p_hdi[1], n_param, bic, noise_level]
-    # load timing results (7)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_7.hdf5')
+    # load timing results (6)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_6.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         p_err, _ = results['ephem_err']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
         timings_par = [*results['timings'], *results['timings_err'], n_param, bic, noise_level]
         prew_par[1] = p_err
-    # load parameter results from formulae (8)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
+    # load parameter results from formulae (7)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
@@ -1609,11 +1609,11 @@ def save_summary(target_id, save_dir, data_id='none'):
         ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
         e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
         elem = [e, w, i, r_sum, r_rat, sb_rat, sigma_e, sigma_w, sigma_r_sum,
-                e_err[1], e_err[0], w_err[1], w_err[0], i_err[1], i_err[0],
-                r_sum_err[1], r_sum_err[0], r_rat_err[1], r_rat_err[0], sb_rat_err[1], sb_rat_err[0]]
+                e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1],
+                r_sum_err[0], r_sum_err[1], r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1]]
         form_par = elem
-    # load parameter results from full fit (9)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
+    # load parameter results from physical model fit (8)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
@@ -1625,15 +1625,15 @@ def save_summary(target_id, save_dir, data_id='none'):
                    phi_0_err[0], phi_0_err[1], r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1],
                    e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1], r_sum_err[0], r_sum_err[1],
                    n_param, bic, noise_level]
-    # include n_freqs/n_freqs_passed (10)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_10.hdf5')
+    # include n_freqs/n_freqs_passed (9)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         passed_sigma, passed_snr, passed_both, passed_h = results['sin_select']
         freqs_par = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
                      np.sum(passed_h)]
-    # include variability stats (11)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_11.hdf5')
+    # include variability stats (10)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_10.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results['var_stats']
@@ -1853,7 +1853,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     p_err_i = [0, 0, p_err_3, p_err_3, p_err_5]
     f_n_i = [f_n_1, f_n_2, f_n_3, f_n_4, f_n_5]
     a_n_i = [a_n_1, a_n_2, a_n_3, a_n_4, a_n_5]
-    # load initial timing results (6)
+    # load timing results (6)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_6.hdf5')
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices.csv')
@@ -1868,44 +1868,35 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         ecl_indices_6 = np.atleast_2d(ecl_indices_6)
         if (len(ecl_indices_6) == 0):
             del ecl_indices_6  # delete the empty array to not do the plot
-    # load timing results (7)
+    # load parameter results from formulae (7)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        const_7, slope_7, f_n_7, a_n_7, ph_n_7 = results['sin_mean']
-        timings_7, depths_7 = results['timings'][:10], results['timings'][10:]
-        heights_7 = results['emp_mean'][8:]
-        timings_err_7, depths_err_7 = results['timings_err'][:10], results['timings_err'][10:]
-        t_tot, t_mean, t_mean_s, t_int, n_param_7, bic_7, noise_level_7 = results['stats']
-    # load parameter results from formulae (8)
+        ecosw_7, esinw_7, cosi_7, phi_0_7, r_rat_7, sb_rat_7, e_7, w_7, i_7, r_sum_7 = results['phys_mean']
+        ecosw_err_7, esinw_err_7, cosi_err_7, phi_0_err_7, r_rat_err_7, sb_rat_err_7 = results['phys_hdi'][:6]
+        e_err_7, w_err_7, i_err_7, r_sum_err_7 = results['phys_hdi'][6:]
+        ecl_par_7 = [e_7, w_7, i_7, r_sum_7, r_rat_7, sb_rat_7]
+        dists_in_7, dists_out_7 = read_results_dists(file_name)
+        # intervals_w #? for when the interval is disjoint
+    # load parameter results from full fit (9)
     file_name = os.path.join(load_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
+        const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results['sin_mean']
+        _, t_zero_8 = results['ephem']
         ecosw_8, esinw_8, cosi_8, phi_0_8, r_rat_8, sb_rat_8, e_8, w_8, i_8, r_sum_8 = results['phys_mean']
-        ecosw_err_8, esinw_err_8, cosi_err_8, phi_0_err_8, r_rat_err_8, sb_rat_err_8 = results['phys_hdi'][:6]
-        e_err_8, w_err_8, i_err_8, r_sum_err_8 = results['phys_hdi'][6:]
-        ecl_par_8 = [e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8]
-        dists_in_8, dists_out_8 = read_results_dists(file_name)
-        # intervals_w #? for when the interval is disjoint
-    # load parameter results from full fit (9)
-    file_name = os.path.join(load_dir, f'{target_id}_analysis_9.hdf5')
-    if os.path.isfile(file_name):
-        results = read_parameters_hdf5(file_name, verbose=False)
-        const_9, slope_9, f_n_9, a_n_9, ph_n_9 = results['sin_mean']
-        _, t_zero_9 = results['ephem']
-        ecosw_9, esinw_9, cosi_9, phi_0_9, r_rat_9, sb_rat_9, e_9, w_9, i_9, r_sum_9 = results['phys_mean']
-        timings_9, depths_9 = results['timings'][:10], results['timings'][10:]
-        t_tot, t_mean, t_mean_s, t_int, n_param_9, bic_9, noise_level_9 = results['stats']
-        ecl_par_9 = np.array([e_9, w_9, i_9, r_sum_9, r_rat_9, sb_rat_9])
+        timings_8, depths_8 = results['timings'][:10], results['timings'][10:]
+        t_tot, t_mean, t_mean_s, t_int, n_param_8, bic_8, noise_level_8 = results['stats']
+        ecl_par_8 = np.array([e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8])
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
     if os.path.isfile(file_name_mc):
-        inf_data_9 = read_inference_data(file_name)
+        inf_data_8 = read_inference_data(file_name)
     # include n_freqs/n_freqs_passed (10)
-    file_name = os.path.join(load_dir, f'{target_id}_analysis_10.hdf5')
+    file_name = os.path.join(load_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        passed_sigma_10, passed_snr_10, passed_b_10, passed_h_10 = results['sin_select']
+        passed_sigma_9, passed_snr_9, passed_b_9, passed_h_9 = results['sin_select']
     # frequency_analysis
     try:
         if save_dir is not None:
@@ -1960,20 +1951,10 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         pass  # some variable wasn't loaded (file did not exist)
     try:
         if save_dir is not None:
-            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_empirical_timings.png')
-        else:
-            file_name = None
-        vis.plot_lc_empirical_model(times, signal, p_orb_5, timings_6, depths_6, const_7, slope_7,
-                                    f_n_7, a_n_7, ph_n_7, timings_7, depths_7, heights_7, timings_err_7, depths_err_7,
-                                    i_sectors, save_file=file_name, show=show)
-    except NameError:
-        pass  # some variable wasn't loaded (file did not exist)
-    try:
-        if save_dir is not None:
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_timings_elements.png')
         else:
             file_name = None
-        vis.plot_corner_eclipse_elements(p_orb_5, timings_7, depths_7, ecl_par_8, dists_in_8, dists_out_8,
+        vis.plot_corner_eclipse_elements(p_orb_5, timings_6, depths_6, ecl_par_7, dists_in_7, dists_out_7,
                                          save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
@@ -1984,8 +1965,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_physical_eclipse.png')
         else:
             file_name = None
-        vis.plot_lc_physical_model(times, signal, p_orb_5, t_zero_9, const_9, slope_9, f_n_9, a_n_9, ph_n_9,
-                                   ecl_par_9, passed_b_10, i_sectors, save_file=file_name, show=show)
+        vis.plot_lc_physical_model(times, signal, p_orb_5, t_zero_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                   ecl_par_8, passed_b_9, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     try:
@@ -1993,8 +1974,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_lc_physical_eclipse_h.png')
         else:
             file_name = None
-        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_9, timings_7, timings_9, const_9, slope_9,
-                                     f_n_9, a_n_9, ph_n_9, ecl_par_8, ecl_par_9, passed_b_10, passed_h_10, i_sectors,
+        vis.plot_lc_physical_model_h(times, signal, p_orb_5, t_zero_8, timings_6, timings_8, const_8, slope_8,
+                                     f_n_8, a_n_8, ph_n_8, ecl_par_7, ecl_par_8, passed_b_9, passed_h_9, i_sectors,
                                      save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
@@ -2003,8 +1984,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_mcmc.png')
         else:
             file_name = None
-        vis.plot_corner_eclipse_mcmc(inf_data_9, ecosw_9, esinw_9, cosi_9, phi_0_9, r_rat_9, sb_rat_9, const_9, slope_9,
-                                     f_n_9, a_n_9, ph_n_9, save_file=file_name, show=show)
+        vis.plot_corner_eclipse_mcmc(inf_data_8, ecosw_8, esinw_8, cosi_8, phi_0_8, r_rat_8, sb_rat_8, const_8, slope_8,
+                                     f_n_8, a_n_8, ph_n_8, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     # pulsation_analysis
@@ -2013,8 +1994,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_pd_leftover_sinusoid.png')
         else:
             file_name = None
-        vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_9, noise_level_5, const_9, slope_9, f_n_9, a_n_9,
-                                       ph_n_9, passed_b_10, ecl_par_9, i_sectors, save_file=file_name, show=show)
+        vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_8, noise_level_5, const_8, slope_8, f_n_8, a_n_8,
+                                       ph_n_8, passed_b_9, ecl_par_8, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     return None
