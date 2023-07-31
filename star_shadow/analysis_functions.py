@@ -1090,7 +1090,7 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
     
     Notes
     -----
-    Intended for use in measure_eclipses_dt,
+    Intended for use in detect_eclipses,
     with a fine grid of time points spanning
     two times the orbital period.
     """
@@ -1173,7 +1173,7 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     
     Notes
     -----
-    Intended for use in measure_eclipses_dt,
+    Intended for use in detect_eclipses,
     in conjunction with mark_eclipse_peaks.
     """
     # determine prominences for peaks_2_n (prom_2_p handled separately later on)
@@ -1211,6 +1211,9 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
             # adjust peaks_2_p if asymmetry with zeros_1_in
             if (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
                 p_2_p_1 = zeros_1_in_mid  # assumption that if p2p is the same, z1i also the same
+                p_2_p_2 = zeros_1_in_mid
+            elif (np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1]) > 0):
+                p_2_p_1 = zeros_1_in_mid  # assumption that if d_2 > 0, z1i the same
                 p_2_p_2 = zeros_1_in_mid
             else:
                 p_2_p_1 = peaks_2_p[comb[0]]
@@ -1289,7 +1292,7 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     
     Notes
     -----
-    Intended for use in measure_eclipses_dt,
+    Intended for use in detect_eclipses,
     in conjunction with mark_eclipse_peaks.
     """
     # make the timing measurements
@@ -1449,7 +1452,7 @@ def match_eclipses(ecl_indices_1, ecl_indices_2, depths_2):
     return matches, unmatched
 
 
-def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
+def detect_eclipses(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     """Determine the eclipse midpoints, depths and widths from the derivatives
     of the harmonic model.
     
@@ -1604,271 +1607,6 @@ def measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # redetermine depths a tiny bit more precisely
     depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
     return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err, ecl_indices
-
-
-def measure_eclipses_dt_old(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
-    """Determine the eclipse midpoints, depths and widths from the derivatives
-    of the harmonic model.
-
-    Parameters
-    ----------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    f_h: numpy.ndarray[float]
-        Frequencies containing the orbital harmonics, in per day
-    a_h: numpy.ndarray[float]
-        Corresponding amplitudes of the sinusoids
-    ph_h: numpy.ndarray[float]
-        Corresponding phases of the sinusoids
-        (with respect to the mean time)
-    noise_level: float
-        The noise level (standard deviation of the residuals)
-    t_gaps: numpy.ndarray[float]
-        Gap timestamps in pairs
-    
-    Returns
-    -------
-    t_1: float, None
-        Time of primary minimum with respect to the mean time
-    t_2: float, None
-        Time of secondary minimum with respect to the mean time
-    t_contacts: tuple[float], None
-        Measurements of the times of contact:
-        t_1_1, t_1_2, t_2_1, t_2_2
-    t_int_tan: tuple[float], None
-        Measurements of the times near internal tangency:
-        t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2
-    depths: numpy.ndarray[float], None
-        Measurements of the eclipse depths in units of a_n
-    t_i_1_err: numpy.ndarray[float], None
-        Measurement error estimates of the first contact(s)
-    t_i_2_err: numpy.ndarray[float], None
-        Measurement error estimates of the last contact(s)
-    ecl_indices: numpy.ndarray[int], None
-        Indices of several important points in the harmonic model
-        as generated here (see function for details)
-
-    Notes
-    -----
-    The result is ordered according to depth so that the deepest eclipse is first.
-
-    t_1, t_1_1, t_1_2, t_b_1_1 and t_b_1_2 are measured with respect to the
-    phase (ph_h) zero point (which is the mean time).
-
-    t_2, t_2_1, t_2_2, t_b_2_1 and t_b_2_2 are measured with respect to t_1.
-    """
-    # make a timeframe from 0 to two P to catch both eclipses in full if present
-    t_model = np.linspace(0, 2 * p_orb, 10**6)
-    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-    # the following code utilises a similar idea to find the eclipses as ECLIPSR (except somewhat simpler)
-    deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
-    deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
-    # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
-    peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
-    if (len(peaks_1) == 0):
-        return (None,) * 8  # No eclipse signatures found above the noise level
-    # 24 or fewer (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
-    n_prominent = 24
-    ecl_peaks = np.argsort(props['prominences'])[-n_prominent:]
-    # increase the amount if any peaks fell into gaps
-    mask_gaps = tsf.mask_timestamps(t_model, t_gaps)  # masks everything but the gaps
-    mask_peaks = np.zeros(len(t_model), dtype=bool)
-    mask_peaks[peaks_1[ecl_peaks]] = True  # mask everything but the eclipse peaks
-    n_pk_in_gap = np.sum(mask_gaps & mask_peaks)  # number of peaks falling in gaps
-    if (n_pk_in_gap > 0):
-        ecl_peaks = np.argsort(props['prominences'])[-n_prominent - n_pk_in_gap:]
-    # now convert ecl_peaks to peaks in t_model and get slope signs
-    peaks_1 = np.sort(peaks_1[ecl_peaks])  # sort again to chronological order
-    slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
-    # walk outward from peaks_1 to zero in deriv_1
-    zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
-    # find the minima in deriv_2 between peaks_1 and zeros_1
-    peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
-    peaks_2_n = np.array(peaks_2_n).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_n = curve_walker(deriv_2, peaks_2_n, -slope_sign, mode='down')
-    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, -slope_sign, mode='down')
-    # walk inward from peaks_1 to zero in deriv_1
-    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
-    # find the maxima in deriv_2 between peaks_1 and zeros_1
-    peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
-    peaks_2_p = np.array(peaks_2_p).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
-    # determine prominences for peaks_2_n (peaks_2_p handled separately)
-    prom_2_n = deriv_2[peaks_2_p] - deriv_2[peaks_2_n]
-    # group peaks in with negative and then positive slopes
-    indices = np.arange(len(peaks_1))
-    i_neg = indices[slope_sign == -1]  # negative slope is candidate ingress
-    i_pos = indices[slope_sign == 1]  # positive slope is candidate egress
-    combinations = np.zeros((0, 2), dtype=int)
-    for i in i_neg:
-        egress = i_pos[i_pos > i]  # select all points after i
-        ingress = np.repeat(i, len(egress))
-        combinations = np.append(combinations, np.column_stack((ingress, egress)), axis=0)
-    # make eclipses
-    ecl_indices = np.zeros((0, 13), dtype=int)
-    for comb in combinations:
-        # restrict duration to half the orbital period
-        duration = t_model[minimum_1[comb[1]]] - t_model[minimum_1[comb[0]]]
-        condition = (duration < p_orb / 2)
-        # eclipses may not be in gaps in the phase coverage
-        t_ingress = t_model[peaks_2_n[comb[0]]]
-        t_egress = t_model[peaks_2_n[comb[1]]]
-        gap_cond = True
-        for tg in t_gaps:
-            gap_cond_1 = (t_ingress > tg[0]) & (t_ingress < tg[-1])  # ingress not in gap
-            gap_cond_2 = (t_egress > tg[0]) & (t_egress < tg[-1])  # egress not in gap
-            gap_cond_3 = gap_cond_1 | gap_cond_2 | ((t_ingress < tg[0]) & (t_egress > tg[-1]))
-            gap_cond_3 &= ((tg[-1] - tg[0]) / (t_egress - t_ingress)) > 0.5  # too much eclipse in gap
-            if gap_cond_1 | gap_cond_2 | gap_cond_3:
-                gap_cond = False  # at least one side in gap or too big a gap
-        condition &= gap_cond
-        if condition:
-            # check for prominent eclipse bottom
-            if (peaks_2_p[comb[0]] == peaks_2_p[comb[1]]):
-                min_d2_p = np.max(deriv_2[peaks_2_p[comb]])
-            else:
-                min_d2_p = np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1])
-            prom_2_p = np.max(deriv_2[peaks_2_p[comb]]) - min_d2_p  # maximum peaks_2_p minus minimum between
-            if (prom_2_p > 0.1 * np.max(prom_2_n[comb])):
-                p_2_p_1 = peaks_2_p[comb[0]]
-                p_2_p_2 = peaks_2_p[comb[1]]
-            else:
-                p_2_p_1 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
-                p_2_p_2 = (peaks_2_p[comb[0]] + peaks_2_p[comb[1]]) // 2
-            p_2_p_mid = (p_2_p_1 + p_2_p_2) // 2  # put the eclipse minimum at or in the middle between the peaks_2_p
-            # assemble eclipse indices
-            ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]],
-                   p_2_p_1, zeros_1_in[comb[0]], p_2_p_mid, zeros_1_in[comb[1]], p_2_p_2,
-                   peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
-            # check in the harmonic light curve model that all points in eclipse lie beneath the top points
-            i_mid_ecl = (ecl[2] + ecl[-3]) // 2
-            line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
-            line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
-            if line_check_1 & line_check_2:
-                ecl_indices = np.vstack((ecl_indices, [ecl]))
-    # check overlap and pick the highest peaks in deriv_1
-    indices = np.arange(len(ecl_indices))
-    combinations = np.zeros((0, 2), dtype=int)
-    for i in indices:
-        ecl_2 = indices[indices > i]  # select all eclipses after ecl_1 to avoid doubles
-        ecl_1 = np.repeat(i, len(ecl_2))
-        combinations = np.append(combinations, np.column_stack((ecl_1, ecl_2)), axis=0)
-    ecl_remove = []
-    for comb in combinations:
-        overlap_1 = (ecl_indices[comb[0], 1] >= ecl_indices[comb[1], 1])
-        overlap_1 &= (ecl_indices[comb[0], 1] < ecl_indices[comb[1], -2])
-        overlap_2 = (ecl_indices[comb[0], 1] <= ecl_indices[comb[1], 1])
-        overlap_2 &= (ecl_indices[comb[0], -2] > ecl_indices[comb[1], 1])
-        if (overlap_1 | overlap_2):
-            peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
-            ecl_remove.append(comb[np.argmin(peak_height)])
-    ecl_indices = np.delete(ecl_indices, ecl_remove, axis=0)
-    # check that we have some eclipses
-    if (len(ecl_indices) < 2):
-        return (None,) * 7 + (ecl_indices,)
-    # make the timing measurement
-    t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
-    t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
-    t_p2n_1 = t_model[ecl_indices[:, 2]]  # first times of negative extremum deriv_2 (from peaks_2_n)
-    t_p2n_2 = t_model[ecl_indices[:, -3]]  # last times of negative extremum deriv_2 (from peaks_2_n)
-    # determine the eclipse edges from the midpoint between peaks_2_n and minimum_1
-    t_i_1 = (t_m1_1 + t_p2n_1) / 2
-    t_i_2 = (t_m1_2 + t_p2n_2) / 2
-    indices_t_i_1 = np.searchsorted(t_model, t_i_1)  # if t_model is granular enough, this should be precise enough
-    indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
-    # use the intervals as 3 sigma limits on either side
-    t_i_1_err = (t_p2n_1 - t_m1_1) / 6
-    t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
-    t_i_2_err = (t_m1_2 - t_p2n_2) / 6
-    t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
-    # convert to midpoints and widths and take the deepest depth measured in two ways
-    ecl_min = t_model[ecl_indices[:, 6]]
-    ecl_mid = (t_i_1 + t_i_2) / 2
-    widths = (t_i_2 - t_i_1)
-    depths_1 = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 6]]
-    depths_2 = (model_h[indices_t_i_1] - model_h[ecl_indices[:, 4]]
-                + model_h[indices_t_i_2] - model_h[ecl_indices[:, -5]]) / 2
-    depths = np.max([depths_1, depths_2], axis=0)
-    # remove too shallow eclipses
-    remove_shallow = (depths > noise_level / 4)
-    ecl_min = ecl_min[remove_shallow]
-    ecl_mid = ecl_mid[remove_shallow]
-    widths = widths[remove_shallow]
-    depths = depths[remove_shallow]
-    t_i_1_err = t_i_1_err[remove_shallow]
-    t_i_2_err = t_i_2_err[remove_shallow]
-    ecl_indices = ecl_indices[remove_shallow]
-    # estimates of flat bottom
-    t_b_i_1 = t_model[ecl_indices[:, 4]]
-    t_b_i_2 = t_model[ecl_indices[:, -5]]
-    ecl_mid_b = (t_b_i_1 + t_b_i_2) / 2
-    widths_b = (t_b_i_2 - t_b_i_1)
-    # now pick out two consecutive, fully covered eclipses
-    indices = np.arange(len(ecl_indices))
-    combinations = np.array([[i, j] for i, j in zip(indices[:-1], indices[1:])])
-    # also pick out two candidates skipping one candidate
-    combinations_2 = np.array([[i, j] for i, j in zip(indices[:-2], indices[2:])])
-    if (len(combinations_2) > 0):
-        combinations = np.append(combinations, combinations_2, axis=0)
-    # check overlap of the eclipses
-    comb_remove = []
-    for i, comb in enumerate(combinations):
-        comb_dist = abs(abs(ecl_min[comb[0]] - ecl_min[comb[1]]) - p_orb)
-        if (comb_dist < max(widths[comb[0]] / 2, widths[comb[1]] / 2)):
-            comb_remove.append(i)
-    combinations = np.delete(combinations, comb_remove, axis=0)
-    if (len(combinations) == 0):
-        return (None,) * 7 + (ecl_indices,)
-    # sum of depths should be largest for the most complete set of eclipses
-    comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
-    best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
-    ecl_indices = ecl_indices[best_comb]
-    ecl_min = ecl_min[best_comb]
-    ecl_mid = ecl_mid[best_comb]
-    widths = widths[best_comb]
-    depths = depths[best_comb]
-    ecl_mid_b = ecl_mid_b[best_comb]
-    widths_b = widths_b[best_comb]
-    t_i_1_err = t_i_1_err[best_comb]
-    t_i_2_err = t_i_2_err[best_comb]
-    # put the primary (deepest) in front
-    sorter = np.argsort(depths)[::-1]  # depths no longer used from this point
-    ecl_indices = ecl_indices[sorter]
-    ecl_min = ecl_min[sorter]
-    ecl_mid = ecl_mid[sorter]
-    widths = widths[sorter]
-    ecl_mid_b = ecl_mid_b[sorter]
-    widths_b = widths_b[sorter]
-    t_i_1_err = t_i_1_err[sorter]
-    t_i_2_err = t_i_2_err[sorter]
-    # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
-    t_1 = ecl_min[0]
-    t_2 = (ecl_min[1] - t_1) % p_orb
-    ecl_mid = (ecl_mid - t_1) % p_orb
-    if ecl_mid[0] > (p_orb - widths[0] / 2):
-        ecl_mid[0] = ecl_mid[0] - p_orb
-    ecl_mid_b = (ecl_mid_b - t_1) % p_orb
-    if ecl_mid_b[0] > (p_orb - widths[0] / 2):
-        ecl_mid_b[0] = ecl_mid_b[0] - p_orb
-    # define in terms of time points
-    t_1_1 = ecl_mid[0] - (widths[0] / 2)  # time of primary first contact
-    t_1_2 = ecl_mid[0] + (widths[0] / 2)  # time of primary last contact
-    t_2_1 = ecl_mid[1] - (widths[1] / 2)  # time of secondary first contact
-    t_2_2 = ecl_mid[1] + (widths[1] / 2)  # time of secondary last contact
-    t_b_1_1 = ecl_mid_b[0] - (widths_b[0] / 2)  # time of primary first internal tangency
-    t_b_1_2 = ecl_mid_b[0] + (widths_b[0] / 2)  # time of primary last internal tangency
-    t_b_2_1 = ecl_mid_b[1] - (widths_b[1] / 2)  # time of secondary first internal tangency
-    t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
-    # translate the timings by the time of primary minimum with respect to the mean time
-    t_2 = t_2 + t_1
-    t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1 + t_1, t_2_2 + t_1)
-    t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1 + t_1, t_b_2_2 + t_1)
-    # redetermine depths a tiny bit more precisely
-    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
-    return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, ecl_indices
 
 
 def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):

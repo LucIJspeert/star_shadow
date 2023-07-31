@@ -1313,6 +1313,10 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ra
     model: numpy.ndarray[float]
         Eclipse light curve model for the given time points
     """
+    # guard against unphysical parameters
+    if (e > 1):
+        interp_model = np.ones(len(times))
+        return interp_model
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_2, theta_3, theta_4 = af.minima_phase_angles_2(e, w, i)
     # calculate time shift between primary minimum and superior conjunction
@@ -1366,10 +1370,7 @@ def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
     i = np.arccos(cosi)
     r_sum_sma = af.r_sum_sma_from_phi_0(e, i, phi_0)
     # check for unphysical e
-    if (e > 1):
-        model = np.zeros(len(times))
-    else:
-        model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio) + offset
+    model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_ratio) + offset
     # determine likelihood for the model (minus this for minimisation)
     ln_likelihood = tsf.calc_likelihood((signal - model) / signal_err)
     # check periastron distance
@@ -1377,6 +1378,12 @@ def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
     if (r_sum_sma < d_peri):
         return -ln_likelihood + 10**9
     return -ln_likelihood
+
+
+def physical_constraint(params):
+    """"""
+    ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, offset = params
+    return -ecosw**2 - esinw**2 + 1
 
 
 def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, i_sectors, verbose=False):
@@ -1433,9 +1440,10 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, i_s
     # initial parameters and bounds
     par_init = (ecosw, esinw, cosi, phi_0, r_rat, sb_rat, offset_init)
     par_bounds = ((-1, 1), (-1, 1), (0, 1), (0, 1), (0.001, 1000), (0.001, 1000), (-1, 1))
+    par_const = {'type': 'ineq', 'fun': physical_constraint}
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
-    result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='TNC', bounds=par_bounds,
-                                  options={'maxiter': 10**4 * len(par_init)})
+    result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='COBYLA', #bounds=par_bounds,
+                                  constraints=par_const, options={'maxiter': 10**4 * len(par_init)})
     par_out = result.x
     if verbose:
         opt_ecosw, opt_esinw, opt_cosi, opt_phi_0, opt_r_rat, opt_sb_rat, offset = par_out
@@ -1446,7 +1454,8 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, i_s
         model_ecl = eclipse_physical_lc(times, p_orb, t_zero, opt_e, opt_w, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat)
         resid = ecl_signal - (model_ecl + offset)
         bic = tsf.calc_bic(resid / signal_err, 2 + len(par_out))
-        print(f'Fit convergence: {result.success}. N_iter: {int(result.nit)}. BIC: {bic:1.2f}')
+        # print(f'Fit convergence: {result.success}. N_iter: {int(result.nit)}. BIC: {bic:1.2f}')
+        print(f'Fit convergence: {result.success}. N_iter: {int(result.nfev)}. BIC: {bic:1.2f}')
     # convert back parameters
     ecosw, esinw, cosi, phi_0, r_rat, sb_rat, offset = par_out
     e = np.sqrt(ecosw**2 + esinw**2)

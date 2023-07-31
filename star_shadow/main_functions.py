@@ -905,7 +905,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    output_a = af.measure_eclipses_dt(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
+    output_a = af.detect_eclipses(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err, ecl_indices = output_a
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
