@@ -712,8 +712,8 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
 
 
 def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, sin_select=None, ephem=None,
-                         ephem_err=None, ephem_hdi=None, emp_mean=None, emp_err=None, emp_hdi=None, phys_mean=None,
-                         phys_err=None, phys_hdi=None, timings=None, timings_err=None, timings_hdi=None,
+                         ephem_err=None, ephem_hdi=None, phys_mean=None, phys_err=None, phys_hdi=None,
+                         timings=None, timings_err=None, timings_hdi=None, timings_indiv_err=None,
                          var_stats=None, stats=None, i_sectors=None, description='none', data_id='none'):
     """Save the full model parameters of the linear, sinusoid
     and eclipse models to an hdf5 file.
@@ -743,17 +743,6 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         Error values for the ephemerides, p_err and t_zero_err
     ephem_err: None, numpy.ndarray[float]
         Hdi values for the ephemerides, p_hdi and t_zero_hdi
-    emp_mean: None, numpy.ndarray[float]
-        Parameter mean values for the empirical eclipse model in the order they appear below.
-        t_1, t_2, dur_1, dur_2, dur_b_1, dur_b_2, depth_1, depth_2, height_1, height_2
-    emp_err: None, numpy.ndarray[float]
-        Parameter error values for the empirical eclipse model in the order they appear below.
-        t_1_err, t_2_err, dur_1_err, dur_2_err, dur_b_1_err, dur_b_2_err,
-        depth_1_err, depth_2_err, height_1_err, height_2_err
-    emp_hdi: None, numpy.ndarray[float]
-        Parameter hdi values for the empirical eclipse model in the order they appear below.
-        t_1_hdi, t_2_hdi, dur_1_hdi, dur_2_hdi, dur_b_1_hdi, dur_b_2_hdi,
-        depth_1_hdi, depth_2_hdi, height_1_hdi, height_2_hdi
     phys_mean: None, numpy.ndarray[float]
         Parameter mean values for the physical eclipse model in the order they appear below.
         ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
@@ -778,6 +767,10 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         Parameter hdi values for the eclipse timings and depths:
         t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi,
         t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi
+    timings_indiv_err: None, numpy.ndarray[float]
+        Parameter error values for the individual eclipse timings and depths:
+        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+        t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
     var_stats: None, list[union(float, numpy.ndarray[float])]
         Varability level diagnostic statistics
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
@@ -819,12 +812,6 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         ephem_err = -np.ones(2)
     if ephem_hdi is None:
         ephem_hdi = -np.ones((2, 2))
-    if emp_mean is None:
-        emp_mean = -np.ones(10)
-    if emp_err is None:
-        emp_err = -np.ones(10)
-    if emp_hdi is None:
-        emp_hdi = -np.ones((10, 2))
     if phys_mean is None:
         phys_mean = -np.ones(10)
     if phys_err is None:
@@ -837,6 +824,8 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         timings_err = -np.ones(12)
     if timings_hdi is None:
         timings_hdi = -np.ones((12, 2))
+    if timings_indiv_err is None:
+        timings_indiv_err = -np.ones(12)
     if var_stats is None:
         var_stats = [-1 for _ in range(4)] + [np.array([-1, -1]) for _ in range(4)]
     if stats is None:
@@ -850,6 +839,8 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
     t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi = timings_hdi[:6]
     t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi = timings_hdi[6:]
+    t_1_ind, t_2_ind, t_1_1_ind, t_1_2_ind, t_2_1_ind, t_2_2_ind = timings_indiv_err[:6]
+    t_b_1_1_ind, t_b_1_2_ind, t_b_2_1_ind, t_b_2_2_ind, depth_1_ind, depth_2_ind = timings_indiv_err[6:]
     # unpack stats
     std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = var_stats
     t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = stats
@@ -942,30 +933,6 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         file['passed_b'].attrs['description'] = 'sinusoids passing both the sigma and the signal to noise critera'
         file.create_dataset('passed_h', data=sin_select[2])
         file['passed_h'].attrs['description'] = 'harmonic sinusoids passing the sigma criterion'
-        # the empirical eclipse model parameters
-        # minima
-        file.create_dataset('mid_1', data=np.array([emp_mean[0], emp_err[0], emp_hdi[0, 0], emp_hdi[0, 1]]))
-        file['mid_1'].attrs['description'] = 'time of primary minimum with respect to t_zero'
-        file.create_dataset('mid_2', data=np.array([emp_mean[1], emp_err[1], emp_hdi[1, 0], emp_hdi[1, 1]]))
-        file['mid_2'].attrs['description'] = 'time of secondary minimum with respect to t_zero'
-        # start and end of ingress
-        file.create_dataset('dur_1', data=np.array([emp_mean[2], emp_err[2], emp_hdi[2, 0], emp_hdi[2, 1]]))
-        file['dur_1'].attrs['description'] = 'duration of primary eclipse'
-        file.create_dataset('dur_2', data=np.array([emp_mean[3], emp_err[3], emp_hdi[3, 0], emp_hdi[3, 1]]))
-        file['dur_2'].attrs['description'] = 'duration of secondary eclipse'
-        file.create_dataset('dur_b_1', data=np.array([emp_mean[4], emp_err[4], emp_hdi[4, 0], emp_hdi[4, 1]]))
-        file['dur_b_1'].attrs['description'] = 'duration of primary eclipse flat bottom'
-        file.create_dataset('dur_b_2', data=np.array([emp_mean[5], emp_err[5], emp_hdi[5, 0], emp_hdi[5, 1]]))
-        file['dur_b_2'].attrs['description'] = 'duration of secondary eclipse flat bottom'
-        # depths and heights
-        file.create_dataset('d_1', data=np.array([emp_mean[6], emp_err[6], emp_hdi[6, 0], emp_hdi[6, 1]]))
-        file['d_1'].attrs['description'] = 'depth of primary minimum (median normalised flux)'
-        file.create_dataset('d_2', data=np.array([emp_mean[7], emp_err[7], emp_hdi[7, 0], emp_hdi[7, 1]]))
-        file['d_2'].attrs['description'] = 'depth of secondary minimum (median normalised flux)'
-        file.create_dataset('h_1', data=np.array([emp_mean[8], emp_err[8], emp_hdi[8, 0], emp_hdi[8, 1]]))
-        file['h_1'].attrs['description'] = 'height at the top of primary eclipse (median normalised flux)'
-        file.create_dataset('h_2', data=np.array([emp_mean[9], emp_err[9], emp_hdi[9, 0], emp_hdi[9, 1]]))
-        file['h_2'].attrs['description'] = 'height at the top of secondary eclipse (median normalised flux)'
         # the physical eclipse model parameters
         # parameterisation used in optimisation
         file.create_dataset('ecosw', data=np.array([phys_mean[0], phys_err[0], phys_hdi[0, 0], phys_hdi[0, 1]]))
@@ -991,32 +958,38 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         file['r_sum'].attrs['description'] = 'sum of radii scaled to the semi-major axis'
         # eclipse timings and depths
         # minima
-        file.create_dataset('t_1', data=np.array([t_1, t_1_err, t_1_hdi[0], t_1_hdi[1]]))
+        file.create_dataset('t_1', data=np.array([t_1, t_1_err, t_1_hdi[0], t_1_hdi[1], t_1_ind]))
         file['t_1'].attrs['description'] = 'time of primary minimum with respect to t_zero'
-        file.create_dataset('t_2', data=np.array([t_2, t_2_err, t_2_hdi[0], t_2_hdi[1]]))
+        file.create_dataset('t_2', data=np.array([t_2, t_2_err, t_2_hdi[0], t_2_hdi[1], t_2_ind]))
         file['t_2'].attrs['description'] = 'time of secondary minimum with respect to t_zero'
         # contact
-        file.create_dataset('t_1_1', data=np.array([t_1_1, t_1_1_err, t_1_1_hdi[0], t_1_1_hdi[1]]))
+        file.create_dataset('t_1_1', data=np.array([t_1_1, t_1_1_err, t_1_1_hdi[0], t_1_1_hdi[1], t_1_1_ind]))
         file['t_1_1'].attrs['description'] = 'time of primary first contact with respect to t_zero'
-        file.create_dataset('t_1_2', data=np.array([t_1_2, t_1_2_err, t_1_2_hdi[0], t_1_2_hdi[1]]))
+        file.create_dataset('t_1_2', data=np.array([t_1_2, t_1_2_err, t_1_2_hdi[0], t_1_2_hdi[1], t_1_2_ind]))
         file['t_1_2'].attrs['description'] = 'time of primary last contact with respect to t_zero'
-        file.create_dataset('t_2_1', data=np.array([t_2_1, t_2_1_err, t_2_1_hdi[0], t_2_1_hdi[1]]))
+        file.create_dataset('t_2_1', data=np.array([t_2_1, t_2_1_err, t_2_1_hdi[0], t_2_1_hdi[1], t_2_1_ind]))
         file['t_2_1'].attrs['description'] = 'time of secondary first contact with respect to t_zero'
-        file.create_dataset('t_2_2', data=np.array([t_2_2, t_2_2_err, t_2_2_hdi[0], t_2_2_hdi[1]]))
+        file.create_dataset('t_2_2', data=np.array([t_2_2, t_2_2_err, t_2_2_hdi[0], t_2_2_hdi[1], t_2_2_ind]))
         file['t_2_2'].attrs['description'] = 'time of secondary last contact with respect to t_zero'
         # internal tangency
-        file.create_dataset('t_b_1_1', data=np.array([t_b_1_1, t_b_1_1_err, t_b_1_1_hdi[0], t_b_1_1_hdi[1]]))
+        file.create_dataset('t_b_1_1', data=np.array([t_b_1_1, t_b_1_1_err, t_b_1_1_hdi[0], t_b_1_1_hdi[1],
+                                                      t_b_1_1_ind]))
         file['t_b_1_1'].attrs['description'] = 'time of primary first internal tangency with respect to t_zero'
-        file.create_dataset('t_b_1_2', data=np.array([t_b_1_2, t_b_1_2_err, t_b_1_2_hdi[0], t_b_1_2_hdi[1]]))
+        file.create_dataset('t_b_1_2', data=np.array([t_b_1_2, t_b_1_2_err, t_b_1_2_hdi[0], t_b_1_2_hdi[1],
+                                                      t_b_1_2_ind]))
         file['t_b_1_2'].attrs['description'] = 'time of primary last internal tangency with respect to t_zero'
-        file.create_dataset('t_b_2_1', data=np.array([t_b_2_1, t_b_2_1_err, t_b_2_1_hdi[0], t_b_2_1_hdi[1]]))
+        file.create_dataset('t_b_2_1', data=np.array([t_b_2_1, t_b_2_1_err, t_b_2_1_hdi[0], t_b_2_1_hdi[1],
+                                                      t_b_2_1_ind]))
         file['t_b_2_1'].attrs['description'] = 'time of secondary first internal tangency with respect to t_zero'
-        file.create_dataset('t_b_2_2', data=np.array([t_b_2_2, t_b_2_2_err, t_b_2_2_hdi[0], t_b_2_2_hdi[1]]))
+        file.create_dataset('t_b_2_2', data=np.array([t_b_2_2, t_b_2_2_err, t_b_2_2_hdi[0], t_b_2_2_hdi[1],
+                                                      t_b_2_2_ind]))
         file['t_b_2_2'].attrs['description'] = 'time of secondary last internal tangency with respect to t_zero'
         # depths
-        file.create_dataset('depth_1', data=np.array([depth_1, depth_1_err, depth_1_hdi[0], depth_1_hdi[1]]))
+        file.create_dataset('depth_1', data=np.array([depth_1, depth_1_err, depth_1_hdi[0], depth_1_hdi[1],
+                                                      depth_1_ind]))
         file['depth_1'].attrs['description'] = 'depth of primary minimum (median normalised flux)'
-        file.create_dataset('depth_2', data=np.array([depth_2, depth_2_err, depth_2_hdi[0], depth_2_hdi[1]]))
+        file.create_dataset('depth_2', data=np.array([depth_2, depth_2_err, depth_2_hdi[0], depth_2_hdi[1],
+                                                      depth_2_ind]))
         file['depth_2'].attrs['description'] = 'depth of secondary minimum (median normalised flux)'
         # variability to eclipse depth ratios
         file.create_dataset('ratios_1', data=np.array([std_1, ratios_1[0], ratios_1[1]]))
@@ -1074,17 +1047,6 @@ def read_parameters_hdf5(file_name, verbose=False):
             Error values for the ephemerides, p_err and t_zero_err
         ephem_err: None, numpy.ndarray[float]
             Hdi values for the ephemerides, p_hdi and t_zero_hdi
-        emp_mean: None, numpy.ndarray[float]
-            Parameter mean values for the empirical eclipse model in the order they appear below.
-            t_1, t_2, dur_1, dur_2, dur_b_1, dur_b_2, depth_1, depth_2, height_1, height_2
-        emp_err: None, numpy.ndarray[float]
-            Parameter error values for the empirical eclipse model in the order they appear below.
-            t_1_err, t_2_err, dur_1_err, dur_2_err, dur_b_1_err, dur_b_2_err,
-            depth_1_err, depth_2_err, height_1_err, height_2_err
-        emp_hdi: None, numpy.ndarray[float]
-            Parameter hdi values for the empirical eclipse model in the order they appear below.
-            t_1_hdi, t_2_hdi, dur_1_hdi, dur_2_hdi, dur_b_1_hdi, dur_b_2_hdi,
-            depth_1_hdi, depth_2_hdi, height_1_hdi, height_2_hdi
         phys_mean: None, numpy.ndarray[float]
             Parameter mean values for the physical eclipse model in the order they appear below.
             ecosw, esinw, cosi, phi_0, r_rat, sb_rat,
@@ -1109,6 +1071,10 @@ def read_parameters_hdf5(file_name, verbose=False):
             Parameter hdi values for the eclipse timings and depths:
             t_1_hdi, t_2_hdi, t_1_1_hdi, t_1_2_hdi, t_2_1_hdi, t_2_2_hdi,
             t_b_1_1_hdi, t_b_1_2_hdi, t_b_2_1_hdi, t_b_2_2_hdi, depth_1_hdi, depth_2_hdi
+        timings_indiv_err: None, numpy.ndarray[float]
+            Parameter error values for the individual eclipse timings and depths:
+            t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
+            t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
         var_stats: None, list[union(float, numpy.ndarray[float])]
             Varability level diagnostic statistics
             std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
@@ -1170,17 +1136,6 @@ def read_parameters_hdf5(file_name, verbose=False):
         passed_snr = np.copy(file['passed_snr'])
         passed_b = np.copy(file['passed_b'])
         passed_h = np.copy(file['passed_h'])
-        # the empirical eclipse model parameters
-        mid_1 = np.copy(file['mid_1'])
-        mid_2 = np.copy(file['mid_2'])
-        dur_1 = np.copy(file['dur_1'])
-        dur_2 = np.copy(file['dur_2'])
-        dur_b_1 = np.copy(file['dur_b_1'])
-        dur_b_2 = np.copy(file['dur_b_2'])
-        d_1 = np.copy(file['d_1'])
-        d_2 = np.copy(file['d_2'])
-        h_1 = np.copy(file['h_1'])
-        h_2 = np.copy(file['h_2'])
         # the physical eclipse model parameters
         ecosw = np.copy(file['ecosw'])
         esinw = np.copy(file['esinw'])
@@ -1219,12 +1174,6 @@ def read_parameters_hdf5(file_name, verbose=False):
     ephem = [p_orb[0], t_zero[0]]
     ephem_err = [p_orb[1], t_zero[1]]
     ephem_hdi = [p_orb[2:4], t_zero[2:4]]
-    emp_mean = np.array([mid_1[0], mid_2[0], dur_1[0], dur_2[0], dur_b_1[0], dur_b_2[0],
-                         d_1[0], d_2[0], h_1[0], h_2[0]])
-    emp_err = np.array([mid_1[1], mid_2[1], dur_1[1], dur_2[1], dur_b_1[1], dur_b_2[1],
-                        d_1[1], d_2[1], h_1[1], h_2[1]])
-    emp_hdi = np.array([mid_1[2:4], mid_2[2:4], dur_1[2:4], dur_2[2:4], dur_b_1[2:4], dur_b_2[2:4],
-                        d_1[2:4], d_2[2:4], h_1[2:4], h_2[2:4]])
     phys_mean = np.array([ecosw[0], esinw[0], cosi[0], phi_0[0], r_rat[0], sb_rat[0], e[0], w[0], i[0], r_sum[0]])
     phys_err = np.array([ecosw[1], esinw[1], cosi[1], phi_0[1], r_rat[1], sb_rat[1], e[1], w[1], i[1], r_sum[1]])
     phys_hdi = np.array([ecosw[2:4], esinw[2:4], cosi[2:4], phi_0[2:4], r_rat[2:4], sb_rat[2:4],
@@ -1235,6 +1184,8 @@ def read_parameters_hdf5(file_name, verbose=False):
                             t_b_1_1[1], t_b_1_2[1], t_b_2_1[1], t_b_2_2[1], depth_1[1], depth_2[1]])
     timings_hdi = np.array([t_1[2:4], t_2[2:4], t_1_1[2:4], t_1_2[2:4], t_2_1[2:4], t_2_2[2:4],
                             t_b_1_1[2:4], t_b_1_2[2:4], t_b_2_1[2:4], t_b_2_2[2:4], depth_1[2:4], depth_2[2:4]])
+    timings_indiv_err = np.array([t_1[4], t_2[4], t_1_1[4], t_1_2[4], t_2_1[4], t_2_2[4],
+                                  t_b_1_1[4], t_b_1_2[4], t_b_2_1[4], t_b_2_2[4], depth_1[4], depth_2[4]])
     var_stats = [ratios_1[0], ratios_2[0], ratios_3[0], ratios_4[0],
                  ratios_1[1:], ratios_2[1:], ratios_3[1:], ratios_4[1:]]
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
@@ -1242,9 +1193,9 @@ def read_parameters_hdf5(file_name, verbose=False):
     # put everything in a dict
     results = {'sin_mean': sin_mean, 'sin_err': sin_err, 'sin_hdi': sin_hdi, 'sin_select': sin_select,
                'ephem': ephem, 'ephem_err': ephem_err, 'ephem_hdi': ephem_hdi,
-               'emp_mean': emp_mean, 'emp_err': emp_err, 'emp_hdi': emp_hdi,
                'phys_mean': phys_mean, 'phys_err': phys_err, 'phys_hdi': phys_hdi,
                'timings': timings, 'timings_err': timings_err, 'timings_hdi': timings_hdi,
+               'timings_indiv_err': timings_indiv_err,
                'var_stats': var_stats, 'stats': stats, 'i_sectors': i_sectors, 'text': text}
     if verbose:
         print(f'Loaded analysis file with identifier: {identifier}, created on {date_time}. \n'
@@ -1331,7 +1282,8 @@ def convert_hdf5_to_ascii(file_name):
                     'time of secondary last internal tangency with respect to t_zero',
                     'depth of primary minimum (median normalised flux)',
                     'depth of secondary minimum (median normalised flux)']
-        data = np.column_stack((names, results['timings'], results['timings_err'], hdi_l, hdi_r, var_desc))
+        data = np.column_stack((names, results['timings'], results['timings_err'], hdi_l, hdi_r,
+                                results['timings_indiv_err'], var_desc))
         description = 'Eclipse timings and their error estimates'
         hdr = f'{target_id}, {data_id}, {description}\nname, value, error, hdi_l, hdi_r, description'
         file_name_tim = file_name.replace(ext, '_timings.csv')
@@ -1567,7 +1519,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     the compilation of a catalogue of a set of results
     """
     prew_par = -np.ones(7)
-    timings_par = -np.ones(27)
+    timings_par = -np.ones(36)
     form_par = -np.ones(21)
     fit_par = -np.ones(33)
     freqs_par = -np.ones(5, dtype=int)
@@ -1598,7 +1550,7 @@ def save_summary(target_id, save_dir, data_id='none'):
         results = read_parameters_hdf5(file_name, verbose=False)
         p_err, _ = results['ephem_err']
         t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level = results['stats']
-        timings_par = [*results['timings'], *results['timings_err'], n_param, bic, noise_level]
+        timings_par = [*results['timings'], *results['timings_err'], *results['timings_indiv_err']]
         prew_par[1] = p_err
     # load parameter results from formulae (7)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_7.hdf5')
@@ -1645,7 +1597,8 @@ def save_summary(target_id, save_dir, data_id='none'):
            't_b_1_1', 't_b_1_2', 't_b_2_1', 't_b_2_2', 'depth_1', 'depth_2',
            't_1_err', 't_2_err', 't_1_1_err', 't_1_2_err', 't_2_1_err', 't_2_2_err',
            't_b_1_1_err', 't_b_1_2_err', 't_b_2_1_err', 't_b_2_2_err', 'd_1_err', 'd_2_err',
-           'n_param_emp', 'bic_emp', 'noise_level_emp',
+           't_1_ind_err', 't_2_ind_err', 't_1_1_ind_err', 't_1_2_ind_err', 't_2_1_ind_err', 't_2_2_ind_err',
+           't_b_1_1_ind_err', 't_b_1_2_ind_err', 't_b_2_1_ind_err', 't_b_2_2_ind_err', 'd_1_ind_err', 'd_2_ind_err',
            'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
            'e_sig', 'w_sig', 'r_sum_sig',
            'e_low', 'e_upp', 'w_low', 'w_upp', 'i_low', 'i_upp',
@@ -1680,9 +1633,17 @@ def save_summary(target_id, save_dir, data_id='none'):
             'error in end of (flat) eclipse bottom right of primary minimum',
             'error in start of (flat) eclipse bottom left of secondary minimum',
             'error in end of (flat) eclipse bottom right of secondary minimum',
-            'error in depth of primary minimum', 'error in depth of secondary minimum',
-            'number of free parameters after the eclipse timing phase',
-            'BIC after the eclipse timing phase', 'noise level after the eclipse timing phase',
+            'individual error in depth of primary minimum', 'individual error in depth of secondary minimum',
+            'individual error in time of primary minimum (t_1)', 'individual error in time of secondary minimum (t_2)',
+            'individual error in time of primary first contact (t_1_1)',
+            'individual error in time of primary last contact (t_1_2)',
+            'individual error in time of secondary first contact (t_2_1)',
+            'individual error in time of secondary last contact (t_2_2)',
+            'individual error in start of (flat) eclipse bottom left of primary minimum',
+            'individual error in end of (flat) eclipse bottom right of primary minimum',
+            'individual error in start of (flat) eclipse bottom left of secondary minimum',
+            'individual error in end of (flat) eclipse bottom right of secondary minimum',
+            'individual error in depth of primary minimum', 'individual error in depth of secondary minimum',
             'eccentricity from timing formulae', 'argument of periastron (radians) from timing formulae',
             'inclination (radians) from timing formulae',
             'sum of radii divided by the semi-major axis of the relative orbit from timing formulae',

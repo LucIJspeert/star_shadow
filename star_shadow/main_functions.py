@@ -930,7 +930,8 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     ephem_err = np.array([p_err, t_1_err])
     desc = 'Eclipse timings and depths.'
     ut.save_parameters_hdf5(file_name, sin_mean=sin_mean, ephem=ephem, ephem_err=ephem_err, timings=timings,
-                            timings_err=timings_err, description=desc, data_id=data_id)
+                            timings_err=timings_err, timings_indiv_err=timings_ind_err, description=desc,
+                            data_id=data_id)
     # print some useful stuff
     t_b = time.time()
     if verbose:
@@ -1071,7 +1072,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
     # minimisation procedure for parameters from formulae
-    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:])
+    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
     e, w, i, r_sum, r_rat, sb_rat = out_a
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
@@ -1226,7 +1227,8 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         print(f'Starting multi-sine NL-LS optimisation with physical eclipse model.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # convert some parameters and fit initial physical model
-    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, ecl_par, i_sectors, verbose=verbose)
+    out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, ecl_par, phys_err, i_sectors,
+                                       verbose=verbose)
     # extract the leftover signal from the residuals with the iterative scheme
     model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a[:6])
     resid_ecl = signal - model_eclipse
