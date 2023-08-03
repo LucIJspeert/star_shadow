@@ -1378,17 +1378,19 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     for i, (j, k) in enumerate(zip(indices[:-1], indices[1:])):
         combinations[i] = [j, k]  # numba no like array initialisation of a list comprehension
     # also pick out two candidates skipping one candidate
-    combinations_2 = np.zeros((n_ecl - 2, 2), dtype=np.int_)
-    for i, (j, k) in enumerate(zip(indices[:-2], indices[2:])):
-        combinations_2[i] = [j, k]  # numba no like array initialisation of a list comprehension
-    if (len(combinations_2) > 0):
-        combinations = np.append(combinations, combinations_2, axis=0)
+    if (n_ecl > 1):
+        combinations_2 = np.zeros((n_ecl - 2, 2), dtype=np.int_)
+        for i, (j, k) in enumerate(zip(indices[:-2], indices[2:])):
+            combinations_2[i] = [j, k]  # numba no like array initialisation of a list comprehension
+        if (len(combinations_2) > 0):
+            combinations = np.append(combinations, combinations_2, axis=0)
     # also pick out two candidates skipping two candidates
-    combinations_3 = np.zeros((n_ecl - 3, 2), dtype=np.int_)
-    for i, (j, k) in enumerate(zip(indices[:-3], indices[3:])):
-        combinations_3[i] = [j, k]  # numba no like array initialisation of a list comprehension
-    if (len(combinations_3) > 0):
-        combinations = np.append(combinations, combinations_3, axis=0)
+    if (n_ecl > 2):
+        combinations_3 = np.zeros((n_ecl - 3, 2), dtype=np.int_)
+        for i, (j, k) in enumerate(zip(indices[:-3], indices[3:])):
+            combinations_3[i] = [j, k]  # numba no like array initialisation of a list comprehension
+        if (len(combinations_3) > 0):
+            combinations = np.append(combinations, combinations_3, axis=0)
     # check overlap of the eclipses
     comb_remove = np.zeros(0, dtype=np.int_)
     for i, comb in enumerate(combinations):
@@ -1555,10 +1557,12 @@ def detect_eclipses(p_orb, f_h, a_h, ph_h, noise_level, t_gaps):
     # measure up the final list
     output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
     ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b
+    if (len(ecl_min) == 0):
+        return (None,) * 9 + (ecl_indices,)
     # pick the best pair
     best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
     if (len(best_comb) == 0):
-        return (None,) * 7 + (ecl_indices,)
+        return (None,) * 9 + (ecl_indices,)
     ecl_indices = ecl_indices[best_comb]
     ecl_min = ecl_min[best_comb]
     ecl_mid = ecl_mid[best_comb]
