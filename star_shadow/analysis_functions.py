@@ -3144,14 +3144,16 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
     normal_t_1 = mvn[:, 0]
     normal_t_2 = mvn[:, 1]
     normal_p = mvn[:, 2]
-    # the edges are symmetric and cannot surpass the midpoint so use truncnorm
+    # the edges cannot surpass the midpoints so use truncnorm
     normal_t_1_1 = sp.stats.truncnorm.rvs(((normal_t_2 - p_orb) - t_1_1) / t_1_1_err, (normal_t_1 - t_1_1) / t_1_1_err,
                                           loc=t_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_1_2 = 2 * normal_t_1 - normal_t_1_1  # mirrored
+    normal_t_1_2 = sp.stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, (normal_t_2 - t_1_2) / t_1_2_err,
+                                          loc=t_1_2, scale=t_1_2_err, size=n_gen)
     normal_t_2_1 = sp.stats.truncnorm.rvs((normal_t_1 - t_2_1) / t_2_1_err, (normal_t_2 - t_2_1) / t_2_1_err,
                                           loc=t_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_2_2 = 2 * normal_t_2 - normal_t_2_1  # mirrored
-    # if we have wide eclipses, they possibly overlap as well, fix by putting point in the middle
+    normal_t_2_2 = sp.stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, (normal_t_1 + p_orb - t_2_2) / t_2_2_err,
+                                          loc=t_2_2, scale=t_2_2_err, size=n_gen)
+    # if we have wide eclipses, they possibly overlap, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
         middle = (normal_t_1_2[overlap_1_2] + normal_t_2_1[overlap_1_2]) / 2
@@ -3162,13 +3164,19 @@ def error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings, depths, p
         middle = (normal_t_1_1[overlap_2_1] + p_orb + normal_t_2_2[overlap_2_1]) / 2
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
-    # the bottom points are truncated at the edge points and are symmetric
-    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_1_1_err, (normal_t_1_2 - t_b_1_1) / t_1_1_err,
-                                            loc=t_b_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_b_1_2 = 2 * normal_t_1 - normal_t_b_1_1  # mirrored
-    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_2_1_err, (normal_t_2_2 - t_b_2_1) / t_2_1_err,
-                                            loc=t_b_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_b_2_2 = 2 * normal_t_2 - normal_t_b_2_1  # mirrored
+    # the bottom points are truncated at the edge points
+    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_b_1_1_err,
+                                            (normal_t_1_2 - t_b_1_1) / t_b_1_1_err,
+                                            loc=t_b_1_1, scale=t_b_1_1_err, size=n_gen)
+    normal_t_b_1_2 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_b_1_2_err,
+                                            (normal_t_1_2 - t_b_1_2) / t_b_1_2_err,
+                                            loc=t_b_1_2, scale=t_b_1_2_err, size=n_gen)
+    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_b_2_1_err,
+                                            (normal_t_2_2 - t_b_2_1) / t_b_2_1_err,
+                                            loc=t_b_2_1, scale=t_b_2_1_err, size=n_gen)
+    normal_t_b_2_2 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_b_2_2_err,
+                                            (normal_t_2_2 - t_b_2_2) / t_b_2_2_err,
+                                            loc=t_b_2_2, scale=t_b_2_2_err, size=n_gen)
     # likely to overlap, fixed by putting them in the middle (this is more physical than truncating in the middle)
     overlap_b_1 = (normal_t_b_1_1 > normal_t_b_1_2)
     if np.any(overlap_b_1):

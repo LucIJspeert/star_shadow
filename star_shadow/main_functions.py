@@ -113,7 +113,7 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
 
 
 def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                      method='sampler', data_id='none', overwrite=False, verbose=False):
+                      method='fitter', data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model
 
     Parameters
@@ -528,7 +528,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
 
 
 def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
-                        method='sampler', data_id='none', overwrite=False, verbose=False):
+                        method='fitter', data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model with coupled harmonics
 
     Parameters
@@ -654,8 +654,8 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
-def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, save_dir, method='sampler',
-                        data_id='none', overwrite=False, verbose=False):
+def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, save_dir, data_id='none',
+                        overwrite=False, verbose=False):
     """Recipe for the extraction of sinusoids from EB light curves.
 
     Parameters
@@ -684,8 +684,6 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
-    method: str
-        Method of optimization. Can be 'sampler' or 'fitter'.
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -764,7 +762,7 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     # ----------------------------------------------------------------
     file_name_2 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
     out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
-                              file_name_2, method=method, **arg_dict)
+                              file_name_2, method='fitter', **arg_dict)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # --------------------------------------------------------------------------
     # --- [3] --- Measure the orbital period and couple the harmonic frequencies
@@ -805,7 +803,7 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, ta
     # -----------------------------------------------
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
     out_5 = optimise_sinusoid_h(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4, i_sectors,
-                                t_stats, file_name_5, method=method, **arg_dict)
+                                t_stats, file_name_5, method='fitter', **arg_dict)
     p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
     # save final freqs and linear curve in ascii format
     ut.convert_hdf5_to_ascii(file_name_5)
@@ -1132,7 +1130,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
 
 
 def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n,
-                               phys_err, i_sectors, t_stats, file_name, method='sampler', data_id='none',
+                               phys_err, i_sectors, t_stats, file_name, method='fitter', data_id='none',
                                overwrite=False, verbose=False):
     """Optimise the parameters of the physical eclipse, sinusoid and linear model
 
@@ -1249,17 +1247,17 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
     # Monte Carlo sampling of full model
     inf_data, par_mean, sin_hdi, phys_hdi = None, None, None, None
-    if method == 'fitter':
-        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
-                                                    f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
-        par_mean = list(out_d[:5]) + [*out_d[5]]
-    else:
+    if method == 'sampler':
         out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a[:6], const, slope, f_n, a_n, ph_n,
                                             phys_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level,
                                             i_sectors, verbose=verbose)
         inf_data, par_mean, par_hdi = out_d
         sin_hdi = par_hdi[:5]
         phys_hdi = np.array(par_hdi[5:])
+    else:
+        out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
+                                                    f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
+        par_mean = list(out_d[:5]) + [*out_d[5]]
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
@@ -1297,7 +1295,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
 
 
-def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, method='sampler',
+def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, method='fitter',
                      data_id='none', overwrite=False, verbose=False):
     """Part two of analysis recipe for analysis of EB light curves,
     to be chained after frequency_analysis
@@ -1849,7 +1847,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
         return -1
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
     out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
-                              file_name, method=method, **kw_args)
+                              file_name, method='fitter', **kw_args)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # find orbital period
     p_orb = find_orbital_period(times, signal, f_n_2, t_tot)
@@ -1865,7 +1863,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
     return p_orb
 
 
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, method='sampler', data_id='none',
+def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, method='fitter', data_id='none',
                overwrite=False, verbose=False):
     """Do all steps of the analysis
 
@@ -1891,9 +1889,9 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
         Path to a directory for saving the results. Also used to load
         previous analysis results.
     method: str
-        Method of optimization. Can be 'sampler' or 'fitter'.
-        Sampler gives better error estimates and more accurate results
-        Fitter can be much faster on large datasets but compromises on accuracy
+        Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives extra error estimates on the eclipse parameters
+        Fitter can be much faster on large datasets
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1921,8 +1919,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     # keyword arguments in common between some functions
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # do the analysis
-    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, method=method,
-                                **kw_args)
+    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args)
     # if not full output, stop
     if not (len(out_a[0]) < 5):
         out_b = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, method=method, **kw_args)
@@ -1936,7 +1933,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     return None
 
 
-def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='sampler', data_id='none', overwrite=False,
+def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_id='none', overwrite=False,
                       verbose=False):
     """Do all steps of the analysis for a given light curve file
 
@@ -1955,9 +1952,9 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='sampler', data
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
     method: str
-        Method of optimization. Can be 'sampler' or 'fitter'.
-        Sampler gives better error estimates and more accurate results
-        Fitter can be much faster on large datasets but compromises on accuracy
+        Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives extra error estimates on the eclipse parameters
+        Fitter can be much faster on large datasets
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1992,7 +1989,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='sampler', data
     return None
 
 
-def analyse_from_tic(tic, all_files, p_orb=0, method='sampler', data_id='none', save_dir=None, overwrite=False,
+def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', save_dir=None, overwrite=False,
                      verbose=False):
     """Do all steps of the analysis for a given TIC number
     
@@ -2007,9 +2004,9 @@ def analyse_from_tic(tic, all_files, p_orb=0, method='sampler', data_id='none', 
     p_orb: float
         Orbital period of the eclipsing binary in days
     method: str
-        Method of optimization. Can be 'sampler' or 'fitter'.
-        Sampler gives better error estimates and more accurate results
-        Fitter can be much faster on large datasets but compromises on accuracy
+        Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives extra error estimates on the eclipse parameters
+        Fitter can be much faster on large datasets
     data_id: int, str
         Identification for the dataset used
     save_dir: str
