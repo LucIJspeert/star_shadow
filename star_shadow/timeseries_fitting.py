@@ -1459,8 +1459,8 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par
                   (0.001, 1000), (0.001, 1000), (-1, 1))
     par_const = [{'type': 'ineq', 'fun': physical_constraint}]
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
-    result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead', bounds=par_bounds,
-                                  options={'maxiter': 10**4 * len(par_init)})
+    result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     par_out = result.x
     if verbose:
         opt_ecosw, opt_esinw, opt_cosi, opt_phi_0, opt_r_rat, opt_sb_rat, offset = par_out
@@ -1640,8 +1640,8 @@ def fit_ellc_lc(times, signal, signal_err, p_orb, t_zero, timings, const, slope,
     par_init = (f_c, f_s, i, r_sum_sma, r_ratio, sb_ratio)
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
     arguments = (times, ecl_signal, signal_err, p_orb)
-    result = sp.optimize.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='TNC', bounds=par_bounds,
-                                  options={'maxiter': 10**4 * len(par_init)})
+    result = sp.optimize.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+                                  bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     par_out = result.x
     if verbose:
         opt_f_c, opt_f_s, opt_i, opt_r_sum, opt_r_rat, opt_sb_rat = par_out
