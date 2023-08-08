@@ -1380,20 +1380,6 @@ def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
     return -ln_likelihood
 
 
-def physical_constraint(params):
-    """"""
-    ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, offset = params
-    return 1 - ecosw**2 - esinw**2
-
-
-def physical_constraint_2(params):
-    """"""
-    ecosw, esinw, cosi, phi_0, r_ratio, sb_ratio, offset = params
-    e = np.sqrt(ecosw**2 + esinw**2)
-    r_sum = np.sqrt((cosi**2 * np.cos(phi_0)**2)) * (1 - e**2)  # (1 - e**2) not sqrt as in Kopal
-    return r_sum
-
-
 def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par_err, i_sectors, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
@@ -1457,7 +1443,6 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par
                   (max(cosi - 4 * cosi_err, 0), min(cosi + 4 * cosi_err, 1)),
                   (max(phi_0 - 4 * phi_0_err, 0), min(phi_0 + 4 * phi_0_err, 1)),
                   (0.001, 1000), (0.001, 1000), (-1, 1))
-    par_const = [{'type': 'ineq', 'fun': physical_constraint}]
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
     result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
