@@ -40,6 +40,9 @@ pymc3 3.11.4, theano 1.1.2, Arviz 0.11.4, ellc 1.8.5 (for an additional light cu
 
 Newer versions are expected to work, and it is considered a bug if this is not the case.
 
+Before first use, it is recommended to run one very short time-series (for example sim_000_lc.dat included in <data>).
+This will make sure that the just-in-time compiler can do its magic and make everything run as fast as it can.
+
 
 ### Example use
 
