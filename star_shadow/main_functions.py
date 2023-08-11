@@ -1071,10 +1071,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
     # minimisation procedure for parameters from formulae
     out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
-    e, w, i, r_sum, r_rat, sb_rat = out_a
-    ecosw, esinw = e * np.cos(w), e * np.sin(w)
-    cosi = np.cos(i)
-    phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
+    ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = out_a
     # calculate the errors
     out_b = af.error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, p_orb, timings[:10], timings[10:], p_err,
                                    timings_err[:10], timings_err[10:], p_t_corr, verbose=verbose)
@@ -1110,6 +1107,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         rnd_sb_rat = max(ut.decimal_figures(min(sb_rat_err), 2), ut.decimal_figures(sb_rat, 2), 0)
         rnd_ecosw = max(ut.decimal_figures(min(ecosw_err), 2), ut.decimal_figures(ecosw, 2), 0)
         rnd_esinw = max(ut.decimal_figures(min(esinw_err), 2), ut.decimal_figures(esinw, 2), 0)
+        rnd_cosi = max(ut.decimal_figures(min(cosi_err), 2), ut.decimal_figures(cosi, 2), 0)
         rnd_phi_0 = max(ut.decimal_figures(min(phi_0_err), 2), ut.decimal_figures(phi_0, 2), 0)
         print(f'\033[1;32;48mMeasurements and initial optimisation of the eclipse parameters complete.\033[0m')
         print(f'\033[0;32;48me: {e:.{rnd_e}f} (+{e_err[1]:.{rnd_e}f} -{e_err[0]:.{rnd_e}f}), \n'
@@ -1124,6 +1122,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
               f'(+{sb_rat_err[1]:.{rnd_sb_rat}f} -{sb_rat_err[0]:.{rnd_sb_rat}f}), \n'
               f'ecos(w): {ecosw:.{rnd_ecosw}f} (+{ecosw_err[1]:.{rnd_ecosw}f} -{ecosw_err[0]:.{rnd_ecosw}f}), \n'
               f'esin(w): {esinw:.{rnd_esinw}f} (+{esinw_err[1]:.{rnd_esinw}f} -{esinw_err[0]:.{rnd_esinw}f}), \n'
+              f'cos(i): {cosi:.{rnd_cosi}f} (+{cosi_err[1]:.{rnd_cosi}f} -{cosi_err[0]:.{rnd_cosi}f}). \n'
               f'phi_0: {phi_0:.{rnd_phi_0}f} (+{phi_0_err[1]:.{rnd_phi_0}f} -{phi_0_err[0]:.{rnd_phi_0}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out

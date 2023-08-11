@@ -1369,8 +1369,8 @@ def save_results_ecl_indices(file_name, ecl_indices, data_id='none'):
     fn_ext = split_name[1]
     file_name_2 = file_name.replace(fn_ext, '_ecl_indices.csv')
     description = 'Eclipse indices (see function measure_eclipses_dt).'
-    hdr = (f'{target_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p, zeros_1_in, '
-           f'minimum_0, zeros_1_in, p_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
+    hdr = (f'{target_id}, {data_id}, {description}\nzeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p, minimum_1_in, '
+           f'zeros_1_in, minimum_1_in_mid, zeros_1_in, minimum_1_in, p_2_p, peaks_1, peaks_2_n, minimum_1, zeros_1')
     ecl_indices = np.atleast_1d(ecl_indices)
     np.savetxt(file_name_2, ecl_indices, delimiter=',', fmt='%s', header=hdr)
     return None

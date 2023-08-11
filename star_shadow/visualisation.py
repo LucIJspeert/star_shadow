@@ -359,9 +359,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         peaks_2_n_l = t_model[ecl_indices[:, 2]]
         minimum_1_l = t_model[ecl_indices[:, 1]]
         peaks_2_p_l = t_model[ecl_indices[:, 4]]
-        zeros_1_in_l = t_model[ecl_indices[:, 5]]
-        minimum_0 = t_model[ecl_indices[:, 6]]
-        zeros_1_in_r = t_model[ecl_indices[:, -6]]
+        minimum_1_in_l = t_model[ecl_indices[:, 5]]
+        zeros_1_in_l = t_model[ecl_indices[:, 6]]
+        minimum_1_in_mid = t_model[ecl_indices[:, 7]]
+        zeros_1_in_r = t_model[ecl_indices[:, -7]]
+        minimum_1_in_r = t_model[ecl_indices[:, -6]]
         peaks_2_p_r = t_model[ecl_indices[:, -5]]
         minimum_1_r = t_model[ecl_indices[:, -2]]
         peaks_2_n_r = t_model[ecl_indices[:, -3]]
@@ -373,9 +375,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         he_peaks_2_n_l = tsf.sum_sines(peaks_2_n_l, f_h, a_h, ph_h, t_shift=False)
         he_minimum_1_l = tsf.sum_sines(minimum_1_l, f_h, a_h, ph_h, t_shift=False)
         he_peaks_2_p_l = tsf.sum_sines(peaks_2_p_l, f_h, a_h, ph_h, t_shift=False)
+        he_minimum_1_in_l = tsf.sum_sines(minimum_1_in_l, f_h, a_h, ph_h, t_shift=False)
         he_zeros_1_in_l = tsf.sum_sines(zeros_1_in_l, f_h, a_h, ph_h, t_shift=False)
-        he_minimum_0 = tsf.sum_sines(minimum_0, f_h, a_h, ph_h, t_shift=False)
+        he_minimum_1_in_mid = tsf.sum_sines(minimum_1_in_mid, f_h, a_h, ph_h, t_shift=False)
         he_zeros_1_in_r = tsf.sum_sines(zeros_1_in_r, f_h, a_h, ph_h, t_shift=False)
+        he_minimum_1_in_r = tsf.sum_sines(minimum_1_in_r, f_h, a_h, ph_h, t_shift=False)
         he_peaks_2_p_r = tsf.sum_sines(peaks_2_p_r, f_h, a_h, ph_h, t_shift=False)
         he_minimum_1_r = tsf.sum_sines(minimum_1_r, f_h, a_h, ph_h, t_shift=False)
         he_peaks_2_n_r = tsf.sum_sines(peaks_2_n_r, f_h, a_h, ph_h, t_shift=False)
@@ -387,9 +391,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         h1e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_h, a_h, ph_h, deriv=1, t_shift=False)
+        h1e_minimum_1_in_l = tsf.sum_sines_deriv(minimum_1_in_l, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_h, a_h, ph_h, deriv=1, t_shift=False)
-        h1e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_h, a_h, ph_h, deriv=1, t_shift=False)
+        h1e_minimum_1_in_mid = tsf.sum_sines_deriv(minimum_1_in_mid, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_h, a_h, ph_h, deriv=1, t_shift=False)
+        h1e_minimum_1_in_r = tsf.sum_sines_deriv(minimum_1_in_r, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_h, a_h, ph_h, deriv=1, t_shift=False)
         h1e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_h, a_h, ph_h, deriv=1, t_shift=False)
@@ -401,9 +407,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         h2e_peaks_2_n_l = tsf.sum_sines_deriv(peaks_2_n_l, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_minimum_1_l = tsf.sum_sines_deriv(minimum_1_l, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_peaks_2_p_l = tsf.sum_sines_deriv(peaks_2_p_l, f_h, a_h, ph_h, deriv=2, t_shift=False)
+        h2e_minimum_1_in_l = tsf.sum_sines_deriv(minimum_1_in_l, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_zeros_1_in_l = tsf.sum_sines_deriv(zeros_1_in_l, f_h, a_h, ph_h, deriv=2, t_shift=False)
-        h2e_minimum_0 = tsf.sum_sines_deriv(minimum_0, f_h, a_h, ph_h, deriv=2, t_shift=False)
+        h2e_minimum_1_in_mid = tsf.sum_sines_deriv(minimum_1_in_mid, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_zeros_1_in_r = tsf.sum_sines_deriv(zeros_1_in_r, f_h, a_h, ph_h, deriv=2, t_shift=False)
+        h2e_minimum_1_in_r = tsf.sum_sines_deriv(minimum_1_in_r, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_peaks_2_p_r = tsf.sum_sines_deriv(peaks_2_p_r, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_minimum_1_r = tsf.sum_sines_deriv(minimum_1_r, f_h, a_h, ph_h, deriv=2, t_shift=False)
         h2e_peaks_2_n_r = tsf.sum_sines_deriv(peaks_2_n_r, f_h, a_h, ph_h, deriv=2, t_shift=False)
@@ -432,9 +440,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[0].scatter(minimum_1_r, he_minimum_1_r, c='tab:red', marker='d')
         ax[0].scatter(peaks_2_p_l, he_peaks_2_p_l, c='tab:purple', marker='^', label='peaks_2_p')
         ax[0].scatter(peaks_2_p_r, he_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[0].scatter(minimum_1_in_l, he_minimum_1_in_l, c='tab:olive', marker='d', label='minimum_1_in')
+        ax[0].scatter(minimum_1_in_r, he_minimum_1_in_r, c='tab:olive', marker='d')
         ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
         ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
-        ax[0].scatter(minimum_0, he_minimum_0, c='tab:brown', marker='|', label='minimum_0')
+        ax[0].scatter(minimum_1_in_mid, he_minimum_1_in_mid, c='tab:cyan', marker='|', label='minimum_1_in_mid')
         ax[0].legend()
     ax[0].set_ylabel(r'$\mathscr{l}$')
     ax[1].plot(t_model, deriv_1)
@@ -451,9 +461,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[1].scatter(minimum_1_r, h1e_minimum_1_r, c='tab:red', marker='d')
         ax[1].scatter(peaks_2_p_l, h1e_peaks_2_p_l, c='tab:purple', marker='^')
         ax[1].scatter(peaks_2_p_r, h1e_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[1].scatter(minimum_1_in_l, h1e_minimum_1_in_l, c='tab:olive', marker='d')
+        ax[1].scatter(minimum_1_in_r, h1e_minimum_1_in_r, c='tab:olive', marker='d')
         ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
         ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
-        ax[1].scatter(minimum_0, h1e_minimum_0, c='tab:brown', marker='|')
+        ax[1].scatter(minimum_1_in_mid, h1e_minimum_1_in_mid, c='tab:cyan', marker='|')
     ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$')
     ax[2].plot(t_model, deriv_2)
     ax[2].plot(t_model, deriv_2e, c='grey', alpha=0.4)
@@ -469,9 +481,11 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[2].scatter(minimum_1_r, h2e_minimum_1_r, c='tab:red', marker='d')
         ax[2].scatter(peaks_2_p_l, h2e_peaks_2_p_l, c='tab:purple', marker='^')
         ax[2].scatter(peaks_2_p_r, h2e_peaks_2_p_r, c='tab:purple', marker='^')
+        ax[2].scatter(minimum_1_in_l, h2e_minimum_1_in_l, c='tab:olive', marker='d')
+        ax[2].scatter(minimum_1_in_r, h2e_minimum_1_in_r, c='tab:olive', marker='d')
         ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
         ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
-        ax[2].scatter(minimum_0, h2e_minimum_0, c='tab:brown', marker='|')
+        ax[2].scatter(minimum_1_in_mid, h2e_minimum_1_in_mid, c='tab:cyan', marker='|')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$')
     plt.tight_layout()
     plt.subplots_adjust(wspace=0, hspace=0)
