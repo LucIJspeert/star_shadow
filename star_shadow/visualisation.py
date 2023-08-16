@@ -438,12 +438,12 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[0].scatter(peaks_2_n_r, he_peaks_2_n_r, c='tab:green', marker='v')
         ax[0].scatter(minimum_1_l, he_minimum_1_l, c='tab:red', marker='d', label='minimum_1')
         ax[0].scatter(minimum_1_r, he_minimum_1_r, c='tab:red', marker='d')
+        ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
+        ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
         ax[0].scatter(peaks_2_p_l, he_peaks_2_p_l, c='tab:purple', marker='^', label='peaks_2_p')
         ax[0].scatter(peaks_2_p_r, he_peaks_2_p_r, c='tab:purple', marker='^')
         ax[0].scatter(minimum_1_in_l, he_minimum_1_in_l, c='tab:olive', marker='d', label='minimum_1_in')
         ax[0].scatter(minimum_1_in_r, he_minimum_1_in_r, c='tab:olive', marker='d')
-        ax[0].scatter(zeros_1_in_l, he_zeros_1_in_l, c='tab:pink', marker='<', label='zeros_1_in')
-        ax[0].scatter(zeros_1_in_r, he_zeros_1_in_r, c='tab:pink', marker='>')
         ax[0].scatter(minimum_1_in_mid, he_minimum_1_in_mid, c='tab:cyan', marker='|', label='minimum_1_in_mid')
         ax[0].legend()
     ax[0].set_ylabel(r'$\mathscr{l}$')
@@ -459,12 +459,12 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[1].scatter(peaks_2_n_r, h1e_peaks_2_n_r, c='tab:green', marker='v')
         ax[1].scatter(minimum_1_l, h1e_minimum_1_l, c='tab:red', marker='d')
         ax[1].scatter(minimum_1_r, h1e_minimum_1_r, c='tab:red', marker='d')
+        ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
+        ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
         ax[1].scatter(peaks_2_p_l, h1e_peaks_2_p_l, c='tab:purple', marker='^')
         ax[1].scatter(peaks_2_p_r, h1e_peaks_2_p_r, c='tab:purple', marker='^')
         ax[1].scatter(minimum_1_in_l, h1e_minimum_1_in_l, c='tab:olive', marker='d')
         ax[1].scatter(minimum_1_in_r, h1e_minimum_1_in_r, c='tab:olive', marker='d')
-        ax[1].scatter(zeros_1_in_l, h1e_zeros_1_in_l, c='tab:pink', marker='<')
-        ax[1].scatter(zeros_1_in_r, h1e_zeros_1_in_r, c='tab:pink', marker='>')
         ax[1].scatter(minimum_1_in_mid, h1e_minimum_1_in_mid, c='tab:cyan', marker='|')
     ax[1].set_ylabel(r'$\frac{d\mathscr{l}}{dt}$')
     ax[2].plot(t_model, deriv_2)
@@ -479,12 +479,12 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
         ax[2].scatter(peaks_2_n_r, h2e_peaks_2_n_r, c='tab:green', marker='v')
         ax[2].scatter(minimum_1_l, h2e_minimum_1_l, c='tab:red', marker='d')
         ax[2].scatter(minimum_1_r, h2e_minimum_1_r, c='tab:red', marker='d')
+        ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
+        ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
         ax[2].scatter(peaks_2_p_l, h2e_peaks_2_p_l, c='tab:purple', marker='^')
         ax[2].scatter(peaks_2_p_r, h2e_peaks_2_p_r, c='tab:purple', marker='^')
         ax[2].scatter(minimum_1_in_l, h2e_minimum_1_in_l, c='tab:olive', marker='d')
         ax[2].scatter(minimum_1_in_r, h2e_minimum_1_in_r, c='tab:olive', marker='d')
-        ax[2].scatter(zeros_1_in_l, h2e_zeros_1_in_l, c='tab:pink', marker='<')
-        ax[2].scatter(zeros_1_in_r, h2e_zeros_1_in_r, c='tab:pink', marker='>')
         ax[2].scatter(minimum_1_in_mid, h2e_minimum_1_in_mid, c='tab:cyan', marker='|')
     ax[2].set_ylabel(r'$\frac{d^2\mathscr{l}}{dt^2}$')
     plt.tight_layout()
@@ -914,7 +914,6 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     p_vals, t_1_vals, t_2_vals, t_1_1_vals, t_1_2_vals, t_2_1_vals, t_2_2_vals = dists_in[:7]
     t_b_1_1_vals, t_b_1_2_vals, t_b_2_1_vals, t_b_2_2_vals, d_1_vals, d_2_vals = dists_in[7:]
     e_vals, w_vals, i_vals, r_sum_vals, r_rat_vals, sb_rat_vals = dists_out
-    good_val = (e_vals != 1)
     # for if the w-distribution crosses over at 2 pi
     if (abs(w / np.pi * 180 - 180) > 80) & (abs(w / np.pi * 180 - 180) < 100):
         w_vals = np.copy(w_vals)
@@ -926,13 +925,17 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
     phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
-    ecl_par_a = np.array([ecosw, esinw, cosi, phi_0, r_rat, sb_rat])
+    log_rr = np.log10(r_rat)
+    log_sb = np.log10(sb_rat)
+    ecl_par_a = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb])
     ecl_par_b = np.array([e, w * r2d, i * r2d, r_sum, r_rat, sb_rat])
     ecosw_vals = e_vals * np.cos(w_vals)
     esinw_vals = e_vals * np.sin(w_vals)
     cosi_vals = np.cos(i_vals)
     phi_0_vals = af.phi_0_from_r_sum_sma(e_vals, i_vals, r_sum_vals)
-    good_val &= np.isfinite(phi_0_vals)
+    good_val = np.isfinite(phi_0_vals)
+    log_rr_vals = np.log10(r_rat_vals)
+    log_sb_vals = np.log10(sb_rat_vals)
     # input corner plot
     value_names = np.array([r'$p_{orb}$', r'$t_1$', r'$t_2$', r'$t_{1,1}$', r'$t_{1,2}$', r'$t_{2,1}$', r'$t_{2,2}$',
                             r'$t_{b,1,1}$', r'$t_{b,1,2}$', r'$t_{b,2,1}$', r'$t_{b,2,2}$', r'$depth_1$', r'$depth_2$'])
@@ -960,9 +963,10 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
     else:
         plt.close()
     # output distributions corner plot
-    value_names = np.array(['e cos(w)', 'e sin(w)', 'cos(i)', 'phi_0', r'$\frac{r_2}{r_1}$', r'$\frac{sb_2}{sb_1}$'])
+    value_names = np.array(['e cos(w)', 'e sin(w)', 'cos(i)', 'phi_0', r'$log\left(\frac{r_2}{r_1}\right)$',
+                            r'$log\left(\frac{sb_2}{sb_1}\right)$'])
     dist_data = np.column_stack((ecosw_vals[good_val], esinw_vals[good_val], cosi_vals[good_val],
-                                 phi_0_vals[good_val], r_rat_vals[good_val], sb_rat_vals[good_val]))
+                                 phi_0_vals[good_val], log_rr_vals[good_val], log_sb_vals[good_val]))
     value_range = np.max(dist_data, axis=0) - np.min(dist_data, axis=0)
     nonzero_range = (value_range != 0) & np.isfinite(value_range)  # nonzero and finite
     fig = corner.corner(dist_data[:, nonzero_range], labels=value_names[nonzero_range], quiet=True)
