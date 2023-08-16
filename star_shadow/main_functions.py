@@ -1047,12 +1047,13 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     file_name_2 = file_name.replace(fn_ext, '_dists' + fn_ext)
     if os.path.isfile(file_name) & os.path.isfile(file_name_2) & (not overwrite):
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
-        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
-        sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum = results['phys_err']
+        ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = results['phys_mean']
+        sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum, _, _ = results['phys_err']
         formal_errors = sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw
-        ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err = results['phys_hdi'][:6]
-        e_err, w_err, i_err, r_sum_err = results['phys_hdi'][6:]
-        errors = e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err
+        ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
+        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = results['phys_hdi'][6:]
+        errors = (e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err,
+                  ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err)
         dists_in, dists_out = ut.read_results_dists(file_name)
         return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out
     
@@ -1084,14 +1085,14 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         logger.info(f'Unphysically large eccentricity found: {e}')
     # save the result
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
-    ecosw_err, esinw_err, cosi_err, phi_0_err, lg_rr_err, lg_sb_err = errors[6:]
+    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
     ephem = np.array([p_orb, timings[0]])
     ephem_err = np.array([p_err, timings_err[0]])
-    phys_mean = np.array([ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum])
-    phys_err = np.array([sigma_ecosw, sigma_esinw, -1, sigma_phi_0, -1, -1, sigma_e, sigma_w, -1, sigma_r_sum])
-    phys_hdi = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, r_rat_err, sb_rat_err,
-                         e_err, w_err, i_err, r_sum_err])
+    phys_mean = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat])
+    phys_err = np.array([sigma_ecosw, sigma_esinw, -1, sigma_phi_0, -1, -1, sigma_e, sigma_w, -1, sigma_r_sum, -1, -1])
+    phys_hdi = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
+                         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     desc = 'Eclipse elements from timings.'
     ut.save_parameters_hdf5(file_name, ephem=ephem, ephem_err=ephem_err, phys_mean=phys_mean, phys_err=phys_err,
                             phys_hdi=phys_hdi, timings=timings, timings_err=timings_err, description=desc,
@@ -1111,8 +1112,8 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         rnd_esinw = max(ut.decimal_figures(min(esinw_err), 2), ut.decimal_figures(esinw, 2), 0)
         rnd_cosi = max(ut.decimal_figures(min(cosi_err), 2), ut.decimal_figures(cosi, 2), 0)
         rnd_phi_0 = max(ut.decimal_figures(min(phi_0_err), 2), ut.decimal_figures(phi_0, 2), 0)
-        rnd_lg_rr = max(ut.decimal_figures(min(lg_rr_err), 2), ut.decimal_figures(log_rr, 2), 0)
-        rnd_lg_sb = max(ut.decimal_figures(min(lg_sb_err), 2), ut.decimal_figures(log_sb, 2), 0)
+        rnd_lg_rr = max(ut.decimal_figures(min(log_rr_err), 2), ut.decimal_figures(log_rr, 2), 0)
+        rnd_lg_sb = max(ut.decimal_figures(min(log_sb_err), 2), ut.decimal_figures(log_sb, 2), 0)
         print(f'\033[1;32;48mMeasurements and initial optimisation of the eclipse parameters complete.\033[0m')
         print(f'\033[0;32;48me: {e:.{rnd_e}f} (+{e_err[1]:.{rnd_e}f} -{e_err[0]:.{rnd_e}f}), \n'
               f'w: {w / np.pi * 180:.{rnd_w}f} '
@@ -1128,8 +1129,10 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
               f'esin(w): {esinw:.{rnd_esinw}f} (+{esinw_err[1]:.{rnd_esinw}f} -{esinw_err[0]:.{rnd_esinw}f}), \n'
               f'cos(i): {cosi:.{rnd_cosi}f} (+{cosi_err[1]:.{rnd_cosi}f} -{cosi_err[0]:.{rnd_cosi}f}), \n'
               f'phi_0: {phi_0:.{rnd_phi_0}f} (+{phi_0_err[1]:.{rnd_phi_0}f} -{phi_0_err[0]:.{rnd_phi_0}f}), \n'
-              f'log(r2/r1): {log_rr:.{rnd_lg_rr}f} (+{lg_rr_err[1]:.{rnd_lg_rr}f} -{lg_rr_err[0]:.{rnd_lg_rr}f}), \n'
-              f'log(sb2/sb1): {log_sb:.{rnd_lg_sb}f} (+{lg_sb_err[1]:.{rnd_lg_sb}f} -{lg_sb_err[0]:.{rnd_lg_sb}f}). \n'
+              f'log(r2/r1): {log_rr:.{rnd_lg_rr}f} '
+              f'(+{log_rr_err[1]:.{rnd_lg_rr}f} -{log_rr_err[0]:.{rnd_lg_rr}f}), \n'
+              f'log(sb2/sb1): {log_sb:.{rnd_lg_sb}f} '
+              f'(+{log_sb_err[1]:.{rnd_lg_sb}f} -{log_sb_err[0]:.{rnd_lg_sb}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out
 
@@ -1166,7 +1169,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         The phases of a number of sine waves
     ecl_par_err: numpy.ndarray[float]
         Errors in the initial eclipse parameters:
-        e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0
+        e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0, log_rr, log_sb
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -1222,7 +1225,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         const, slope, f_n, a_n, ph_n = results['sin_mean']
         _, t_zero = results['ephem']
-        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = results['phys_mean']
+        ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = results['phys_mean']
         ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
         return t_zero, ecl_par, const, slope, f_n, a_n, ph_n
     
@@ -1262,7 +1265,9 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     else:
         out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
                                                     f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
-        par_mean = list(out_d[:5]) + [*out_d[5]]
+        e, w, i, r_sum, r_rat, sb_rat = out_d[5]
+        ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(*out_d[5])
+        par_mean = list(out_d[:5]) + [ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum]
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
@@ -1282,7 +1287,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     ephem = np.array([p_orb, t_zero])
-    phys_mean = np.array([ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum])
+    phys_mean = np.array([ecosw, esinw, cosi, phi_0, np.log10(r_rat), np.log10(sb_rat), e, w, i, r_sum, r_rat, sb_rat])
     timings = np.append(timings, depths)
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
     desc = 'Optimised linear + sinusoid + eclipse model.'
@@ -1419,7 +1424,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     out_7 = convert_timings_to_elements(p_orb_5, timings_6, p_err_5, timings_err_6, p_t_corr, file_name, **arg_dict)
     e_7, w_7, i_7, r_sum_7, r_rat_7, sb_rat_7 = out_7[:6]
     errors_7, formal_errors_7, dists_in_7, dists_out_7 = out_7[6:]
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = errors_7
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors_7[:6]
+    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors_7[6:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors_7
     # for the mcmc, take maximum errors for prior model
     e_err_7 = max(e_err[0], e_err[1], sigma_e)
@@ -1432,8 +1438,10 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     esinw_err_7 = max(esinw_err[0], esinw_err[1], sigma_esinw)
     cosi_err_7 = max(cosi_err[0], cosi_err[1])
     phi_0_err_7 = max(phi_0_err[0], phi_0_err[1], sigma_phi_0)
+    log_rr_err_7 = max(log_rr_err[0], log_rr_err[1])
+    log_sb_err_7 = max(log_sb_err[0], log_sb_err[1])
     phys_err_7 = np.array([e_err_7, w_err_7, i_err_7, r_sum_err_7, r_rat_err_7, sb_rat_err_7,
-                           ecosw_err_7, esinw_err_7, cosi_err_7, phi_0_err_7])
+                           ecosw_err_7, esinw_err_7, cosi_err_7, phi_0_err_7, log_rr_err_7, log_sb_err_7])
     ecl_par_7 = (e_7, w_7, i_7, r_sum_7, r_rat_7, sb_rat_7)
     if (e_7 > 0.99):
         return (None,) * 4  # unphysical parameters (potentially raises an error)
@@ -1737,7 +1745,7 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
     results_8 = ut.read_parameters_hdf5(file_name, verbose=verbose)
     const_8, slope_8, f_n_8, a_n_8, ph_n_8 = results_8['sin_mean']
     p_orb_8, t_zero_8 = results_8['ephem']
-    _, _, _, _, r_rat_8, sb_rat_8, e_8, w_8, i_8, r_sum_8 = results_8['phys_mean']
+    _, _, _, _, _, _, e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8 = results_8['phys_mean']
     ecl_par_8 = (e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8)
     t_tot, t_mean, t_mean_s, t_int, n_param_8, bic_8, noise_level_8 = results_8['stats']
     model_ecl_8 = tsfit.eclipse_physical_lc(times, p_orb_8, t_zero_8, *ecl_par_8)

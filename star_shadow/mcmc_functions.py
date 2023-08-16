@@ -987,7 +987,8 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
         The phases of a number of sine waves
     ecl_par_err: numpy.ndarray[float]
         Uncertainty in the initial eclipse parameters to start the fit, consisting of:
-        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err
+        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err,
+        ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err
     c_err: numpy.ndarray[float]
         Uncertainty in the y-intercepts of a number of sine waves
     sl_err: numpy.ndarray[float]
@@ -1023,7 +1024,8 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     cosi = np.cos(i)
     phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err, ecosw_err, esinw_err, cosi_err, phi_0_err = ecl_par_err
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = ecl_par_err[:6]
+    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = ecl_par_err[6:]
     # setup
     times_t = times.reshape(-1, 1)  # transposed times
     t_mean = tt.as_tensor_variable(np.mean(times))

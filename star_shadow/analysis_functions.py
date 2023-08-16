@@ -3029,17 +3029,19 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
         log_rr_bounds = (-3.0, 3.0)
     else:
         log_rr_bounds = (np.log10(r_small / r_large / 1.1), np.log10(r_large / r_small * 1.1))
+    # lower bound on cosi needs to be loose, upper bound can be more restrictive
+    cosi_bounds = (0, min(cosi * 1.2, 1))
     # bounds for phi_0 can be fairly tight as the measurement is robust
     phi_0_bounds = (phi_0 / 1.1, min(phi_0 * 1.1, 1))
     # fit globally for: cosi, phi_0, r_ratio and sb_ratio
     ecosw, esinw = e * np.cos(w), e * np.sin(w)
     args_b = (p_orb, ecosw, esinw, timings_tau, depths, timings_err, depths_err)
-    bounds_b = ((0, (1 + cosi) / 2), phi_0_bounds, log_rr_bounds, (-3.0, 3.0))
+    bounds_b = (cosi_bounds, phi_0_bounds, log_rr_bounds, (-3, 3))
     result_b = sp.optimize.shgo(objective_incl_plus, args=args_b, bounds=bounds_b)
     # local fit of: ecosw, esinw, cosi, phi_0, r_ratio and sb_ratio
     par_init_c = np.append([ecosw, esinw], result_b.x)
     args_c = (p_orb, timings_tau, depths, timings_err, depths_err)
-    bounds_c = ((-1, 1), (-1, 1), (0, (1 + result_b.x[2]) / 2), phi_0_bounds, log_rr_bounds, (-3.0, 3.0))
+    bounds_c = ((-1, 1), (-1, 1), cosi_bounds, phi_0_bounds, log_rr_bounds, (-3, 3))
     result_c = sp.optimize.minimize(objective_ecl_param, par_init_c, args=args_c, method='L-BFGS-B', bounds=bounds_c)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result_c.x
     e = np.sqrt(ecosw**2 + esinw**2)
