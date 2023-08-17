@@ -238,13 +238,17 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line + 1
     ecl_signal = np.concatenate((ecl_signal[ext_left], ecl_signal, ecl_signal[ext_right]))
-    # determine a lc offset to match the model at the edges
-    h_1, h_2 = af.height_at_contact(f_h, a_h, ph_h, t_1_1, t_1_2, t_2_1, t_2_2)
+    # determine a lc offset to match the model at the edges - calculate the harmonic model at the eclipse time points
+    t_edges = np.array([t_1_1, t_1_2, t_2_1, t_2_2])
+    edges_model_h = 1 + tsf.sum_sines(t_edges, f_h, a_h, ph_h, t_shift=False)
+    # calculate depths based on the average level at contacts and the minima
+    height_1 = (edges_model_h[0] + edges_model_h[1]) / 2
+    height_2 = (edges_model_h[2] + edges_model_h[3]) / 2
     # some plotting parameters
-    h_top_1 = h_1
-    h_top_2 = h_2
-    h_bot_1 = h_1 - depths[0]
-    h_bot_2 = h_2 - depths[1]
+    h_top_1 = height_1
+    h_top_2 = height_2
+    h_bot_1 = height_1 - depths[0]
+    h_bot_2 = height_2 - depths[1]
     s_minmax = np.array([np.min(signal), np.max(signal)])
     # plot (shift al timings of primary eclipse by t_1)
     fig, ax = plt.subplots()
@@ -1408,14 +1412,14 @@ def plot_trace_harmonics(inf_data, p_orb, const, slope, f_n, a_n, ph_n):
     return
 
 
-def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n,
+def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, log_rr, log_sb, const, slope, f_n, a_n, ph_n,
                       save_file=None, show=True):
     """Show the pymc3 sampling results in several pair plots"""
     # convert phases to interval [-pi, pi] from [0, 2pi]
     above_pi = (ph_n >= np.pi)
     ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
     ref_values = {'t_zero': t_zero, 'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
-                  'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'r_rat': r_rat, 'sb_rat': sb_rat}
+                  'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'log_rr': log_rr, 'log_sb': log_sb}
     kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
               'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
               'reference_values': ref_values, 'show': show}
@@ -1424,7 +1428,7 @@ def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const,
     ax1 = az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
                  coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
                  **kwargs)
-    ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'r_rat', 'sb_rat'], **kwargs)
+    ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'log_rr', 'log_sb'], **kwargs)
     # save if wanted (only last plot - most interesting one)
     if save_file is not None:
         fig_save_file = save_file.replace('.png', '_a.png')
@@ -1436,7 +1440,7 @@ def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const,
     return
 
 
-def plot_trace_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_rat, const, slope, f_n, a_n, ph_n):
+def plot_trace_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, log_rr, log_sb, const, slope, f_n, a_n, ph_n):
     """Show the pymc3 sampling results in a trace plot"""
     # convert phases to interval [-pi, pi] from [0, 2pi]
     above_pi = (ph_n >= np.pi)
@@ -1444,6 +1448,6 @@ def plot_trace_eclipse(inf_data, t_zero, ecosw, esinw, cosi, phi_0, r_rat, sb_ra
     par_lines = [('t_zero', {}, t_zero), ('const', {}, const), ('slope', {}, slope),
                  ('f_n', {}, f_n), ('a_n', {}, a_n), ('ph_n', {}, ph_n),
                  ('ecosw', {}, ecosw), ('esinw', {}, esinw), ('cosi', {}, cosi),
-                 ('phi_0', {}, phi_0), ('r_rat', {}, r_rat), ('sb_rat', {}, sb_rat)]
+                 ('phi_0', {}, phi_0), ('log_rr', {}, log_rr), ('log_sb', {}, log_sb)]
     az.plot_trace(inf_data, combined=False, compact=True, rug=True, divergences='top', lines=par_lines)
     return
