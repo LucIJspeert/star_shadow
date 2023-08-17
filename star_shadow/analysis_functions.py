@@ -1842,7 +1842,7 @@ def minima_phase_angles_2(e, w, i):
     x0 = np.array([0, np.pi / 2, np.pi, 3 * np.pi / 2])  # initial theta values
     if (e == 0):
         # this would break, so return the defaults for circular orbits
-        return 0, np.pi, np.pi / 2, 3 * np.pi / 2
+        return 0.0, np.pi, np.pi / 2, 3 * np.pi / 2
     # use the derivative of the projected distance to get theta angles
     deriv_1 = delta_deriv(x0, e, w, i)  # value of the projected distance derivative
     deriv_2 = delta_deriv_2(x0, e, w, i)  # value of the second derivative
@@ -1878,6 +1878,7 @@ def minima_phase_angles_2(e, w, i):
     xp2 = np.where(condition, cur_y, try_y)
     yp2 = np.where(condition, cur_x, try_x)
     thetas_interp = ut.interp_two_points(np.zeros(len(x0)), xp1, yp1, xp2, yp2)
+    thetas_interp[np.isnan(thetas_interp)] = 0
     thetas_interp = thetas_interp % two_pi
     # theta_1 is primary minimum, theta_2 is secondary minimum, the others are at the furthest projected distance
     theta_1, theta_3, theta_2, theta_4 = thetas_interp

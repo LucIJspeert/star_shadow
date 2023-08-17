@@ -1239,6 +1239,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     # convert some parameters and fit initial physical model
     out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors,
                                        verbose=verbose)
+    # out_a = ecl_par
     # extract the leftover signal from the residuals with the iterative scheme
     model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a[:6])
     resid_ecl = signal - model_eclipse

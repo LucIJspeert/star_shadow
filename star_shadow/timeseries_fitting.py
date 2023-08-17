@@ -40,11 +40,11 @@ def dsin_dx(two_pi_t, f, a, ph, d='f', p_orb=0):
     two_pi_t: numpy.ndarray[float]
         Timestamps of the time series times two pi
     f: float
-        The frequency of a sine waves
+        The frequency of a sine wave
     a: float
-        The amplitude of a sine waves
+        The amplitude of a sine wave
     ph: float
-        The phase of a sine waves
+        The phase of a sine wave
     d: string
         Which derivative to take
         Choose f, a, ph, p_orb
@@ -173,17 +173,23 @@ def jacobian_sinusoids(params, times, signal, signal_err, i_sectors):
     two_pi_t = 2 * np.pi * times_ms
     # factor 1 of df/dx: -n / S
     df_1 = -len(times) / np.sum(sigma_resid**2)
-    # calculate the rest of the jacobian, factor 2 of df/dx:
-    df_2 = np.zeros(3 * n_sin)
+    # calculate the rest of the jacobian for the linear parameters, factor 2 of df/dx:
+    df_2a = np.zeros(2 * n_sect)
+    for i, (co, sl, s) in enumerate(zip(const, slope, i_sectors)):
+        i_s = i + n_sect
+        df_2a[i] = np.sum(sigma2_resid)
+        df_2a[i_s] = np.sum(sigma2_resid * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    jac_lin = df_1 * df_2a
+    # calculate the rest of the jacobian for the sinusoid parameters, factor 2 of df/dx:
+    df_2b = np.zeros(3 * n_sin)
     for i, (f, a, ph) in enumerate(zip(freqs, ampls, phases)):
         i_a = i + n_sin
         i_ph = i + 2 * n_sin
-        df_2[i] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='f'))
-        df_2[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
-        df_2[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
+        df_2b[i] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='f'))
+        df_2b[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
+        df_2b[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
-    jac_sin = df_1 * df_2
-    jac_lin = np.zeros(2 * n_sect)  # not differentiable so set to zero
+    jac_sin = df_1 * df_2b
     jac = np.append(jac_lin, jac_sin)
     return jac
 
@@ -475,24 +481,30 @@ def jacobian_sinusoids_harmonics(params, times, signal, signal_err, harmonic_n, 
     two_pi_t = 2 * np.pi * times_ms
     # factor 1 of df/dx: -n / S
     df_1 = -len(times) / np.sum(sigma_resid**2)
+    # calculate the rest of the jacobian for the linear parameters, factor 2 of df/dx:
+    df_2a = np.zeros(2 * n_sect)
+    for i, (co, sl, s) in enumerate(zip(const, slope, i_sectors)):
+        i_s = i + n_sect
+        df_2a[i] = np.sum(sigma2_resid)
+        df_2a[i_s] = np.sum(sigma2_resid * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    jac_lin = df_1 * df_2a
     # calculate the rest of the jacobian, factor 2 of df/dx:
-    df_2 = np.zeros(3 * n_sin + 2 * n_harm + 1)
+    df_2b = np.zeros(3 * n_sin + 2 * n_harm + 1)
     for i, (f, a, ph) in enumerate(zip(freqs[:n_sin], ampls[:n_sin], phases[:n_sin])):
         i_f = i + 1
         i_a = i + n_sin + 1
         i_ph = i + 2 * n_sin + 1
-        df_2[i_f] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='f'))
-        df_2[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
-        df_2[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
+        df_2b[i_f] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='f'))
+        df_2b[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
+        df_2b[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     for i, (f, a, ph) in enumerate(zip(freqs[n_sin:], ampls[n_sin:], phases[n_sin:])):
         i_a = i + 3 * n_sin + 1
         i_ph = i + 3 * n_sin + n_harm + 1
-        df_2[0] -= np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='p_orb', p_orb=p_orb))
-        df_2[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
-        df_2[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
+        df_2b[0] -= np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='p_orb', p_orb=p_orb))
+        df_2b[i_a] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
+        df_2b[i_ph] = np.sum(sigma2_resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
-    jac_sin = df_1 * df_2
-    jac_lin = np.zeros(2 * n_sect)  # not differentiable so set to zero
+    jac_sin = df_1 * df_2b
     jac = np.append(jac_lin, jac_sin)
     return jac
 
@@ -1701,8 +1713,8 @@ def objective_eclipse_sinusoids(params, times, signal, signal_err, p_orb, t_zero
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
     n_sin = (len(params) - 6 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
     # separate the parameters
-    ecl_par = params[0:6]
-    ecosw, esinw, cosi, phi_0, log_rr, log_sb = ecl_par
+    params_ecl = params[0:6]
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb = params_ecl
     const = params[6:6 + n_sect]
     slope = params[6 + n_sect:6 + 2 * n_sect]
     freqs = params[6 + 2 * n_sect:6 + 2 * n_sect + n_sin]
@@ -1720,7 +1732,7 @@ def objective_eclipse_sinusoids(params, times, signal, signal_err, p_orb, t_zero
     return -ln_likelihood
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)  # not possible due to sp.optimize.approx_fprime
 def jacobian_eclipse_sinusoids(params, times, signal, signal_err, p_orb, t_zero, i_sectors):
     """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves,
     accompanying an eclipse model (no derivatives for the latter).
@@ -1758,17 +1770,33 @@ def jacobian_eclipse_sinusoids(params, times, signal, signal_err, p_orb, t_zero,
     --------
     objective_eclipse_sinusoids
     """
-    # separate the eclipse parameters
-    ecl_par = params[0:6]
-    ecosw, esinw, cosi, phi_0, log_rr, log_sb = ecl_par
+    n_sect = len(i_sectors)  # each sector has its own slope (or two)
+    n_sin = (len(params) - 6 - 2 * n_sect) // 3  # each sine has freq, ampl and phase
+    # separate the parameters
+    params_ecl = params[0:6]
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb = params_ecl
+    params_sin = params[6:]  # includes linear pars as well
+    const = params[6:6 + n_sect]
+    slope = params[6 + n_sect:6 + 2 * n_sect]
+    freqs = params[6 + 2 * n_sect:6 + 2 * n_sect + n_sin]
+    ampls = params[6 + 2 * n_sect + n_sin:6 + 2 * n_sect + 2 * n_sin]
+    phases = params[6 + 2 * n_sect + 2 * n_sin:6 + 2 * n_sect + 3 * n_sin]
+    # make the linear and sinusoid model
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # eclipse model
     e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     resid_ecl = signal - model_ecl
-    # Jacobian
-    params_sin = params[6:]  # includes linear pars as well
-    jac_ecl = np.zeros(len(ecl_par))  # not differentiable so set to zero
+    # sinusoid part of the Jacobian
     jac_sin = jacobian_sinusoids(params_sin, times, resid_ecl, signal_err, i_sectors)
+    # numerically determine Jacobian for the params_ecl part
+    resid_sin = signal - model_linear - model_sinusoid
+    epsilon = 1.4901161193847656e-08
+    args = (times, resid_sin, signal_err, p_orb, t_zero)
+    params_ecl = np.append(params_ecl, [0])  # account for the offset parameter
+    jac_ecl = sp.optimize.approx_fprime(params_ecl, objective_physcal_lc, epsilon, *args)
+    jac_ecl = jac_ecl[:-1]
     jac = np.append(jac_ecl, jac_sin)
     return jac
 

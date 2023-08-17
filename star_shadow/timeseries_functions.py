@@ -932,7 +932,6 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
     Assumes the constants and slopes are determined with respect
     to the sector mean time as zero point.
     """
-    
     curve = np.zeros(len(times))
     for co, sl, s in zip(const, slope, i_sectors):
         if t_shift:
