@@ -1014,16 +1014,14 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
         Arviz inference data object
     par_means: list[float]
         Parameter mean values in the following order:
-        const, slope, f_n, a_n, ph_n,
-        ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum
+        const, slope, f_n, a_n, ph_n, ecosw, esinw, cosi, phi_0, log_rr,
+        log_sb, e, w, i, r_sum, r_rat, sb_rat
     par_hdi: list[float]
         Parameter HDI error values, same order as par_means
     """
     # unpack parameters
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
-    ecosw, esinw = e * np.cos(w), e * np.sin(w)
-    cosi = np.cos(i)
-    phi_0 = af.phi_0_from_r_sum_sma(e, i, r_sum)
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat)
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = ecl_par_err[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = ecl_par_err[6:]
     # setup
@@ -1060,13 +1058,15 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
         esinw_pm = pm.TruncatedNormal('esinw', mu=esinw, sigma=esinw_err, lower=-1, upper=1, testval=esinw)
         cosi_pm = pm.TruncatedNormal('cosi', mu=cosi, sigma=cosi_err, lower=0, upper=1, testval=cosi)
         phi_0_pm = pm.TruncatedNormal('phi_0', mu=phi_0, sigma=phi_0_err, lower=0, testval=phi_0)
-        r_rat_pm = pm.TruncatedNormal('r_rat', mu=r_rat, sigma=r_rat_err, lower=0, testval=r_rat)
-        sb_rat_pm = pm.TruncatedNormal('sb_rat', mu=sb_rat, sigma=sb_rat_err, lower=0, testval=sb_rat)
+        log_rr_pm = pm.TruncatedNormal('log_rr', mu=log_rr, sigma=log_rr_err, testval=log_rr)
+        log_sb_pm = pm.TruncatedNormal('log_sb', mu=log_sb, sigma=log_sb_err, testval=log_sb)
         # some transformations (done to sample a less correlated parameter space)
         e_pm = pm.math.sqrt(ecosw_pm**2 + esinw_pm**2)
         w_pm = tt.arctan2(esinw_pm, ecosw_pm) % (2 * np.pi)
         incl_pm = tt.arccos(cosi_pm)
         r_sum_pm = pm.math.sqrt((1 - pm.math.sin(incl_pm)**2 * pm.math.cos(phi_0_pm)**2)) * (1 - e_pm**2)
+        r_rat_pm = 10**log_rr_pm
+        sb_rat_pm = 10**log_sb_pm
         # physical eclipse model
         model_eclipse = simple_eclipse_lc(times, p_orb, t_zero, e_pm, w_pm, incl_pm, r_sum_pm, r_rat_pm, sb_rat_pm)
         # full light curve model
@@ -1091,13 +1091,15 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     esinw_ch = inf_data.posterior.esinw.stack(dim=['chain', 'draw']).to_numpy()
     cosi_ch = inf_data.posterior.cosi.stack(dim=['chain', 'draw']).to_numpy()
     phi_0_ch = inf_data.posterior.phi_0.stack(dim=['chain', 'draw']).to_numpy()
-    r_rat_ch = inf_data.posterior.r_rat.stack(dim=['chain', 'draw']).to_numpy()
-    sb_rat_ch = inf_data.posterior.sb_rat.stack(dim=['chain', 'draw']).to_numpy()
+    log_rr_ch = inf_data.posterior.log_rr.stack(dim=['chain', 'draw']).to_numpy()
+    log_sb_ch = inf_data.posterior.log_sb.stack(dim=['chain', 'draw']).to_numpy()
     # parameter transforms
     e_ch = np.sqrt(ecosw_ch**2 + esinw_ch**2)
     w_ch = np.arctan2(esinw_ch, ecosw_ch) % (2 * np.pi)
     i_ch = np.arccos(cosi_ch)
     r_sum_ch = af.r_sum_sma_from_phi_0(e_ch, i_ch, phi_0_ch)
+    r_rat_ch = 10**log_rr_ch
+    sb_rat_ch = 10**log_sb_ch
     # parameter means
     const_m = np.mean(const_ch, axis=1).flatten()
     slope_m = np.mean(slope_ch, axis=1).flatten()
@@ -1108,15 +1110,17 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     esinw_m = np.mean(esinw_ch)
     cosi_m = np.mean(cosi_ch)
     phi_0_m = np.mean(phi_0_ch)
-    r_rat_m = np.mean(r_rat_ch)
-    sb_rat_m = np.mean(sb_rat_ch)
+    log_rr_m = np.mean(log_rr_ch)
+    log_sb_m = np.mean(log_sb_ch)
     # transformed parameter means
     e_m = np.mean(e_ch)
     w_m = sp.stats.circmean(w_ch)
     i_m = np.mean(i_ch)
     r_sum_m = np.mean(r_sum_ch)
-    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, ecosw_m, esinw_m, cosi_m, phi_0_m, r_rat_m, sb_rat_m,
-                 e_m, w_m, i_m, r_sum_m]
+    r_rat_m = np.mean(r_rat_ch)
+    sb_rat_m = np.mean(sb_rat_ch)
+    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, ecosw_m, esinw_m, cosi_m, phi_0_m, log_rr_m, log_sb_m,
+                 e_m, w_m, i_m, r_sum_m, r_rat_m, sb_rat_m]
     # parameter errors (from hdi) [hdi expects (chain, draw) as first two axes... annoying warnings...]
     const_e = az.hdi(np.moveaxis(const_ch[np.newaxis], 1, 2), hdi_prob=0.683)
     slope_e = az.hdi(np.moveaxis(slope_ch[np.newaxis], 1, 2), hdi_prob=0.683)
@@ -1127,13 +1131,15 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     esinw_e = az.hdi(esinw_ch, hdi_prob=0.683)
     cosi_e = az.hdi(cosi_ch, hdi_prob=0.683)
     phi_0_e = az.hdi(phi_0_ch, hdi_prob=0.683)
-    r_rat_e = az.hdi(r_rat_ch, hdi_prob=0.683)
-    sb_rat_e = az.hdi(sb_rat_ch, hdi_prob=0.683)
-    # transformed parameter errors (from hdi)
+    log_rr_e = az.hdi(log_rr_ch, hdi_prob=0.683)
+    log_sb_e = az.hdi(log_sb_ch, hdi_prob=0.683)
+    # transformed parameter interval (from hdi)
     e_e = az.hdi(e_ch.T, hdi_prob=0.683)
     w_e = az.hdi(w_ch.T, hdi_prob=0.683)
     i_e = az.hdi(i_ch, hdi_prob=0.683)
     r_sum_e = az.hdi(r_sum_ch.T, hdi_prob=0.683)
+    r_rat_e = az.hdi(r_rat_ch, hdi_prob=0.683)
+    sb_rat_e = az.hdi(sb_rat_ch, hdi_prob=0.683)
     # convert interval to error bars
     const_e = np.column_stack([const_m - const_e[:, 0], const_e[:, 1] - const_m])
     slope_e = np.column_stack([slope_m - slope_e[:, 0], slope_e[:, 1] - slope_m])
@@ -1144,12 +1150,15 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     esinw_e = np.array([esinw_m - esinw_e[0], esinw_e[1] - esinw_m])
     cosi_e = np.array([cosi_m - cosi_e[0], cosi_e[1] - cosi_m])
     phi_0_e = np.array([phi_0_m - phi_0_e[0], phi_0_e[1] - phi_0_m])
-    r_rat_e = np.array([r_rat_m - r_rat_e[0], r_rat_e[1] - r_rat_m])
-    sb_rat_e = np.array([sb_rat_m - sb_rat_e[0], sb_rat_e[1] - sb_rat_m])
+    log_rr_e = np.array([log_rr_m - log_rr_e[0], log_rr_e[1] - log_rr_m])
+    log_sb_e = np.array([log_sb_m - log_sb_e[0], log_sb_e[1] - log_sb_m])
+    # transformed parameter error bars
     e_e = np.array([e_m - e_e[0], e_e[1] - e_m])
     w_e = np.array([w_m - w_e[0], w_e[1] - w_m])
     i_e = np.array([i_m - i_e[0], i_e[1] - i_m])
     r_sum_e = np.array([r_sum_m - r_sum_e[0], r_sum_e[1] - r_sum_m])
-    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, ecosw_e, esinw_e, cosi_e, phi_0_e, r_rat_e, sb_rat_e,
-               e_e, w_e, i_e, r_sum_e]
+    r_rat_e = np.array([r_rat_m - r_rat_e[0], r_rat_e[1] - r_rat_m])
+    sb_rat_e = np.array([sb_rat_m - sb_rat_e[0], sb_rat_e[1] - sb_rat_m])
+    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, ecosw_e, esinw_e, cosi_e, phi_0_e, log_rr_e, log_sb_e,
+               e_e, w_e, i_e, r_sum_e, r_rat_e, sb_rat_e]
     return inf_data, par_means, par_hdi

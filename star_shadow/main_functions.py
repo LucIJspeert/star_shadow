@@ -106,9 +106,9 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mFrequency extraction complete.\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        print(f'\033[1;32;48mExtraction of sinusoids complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters, BIC: {bic:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return const, slope, f_n, a_n, ph_n
 
 
@@ -221,9 +221,9 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mOptimisation complete.\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        print(f'\033[1;32;48mOptimisation of sinusoids complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters, BIC: {bic:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return const, slope, f_n, a_n, ph_n
 
 
@@ -406,9 +406,11 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mOrbital harmonic frequencies coupled. Period: {p_orb:2.4}\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        rnd_p_orb = max(ut.decimal_figures(p_err, 2), ut.decimal_figures(p_orb, 2))
+        print(f'\033[1;32;48mOrbital harmonic frequencies coupled.\033[0m')
+        print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_p_orb}f}), \n'
+              f'{len(f_n)} frequencies, {n_param} free parameters, BIC: {bic:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
@@ -521,9 +523,9 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48m{len(f_n) - n_f_init} additional frequencies added.\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        print(f'\033[1;32;48mExtraction of {len(f_n) - n_f_init} additional sinusoids complete.\033[0m')
+        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters, BIC: {bic:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
@@ -648,9 +650,11 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     # print some useful info
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mOptimisation with fixed harmonics complete. Period: {p_orb:2.4}\033[0m')
-        print(f'\033[0;32;48m{len(f_n)} frequencies, {n_param} free parameters. '
-              f'BIC: {bic:1.2f}, time taken: {t_b - t_a:1.1f}s\033[0m\n')
+        rnd_p_orb = max(ut.decimal_figures(p_err, 2), ut.decimal_figures(p_orb, 2))
+        print(f'\033[1;32;48mOptimisation with coupled harmonics complete.\033[0m')
+        print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_p_orb}f}), \n'
+              f'{len(f_n)} frequencies, {n_param} free parameters, BIC: {bic:1.2f}. '
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
 
 
@@ -960,7 +964,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
         rnd_bot_1 = max(ut.decimal_figures(dur_1_err, 2), ut.decimal_figures(dur_b_1, 2))
         rnd_bot_2 = max(ut.decimal_figures(dur_2_err, 2), ut.decimal_figures(dur_b_2, 2))
         print(f'\033[1;32;48mMeasurements of timings and depths:\033[0m')
-        print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_t_1}f}), '
+        print(f'\033[0;32;48mp_orb: {p_orb:.{rnd_p_orb}f} (+-{p_err:.{rnd_p_orb}f}), '
               f't_1: {timings[0]:.{rnd_t_1}f} (+-{timings_err[0]:.{rnd_t_1}f}), '
               f't_2: {timings[1]:.{rnd_t_2}f} (+-{timings_err[1]:.{rnd_t_2}f}), \n'
               f't_1_1: {timings[2]:.{rnd_t_1_1}f} (+-{timings_err[2]:.{rnd_t_1_1}f}), '
@@ -1114,7 +1118,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         rnd_phi_0 = max(ut.decimal_figures(min(phi_0_err), 2), ut.decimal_figures(phi_0, 2), 0)
         rnd_lg_rr = max(ut.decimal_figures(min(log_rr_err), 2), ut.decimal_figures(log_rr, 2), 0)
         rnd_lg_sb = max(ut.decimal_figures(min(log_sb_err), 2), ut.decimal_figures(log_sb, 2), 0)
-        print(f'\033[1;32;48mMeasurements and initial optimisation of the eclipse parameters complete.\033[0m')
+        print(f'\033[1;32;48mConversion of eclipse timings to eclipse parameters complete.\033[0m')
         print(f'\033[0;32;48me: {e:.{rnd_e}f} (+{e_err[1]:.{rnd_e}f} -{e_err[0]:.{rnd_e}f}), \n'
               f'w: {w / np.pi * 180:.{rnd_w}f} '
               f'(+{w_err[1] / np.pi * 180:.{rnd_w}f} -{w_err[0] / np.pi * 180:.{rnd_w}f}) degrees, \n'
@@ -1253,9 +1257,9 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
     f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
     f_n_err, a_n_err, ph_n_err = f_n_err[include], a_n_err[include], ph_n_err[include]
-    # Monte Carlo sampling of full model
-    inf_data, par_mean, sin_hdi, phys_hdi = None, None, None, None
+    # optimisation of full model - eclipses plus sinusoids
     if method == 'sampler':
+        # Monte Carlo sampling of full model
         out_d = mcf.sample_sinusoid_eclipse(times, signal, p_orb, t_zero, out_a[:6], const, slope, f_n, a_n, ph_n,
                                             ecl_par_err, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level,
                                             i_sectors, verbose=verbose)
@@ -1265,12 +1269,12 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     else:
         out_d = tsfit.fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, out_a[:6], const, slope,
                                                     f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
-        e, w, i, r_sum, r_rat, sb_rat = out_d[5]
-        ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(*out_d[5])
-        par_mean = list(out_d[:5]) + [ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum]
+        out_d_convert = ut.convert_from_phys_space(*out_d[5])
+        par_mean = list(out_d[:5]) + [*out_d_convert, *out_d[5]]
+        inf_data, sin_hdi, phys_hdi = None, None, None
     const, slope, f_n, a_n, ph_n = par_mean[:5]
-    ecosw, esinw, cosi, phi_0, r_rat, sb_rat, e, w, i, r_sum = par_mean[5:]
-    ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
+    e, w, i, r_sum, r_rat, sb_rat = par_mean[11:]
+    ecl_par = (e, w, i, r_sum, r_rat, sb_rat)  # for function output
     # get theoretical timings and depths
     timings = af.eclipse_times(p_orb, t_zero, e, w, i, r_sum, r_rat)
     depths = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
@@ -1287,7 +1291,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     ephem = np.array([p_orb, t_zero])
-    phys_mean = np.array([ecosw, esinw, cosi, phi_0, np.log10(r_rat), np.log10(sb_rat), e, w, i, r_sum, r_rat, sb_rat])
+    phys_mean = par_mean[5:]
     timings = np.append(timings, depths)
     stats = [t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level]
     desc = 'Optimised linear + sinusoid + eclipse model.'
@@ -1306,7 +1310,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         rnd_r_sum = max(ut.decimal_figures(r_sum_err, 2), ut.decimal_figures(r_sum, 2), 0)
         rnd_r_rat = max(ut.decimal_figures(r_rat_err, 2), ut.decimal_figures(r_rat, 2), 0)
         rnd_sb_rat = max(ut.decimal_figures(sb_rat_err, 2), ut.decimal_figures(sb_rat, 2), 0)
-        print(f'\033[1;32;48mOptimisation complete.\033[0m')
+        print(f'\033[1;32;48mOptimisation of eclipse model plus sinusoids complete.\033[0m')
         print(f'\033[0;32;48me: {e:.{rnd_e}f} (+-{e_err:.{rnd_e}f}), \n'
               f'w: {w / np.pi * 180:.{rnd_w}f} (+-{w_err / np.pi * 180:.{rnd_w}f}) degrees, \n'
               f'i: {i / np.pi * 180:.{rnd_i}f} (+-{i_err / np.pi * 180:.{rnd_i}f}) degrees, \n'
@@ -1557,9 +1561,10 @@ def frequency_selection(times, signal, model_eclipse, p_orb, const, slope, f_n, 
     # print some useful stuff
     t_b = time.time()
     if verbose:
-        print(f'\033[1;32;48mNon-harmonic frequencies selected.\033[0m')
+        print(f'\033[1;32;48mNon-harmonic and harmonic frequencies selected.\033[0m')
         print(f'\033[0;32;48mNumber of frequencies passed: {np.sum(passed_both)} of {len(f_n)}. '
-              f'Candidate harmonics: {np.sum(passed_h)}. \nTime taken: {t_b - t_a:1.1f}s\033[0m\n')
+              f'Candidate harmonics: {np.sum(passed_h)}. \n'
+              f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return passed_sigma, passed_snr, passed_both, passed_h
 
 
