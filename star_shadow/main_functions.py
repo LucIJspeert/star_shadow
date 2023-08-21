@@ -227,68 +227,6 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-def find_orbital_period(times, signal, f_n, t_tot):
-    """Find the most likely eclipse period from a sinusoid model
-    
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    t_tot: float
-        Total time base of observations
-    
-    Returns
-    -------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    
-    Notes
-    -----
-    Uses a combination of phase dispersion minimisation and
-    Lomb-Scargle periodogram (see Saha & Vivas 2017), and some
-    refining steps to get the best period.
-    
-    Period precision is 0.00001
-    """
-    freq_res = 1.5 / t_tot  # Rayleigh criterion
-    f_nyquist = 1 / (2 * np.min(np.diff(times)))
-    # first to get a global minimum do combined PDM and LS, at select frequencies
-    periods, phase_disp = tsf.phase_dispersion_minimisation(times, signal, f_n, local=False)
-    ampls = tsf.scargle_ampl(times, signal, 1 / periods)
-    psi_measure = ampls / phase_disp
-    # also check the number of harmonics at each period and include into best f
-    n_harm, completeness, distance = af.harmonic_series_length(1 / periods, f_n, freq_res, f_nyquist)
-    psi_h_measure = psi_measure * n_harm * completeness
-    # select the best period, refine it and check double P
-    base_p = periods[np.argmax(psi_h_measure)]
-    # refine by using a dense sampling
-    f_refine = np.arange(0.99 / base_p, 1.01 / base_p, 0.00001 / base_p)
-    n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res, f_nyquist)
-    h_measure = n_harm_r * completeness_r  # compute h_measure for constraining a domain
-    mask_peak = (h_measure > np.max(h_measure) / 1.5)  # constrain the domain of the search
-    i_min_dist = np.argmin(distance_r[mask_peak])
-    p_orb = 1 / f_refine[mask_peak][i_min_dist]
-    # check twice the period as well
-    base_p2 = base_p * 2
-    # refine by using a dense sampling
-    f_refine_2 = np.arange(0.99 / base_p2, 1.01 / base_p2, 0.00001 / base_p2)
-    n_harm_r_2, completeness_r_2, distance_r_2 = af.harmonic_series_length(f_refine_2, f_n, freq_res, f_nyquist)
-    h_measure_2 = n_harm_r_2 * completeness_r_2 # compute h_measure for constraining a domain
-    mask_peak_2 = (h_measure_2 > np.max(h_measure_2) / 1.5)  # constrain the domain of the search
-    i_min_dist_2 = np.argmin(distance_r_2[mask_peak_2])
-    p_orb_2 = 1 / f_refine_2[mask_peak_2][i_min_dist_2]
-    # compare the length and completeness to decide, using a threshold
-    minimal_frac = 1.1  # empirically determined threshold
-    frac_double = h_measure_2[mask_peak_2][i_min_dist_2] / h_measure[mask_peak][i_min_dist]
-    if (frac_double > minimal_frac):
-        p_orb = p_orb_2
-    return p_orb
-
-
 def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, file_name,
                      data_id='none', overwrite=False, verbose=False):
     """Find the orbital period and couple harmonic frequencies to the orbital period
@@ -369,7 +307,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # we use the input p_orb at face value if given
     if (p_orb == 0):
-        p_orb = find_orbital_period(times, signal, f_n, t_tot)
+        p_orb = tsf.find_orbital_period(times, signal, f_n, t_tot)
     # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
@@ -1883,7 +1821,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
                               file_name, method='fitter', **kw_args)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # find orbital period
-    p_orb = find_orbital_period(times, signal, f_n_2, t_tot)
+    p_orb = tsf.find_orbital_period(times, signal, f_n_2, t_tot)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save p_orb
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')

@@ -799,6 +799,9 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     The times array is mean subtracted to reduce correlation between
     frequencies and phases. The signal array is mean subtracted to avoid
     a large peak at frequency equal to zero.
+    
+    Note that the astropy implementation uses functions under the hood
+    that use the blas package for multithreading by default.
     """
     # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
     mean_t = np.mean(times)
@@ -817,7 +820,7 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     f1 = f0 + np.arange(nf) * df
     # use the astropy fast algorithm and normalise afterward
     ls = apy.LombScargle(times_ms, signal_ms, fit_mean=False, center_data=False)
-    s1 = ls.power(f1, normalization='psd', method='fast')
+    s1 = ls.power(f1, normalization='psd', method='fast', assume_regular_frequency=True)
     # replace negative by zero (just in case - have seen it happen)
     s1[s1 < 0] = 0
     # convert to the wanted normalisation
@@ -828,6 +831,88 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
     return f1, s1
+
+
+def find_orbital_period(times, signal, f_n, t_tot):
+    """Find the most likely eclipse period from a sinusoid model
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    t_tot: float
+        Total time base of observations
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+
+    Notes
+    -----
+    Uses a combination of phase dispersion minimisation and
+    Lomb-Scargle periodogram (see Saha & Vivas 2017), and some
+    refining steps to get the best period.
+    
+    Also tests various multiples of the period.
+    """
+    freq_res = 1.5 / t_tot  # Rayleigh criterion
+    f_nyquist = 1 / (2 * np.min(np.diff(times)))
+    # first to get a global minimum do combined PDM and LS, at select frequencies
+    periods, phase_disp = phase_dispersion_minimisation(times, signal, f_n, local=False)
+    ampls = scargle_ampl(times, signal, 1 / periods)
+    psi_measure = ampls / phase_disp
+    # also check the number of harmonics at each period and include into best f
+    n_harm, completeness, distance = af.harmonic_series_length(1 / periods, f_n, freq_res, f_nyquist)
+    psi_h_measure = psi_measure * n_harm * completeness
+    # select the best period, refine it and check double P
+    p_orb = periods[np.argmax(psi_h_measure)]
+    # refine by using a dense sampling and the harmonic distances
+    f_refine = np.arange(0.99 / p_orb, 1.01 / p_orb, 0.00001 / p_orb)
+    n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res, f_nyquist)
+    h_measure = n_harm_r * completeness_r  # compute h_measure for constraining a domain
+    mask_peak = (h_measure > np.max(h_measure) / 1.5)  # constrain the domain of the search
+    i_min_dist = np.argmin(distance_r[mask_peak])
+    p_orb = 1 / f_refine[mask_peak][i_min_dist]
+    # reduce the search space by taking limits in the distance metric
+    f_left = f_refine[mask_peak][:i_min_dist]
+    f_right = f_refine[mask_peak][i_min_dist:]
+    d_left = distance_r[mask_peak][:i_min_dist]
+    d_right = distance_r[mask_peak][i_min_dist:]
+    d_max = np.max(distance_r)
+    i_l_bound = np.arange(len(d_left))[d_left > d_max / 2][-1]
+    i_r_bound = np.arange(len(d_right))[d_right > d_max / 2][0]
+    # refine further by fitting the dispersion curve
+    f_refine_2 = np.arange(f_left[i_l_bound], f_right[i_r_bound], 0.000001 / p_orb)
+    periods_2, phase_disp_2 = phase_dispersion_minimisation(times, signal, f_refine_2, local=True)
+    a, b, c = quadratic_pars(periods_2, phase_disp_2)
+    p_orb = -b / (2 * a) + np.mean(periods_2)  # extremum
+    # if something went wrong and this is out of bounds, take the minimum
+    if (1 / p_orb < f_left[i_l_bound]) | (1 / p_orb > f_right[i_r_bound]):
+        p_orb = periods_2[np.argmin(phase_disp_2)]
+    # decide on the multiple of the period
+    p_multiples = p_orb * np.array([1/2, 2, 3, 4, 5])  # check these (commonly missed) multiples
+    n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
+    h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
+    test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
+    minimal_frac = 1.1  # empirically determined threshold
+    if np.any(test_frac > minimal_frac):
+        p_orb = p_multiples[np.argmax(test_frac)]
+        # repeat refine steps for new period
+        f_left_b = 1 / p_orb - (f_right[i_r_bound] - f_left[i_l_bound]) / 2
+        f_right_b = 1 / p_orb + (f_right[i_r_bound] - f_left[i_l_bound]) / 2
+        f_refine_3 = np.arange(f_left_b, f_right_b, 0.000001 / p_orb)
+        periods_3, phase_disp_3 = phase_dispersion_minimisation(times, signal, f_refine_3, local=True)
+        a, b, c = quadratic_pars(periods_3, phase_disp_3)
+        p_orb = -b / (2 * a) + np.mean(periods_3)  # extremum
+        # if something went wrong and this is out of bounds, take the minimum
+        if (1 / p_orb < f_left[i_l_bound]) | (1 / p_orb > f_right[i_r_bound]):
+            p_orb = periods_3[np.argmin(phase_disp_3)]
+    return p_orb
 
 
 @nb.njit(cache=True)
