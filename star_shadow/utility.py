@@ -1717,9 +1717,12 @@ def save_summary(target_id, save_dir, data_id='none'):
             'lower HDI error estimate in period', 'upper HDI error estimate in period',
             'number of free parameters after the prewhitening phase', 'BIC after the prewhitening phase',
             'noise level after the prewhitening phase',
-            'time of primary minimum with respect to the mean time', 'time of secondary minimum with respect to t_1',
-            'time of primary first contact minus t_0', 'time of primary last contact minus t_0',
-            'time of secondary first contact minus t_0', 'time of secondary last contact minus t_0',
+            'time of primary minimum with respect to the mean time',
+            'time of secondary minimum with respect to the mean time',
+            'time of primary first contact with respect to the mean time',
+            'time of primary last contact with respect to the mean time',
+            'time of secondary first contact with respect to the mean time',
+            'time of secondary last contact with respect to the mean time',
             'start of (flat) eclipse bottom left of primary minimum',
             'end of (flat) eclipse bottom right of primary minimum',
             'start of (flat) eclipse bottom left of secondary minimum',
@@ -1998,7 +2001,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     # eclipse_analysis
     try:
         if save_dir is not None:
-            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_derivatives_lh.png')
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_derivatives_h.png')
         else:
             file_name = None
         vis.plot_lc_derivatives(p_orb_5, f_h_5, a_h_5, ph_h_5, ecl_indices_6, save_file=file_name, show=show)
@@ -2006,7 +2009,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         pass  # some variable wasn't loaded (file did not exist)
     try:
         if save_dir is not None:
-            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_initial_timings_lh.png')
+            file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_initial_timings_h.png')
         else:
             file_name = None
         vis.plot_lc_timings_harmonics(times, signal, p_orb_5, timings_6, depths_6, timings_err_6,

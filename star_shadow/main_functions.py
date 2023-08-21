@@ -840,13 +840,10 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     # find any gaps in phase coverage
     t_gaps = tsf.mark_folded_gaps(times, p_orb, p_orb / 100)
     t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
-    # we use the lowest harmonics
-    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
-    f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    output_a = af.detect_eclipses(p_orb, f_h, a_h, ph_h, noise_level, t_gaps)
-    t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err, ecl_indices = output_a
+    ecl_indices, ecl_indices_ref = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
+    output_a = af.timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n, noise_level)
+    t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_a
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
     if np.all([item is None for item in output_a]):
