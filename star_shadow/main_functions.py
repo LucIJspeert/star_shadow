@@ -841,8 +841,8 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     t_gaps = tsf.mark_folded_gaps(times, p_orb, p_orb / 100)
     t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    ecl_indices, ecl_indices_ref = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
-    output_a = af.timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n, noise_level)
+    ecl_indices_lh, ecl_indices = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
+    output_a = af.timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n)
     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_a
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
@@ -1938,10 +1938,12 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_
     Notes
     -----
     Results are saved in the same directory as the given file
+    (will create a subfolder)
     
-    The input files are expected to have three columns with in order:
-    times, signal, signal_err
+    The input text files are expected to have three columns with in order:
+    times (bjd), signal (flux), signal_err (flux error)
     And the timestamps should be in ascending order.
+    The expected text file format is space separated.
     """
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
     save_dir = os.path.dirname(file_name)
@@ -1989,6 +1991,14 @@ def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', s
     Returns
     -------
     None
+    
+    Notes
+    -----
+    Results are saved in the same directory as the given file
+    (will create a subfolder)
+    
+    Expects to find standardly formatted fits files from the TESS mission
+    in the locations provided with all_files.
     """
     # load the data
     lc_data = ut.load_tess_lc(tic, all_files, apply_flags=True)

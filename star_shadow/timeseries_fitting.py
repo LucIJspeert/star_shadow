@@ -257,7 +257,7 @@ def fit_multi_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, 
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     arguments = (times, signal, signal_err, i_sectors)
     result = sp.optimize.minimize(objective_sinusoids, jac=jacobian_sinusoids, x0=par_init, args=arguments,
-                                  method='TNC', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
+                                  method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_const = result.x[0:n_sect]
     res_slope = result.x[n_sect:2 * n_sect]
@@ -578,7 +578,7 @@ def fit_multi_sinusoid_harmonics(times, signal, signal_err, p_orb, const, slope,
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, signal, signal_err, harmonic_n, i_sectors)
     result = sp.optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
-                                  x0=par_init, args=arguments, method='TNC', bounds=par_bounds,
+                                  x0=par_init, args=arguments, method='L-BFGS-B', bounds=par_bounds,
                                   options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_p_orb = result.x[0]
@@ -682,7 +682,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, resid, signal_err, harmonic_n, i_sectors)
     result = sp.optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
-                                  x0=par_init,  args=arguments, method='TNC', bounds=par_bounds,
+                                  x0=par_init,  args=arguments, method='L-BFGS-B', bounds=par_bounds,
                                   options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_p_orb = result.x[0]
@@ -846,7 +846,7 @@ def fit_minimum_third_light(times, signal, signal_err, p_orb, const, slope, f_n,
     par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
     arguments = (times, signal, signal_err, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors)
     # do the fit
-    result = sp.optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='TNC',
+    result = sp.optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_light_3 = result.x[:n_sect]
@@ -1073,8 +1073,8 @@ def fit_eclipse_individual(times, signal, signal_err, p_orb, timings, timings_er
     par_bounds = ((-dur_1 / 4, dur_1 / 4), (-dur_1 / 4, dur_1 / 4),
                   (dur_1 / 4, dur_1), (0, dur_1), (d_1 / 4, 2 * d_1),
                   h_minmax, h_minmax, (-h_std, h_std), (-h_std, h_std))
-    arguments = (times[ecl_1_mask], ecl_signal[ecl_1_mask], signal_err[ecl_1_mask])
-    result_a = sp.optimize.minimize(objective_empirical_single, x0=par_init, args=arguments, method='TNC',
+    arguments = (t_folded[ecl_1_mask], ecl_signal[ecl_1_mask], signal_err[ecl_1_mask])
+    result_a = sp.optimize.minimize(objective_empirical_single, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     t_min_1, t_mid_1, dur_1, dur_b_1, d_1, h_left_1, h_right_1, line_l_1, line_r_1 = result_a.x
     # second eclipse is also zero'd
@@ -1083,8 +1083,8 @@ def fit_eclipse_individual(times, signal, signal_err, p_orb, timings, timings_er
     par_bounds = ((-dur_2 / 4, dur_2 / 4), (-dur_2 / 4, dur_2 / 4),
                   (dur_2 / 4, dur_2), (0, dur_2), (d_2 / 4, 2 * d_2),
                   h_minmax, h_minmax, (-h_std, h_std), (-h_std, h_std))
-    arguments = (times[ecl_2_mask] - mid_2, ecl_signal[ecl_2_mask], signal_err[ecl_2_mask])
-    result_b = sp.optimize.minimize(objective_empirical_single, x0=par_init, args=arguments, method='TNC',
+    arguments = (t_folded[ecl_2_mask] - mid_2, ecl_signal[ecl_2_mask], signal_err[ecl_2_mask])
+    result_b = sp.optimize.minimize(objective_empirical_single, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     t_min_2, t_mid_2, dur_2, dur_b_2, d_2, h_left_2, h_right_2, line_l_2, line_r_2 = result_b.x
     # compute the times of eclipse contact and tangency
@@ -1342,7 +1342,7 @@ def fit_eclipse_empirical(times, signal, signal_err, p_orb, timings, timings_err
                   (0, 2 * dur_1), (0, 2 * dur_2),
                   (0, 2 * d_1), (0, 2 * d_2), h_minmax, h_minmax)
     arguments = (times, ecl_signal, signal_err, p_orb)
-    result = sp.optimize.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='TNC',
+    result = sp.optimize.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = result.x
     # compute the times of eclipse contact and tangency
@@ -1523,7 +1523,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
         arguments = (times, resid, signal_err, p_orb, i_sectors)
-        result = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='TNC',
+        result = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                       bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
@@ -2196,7 +2196,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
         else:
             obj_fun = objective_eclipse_sinusoids
         result = sp.optimize.minimize(obj_fun, jac=jacobian_eclipse_sinusoids, x0=par_init, args=arguments,
-                                      method='TNC', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
+                                      method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
         res_ecl_par = result.x[0:6]
