@@ -1207,7 +1207,7 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
             ecl_remove.append(comb[np.argmin(peak_height)])
     remove_mask = np.ones(len(ecl_indices), dtype=np.bool_)
-    remove_mask[np.array(ecl_remove)] = False
+    remove_mask[np.array(ecl_remove).astype(np.int_)] = False
     ecl_indices = ecl_indices[remove_mask]  # delete only first two args in numba
     return ecl_indices
 
@@ -1483,10 +1483,8 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return (None,) * 9 + (ecl_indices,)
     elif (len(best_comb) == 0):
         return (None,) * 9 + (ecl_indices,)
-    # select the best combination of eclipses and put the primary (deepest) in front
+    # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
-    sorter = np.argsort(depths[best_comb])[::-1]
-    ecl_indices = ecl_indices[sorter]
     # refine measurements for the selected eclipses by using all harmonics
     if (i < 2):
         model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
@@ -1567,23 +1565,25 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
         if (len(ecl_min) == 2):
             break
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
-    t_1 = ecl_min[0]
-    t_2 = (ecl_min[1] - t_1) % p_orb
+    sorter = np.argsort(depths)[::-1]
+    p, s = sorter[0], sorter[1]  # primary, secondary
+    t_1 = ecl_min[p]
+    t_2 = (ecl_min[s] - t_1) % p_orb
     ecl_mid = (ecl_mid - t_1) % p_orb
-    if ecl_mid[0] > (p_orb - widths[0] / 2):
-        ecl_mid[0] = ecl_mid[0] - p_orb
+    if ecl_mid[p] > (p_orb - widths[p] / 2):
+        ecl_mid[p] = ecl_mid[p] - p_orb
     ecl_mid_b = (ecl_mid_b - t_1) % p_orb
-    if ecl_mid_b[0] > (p_orb - widths[0] / 2):
-        ecl_mid_b[0] = ecl_mid_b[0] - p_orb
+    if ecl_mid_b[p] > (p_orb - widths[p] / 2):
+        ecl_mid_b[p] = ecl_mid_b[p] - p_orb
     # define in terms of time points
-    t_1_1 = ecl_mid[0] - (widths[0] / 2)  # time of primary first contact
-    t_1_2 = ecl_mid[0] + (widths[0] / 2)  # time of primary last contact
-    t_2_1 = ecl_mid[1] - (widths[1] / 2)  # time of secondary first contact
-    t_2_2 = ecl_mid[1] + (widths[1] / 2)  # time of secondary last contact
-    t_b_1_1 = ecl_mid_b[0] - (widths_b[0] / 2)  # time of primary first internal tangency
-    t_b_1_2 = ecl_mid_b[0] + (widths_b[0] / 2)  # time of primary last internal tangency
-    t_b_2_1 = ecl_mid_b[1] - (widths_b[1] / 2)  # time of secondary first internal tangency
-    t_b_2_2 = ecl_mid_b[1] + (widths_b[1] / 2)  # time of secondary last internal tangency
+    t_1_1 = ecl_mid[p] - (widths[p] / 2)  # time of primary first contact
+    t_1_2 = ecl_mid[p] + (widths[p] / 2)  # time of primary last contact
+    t_2_1 = ecl_mid[s] - (widths[s] / 2)  # time of secondary first contact
+    t_2_2 = ecl_mid[s] + (widths[s] / 2)  # time of secondary last contact
+    t_b_1_1 = ecl_mid_b[p] - (widths_b[p] / 2)  # time of primary first internal tangency
+    t_b_1_2 = ecl_mid_b[p] + (widths_b[p] / 2)  # time of primary last internal tangency
+    t_b_2_1 = ecl_mid_b[s] - (widths_b[s] / 2)  # time of secondary first internal tangency
+    t_b_2_2 = ecl_mid_b[s] + (widths_b[s] / 2)  # time of secondary last internal tangency
     # translate the timings by the time of primary minimum with respect to the mean time
     t_2 = t_2 + t_1
     t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1 + t_1, t_2_2 + t_1)
