@@ -1558,8 +1558,14 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     # measure up the eclipses
-    output = measure_eclipses(t_model, model_h, ecl_indices, 0)
-    ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output
+    for n in [np.max(harmonic_n), 40, 20]:
+        low_h = (harmonic_n <= n)
+        model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
+        output = measure_eclipses(t_model, model_h, ecl_indices, 0)
+        ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output
+        # negative depths could occur, returning <2 eclipses - n_h 20 should be guaranteed to give 2
+        if (len(ecl_min) == 2):
+            break
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
     t_1 = ecl_min[0]
     t_2 = (ecl_min[1] - t_1) % p_orb
