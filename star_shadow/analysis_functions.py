@@ -1254,8 +1254,9 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     
     Notes
     -----
-    Intended for use in detect_eclipses,
-    in conjunction with mark_eclipse_peaks.
+    Intended for use in detect_eclipses, in conjunction
+    with mark_eclipse_peaks.
+    Will remove eclipses below noise_level/4
     """
     # make the timing measurements
     t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
@@ -1308,7 +1309,6 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     t_i_2_err = t_i_2_err[remove_shallow]
     t_b_i_1_err = t_b_i_1_err[remove_shallow]
     t_b_i_2_err = t_b_i_2_err[remove_shallow]
-    ecl_indices = ecl_indices[remove_shallow]
     return ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
 
 
@@ -1513,11 +1513,13 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     return ecl_indices, ecl_indices_ref
 
 
-def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n, noise_level):
+def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     """Translate the eclipse indices to timings and depths
     
     Parameters
     ----------
+    ecl_indices: numpy.ndarray[int], None
+        Indices of several important points in the harmonic model
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_n: numpy.ndarray[float]
@@ -1526,10 +1528,6 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n, noise_level):
         The amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         The phases of a number of sine waves
-    noise_level: float
-        The noise level (standard deviation of the residuals)
-    ecl_indices: numpy.ndarray[int], None
-        Indices of several important points in the harmonic model
         
     Returns
     -------
@@ -1560,7 +1558,7 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n, noise_level):
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     # measure up the eclipses
-    output = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
+    output = measure_eclipses(t_model, model_h, ecl_indices, 0)
     ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
     t_1 = ecl_min[0]
