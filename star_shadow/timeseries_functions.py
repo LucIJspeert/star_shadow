@@ -859,6 +859,8 @@ def find_orbital_period(times, signal, f_n, t_tot):
     refining steps to get the best period.
     
     Also tests various multiples of the period.
+    Precision is 0.00001 (one part in one-hundred-thousand).
+    (accuracy might be slightly lower)
     """
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     f_nyquist = 1 / (2 * np.min(np.diff(times)))
@@ -886,14 +888,6 @@ def find_orbital_period(times, signal, f_n, t_tot):
     d_max = np.max(distance_r)
     i_l_bound = np.arange(len(d_left))[d_left > d_max / 2][-1]
     i_r_bound = np.arange(len(d_right))[d_right > d_max / 2][0]
-    # refine further by fitting the dispersion curve
-    f_refine_2 = np.arange(f_left[i_l_bound], f_right[i_r_bound], 0.000001 / p_orb)
-    periods_2, phase_disp_2 = phase_dispersion_minimisation(times, signal, f_refine_2, local=True)
-    a, b, c = quadratic_pars(periods_2, phase_disp_2)
-    p_orb = -b / (2 * a) + np.mean(periods_2)  # extremum
-    # if something went wrong and this is out of bounds, take the minimum
-    if (1 / p_orb < f_left[i_l_bound]) | (1 / p_orb > f_right[i_r_bound]):
-        p_orb = periods_2[np.argmin(phase_disp_2)]
     # decide on the multiple of the period
     p_multiples = p_orb * np.array([1/2, 2, 3, 4, 5])  # check these (commonly missed) multiples
     n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
@@ -902,16 +896,15 @@ def find_orbital_period(times, signal, f_n, t_tot):
     minimal_frac = 1.1  # empirically determined threshold
     if np.any(test_frac > minimal_frac):
         p_orb = p_multiples[np.argmax(test_frac)]
-        # repeat refine steps for new period
         f_left_b = 1 / p_orb - (f_right[i_r_bound] - f_left[i_l_bound]) / 2
         f_right_b = 1 / p_orb + (f_right[i_r_bound] - f_left[i_l_bound]) / 2
-        f_refine_3 = np.arange(f_left_b, f_right_b, 0.000001 / p_orb)
-        periods_3, phase_disp_3 = phase_dispersion_minimisation(times, signal, f_refine_3, local=True)
-        a, b, c = quadratic_pars(periods_3, phase_disp_3)
-        p_orb = -b / (2 * a) + np.mean(periods_3)  # extremum
-        # if something went wrong and this is out of bounds, take the minimum
-        if (1 / p_orb < f_left[i_l_bound]) | (1 / p_orb > f_right[i_r_bound]):
-            p_orb = periods_3[np.argmin(phase_disp_3)]
+        # refine by using a dense sampling and the harmonic distances
+        f_refine_2 = np.arange(f_left_b, f_right_b, 0.00001 / p_orb)
+        n_harm_r2, completeness_r2, distance_r2 = af.harmonic_series_length(f_refine_2, f_n, freq_res, f_nyquist)
+        h_measure_2 = n_harm_r2 * completeness_r2  # compute h_measure for constraining a domain
+        mask_peak = (h_measure_2 > np.max(h_measure_2) / 1.5)  # constrain the domain of the search
+        i_min_dist = np.argmin(distance_r2[mask_peak])
+        p_orb = 1 / f_refine_2[mask_peak][i_min_dist]
     return p_orb
 
 
