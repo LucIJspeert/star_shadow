@@ -1831,13 +1831,18 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
-    target_id: int
-        The TESS Input Catalog number for later reference
-        Use any number (or even str) as reference if not available.
+    target_id: int, str
+        In case of using analyse_from_tic:
+        The TESS Input Catalog number
+        In case of user-defined light curve files (analyse_from_file):
+        Should be the same as the name of the light curve file.
     load_dir: str
         Path to a directory for loading analysis results.
+        Will append <target_id> + _analysis automatically
     save_dir: str, None
         Path to a directory for save the plots.
+        Will append <target_id> + _analysis automatically
+        Directory is created if it doesn't exist yet
     show: bool
         Whether to show the plots or not.
     
@@ -1846,7 +1851,11 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     None
     """
     load_dir = os.path.join(load_dir, f'{target_id}_analysis')  # add subdir
-    save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
+    if save_dir is not None:
+        save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
+        # for saving, make a folder if not there yet
+        if not os.path.isdir(save_dir):
+            os.mkdir(save_dir)  # create the subdir
     # open all the data
     file_name = os.path.join(load_dir, f'{target_id}_analysis_1.hdf5')
     if os.path.isfile(file_name):
