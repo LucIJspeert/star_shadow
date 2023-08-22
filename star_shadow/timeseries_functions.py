@@ -2708,13 +2708,14 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     # lastly re-determine slope and const
     const, slope = linear_pars(times, best_resid, i_sectors)
     # finally, remove all the designated sinusoids from the lists and add the new ones
-    f_n = np.append(np.delete(f_n, [k for i in remove_sets for k in f_sets[i]]), f_new)
-    a_n = np.append(np.delete(a_n, [k for i in remove_sets for k in f_sets[i]]), a_new)
-    ph_n = np.append(np.delete(ph_n, [k for i in remove_sets for k in f_sets[i]]), ph_new)
+    i_to_remove = [k for i in remove_sets for k in f_sets[i]]
+    f_n = np.append(np.delete(f_n, i_to_remove), f_new)
+    a_n = np.append(np.delete(a_n, i_to_remove), a_new)
+    ph_n = np.append(np.delete(ph_n, i_to_remove), ph_new)
     if verbose:
         str_bic = ut.float_to_str(bic_prev, dec=2)
         str_delta = ut.float_to_str(bic_init - bic_prev, dec=2)
-        print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({n_freq - len(f_n)} frequencies). ')
+        print(f'Frequency sets replaced by a single frequency: {len(remove_sets)} ({len(i_to_remove)} frequencies). ')
         print(f'N_f= {len(f_n)}, BIC= {str_bic} (delta= {str_delta})')
     return const, slope, f_n, a_n, ph_n
 
