@@ -2444,6 +2444,8 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         # add to freq list and removal list
         f_new, a_new, ph_new = np.append(f_new, f_i), np.append(a_new, a_i), np.append(ph_new, ph_i)
         remove_harm_c = np.append(remove_harm_c, remove)
+        if verbose:
+            print(f'Harmonic number {n} re-extracted, replacing {len(remove)} candidates', end='\r')
     # lastly re-determine slope and const
     const, slope = linear_pars(times, cur_resid, i_sectors)
     # finally, remove all the designated sinusoids from the lists and add the new ones
