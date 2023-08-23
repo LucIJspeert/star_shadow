@@ -1332,8 +1332,6 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # perform checks for stopping the analysis
     if np.any([item is None for item in out_6]):
         return (None,) * 4  # could not find eclipses for some reason
-    elif (timings_6[10] <= 0) | (timings_6[11] <= 0):
-        return (None,) * 4  # negative depths
     # check for significance
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings_6
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err_6[:6]
@@ -1341,8 +1339,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     dur_1, dur_2 = (t_1_2 - t_1_1), (t_2_2 - t_2_1)
     dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
-    depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)
-    dur_insig = (dur_1 < dur_1_err) | (dur_2 < dur_2_err)
+    depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)  # being not so strict here
+    dur_insig = (dur_1 < 3 * dur_1_err) | (dur_2 < 3 * dur_2_err)  # being strict here
     if dur_diff | depth_insig | dur_insig:
         if depth_insig:
             message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}'
