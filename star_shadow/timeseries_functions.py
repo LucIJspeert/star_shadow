@@ -886,8 +886,15 @@ def find_orbital_period(times, signal, f_n, t_tot):
     d_left = distance_r[mask_peak][:i_min_dist]
     d_right = distance_r[mask_peak][i_min_dist:]
     d_max = np.max(distance_r)
-    i_l_bound = np.arange(len(d_left))[d_left > d_max / 2][-1]
-    i_r_bound = np.arange(len(d_right))[d_right > d_max / 2][0]
+    if np.any(d_left > d_max / 2):
+        f_l_bound = f_left[d_left > d_max / 2][-1]
+    else:
+        f_l_bound = f_refine[mask_peak][0]
+    if np.any(d_left > d_max / 2):
+        f_r_bound = f_right[d_right > d_max / 2][0]
+    else:
+        f_r_bound = f_refine[mask_peak][-1]
+    bound_interval = f_r_bound - f_l_bound
     # decide on the multiple of the period
     p_multiples = p_orb * np.array([1/2, 2, 3, 4, 5])  # check these (commonly missed) multiples
     n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
@@ -896,8 +903,8 @@ def find_orbital_period(times, signal, f_n, t_tot):
     minimal_frac = 1.1  # empirically determined threshold
     if np.any(test_frac > minimal_frac):
         p_orb = p_multiples[np.argmax(test_frac)]
-        f_left_b = 1 / p_orb - (f_right[i_r_bound] - f_left[i_l_bound]) / 2
-        f_right_b = 1 / p_orb + (f_right[i_r_bound] - f_left[i_l_bound]) / 2
+        f_left_b = 1 / p_orb - (bound_interval / 2)
+        f_right_b = 1 / p_orb + (bound_interval / 2)
         # refine by using a dense sampling and the harmonic distances
         f_refine_2 = np.arange(f_left_b, f_right_b, 0.00001 / p_orb)
         n_harm_r2, completeness_r2, distance_r2 = af.harmonic_series_length(f_refine_2, f_n, freq_res, f_nyquist)

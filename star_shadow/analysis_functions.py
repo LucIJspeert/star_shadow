@@ -1485,27 +1485,32 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return (None,) * 9 + (ecl_indices,)
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
-    # refine measurements for the selected eclipses by using all harmonics
+    # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
     if (i < 2):
-        model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-        deriv_1 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=1)
-        deriv_2 = tsf.sum_sines_deriv(t_model, f_h, a_h, ph_h, deriv=2)
-        ecl_1 = ecl_indices[0]
-        ecl_2 = ecl_indices[1]
-        output_c = mark_eclipse_peaks(t_model[ecl_1[1]:ecl_1[-2]], deriv_1[ecl_1[1]:ecl_1[-2]],
-                                      deriv_2[ecl_1[1]:ecl_1[-2]], noise_level, t_gaps, n_prominent=4)
-        output_d = mark_eclipse_peaks(t_model[ecl_2[1]:ecl_2[-2]], deriv_1[ecl_2[1]:ecl_2[-2]],
-                                      deriv_2[ecl_2[1]:ecl_2[-2]], noise_level, t_gaps, n_prominent=4)
-        peaks_1 = np.append(output_c[0] + ecl_1[1], output_d[0] + ecl_2[1])
-        slope_sign = np.append(output_c[1], output_d[1])
-        zeros_1 = np.append(output_c[2] + ecl_1[1], output_d[2] + ecl_2[1])
-        peaks_2_n = np.append(output_c[3] + ecl_1[1], output_d[3] + ecl_2[1])
-        minimum_1 = np.append(output_c[4] + ecl_1[1], output_d[4] + ecl_2[1])
-        zeros_1_in = np.append(output_c[5] + ecl_1[1], output_d[5] + ecl_2[1])
-        peaks_2_p = np.append(output_c[6] + ecl_1[1], output_d[6] + ecl_2[1])
-        minimum_1_in = np.append(output_c[7] + ecl_1[1], output_d[7] + ecl_2[1])
-        ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
-                                            zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
+        for n in [np.max(harmonic_n), 40, 20]:
+            low_h = (harmonic_n <= n)
+            model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
+            deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
+            deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
+            ecl_1 = ecl_indices[0]
+            ecl_2 = ecl_indices[1]
+            output_c = mark_eclipse_peaks(t_model[ecl_1[1]:ecl_1[-2]], deriv_1[ecl_1[1]:ecl_1[-2]],
+                                          deriv_2[ecl_1[1]:ecl_1[-2]], noise_level, t_gaps, n_prominent=4)
+            output_d = mark_eclipse_peaks(t_model[ecl_2[1]:ecl_2[-2]], deriv_1[ecl_2[1]:ecl_2[-2]],
+                                          deriv_2[ecl_2[1]:ecl_2[-2]], noise_level, t_gaps, n_prominent=4)
+            peaks_1 = np.append(output_c[0] + ecl_1[1], output_d[0] + ecl_2[1])
+            slope_sign = np.append(output_c[1], output_d[1])
+            zeros_1 = np.append(output_c[2] + ecl_1[1], output_d[2] + ecl_2[1])
+            peaks_2_n = np.append(output_c[3] + ecl_1[1], output_d[3] + ecl_2[1])
+            minimum_1 = np.append(output_c[4] + ecl_1[1], output_d[4] + ecl_2[1])
+            zeros_1_in = np.append(output_c[5] + ecl_1[1], output_d[5] + ecl_2[1])
+            peaks_2_p = np.append(output_c[6] + ecl_1[1], output_d[6] + ecl_2[1])
+            minimum_1_in = np.append(output_c[7] + ecl_1[1], output_d[7] + ecl_2[1])
+            ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
+                                                zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
+            # too small depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
+            if (len(ecl_indices_ref) == 2):
+                break
     else:
         ecl_indices_ref = np.copy(ecl_indices)
     return ecl_indices, ecl_indices_ref
@@ -1561,7 +1566,7 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
         output = measure_eclipses(t_model, model_h, ecl_indices, 0)
         ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output
-        # negative depths could occur, returning <2 eclipses - n_h 20 should be guaranteed to give 2
+        # negative depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
         if (len(ecl_min) == 2):
             break
     # put the deepest eclipse at zero (and make sure to get the edge timings in the right spot)
