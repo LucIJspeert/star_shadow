@@ -841,7 +841,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     t_gaps = tsf.mark_folded_gaps(times, p_orb, p_orb / 100)
     t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    ecl_indices_lh, ecl_indices = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
+    ecl_indices = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
     output_a = af.timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n)
     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_a
     # account for not finding eclipses

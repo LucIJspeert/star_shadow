@@ -1353,7 +1353,7 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
             combinations_3[i] = [j, k]  # numba no like array initialisation of a list comprehension
         if (len(combinations_3) > 0):
             combinations = np.append(combinations, combinations_3, axis=0)
-    # check overlap of the eclipses
+    # check overlap of the eclipses (also over one orbital period)
     comb_remove = np.zeros(0, dtype=np.int_)
     for i, comb in enumerate(combinations):
         comb_dist_direct = abs(ecl_min[comb[0]] - ecl_min[comb[1]])
@@ -1437,10 +1437,10 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     
     Returns
     -------
-    ecl_indices: numpy.ndarray[int], None
+    ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         as generated here (see function for details)
-    ecl_indices: numpy.ndarray[int], None
+    ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         refined by using all harmonics (may or may not equal ecl_indices)
     
@@ -1480,9 +1480,9 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             break
     # if still nothing was found, return
     if (len(ecl_min) == 0):
-        return ecl_indices, ecl_indices
+        return np.zeros((0, 15), dtype=np.int_)
     elif (len(best_comb) == 0):
-        return ecl_indices, ecl_indices
+        return ecl_indices[0, np.newaxis]
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
@@ -1513,7 +1513,8 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
                 break
     else:
         ecl_indices_ref = np.copy(ecl_indices)
-    return ecl_indices, ecl_indices_ref
+    ecl_indices = ecl_indices_ref
+    return ecl_indices
 
 
 def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
