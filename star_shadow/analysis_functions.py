@@ -1480,9 +1480,9 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             break
     # if still nothing was found, return
     if (len(ecl_min) == 0):
-        return (None,) * 9 + (ecl_indices,)
+        return ecl_indices, ecl_indices
     elif (len(best_comb) == 0):
-        return (None,) * 9 + (ecl_indices,)
+        return ecl_indices, ecl_indices
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
@@ -2989,7 +2989,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     """
     # use mix of approximate and exact formulae iteratively to get a value for i
     args_a = (p_orb, timings_tau, depths, timings_err, depths_err)
-    bounds_a = (0, 1)
+    bounds_a = (0, 0.9)
     result_a = sp.optimize.minimize_scalar(objective_inclination, args=args_a, method='bounded', bounds=bounds_a)
     cosi = result_a.x
     i = np.arccos(cosi)
@@ -3011,7 +3011,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     else:
         log_rr_bounds = (np.log10(r_small / r_large / 1.1), np.log10(r_large / r_small * 1.1))
     # lower bound on cosi needs to be loose, upper bound can be more restrictive
-    cosi_bounds = (0, min(cosi * 1.2, 1))
+    cosi_bounds = (0, min(cosi * 1.2, 0.9))
     # bounds for phi_0 can be fairly tight as the measurement is robust
     phi_0_bounds = (phi_0 / 1.1, min(phi_0 * 1.1, 1))
     # fit globally for: cosi, phi_0, r_ratio and sb_ratio
