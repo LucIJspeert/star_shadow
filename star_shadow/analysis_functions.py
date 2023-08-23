@@ -1555,6 +1555,10 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     t_b_i_2_err: numpy.ndarray[float]
         Measurement error estimates of the last internal tangencies
     """
+    # guard against too few eclipses
+    if (len(ecl_indices) < 2):
+        return (None,) * 9
+    
     # make a timeframe from 0 to two P to catch both eclipses in full if present (has to match detect_eclipses)
     t_model = np.linspace(0, 2 * p_orb, 10**6)
     harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)

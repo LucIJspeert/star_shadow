@@ -847,13 +847,9 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     # account for not finding eclipses
     ut.save_results_ecl_indices(file_name, ecl_indices, data_id=data_id)  # always save the eclipse indices
     if np.all([item is None for item in output_a]):
-        logger.info(f'No eclipse signatures found above the noise level of {noise_level}')
+        logger.info(f'No two eclipse signatures found above the noise level of {noise_level}')
         # save only indices file
         return (None,) * 2
-    elif np.any([item is None for item in output_a]):
-        logger.info('No two eclipses found passing the criteria')
-        # save only indices file
-        return (None,) + (ecl_indices,)
     # error estimates/refinement
     timings = np.array([t_1, t_2, *t_contacts, *t_tangency, *depths])
     output_b = tsf.estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings,
