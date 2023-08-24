@@ -890,7 +890,7 @@ def find_orbital_period(times, signal, f_n, t_tot):
         f_l_bound = f_left[d_left > d_max / 2][-1]
     else:
         f_l_bound = f_refine[mask_peak][0]
-    if np.any(d_left > d_max / 2):
+    if np.any(d_right > d_max / 2):
         f_r_bound = f_right[d_right > d_max / 2][0]
     else:
         f_r_bound = f_refine[mask_peak][-1]
