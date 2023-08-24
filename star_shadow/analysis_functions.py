@@ -1495,9 +1495,9 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             ecl_1 = ecl_indices[0]
             ecl_2 = ecl_indices[1]
             output_c = mark_eclipse_peaks(t_model[ecl_1[1]:ecl_1[-2]], deriv_1[ecl_1[1]:ecl_1[-2]],
-                                          deriv_2[ecl_1[1]:ecl_1[-2]], noise_level, t_gaps, n_prominent=4)
+                                          deriv_2[ecl_1[1]:ecl_1[-2]], noise_level, t_gaps, n_prominent=2)
             output_d = mark_eclipse_peaks(t_model[ecl_2[1]:ecl_2[-2]], deriv_1[ecl_2[1]:ecl_2[-2]],
-                                          deriv_2[ecl_2[1]:ecl_2[-2]], noise_level, t_gaps, n_prominent=4)
+                                          deriv_2[ecl_2[1]:ecl_2[-2]], noise_level, t_gaps, n_prominent=2)
             peaks_1 = np.append(output_c[0] + ecl_1[1], output_d[0] + ecl_2[1])
             slope_sign = np.append(output_c[1], output_d[1])
             zeros_1 = np.append(output_c[2] + ecl_1[1], output_d[2] + ecl_2[1])
@@ -1513,7 +1513,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
                 break
     else:
         ecl_indices_ref = np.copy(ecl_indices)
-    ecl_indices = ecl_indices_ref
     return ecl_indices
 
 
