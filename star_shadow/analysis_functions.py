@@ -1563,7 +1563,6 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     t_model = np.linspace(0, 2 * p_orb, 10**6)
     harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
-    model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
     # measure up the eclipses
     for n in [np.max(harmonic_n), 40, 20]:
         low_h = (harmonic_n <= n)
