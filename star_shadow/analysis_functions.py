@@ -1186,9 +1186,12 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
                    peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             i_mid_ecl = (ecl[2] + ecl[-3]) // 2
-            line_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
-            line_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
-            if line_check_1 & line_check_2:
+            flux_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]])
+            flux_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]])
+            # and that the flux in a possible flat bottom doesn't go up to similar levels as the rest of the lc
+            h_70 = np.min(model_h[ecl[1]:ecl[-2]]) + 0.7 * np.ptp(model_h[ecl[1]:ecl[-2]])
+            flux_check_3 = np.all(model_h[ecl[4]:ecl[-5]] <= h_70)
+            if flux_check_1 & flux_check_2 & flux_check_3:
                 ecl_indices = np.vstack((ecl_indices, np.array([ecl])))
     # check overlap and pick the highest peaks in deriv_1 in case of overlap
     indices = np.arange(len(ecl_indices))
