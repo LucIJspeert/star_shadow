@@ -1763,6 +1763,10 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
+    method: str
+        Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
+        Sampler gives extra error estimates on the eclipse parameters
+        Fitter is much faster
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1856,7 +1860,7 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
-        Fitter can be much faster on large datasets
+        Fitter is much faster
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1919,7 +1923,7 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
-        Fitter can be much faster on large datasets
+        Fitter is much faster
     data_id: int, str
         Identification for the dataset used
     overwrite: bool
@@ -1973,7 +1977,7 @@ def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', s
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
-        Fitter can be much faster on large datasets
+        Fitter is much faster
     data_id: int, str
         Identification for the dataset used
     save_dir: str
