@@ -288,6 +288,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     Notes
     -----
     Performs a global period search, if the period is unknown.
+    If a period is given, it is locally refined for better performance.
     
     Removes theoretical harmonic candidate frequencies within the frequency
     resolution, then extracts a single harmonic at the theoretical location.
@@ -305,9 +306,11 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     if verbose:
         print(f'Coupling the harmonic frequencies to the orbital frequency.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
-    # we use the input p_orb at face value if given
+    # if given, the input p_orb is refined locally, otherwise the period is searched for globally
     if (p_orb == 0):
-        p_orb = tsf.find_orbital_period(times, signal, f_n, t_tot)
+        p_orb = tsf.find_orbital_period(times, signal, f_n)
+    else:
+        p_orb = tsf.refine_orbital_period(times, signal, f_n)
     # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
@@ -1812,7 +1815,7 @@ def period_from_file(file_name, i_sectors=None, method='fitter', data_id='none',
                               file_name, method='fitter', **kw_args)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # find orbital period
-    p_orb = tsf.find_orbital_period(times, signal, f_n_2, t_tot)
+    p_orb = tsf.find_orbital_period(times, signal, f_n_2)
     p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
     # save p_orb
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')

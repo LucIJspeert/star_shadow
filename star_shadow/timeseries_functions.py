@@ -833,7 +833,45 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     return f1, s1
 
 
-def find_orbital_period(times, signal, f_n, t_tot):
+def refine_orbital_period(p_orb, times, f_n):
+    """Find the most likely eclipse period from a sinusoid model
+
+    Parameters
+    ----------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+
+    Returns
+    -------
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+
+    Notes
+    -----
+    Uses the sum of distances between the harmonics and their
+    theoretical positions to refine the orbital period.
+    
+    Period precision is 0.00001, but accuracy is a bit lower.
+    
+    Same refine algorithm as used in find_orbital_period
+    """
+    freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
+    f_nyquist = 1 / (2 * np.min(np.diff(times)))  # nyquist frequency
+    # refine by using a dense sampling and the harmonic distances
+    f_refine = np.arange(0.99 / p_orb, 1.01 / p_orb, 0.00001 / p_orb)
+    n_harm_r, completeness_r, distance_r = af.harmonic_series_length(f_refine, f_n, freq_res, f_nyquist)
+    h_measure = n_harm_r * completeness_r  # compute h_measure for constraining a domain
+    mask_peak = (h_measure > np.max(h_measure) / 1.5)  # constrain the domain of the search
+    i_min_dist = np.argmin(distance_r[mask_peak])
+    p_orb = 1 / f_refine[mask_peak][i_min_dist]
+    return p_orb
+
+
+def find_orbital_period(times, signal, f_n):
     """Find the most likely eclipse period from a sinusoid model
 
     Parameters
@@ -844,8 +882,6 @@ def find_orbital_period(times, signal, f_n, t_tot):
         Measurement values of the time series
     f_n: numpy.ndarray[float]
         The frequencies of a number of sine waves
-    t_tot: float
-        Total time base of observations
 
     Returns
     -------
@@ -862,8 +898,8 @@ def find_orbital_period(times, signal, f_n, t_tot):
     Precision is 0.00001 (one part in one-hundred-thousand).
     (accuracy might be slightly lower)
     """
-    freq_res = 1.5 / t_tot  # Rayleigh criterion
-    f_nyquist = 1 / (2 * np.min(np.diff(times)))
+    freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
+    f_nyquist = 1 / (2 * np.min(np.diff(times)))  # nyquist frequency
     # first to get a global minimum do combined PDM and LS, at select frequencies
     periods, phase_disp = phase_dispersion_minimisation(times, signal, f_n, local=False)
     ampls = scargle_ampl(times, signal, 1 / periods)
