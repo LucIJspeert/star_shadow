@@ -2861,6 +2861,12 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         Non-harmonic frequencies that passed both checks
     passed_h: numpy.ndarray[bool]
         Non-harmonic frequencies that passed both checks
+    
+    Notes
+    -----
+    Harmonic frequencies that are said to be passing the criteria
+    are in fact passing the criteria for individual frequencies,
+    not those for a set of harmonics (which would be a looser constraint).
     """
     t_tot = np.ptp(times)
     n_points = len(times)
@@ -2889,7 +2895,9 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     if (p_orb != 0):
         harmonics, harmonic_n = af.select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol=freq_res / 2, sigma_f=3)
         passed_h[harmonics] = True
+    else:
+        harmonics = np.array([], dtype=int)
     if verbose:
         print(f'Number of frequencies passed criteria: {np.sum(passed_both)} of {len(f_n)}. '
-              f'Candidate harmonics: {np.sum(passed_h)}, of which {np.sum(passed_both[harmonics])} passing.')
+              f'Candidate harmonics: {np.sum(passed_h)}, of which {np.sum(passed_both[harmonics])} passed.')
     return passed_sigma, passed_snr, passed_both, passed_h

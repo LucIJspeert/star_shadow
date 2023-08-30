@@ -318,7 +318,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     if (p_orb == 0):
         p_orb = tsf.find_orbital_period(times, signal, f_n)
     else:
-        p_orb = tsf.refine_orbital_period(times, signal, f_n)
+        p_orb = tsf.refine_orbital_period(p_orb, times, f_n)
     # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
@@ -438,8 +438,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n
     if os.path.isfile(file_name) & (not overwrite):
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         const, slope, f_n, a_n, ph_n = results['sin_mean']
-        p_orb, _ = results['ephem']
-        return p_orb, const, slope, f_n, a_n, ph_n
+        return const, slope, f_n, a_n, ph_n
     
     if verbose:
         print(f'Looking for additional frequencies.')
@@ -686,11 +685,13 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
         results = ut.read_parameters_hdf5(file_name, verbose=verbose)
         timings = results['timings']
         timings_err = results['timings_err']
-        return timings, timings_err
+        p_orb_cur, _ = results['ephem']
+        half_p = (p_orb_cur != p_orb)
+        return timings, timings_err, half_p
     elif (not os.path.isfile(file_name)) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print('Not enough eclipses found last time (see log)')
-        return (None,) * 2
+        return (None,) * 3
     
     if verbose:
         print(f'Measuring eclipse time points and depths.')
@@ -706,7 +707,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     if np.all([item is None for item in output_a]):
         logger.info(f'No two eclipse signatures found above the noise level of {noise_level}')
         # save only indices file
-        return (None,) * 2
+        return (None,) * 3
     # error estimates/refinement
     timings = np.array([t_1, t_2, *t_contacts, *t_tangency, *depths])
     output_b = tsf.estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings,
@@ -716,6 +717,8 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err = timings_err[6:]
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
+    if half_p:
+        p_orb = p_orb / 2
     ephem = np.array([p_orb, t_1])
     ephem_err = np.array([p_err, t_1_err])
     desc = 'Eclipse timings and depths.'
@@ -1527,7 +1530,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
 
     Returns
     -------
-    out_6: tuple, None
+    out_6: tuple
         output of find_eclipse_timings
 
     Notes
@@ -1579,7 +1582,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     # save final results in ascii format
     if save_ascii:
         ut.convert_hdf5_to_ascii(file_name)
-    return out_6
+    return (out_6,)
 
 
 def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, save_dir, method='fitter',
@@ -1647,12 +1650,12 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     p_orb, _ = results_5['ephem']
     p_err, _ = results_5['ephem_err']
     # read in the timing analysis results
-    file_name = os.path.join(load_dir, f'{target_id}_analysis_6.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
     if not os.path.isfile(file_name):
         if verbose:
             print(f'No timing analysis results found ({file_name})')
         return (None,) * 2
-    results_6 = read_parameters_hdf5(file_name, verbose=False)
+    results_6 = ut.read_parameters_hdf5(file_name, verbose=verbose)
     timings = results_6['timings']
     timings_err = results_6['timings_err']
     # ------------------------------------
@@ -1691,7 +1694,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [8] --- Optimise elements with physical model
     # --------------------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
-    out_8 = optimise_physical_elements(times, signal, signal_err, p_orb, timings_6[0], ecl_par, const, slope,
+    out_8 = optimise_physical_elements(times, signal, signal_err, p_orb, timings[0], ecl_par, const, slope,
                                        f_n, a_n, ph_n, phys_err, i_sectors, t_stats, file_name,
                                        method=method, **arg_dict)
     # save the results in ascii format
@@ -1740,8 +1743,6 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
     Returns
     -------
     out_9: tuple, None
-        output of frequency_selection
-    out_10: tuple, None
         output of variability_amplitudes
     """
     signal_err = np.max(signal_err) * np.ones(len(times))  # likelihood assumes the same errors
@@ -1821,87 +1822,9 @@ def customize_logger(save_dir, target_id, verbose):
     return None
 
 
-def period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False, verbose=False):
-    """Do the global period search for a given light curve file
-
-    Parameters
-    ----------
-    file_name: str
-        Path to a file containing the light curve data, with
-        timestamps, normalised flux, error values as the
-        first three columns, respectively.
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_sectors = np.array([[0, len(times)]]).
-    data_id: int, str
-        User defined identification for the dataset used
-    overwrite: bool
-        If set to True, overwrite old results in the same directory as
-        save_dir, or (if False) to continue from the last save-point.
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    None
-    
-    Notes
-    -----
-    Results are saved in the same directory as the given file
-    
-    The input text files are expected to have three columns with in order:
-    times (bjd), signal (flux), signal_err (flux error)
-    And the timestamps should be in ascending order.
-    The expected text file format is space separated.
-    """
-    target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
-    save_dir = os.path.dirname(file_name)
-    # for saving, make a folder if not there yet
-    if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
-        os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
-    customize_logger(save_dir, target_id, verbose)  # log stuff to a file and/or stdout
-    logger.info('Start of analysis')
-    # load the data
-    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    # if sectors not given, take full length
-    if i_sectors is None:
-        i_sectors = np.array([[0, len(times)]])  # no sector information
-    i_half_s = i_sectors  # in this case no differentiation between half or full sectors
-    # calculate some parameters
-    t_tot = np.ptp(times)  # total time base of observations
-    t_mean = np.mean(times)  # mean time of observations
-    t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])  # mean time per observation sector
-    t_int = np.median(np.diff(times))  # integration time, taken to be the median time step
-    t_stats = [t_tot, t_mean, t_mean_s, t_int]
-    kw_args = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
-    # do the prewhitening and frequency optimisation
-    output = analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
-    const_i, slope_i, f_n_i, a_n_i, ph_n_i = output
-    f_n_1 = f_n_i[0]
-    if (len(f_n_1) == 0):
-        logger.info('No frequencies found.')
-        return -1
-    const_2, slope_2, f_n_2, a_n_2, ph_n_2 = const_i[1], slope_i[1], f_n_i[1], a_n_i[1], ph_n_i[1]
-    # find orbital period
-    p_orb = tsf.find_orbital_period(times, signal, f_n_2)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
-    # save p_orb
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
-    col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
-    col2 = [p_orb, p_err, t_tot, len(f_n_1)]
-    np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s', delimiter=',')
-    logger.info('End of analysis')
-    if verbose:
-        print(f'P_orb = {p_orb}, done.')
-    return p_orb
-
-
-def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, method='fitter', data_id='none',
-               overwrite=False, save_ascii=False, verbose=False):
-    """Do all steps of the analysis
+def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir, stage='all', method='fitter',
+                        data_id='none', overwrite=False, save_ascii=False, verbose=False):
+    """Do all steps of the analysis (or fewer)
 
     Parameters
     ----------
@@ -1925,6 +1848,11 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
+    stage: str
+        Which analysis stages to do: 'all'/'a' for everything
+        'frequencies'/'freq'/'f' for just the iterative prewhitening
+        'harmonics'/'harm'/'h' for up to and including the harmonic coupling only
+        'timings'/'t' for up to and including finding the eclipse timings
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
@@ -1958,28 +1886,41 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     # keyword arguments in common between some functions
     kw_args = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': overwrite, 'save_ascii': save_ascii,
                'verbose': verbose}
+    # define the lists of stages to compare against
+    stg_1 = ['harmonics', 'harm', 'h', 'timings', 't', 'all', 'a']
+    stg_2 = ['timings', 't', 'all', 'a']
+    stg_3 = ['all', 'a']
     # do the analysis -------------------------------------------------------------------------------
-    output = analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
+    out_a = analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
     # need outputs of len 2 to continue
-    if not (len(output[0]) < 2):
-        output = analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args)
+    if (not (len(out_a[0]) < 2)) & (stage in stg_1):
+        out_b = analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args)
     else:
-        output = ([], [], [], [], [], [])
+        out_b = ([], [], [], [], [], [])
     # need outputs of len 3 to continue
-    if not (len(output[0]) < 3):
-        output = analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
+    if (not (len(out_b[0]) < 3)) & (stage in stg_2):
+        out_c = analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
     else:
-        output = (None,)
+        out_c = (None,)
+    # do a check for the change of period after analyse_eclipse_timings
+    if (not (out_c[0] is None)) & (stage in stg_2):
+        if out_c[0][2]:
+            logger.info('Halving period, redoing some steps')  # info to save to log
+            p_orb = out_b[0][-1] / 2
+            kw_args_2 = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': True, 'save_ascii': save_ascii,
+                         'verbose': verbose}
+            out_b = analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args_2)
+            out_c = analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args_2)
     # need no None output
-    if not (output[0] is None):
-        output = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, method=method, **kw_args)
+    if (not (out_c[0] is None)) & (stage in stg_3):
+        out_d = analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, method=method, **kw_args)
     else:
-        output = (None,) * 2
+        out_d = (None,) * 2
     # need no None output
-    if not (output[0] is None):
-        output = analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
+    if (not (out_d[0] is None)) & (stage in stg_3):
+        out_e = analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id, **kw_args)
     else:
-        output = (None,)
+        out_e = (None,)
     # create summary file
     ut.save_summary(target_id, save_dir, data_id=data_id)
     logger.info('End of analysis')  # info to save to log
@@ -1988,8 +1929,78 @@ def analyse_eb(times, signal, signal_err, p_orb, i_sectors, target_id, save_dir,
     return None
 
 
-def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_id='none', overwrite=False,
-                      verbose=False):
+def find_period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False, verbose=False):
+    """Do the global period search for a given light curve file
+
+    Parameters
+    ----------
+    file_name: str
+        Path to a file containing the light curve data, with
+        timestamps, normalised flux, error values as the
+        first three columns, respectively.
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_sectors = np.array([[0, len(times)]]).
+    data_id: int, str
+        User defined identification for the dataset used
+    overwrite: bool
+        If set to True, overwrite old results in the same directory as
+        save_dir, or (if False) to continue from the last save-point.
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    Results are saved in the same directory as the given file
+
+    The input text files are expected to have three columns with in order:
+    times (bjd), signal (flux), signal_err (flux error)
+    And the timestamps should be in ascending order.
+    The expected text file format is space separated.
+    """
+    t_a = time.time()
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
+    save_dir = os.path.dirname(file_name)
+    # load the data
+    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
+    # if sectors not given, take full length
+    if i_sectors is None:
+        i_sectors = np.array([[0, len(times)]])  # no sector information
+    i_half_s = i_sectors  # in this case no differentiation between half or full sectors
+    t_tot = np.ptp(times)  # total time base of observations
+    t_int = np.median(np.diff(times))  # integration time, taken to be the median time step
+    # do the prewhitening and frequency optimisation
+    analyse_light_curve(times, signal, signal_err, 0, i_half_s, target_id, save_dir, stage='frequencies',
+                        method='fitter', data_id=data_id, overwrite=overwrite, save_ascii=False, verbose=verbose)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
+    if os.path.isfile(file_name):
+        results = ut.read_parameters_hdf5(file_name)
+        const, slope, f_n, a_n, ph_n = results['sin_mean']
+    else:
+        return -1
+    # find orbital period
+    p_orb = tsf.find_orbital_period(times, signal, f_n)
+    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    # save p_orb
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
+    col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
+    col2 = [p_orb, p_err, t_tot, len(f_n)]
+    np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s', delimiter=',')
+    t_b = time.time()
+    if verbose:
+        print(f'P_orb = {p_orb}. Time taken: {t_b - t_a:1.1f}s')
+    return p_orb
+
+
+def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='none',
+                         overwrite=False, verbose=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
@@ -2006,6 +2017,11 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_sectors = np.array([[0, len(times)]]).
+    stage: str
+        Which analysis stages to do: 'all'/'a' for everything
+        'frequencies'/'freq'/'f' for just the iterative prewhitening
+        'harmonics'/'harm'/'h' for up to and including the harmonic coupling only
+        'timings'/'t' for up to and including finding the eclipse timings
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
@@ -2041,13 +2057,13 @@ def analyse_from_file(file_name, p_orb=0, i_sectors=None, method='fitter', data_
         i_sectors = np.array([[0, len(times)]])  # no sector information
     i_half_s = i_sectors  # in this case no differentiation between half or full sectors
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, target_id, save_dir, method=method, data_id=data_id,
-               overwrite=overwrite, verbose=verbose)
+    analyse_light_curve(times, signal, signal_err, p_orb, i_half_s, target_id, save_dir, stage=stage, method=method,
+                        data_id=data_id, overwrite=overwrite, save_ascii=False, verbose=verbose)
     return None
 
 
-def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', save_dir=None, overwrite=False,
-                     verbose=False):
+def analyse_lc_from_tic(tic, all_files, p_orb=0, stage='all', method='fitter', data_id='none', save_dir=None,
+                        overwrite=False, verbose=False):
     """Do all steps of the analysis for a given TIC number
     
     Parameters
@@ -2060,6 +2076,11 @@ def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', s
         with the corresponding TIC number are selected.
     p_orb: float
         Orbital period of the eclipsing binary in days
+    stage: str
+        Which analysis stages to do: 'all'/'a' for everything
+        'frequencies'/'freq'/'f' for just the iterative prewhitening
+        'harmonics'/'harm'/'h' for up to and including the harmonic coupling only
+        'timings'/'t' for up to and including finding the eclipse timings
     method: str
         Method of EB light curve model optimization. Can be 'sampler' or 'fitter'.
         Sampler gives extra error estimates on the eclipse parameters
@@ -2094,12 +2115,12 @@ def analyse_from_tic(tic, all_files, p_orb=0, method='fitter', data_id='none', s
     lc_processed = ut.stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # do the analysis
-    analyse_eb(times, signal, signal_err, p_orb, i_half_s, tic, save_dir, method=method, data_id=data_id,
-               overwrite=overwrite, verbose=verbose)
+    analyse_light_curve(times, signal, signal_err, p_orb, i_half_s, tic, save_dir, stage=stage, method=method,
+                        data_id=data_id, overwrite=overwrite, save_ascii=False, verbose=verbose)
     return None
 
 
-def analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count() - 2, **kwargs):
+def analyse_set(target_list, function='analyse_lc_from_tic', n_threads=os.cpu_count() - 2, **kwargs):
     """Analyse a set of light curves in parallel
     
     Parameters
@@ -2108,7 +2129,7 @@ def analyse_set(target_list, function='analyse_from_tic', n_threads=os.cpu_count
         List of either file names or TIC identifiers to analyse
     function: str
         Name  of the function to use for the analysis
-        Choose from [analyse_from_file, analyse_from_tic]
+        Choose from [analyse_lc_from_tic, analyse_lc_from_tic]
     n_threads: int
         Number of threads to use.
         Uses two fewer than the available amount by default.

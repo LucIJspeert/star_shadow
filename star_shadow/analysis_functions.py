@@ -1372,7 +1372,7 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     remove_mask[comb_remove] = False
     combinations = combinations[remove_mask]  # delete only has first two args in numba
     if (len(combinations) == 0):
-        return np.zeros(0, dtype=np.int_)
+        return np.zeros(0, dtype=np.int_), False
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
