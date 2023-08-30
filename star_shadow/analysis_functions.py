@@ -1335,6 +1335,10 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     best_comb: numpy.ndarray[int]
         Best combination of eclipses based on
         the combined depth.
+    half_p: boolean
+        If there are too many eclipses found with
+        depths and widths within 1% at the right phases,
+        this will suggest half the given period is correct.
     """
     n_ecl = len(ecl_min)
     # now pick out two consecutive, fully covered eclipses
@@ -1372,7 +1376,20 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
-    return best_comb
+    # check half the period for eclipse overlap (could be wrongly doubled)
+    ecl_min_half_p = ecl_min % (p_orb / 2)
+    half_p = False
+    for i in range(len(ecl_min)):
+        group_ecl = (ecl_min_half_p > ecl_min_half_p[i] - widths[i] / 2)
+        group_ecl &= (ecl_min_half_p < ecl_min_half_p[i] + widths[i] / 2)
+        # if more than 2 eclipse candidates overlap and have similar width and depth, wrong p
+        if (np.sum(group_ecl) > 2):
+            check_1 = (np.sum((depths > 0.99 * depths[i]) & (depths < 1.01 * depths[i])) > 2)
+            check_2 = (np.sum((widths > 0.99 * widths[i]) & (widths < 1.01 * widths[i])) > 2)
+        half_p = check_1 & check_2
+        if half_p:
+            break
+    return best_comb, half_p
 
 
 @nb.njit(cache=True)
@@ -1475,7 +1492,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         if (len(ecl_min) == 0):
             continue
         # pick the best pair
-        best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
+        best_comb, half_p = select_eclipses(p_orb, ecl_min, widths, depths)
         if (len(best_comb) == 0):
             continue
         else:
@@ -1516,7 +1533,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
                 break
     else:
         ecl_indices_ref = np.copy(ecl_indices)
-    return ecl_indices
+    return ecl_indices, half_p
 
 
 def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
