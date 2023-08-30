@@ -868,13 +868,13 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     # minimisation procedure for parameters from formulae
     out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
-    # calculate the errors
-    out_b = af.error_estimates_hdi(e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb,
-                                   timings[:10], timings[10:], p_err, timings_err[:10], timings_err[10:],
-                                   p_t_corr, verbose=verbose)
+    # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
+    i_err_est = 0.1  # fairly good guess at the inability to pinpoint i
+    formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
+    # calculate the errors for cosi, log_rr, log_sb with importance sampling
+    out_b = af.error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings[:10], timings[10:],
+                                   p_err, timings_err[:10], timings_err[10:], *formal_errors, p_t_corr, verbose=verbose)
     intervals, errors, dists_in, dists_out = out_b
-    i_sym_err = max(errors[2])  # take the maximum as pessimistic estimate of the symmetric error
-    formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_sym_err, *timings_err[:6])
     # check physical result
     if (e > 0.99):
         logger.info(f'Unphysically large eccentricity found: {e}')
@@ -1771,7 +1771,7 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
     # -----------------------------------
     # --- [9] --- Variability amplitudes
     # -----------------------------------
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_10.hdf5')
+    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_9.hdf5')
     out_9 = variability_amplitudes(times, signal, model_ecl, p_orb, const, slope, f_n, a_n, ph_n,
                                    depths, i_sectors, t_stats, file_name, **arg_dict)
     # std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = out_9
