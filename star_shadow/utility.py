@@ -1676,15 +1676,12 @@ def save_summary(target_id, save_dir, data_id='none'):
                    phi_0_err[0], phi_0_err[1], log_rr_err[0], log_rr_err[1], log_sb_err[0], log_sb_err[1],
                    e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1], r_sum_err[0], r_sum_err[1],
                    r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1], n_param, bic, noise_level]
-    # include n_freqs/n_freqs_passed (9)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
-    if os.path.isfile(file_name):
-        results = read_parameters_hdf5(file_name, verbose=False)
+        # include n_freqs/n_freqs_passed
         passed_sigma, passed_snr, passed_both, passed_h = results['sin_select']
         freqs_par = [len(passed_both), np.sum(passed_sigma), np.sum(passed_snr), np.sum(passed_both),
                      np.sum(passed_h)]
-    # include variability stats (10)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis_10.hdf5')
+    # include variability stats (9)
+    file_name = os.path.join(save_dir, f'{target_id}_analysis_9.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4 = results['var_stats']
