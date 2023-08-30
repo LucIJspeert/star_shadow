@@ -2816,3 +2816,80 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
                                     verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     return const, slope, f_n, a_n, ph_n
+
+
+def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+    """Selects the credible frequencies from the given set
+    
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+        If the sinusoids exclude the eclipse model,
+        this should be the residuals of the eclipse model
+    p_orb: float
+        Orbital period of the eclipsing binary in days.
+        May be zero.
+    const: numpy.ndarray[float]
+        The y-intercepts of a piece-wise linear curve
+    slope: numpy.ndarray[float]
+        The slopes of a piece-wise linear curve
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
+    ph_n: numpy.ndarray[float]
+        The phases of a number of sine waves
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_half_s = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    passed_sigma: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the sigma check
+    passed_snr: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed the signal-to-noise check
+    passed_both: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed both checks
+    passed_h: numpy.ndarray[bool]
+        Non-harmonic frequencies that passed both checks
+    """
+    t_tot = np.ptp(times)
+    n_points = len(times)
+    freq_res = 1.5 / t_tot  # Rayleigh criterion
+    # obtain the errors on the sine waves (dependends on residual and thus model)
+    model_lin = linear_curve(times, const, slope, i_sectors)
+    model_sin = sum_sines(times, f_n, a_n, ph_n)
+    residuals = signal - (model_lin + model_sin)
+    errors = formal_uncertainties(times, residuals, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
+    # find the insignificant frequencies
+    remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3, sigma_f=3)
+    # apply the signal-to-noise threshold
+    noise_at_f = scargle_noise_at_freq(f_n, times, residuals)
+    remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, n_points)
+    # frequencies that pass sigma criteria
+    passed_sigma = np.ones(len(f_n), dtype=bool)
+    passed_sigma[remove_sigma] = False
+    # frequencies that pass S/N criteria
+    passed_snr = np.ones(len(f_n), dtype=bool)
+    passed_snr[remove_snr] = False
+    # passing both
+    passed_both = (passed_sigma & passed_snr)
+    # candidate harmonic frequencies
+    passed_h = np.zeros(len(f_n), dtype=bool)
+    if (p_orb != 0):
+        harmonics, harmonic_n = af.select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol=freq_res / 2, sigma_f=3)
+        passed_h[harmonics] = True
+    if verbose:
+        print(f'Number of frequencies passed criteria: {np.sum(passed_both)} of {len(f_n)}. '
+              f'Candidate harmonics: {np.sum(passed_h)}, of which {np.sum(passed_both[harmonics])} passing.')
+    return passed_sigma, passed_snr, passed_both, passed_h
