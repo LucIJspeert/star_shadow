@@ -3407,9 +3407,6 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
 
     Returns
     -------
-    intervals: tuple[numpy.ndarray[float]]
-        The HDIs (hdi_prob=0.683) for the parameters:
-        e, w, i, r_sum, r_rat, sb_rat, ecosw, esinw, cosi, phi_0, log_rr, log_sb
     errors: tuple[numpy.ndarray[float]]
         The (non-symmetric) errors for the same parameters as intervals.
         These are computed from the intervals.
@@ -3634,8 +3631,6 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     sb_rat_bounds = az.hdi(sb_rat_vals, hdi_prob=0.997)
     sb_rat_err = np.array([sb_rat - sb_rat_interval[0], sb_rat_interval[1] - sb_rat])
     # collect
-    intervals = (e_interval, w_interval, i_interval, r_sum_interval, r_rat_interval, sb_rat_interval,
-                 ecosw_interval, esinw_interval, cosi_interval, phi_0_interval, log_rr_interval, log_sb_interval)
     bounds = (e_bounds, w_bounds, i_bounds, r_sum_bounds, r_rat_bounds, sb_rat_bounds,
               ecosw_bounds, esinw_bounds, cosi_bounds, phi_0_bounds, log_rr_bounds, log_sb_bounds)
     errors = (e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err,
@@ -3643,4 +3638,4 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     dists_in = (normal_p, normal_t_1, normal_t_2, normal_t_1_1, normal_t_1_2, normal_t_2_1, normal_t_2_2,
                 normal_t_b_1_1, normal_t_b_1_2, normal_t_b_2_1, normal_t_b_2_2, normal_d_1, normal_d_2)
     dists_out = (e_vals, w_vals, i_vals, r_sum_vals, r_rat_vals, sb_rat_vals)
-    return intervals, errors, dists_in, dists_out
+    return errors, dists_in, dists_out

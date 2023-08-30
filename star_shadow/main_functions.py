@@ -870,22 +870,33 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
     i_err_est = 0.1  # fairly good guess at the inability to pinpoint i
+    cosi_err_est = np.sin(i_err_est)
     formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
     # calculate the errors for cosi, log_rr, log_sb with importance sampling
     out_b = af.error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings[:10], timings[10:],
                                    p_err, timings_err[:10], timings_err[10:], *formal_errors, p_t_corr, verbose=verbose)
-    intervals, errors, dists_in, dists_out = out_b
+    errors, dists_in, dists_out = out_b
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
+    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
+    # take the bigger error if sigma is bigger
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
+    e_err = np.array([max(e_err[0], sigma_e), max(e_err[1], sigma_e)])
+    w_err = np.array([max(w_err[0], sigma_w), max(w_err[1], sigma_w)])
+    i_err = np.array([max(i_err[0], i_err_est), max(i_err[1], i_err_est)])
+    r_sum_err = np.array([max(r_sum_err[0], sigma_r_sum), max(r_sum_err[1], sigma_r_sum)])
+    ecosw_err = np.array([max(ecosw_err[0], sigma_ecosw), max(ecosw_err[1], sigma_ecosw)])
+    esinw_err = np.array([max(esinw_err[0], sigma_esinw), max(esinw_err[1], sigma_esinw)])
+    cosi_err = np.array([max(cosi_err[0], cosi_err_est), max(cosi_err[1], cosi_err_est)])
+    phi_0_err = np.array([max(phi_0_err[0], sigma_phi_0), max(phi_0_err[1], sigma_phi_0)])
     # check physical result
     if (e > 0.99):
         logger.info(f'Unphysically large eccentricity found: {e}')
     # save the result
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
-    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
     ephem = np.array([p_orb, timings[0]])
     ephem_err = np.array([p_err, timings_err[0]])
     phys_mean = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat])
-    phys_err = np.array([sigma_ecosw, sigma_esinw, -1, sigma_phi_0, -1, -1, sigma_e, sigma_w, -1, sigma_r_sum, -1, -1])
+    phys_err = np.array([sigma_ecosw, sigma_esinw, cosi_err_est, sigma_phi_0, -1, -1,
+                         sigma_e, sigma_w, i_err_est, sigma_r_sum, -1, -1])
     phys_hdi = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
                          e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     desc = 'Eclipse elements from timings.'
@@ -1668,22 +1679,10 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     errors, formal_errors, dists_in, dists_out = out_7[6:]
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
-    # for the mcmc, take maximum errors for prior model
-    e_err = max(e_err[0], e_err[1], sigma_e)
-    w_err = max(w_err[0], w_err[1], sigma_w)
-    i_err = max(i_err[0], i_err[1])
-    r_sum_err = max(r_sum_err[0], r_sum_err[1], sigma_r_sum)
-    r_rat_err = max(r_rat_err[0], r_rat_err[1])
-    sb_rat_err = max(sb_rat_err[0], sb_rat_err[1])
-    ecosw_err = max(ecosw_err[0], ecosw_err[1], sigma_ecosw)
-    esinw_err = max(esinw_err[0], esinw_err[1], sigma_esinw)
-    cosi_err = max(cosi_err[0], cosi_err[1])
-    phi_0_err = max(phi_0_err[0], phi_0_err[1], sigma_phi_0)
-    log_rr_err = max(log_rr_err[0], log_rr_err[1])
-    log_sb_err = max(log_sb_err[0], log_sb_err[1])
-    phys_err = np.array([e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err,
-                         ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err])
+    # for the spherical model optimisation, take maximum errors for bounds and priors
+    phys_err = np.array([max(e_err), max(w_err), max(i_err), max(r_sum_err), max(r_rat_err), max(sb_rat_err),
+                         max(ecosw_err), max(esinw_err), max(cosi_err), max(phi_0_err),
+                         max(log_rr_err), max(log_sb_err)])
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # save the results in ascii format
     if save_ascii:
