@@ -1476,6 +1476,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     t_model = np.linspace(0, 2 * p_orb, 10**6)
     harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
+    half_p = False  # just in case it is never initialised
     for i, n in enumerate([20, 40, np.max(harmonic_n)]):
         low_h = (harmonic_n <= n)  # restrict harmonics to avoid interference of high frequencies
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
@@ -1500,9 +1501,9 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             break
     # if still nothing was found, return
     if (len(ecl_min) == 0):
-        return np.zeros((0, 15), dtype=np.int_)
+        return np.zeros((0, 15), dtype=np.int_), half_p
     elif (len(best_comb) == 0):
-        return ecl_indices[0, np.newaxis]
+        return ecl_indices[0, np.newaxis], half_p
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
