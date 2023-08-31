@@ -1130,14 +1130,9 @@ def linear_pars_two_points(x1, y1, x2, y2):
         The y-intercept(s) of a piece-wise linear curve
     slope: float, numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    
-    Notes
-    -----
-    Determines the slope and y-intercept with respect to the center
-    between the two x-values.
     """
     slope = (y2 - y1) / (x2 - x1)
-    y_inter = (y1 + y2) / 2  # halfway point is y-intercept for mean-centered x
+    y_inter = y1 - (x1 * slope)
     return y_inter, slope
 
 
