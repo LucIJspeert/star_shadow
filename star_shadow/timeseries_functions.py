@@ -1470,6 +1470,60 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1, t_shift=True):
 
 
 @nb.njit(cache=True)
+def formal_uncertainties_linear(times, residuals, i_sectors):
+    """Calculates the corrected uncorrelated (formal) uncertainties for the
+    parameters constant and slope.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+
+    Returns
+    -------
+    sigma_const: numpy.ndarray[float]
+        Uncertainty in the constant for each sector
+    sigma_slope: numpy.ndarray[float]
+        Uncertainty in the slope for each sector
+
+    Notes
+    -----
+    Errors in const and slope:
+    https://pages.mtu.edu/~fmorriso/cm3215/UncertaintySlopeInterceptOfLeastSquaresFit.pdf
+    """
+    n_data = len(residuals)
+    n_param = 2
+    n_dof = n_data - n_param  # degrees of freedom
+    # linear regression uncertainties
+    sigma_const = np.zeros(len(i_sectors))
+    sigma_slope = np.zeros(len(i_sectors))
+    for i, s in enumerate(i_sectors):
+        len_t = len(times[s[0]:s[1]])
+        n_data = len(residuals[s[0]:s[1]])  # same as len_t, but just for the sake of clarity
+        # standard deviation of the residuals but per sector
+        sum_r_2 = 0
+        for r in residuals[s[0]:s[1]]:
+            sum_r_2 += r**2
+        std = np.sqrt(sum_r_2 / n_dof)
+        # some sums for the uncertainty formulae
+        sum_t = 0
+        for t in times[s[0]:s[1]]:
+            sum_t += t
+        ss_xx = 0
+        for t in times[s[0]:s[1]]:
+            ss_xx += (t - sum_t / len_t)**2
+        sigma_const[i] = std * np.sqrt(1 / n_data + (sum_t / len_t)**2 / ss_xx)
+        sigma_slope[i] = std / np.sqrt(ss_xx)
+    return sigma_const, sigma_slope
+
+
+@nb.njit(cache=True)
 def formal_uncertainties(times, residuals, a_n, i_sectors):
     """Calculates the corrected uncorrelated (formal) uncertainties for the extracted
     parameters (constant, slope, frequencies, amplitudes and phases).
@@ -1527,25 +1581,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     # make an array of sigma_a (these are the same)
     sigma_a = np.full(len(a_n), sigma_a)
     # linear regression uncertainties
-    sigma_const = np.zeros(len(i_sectors))
-    sigma_slope = np.zeros(len(i_sectors))
-    for i, s in enumerate(i_sectors):
-        len_t = len(times[s[0]:s[1]])
-        n_data = len(residuals[s[0]:s[1]])  # same as len_t, but just for the sake of clarity
-        # standard deviation of the residuals but per sector
-        sum_r_2 = 0
-        for r in residuals[s[0]:s[1]]:
-            sum_r_2 += r**2
-        std = np.sqrt(sum_r_2 / n_dof)
-        # some sums for the uncertainty formulae
-        sum_t = 0
-        for t in times[s[0]:s[1]]:
-            sum_t += t
-        ss_xx = 0
-        for t in times[s[0]:s[1]]:
-            ss_xx += (t - sum_t / len_t)**2
-        sigma_const[i] = std * np.sqrt(1 / n_data + (sum_t / len_t)**2 / ss_xx)
-        sigma_slope[i] = std / np.sqrt(ss_xx)
+    sigma_const, sigma_slope = formal_uncertainties_linear(times, residuals, i_sectors)
     return sigma_const, sigma_slope, sigma_f, sigma_a, sigma_ph
 
 
