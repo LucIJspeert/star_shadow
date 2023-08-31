@@ -3160,8 +3160,8 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
-def eclipse_parameters_2(ecosw, esinw, phi_0, p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
-    """Determine all eclipse parameters using a combination of approximate
+def eclipse_parameters_redux(ecosw, esinw, phi_0, p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
+    """Determine cosi, log_rr, log_sb using a combination of approximate
     formulae and fitting procedures with exact formulae
 
     Parameters
@@ -3532,8 +3532,8 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        out = eclipse_parameters_2(normal_ecosw[k], normal_esinw[k], normal_phi_0[k], normal_p[k], timings_tau_dist,
-                                   depths_k, timings_err, depths_err, verbose=False)
+        out = eclipse_parameters_redux(normal_ecosw[k], normal_esinw[k], normal_phi_0[k], normal_p[k], timings_tau_dist,
+                                       depths_k, timings_err, depths_err, verbose=False)
         ecosw_vals[k] = out[0]
         esinw_vals[k] = out[1]
         cosi_vals[k] = out[2]
