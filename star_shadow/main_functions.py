@@ -1870,6 +1870,7 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
     -------
     None
     """
+    t_a = time.time()
     # for saving, make a folder if not there yet
     if not os.path.isdir(os.path.join(save_dir, f'{target_id}_analysis')):
         os.mkdir(os.path.join(save_dir, f'{target_id}_analysis'))  # create the subdir
@@ -1922,9 +1923,8 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
         out_e = (None,)
     # create summary file
     ut.save_summary(target_id, save_dir, data_id=data_id)
-    logger.info('End of analysis')  # info to save to log
-    if verbose:
-        print('done.')
+    t_b = time.time()
+    logger.info(f'End of analysis. Total time elapsed: {t_b - t_a:1.1f}s.')  # info to save to log
     return None
 
 
