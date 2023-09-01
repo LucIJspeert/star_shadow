@@ -746,7 +746,7 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
 
 
 @nb.njit(cache=True)
-def curve_walker(signal, peaks, slope_sign, mode='up'):
+def curve_walker(signal, peaks, direction, mode='up'):
     """Walk up or down a slope to approach zero or to reach an extremum.
 
     Parameters
@@ -755,16 +755,16 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
         The curve to walk along
     peaks: numpy.ndarray[float]
         The starting points
-    slope_sign: numpy.ndarray[float]
-        Sign of the slope of the curve at the peak locations
+    direction: numpy.ndarray[float]
+        Direction to walk in, either 1 for right or -1 for left
     mode: str
-        mode='up': walk in the slope sign direction to reach a
-            minimum (minus is left)
-        mode='down': walk against the slope sign direction to reach
-            a maximum (minus is right)
+        mode='up': walk until a local maximum is reached
+        mode='down': walk until a local minimum is reached
+        mode='up_abs': walk away from zero
+        mode='down_abs': walk towards zero
         mode='up_to_zero'/'down_to_zero': same as above, but approaching zero
             as closely as possible without changing direction.
-        mode='zero': continue until the sign changes
+        mode='zero': walk until the sign changes
 
     Returns
     -------
@@ -776,17 +776,18 @@ def curve_walker(signal, peaks, slope_sign, mode='up'):
     Assumes a circular curve, so that it can walk from one end
     back onto the other end.
     """
-    if 'down' in mode:
-        steps = -slope_sign
-    else:
-        steps = slope_sign
+    steps = np.sign(direction).astype(np.int_)  # convert for foolproofness
     len_s = len(signal)
     
     def check_condition(prev_signal, cur_signal):
-        if 'up' in mode:
+        if mode in ['up', 'up_to_zero']:
             condition = (prev_signal < cur_signal)
-        elif 'down' in mode:
+        elif mode in ['down', 'down_to_zero']:
             condition = (prev_signal > cur_signal)
+        elif mode == 'up_abs':
+            condition = (np.abs(prev_signal) < np.abs(cur_signal))
+        elif mode == 'down_abs':
+            condition = (np.abs(prev_signal) > np.abs(cur_signal))
         else:
             condition = np.ones(len(cur_signal), dtype=np.bool_)
         if 'zero' in mode:
@@ -1050,9 +1051,8 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     
     Notes
     -----
-    Intended for use in detect_eclipses,
-    with a fine grid of time points spanning
-    two times the orbital period.
+    Intended for use in detect_eclipses, with a fine grid of time points
+    spanning two times the orbital period.
     """
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
@@ -1076,9 +1076,9 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
     # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_n = curve_walker(deriv_2, peaks_2_n, -slope_sign, mode='down')
+    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    minimum_1 = curve_walker(np.abs(deriv_1), peaks_2_n, -slope_sign, mode='down')
+    minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
     # walk inward from peaks_1 to zero in deriv_1
     zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
     # find the maxima in deriv_2 between peaks_1 and zeros_1_in
@@ -1087,7 +1087,86 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     # adjust slightly to account for any misalignment with peaks_1
     peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
-    minimum_1_in = curve_walker(np.abs(deriv_1), peaks_2_p, slope_sign, mode='down')
+    minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
+    return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
+
+
+def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign):
+    """Refine existing prominent eclipse signatures
+
+    Parameters
+    ----------
+    t_model: numpy.ndarray[float]
+        Set of time points for a model of sinudoids
+    deriv_1: numpy.ndarray[float]
+        Derivative of the sinusoids at t_model
+    deriv_2: numpy.ndarray[float]
+        Second derivative of the sinusoids at t_model
+    zeros_1_in: numpy.ndarray[int]
+        Set of indices indicating inner zero points in deriv_1
+    slope_sign: numpy.ndarray[int]
+        Sign of deriv_1 at peaks_1 (the sign of the slope)
+
+    Returns
+    -------
+    peaks_1: numpy.ndarray[int]
+        Set of indices indicating extrema in deriv_1
+    slope_sign: numpy.ndarray[int]
+        Sign of deriv_1 at peaks_1 (the sign of the slope)
+    zeros_1: numpy.ndarray[int]
+        Set of indices indicating zero points in deriv_1
+    peaks_2_n: numpy.ndarray[int]
+        Set of indices indicating minima in deriv_2
+    minimum_1: numpy.ndarray[int]
+        Set of indices indicating local minima in deriv_1
+    zeros_1_in: numpy.ndarray[int]
+        Set of indices indicating inner zero points in deriv_1
+    peaks_2_p: numpy.ndarray[int]
+        Set of indices indicating maxima in deriv_2
+    minimum_1_in: numpy.ndarray[int]
+        Set of indices indicating inner local minima in deriv_1
+
+    Notes
+    -----
+    Intended for use in detect_eclipses, with a fine grid of time points
+    spanning two times the orbital period.
+    
+    This version is more robust against high frequency jitter, although
+    the initial positions zeros_1_in do need to not shift by too much in
+    the larger number of harmonics used here.
+    """
+    # adjust zeros_1_in to the new zero
+    slope_sign_tmp = np.sign(deriv_1[zeros_1_in]).astype(int)
+    zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='zero')
+    # make sure we are as close to zero as possible
+    zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='down_abs')
+    # walk outward from zeros_1_in to local extrema in deriv_1
+    peaks_1_loc = curve_walker(deriv_1, zeros_1_in, slope_sign, mode='up_abs')
+    # walk outward from peaks_1_loc to zero in deriv_1
+    zeros_1 = curve_walker(deriv_1, peaks_1_loc, slope_sign, mode='zero')
+    # find the extrema in deriv_1 between zeros_1 and zeros_1_in
+    peaks_1 = [min(z1i, z1) + np.argmax(np.abs(deriv_1[min(z1i, z1):max(z1i, z1)]))
+               for z1i, z1 in zip(zeros_1_in, zeros_1)]
+    peaks_1 = np.array(peaks_1).astype(int)
+    # define the actual slope_sign
+    slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
+    # find the minima in deriv_2 between peaks_1 and zeros_1
+    peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
+    peaks_2_n = np.array(peaks_2_n).astype(int)
+    # adjust slightly to account for any misalignment with peaks_1
+    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
+    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
+    minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
+    # find the maxima in deriv_2 between peaks_1 and zeros_1_in
+    peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
+    peaks_2_p = np.array(peaks_2_p).astype(int)
+    # adjust slightly to account for any misalignment with peaks_1
+    peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
+    # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
+    minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
+    # Check derivative fractions between specific points and decide between minimum_1 and zeros_1
+    check_deriv = (deriv_1[minimum_1]/deriv_1[peaks_1] > 0.1) & (deriv_2[zeros_1]/deriv_2[peaks_2_n] > 0.6)
+    minimum_1[check_deriv] = zeros_1[check_deriv]
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
@@ -1138,6 +1217,11 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     -----
     Intended for use in detect_eclipses,
     in conjunction with mark_eclipse_peaks.
+    
+    ecl_indices:
+    ecl = [zeros_1, minimum_1, peaks_2_n, peaks_1, p_2_p_1, m_1_i_1,
+           zeros_1_in, minimum_1_in_mid, zeros_1_in,
+           m_1_i_2, p_2_p_2, peaks_1, peaks_2_n, minimum_1, zeros_1]
     """
     # group peaks into pairs with negative and then positive slopes
     indices = np.arange(len(peaks_1))
@@ -1506,6 +1590,10 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return ecl_indices[0, np.newaxis], half_p
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
+    # prepare zeros_1_in and slope_sign for refinement step
+    sorter = np.array([0, 2, 1, 3])
+    zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])[sorter]
+    slope_sign = np.sign(deriv_1[np.append(ecl_indices[:, 3], ecl_indices[:, -4])[sorter]]).astype(int)
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
     if (i < 2):
         for n in [np.max(harmonic_n), 40, 20]:
@@ -1513,27 +1601,17 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
             deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
             deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
-            ecl_1 = ecl_indices[0]
-            ecl_2 = ecl_indices[1]
-            output_c = mark_eclipse_peaks(t_model[ecl_1[1]:ecl_1[-2]], deriv_1[ecl_1[1]:ecl_1[-2]],
-                                          deriv_2[ecl_1[1]:ecl_1[-2]], noise_level, t_gaps, n_prominent=2)
-            output_d = mark_eclipse_peaks(t_model[ecl_2[1]:ecl_2[-2]], deriv_1[ecl_2[1]:ecl_2[-2]],
-                                          deriv_2[ecl_2[1]:ecl_2[-2]], noise_level, t_gaps, n_prominent=2)
-            peaks_1 = np.append(output_c[0] + ecl_1[1], output_d[0] + ecl_2[1])
-            slope_sign = np.append(output_c[1], output_d[1])
-            zeros_1 = np.append(output_c[2] + ecl_1[1], output_d[2] + ecl_2[1])
-            peaks_2_n = np.append(output_c[3] + ecl_1[1], output_d[3] + ecl_2[1])
-            minimum_1 = np.append(output_c[4] + ecl_1[1], output_d[4] + ecl_2[1])
-            zeros_1_in = np.append(output_c[5] + ecl_1[1], output_d[5] + ecl_2[1])
-            peaks_2_p = np.append(output_c[6] + ecl_1[1], output_d[6] + ecl_2[1])
-            minimum_1_in = np.append(output_c[7] + ecl_1[1], output_d[7] + ecl_2[1])
+            # refine the eclipses
+            output_c = refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign)
+            peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_c
             ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
                                                 zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
             # too small depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
             if (len(ecl_indices_ref) == 2):
                 break
     else:
-        ecl_indices_ref = np.copy(ecl_indices)
+        ecl_indices_ref = ecl_indices
+    ecl_indices = ecl_indices_ref
     return ecl_indices, half_p
 
 
@@ -1613,6 +1691,8 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     t_b_1_2 = ecl_mid_b[p] + (widths_b[p] / 2)  # time of primary last internal tangency
     t_b_2_1 = ecl_mid_b[s] - (widths_b[s] / 2)  # time of secondary first internal tangency
     t_b_2_2 = ecl_mid_b[s] + (widths_b[s] / 2)  # time of secondary last internal tangency
+    t_i_1_err, t_i_2_err = t_i_1_err[sorter], t_i_2_err[sorter]
+    t_b_i_1_err, t_b_i_2_err = t_b_i_1_err[sorter], t_b_i_2_err[sorter]
     # translate the timings by the time of primary minimum with respect to the mean time
     t_2 = t_2 + t_1
     t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1 + t_1, t_2_2 + t_1)
