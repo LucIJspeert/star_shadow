@@ -519,7 +519,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     return times, signal, signal_err, medians, t_combined, i_half_s
 
 
-def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
+def group_frequencies_for_fit(a_n, g_min=25, g_max=30):
     """Groups frequencies into sets of g_min to g_max for multi-sine fitting
     
     Parameters
