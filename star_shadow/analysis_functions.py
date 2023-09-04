@@ -1166,9 +1166,6 @@ def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_s
     peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
-    # Check derivative fractions between specific points and decide between minimum_1 and zeros_1
-    check_deriv = (deriv_1[minimum_1]/deriv_1[peaks_1] > 0.1) & (deriv_2[zeros_1]/deriv_2[peaks_2_n] > 0.6)
-    minimum_1[check_deriv] = zeros_1[check_deriv]
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
