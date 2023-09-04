@@ -320,7 +320,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
     fits per group of 15-20 frequencies, leaving the other frequencies as
     fixed parameters.
     """
-    f_groups = ut.group_frequencies_for_fit(a_n, g_min=25, g_max=30)
+    f_groups = ut.group_frequencies_for_fit(a_n, g_min=20, g_max=25)
     n_groups = len(f_groups)
     n_sect = len(i_sectors)
     n_sin = len(f_n)
@@ -661,7 +661,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     indices = np.arange(len(f_n))
     i_non_harm = np.delete(indices, harmonics)
-    f_groups = ut.group_frequencies_for_fit(a_n[i_non_harm], g_min=25, g_max=30)
+    f_groups = ut.group_frequencies_for_fit(a_n[i_non_harm], g_min=20, g_max=25)
     f_groups = [i_non_harm[g] for g in f_groups]  # convert back to indices for full f_n list
     n_groups = len(f_groups)
     n_sect = len(i_sectors)  # each sector has its own slope (or two)
@@ -1491,7 +1491,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
     frequencies as fixed parameters.
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
-    f_groups = ut.group_frequencies_for_fit(a_n, g_min=25, g_max=30)
+    f_groups = ut.group_frequencies_for_fit(a_n, g_min=20, g_max=25)
     n_groups = len(f_groups)
     n_sect = len(i_sectors)
     n_sin = len(f_n)
@@ -2159,7 +2159,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
     fits on just the given groups of (closely spaced) frequencies, leaving the other
     frequencies as fixed parameters.
     """
-    f_groups = ut.group_frequencies_for_fit(a_n, g_min=25, g_max=30)
+    f_groups = ut.group_frequencies_for_fit(a_n, g_min=20, g_max=25)
     n_groups = len(f_groups)
     n_sect = len(i_sectors)
     n_sin = len(f_n)
