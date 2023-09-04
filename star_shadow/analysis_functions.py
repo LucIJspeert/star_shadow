@@ -1091,7 +1091,7 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
-def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign):
+def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_sign):
     """Refine existing prominent eclipse signatures
 
     Parameters
@@ -1102,6 +1102,8 @@ def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign):
         Derivative of the sinusoids at t_model
     deriv_2: numpy.ndarray[float]
         Second derivative of the sinusoids at t_model
+    zeros_1: numpy.ndarray[int]
+        Set of indices indicating inner zero points in deriv_1
     zeros_1_in: numpy.ndarray[int]
         Set of indices indicating inner zero points in deriv_1
     slope_sign: numpy.ndarray[int]
@@ -1140,16 +1142,16 @@ def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign):
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='zero')
     # make sure we are as close to zero as possible
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='down_abs')
-    # walk outward from zeros_1_in to local extrema in deriv_1
-    peaks_1_loc = curve_walker(deriv_1, zeros_1_in, slope_sign, mode='up_abs')
-    # walk outward from peaks_1_loc to zero in deriv_1
-    zeros_1 = curve_walker(deriv_1, peaks_1_loc, slope_sign, mode='zero')
     # find the extrema in deriv_1 between zeros_1 and zeros_1_in
     peaks_1 = [min(z1i, z1) + np.argmax(np.abs(deriv_1[min(z1i, z1):max(z1i, z1)]))
                for z1i, z1 in zip(zeros_1_in, zeros_1)]
     peaks_1 = np.array(peaks_1).astype(int)
     # define the actual slope_sign
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
+    # adjust zeros_1 to the new zero - walk outward from peaks_1 to zero in deriv_1
+    zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
+    # adjust zeros_1_in in case of multiple zero crossings - walk inward from peaks_1 to zero in deriv_1
+    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
@@ -1592,6 +1594,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     ecl_indices = ecl_indices[best_comb]
     # prepare zeros_1_in and slope_sign for refinement step
     sorter = np.array([0, 2, 1, 3])
+    zeros_1 = np.append(ecl_indices[:, 0], ecl_indices[:, -1])[sorter]
     zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])[sorter]
     slope_sign = np.sign(deriv_1[np.append(ecl_indices[:, 3], ecl_indices[:, -4])[sorter]]).astype(int)
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
@@ -1602,7 +1605,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
             deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
             # refine the eclipses
-            output_c = refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1_in, slope_sign)
+            output_c = refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_sign)
             peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_c
             ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
                                                 zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
