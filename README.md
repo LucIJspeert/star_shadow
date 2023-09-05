@@ -60,9 +60,9 @@ as simple as running one or two functions:
 
     import star_shadow as sts
     # to analyse any light curve from a file: 
-    sts.analyse_from_file(file, p_orb=0, i_sectors=None, method='sampler', data_id=None, overwrite=False, verbose=True)
+    sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, method='sampler', data_id=None, overwrite=False, verbose=True)
     # or to analyse from a set of TESS data product .fits files:
-    sts.analyse_from_tic(tic, all_files, p_orb=0, i_sectors=None, method='sampler', data_id=None, save_dir=None, overwrite=False, verbose=True)
+    sts.analyse_lc_from_tic(tic, all_files, p_orb=0, i_sectors=None, method='sampler', data_id=None, save_dir=None, overwrite=False, verbose=True)
 
 The light curve file is expected to contain a time column, flux measurements (median normalised and non-negative), 
 and flux measurement errors. The normalisation for TESS data products is handled automatically on a per-sector basis. 
