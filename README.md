@@ -3,7 +3,7 @@
 
 
 ![Language Badge](https://img.shields.io/badge/Language-Python-blue.svg)
-<a href="./LICENSE.md"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License Badge"/></a>
+<a href="./LICENCE.md"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License Badge"/></a>
 
 [//]: # (<a href="https://github.com/LucIJspeert/star_shadow/blob/master/LICENCE.md"><img src="https://img.shields.io/github/license/LucIJspeert/star_shadow" alt="License Badge"/></a>)
 
