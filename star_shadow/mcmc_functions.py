@@ -19,6 +19,7 @@ import arviz as az
 from fastprogress import fastprogress
 
 from . import analysis_functions as af
+from . import utility as ut
 
 
 def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
@@ -812,152 +813,6 @@ def sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err,
     return inf_data, par_means, par_hdi
 
 
-def sample_sinusoid_emp_eclipse(times, signal, p_orb, timings, const, slope, f_n, a_n, ph_n, timings_err,
-                                c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=False):
-    """NUTS sampling of a linear + sinusoid + eclipse model
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    timings: numpy.ndarray[float]
-        Eclipse timings: minima, first/last contact points, internal tangency and depths,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
-    const: numpy.ndarray[float]
-        The y-intercepts of a piece-wise linear curve
-    slope: numpy.ndarray[float]
-        The slopes of a piece-wise linear curve
-    f_n: numpy.ndarray[float]
-        The frequencies of a number of sine waves
-    a_n: numpy.ndarray[float]
-        The amplitudes of a number of sine waves
-    ph_n: numpy.ndarray[float]
-        The phases of a number of sine waves
-    timings_err: numpy.ndarray[float]
-        Error estimates for the eclipse timings and depths,
-        t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err, depth_1_err, depth_2_err
-    c_err: numpy.ndarray[float]
-        Uncertainty in the y-intercepts of a number of sine waves
-    sl_err: numpy.ndarray[float]
-        Uncertainty in the slopes of a number of sine waves
-    f_n_err: numpy.ndarray[float]
-        Uncertainty in the frequencies of a number of sine waves
-    a_n_err: numpy.ndarray[float]
-        Uncertainty in the amplitudes of a number of sine waves
-    ph_n_err: numpy.ndarray[float]
-        Uncertainty in the phases of a number of sine waves
-    noise_level: float
-        The noise level (standard deviation of the residuals)
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    inf_data: object
-        Arviz inference data object
-    par_means: list[float]
-        Parameter mean values in the following order:
-        const, slope, f_n, a_n, ph_n,
-        t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2,
-        depth_1, depth_2
-    par_hdi: list[float]
-        Parameter HDI error values, same order as par_means
-    """
-    # unpack parameters
-    t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
-    t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
-    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, d_1_err, d_2_err = timings_err[6:]
-    # setup
-    times_t = times.reshape(-1, 1)  # transposed times
-    t_mean = tt.as_tensor_variable(np.mean(times))
-    t_mean_s = tt.as_tensor_variable(np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors]))
-    lin_shape = (len(const),)
-    sin_shape = (len(f_n),)
-    # progress bar
-    if verbose:
-        fastprogress.printing = lambda: True
-        mc_logger = logging.getLogger('pymc3')
-        mc_logger.setLevel(logging.INFO)
-    else:
-        fastprogress.printing = lambda: False
-        mc_logger = logging.getLogger('pymc3')
-        mc_logger.setLevel(logging.ERROR)
-    # make pymc3 model
-    with pm.Model() as lc_model:
-        # piece-wise linear curve parameter models
-        const_pm = pm.Normal('const', mu=const, sigma=c_err, shape=lin_shape, testval=const)
-        slope_pm = pm.Normal('slope', mu=slope, sigma=sl_err, shape=lin_shape, testval=slope)
-        # piece-wise linear curve
-        linear_curves = [const_pm[k] + slope_pm[k] * (times[s[0]:s[1]] - t_mean_s[k]) for k, s in enumerate(i_sectors)]
-        model_linear = tt.concatenate(linear_curves)
-        # sinusoid parameter models
-        f_n_pm = pm.TruncatedNormal('f_n', mu=f_n, sigma=f_n_err, lower=0, shape=sin_shape, testval=f_n)
-        a_n_pm = pm.TruncatedNormal('a_n', mu=a_n, sigma=a_n_err, lower=0, shape=sin_shape, testval=a_n)
-        ph_n_pm = pm.VonMises('ph_n', mu=ph_n, kappa=1 / ph_n_err**2, shape=sin_shape, testval=ph_n)
-        # sum of sinusoids
-        model_sinusoid = pm.math.sum(a_n_pm * pm.math.sin((2 * np.pi * f_n_pm * (times_t - t_mean)) + ph_n_pm), axis=1)
-        # eclipse parameters
-        t_1_pm = pm.Normal('t_1', mu=t_1, sigma=t_1_err, testval=t_1)
-        t_2_pm = pm.Normal('t_2', mu=t_2, sigma=t_2_err, testval=t_2)
-        # physical eclipse model
-        model_eclipse = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, t_c1_1, t_c3_1, t_c1_2, t_c3_2, d_1, d_2)
-        # full light curve model
-        model = model_linear + model_sinusoid + model_eclipse
-        # observed distribution
-        pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
-    
-    # do the sampling
-    with lc_model:
-        inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', chains=2, cores=1, progressbar=verbose,
-                             return_inferencedata=True)
-    
-    if verbose:
-        az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
-    # stacked parameter chains
-    const_ch = inf_data.posterior.const.stack(dim=['chain', 'draw']).to_numpy()
-    slope_ch = inf_data.posterior.slope.stack(dim=['chain', 'draw']).to_numpy()
-    f_n_ch = inf_data.posterior.f_n.stack(dim=['chain', 'draw']).to_numpy()
-    a_n_ch = inf_data.posterior.a_n.stack(dim=['chain', 'draw']).to_numpy()
-    ph_n_ch = inf_data.posterior.ph_n.stack(dim=['chain', 'draw']).to_numpy()
-    t_1_ch = inf_data.posterior.t_1.stack(dim=['chain', 'draw']).to_numpy()
-    t_2_ch = inf_data.posterior.t_1.stack(dim=['chain', 'draw']).to_numpy()
-    # parameter means
-    const_m = np.mean(const_ch, axis=1).flatten()
-    slope_m = np.mean(slope_ch, axis=1).flatten()
-    f_n_m = np.mean(f_n_ch, axis=1).flatten()
-    a_n_m = np.mean(a_n_ch, axis=1).flatten()
-    ph_n_m = sp.stats.circmean(ph_n_ch, axis=1).flatten()
-    t_1_m = np.mean(t_1_ch)
-    t_2_m = np.mean(t_2_ch)
-    par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m, t_1_m, t_2_m]
-    # parameter errors (from hdi) [hdi expects (chain, draw) as first two axes... annoying warnings...]
-    const_e = az.hdi(np.moveaxis(const_ch[np.newaxis], 1, 2), hdi_prob=0.683)
-    slope_e = az.hdi(np.moveaxis(slope_ch[np.newaxis], 1, 2), hdi_prob=0.683)
-    f_n_e = az.hdi(np.moveaxis(f_n_ch[np.newaxis], 1, 2), hdi_prob=0.683)
-    a_n_e = az.hdi(np.moveaxis(a_n_ch[np.newaxis], 1, 2), hdi_prob=0.683)
-    ph_n_e = az.hdi(np.moveaxis(ph_n_ch[np.newaxis], 1, 2), hdi_prob=0.683, circular=True)
-    t_1_e = az.hdi(t_1_ch, hdi_prob=0.683)
-    t_2_e = az.hdi(t_2_ch, hdi_prob=0.683)
-    # convert interval to error bars
-    const_e = np.column_stack([const_m - const_e[:, 0], const_e[:, 1] - const_m])
-    slope_e = np.column_stack([slope_m - slope_e[:, 0], slope_e[:, 1] - slope_m])
-    f_n_e = np.column_stack([f_n_m - f_n_e[:, 0], f_n_e[:, 1] - f_n_m])
-    a_n_e = np.column_stack([a_n_m - a_n_e[:, 0], a_n_e[:, 1] - a_n_m])
-    ph_n_e = np.column_stack([ph_n_m - ph_n_e[:, 0], ph_n_e[:, 1] - ph_n_m])
-    t_1_e = np.array([t_1_m - t_1_e[0], t_1_e[1] - t_1_m])
-    t_2_e = np.array([t_2_m - t_2_e[0], t_2_e[1] - t_2_m])
-    par_hdi = [const_e, slope_e, f_n_e, a_n_e, ph_n_e, t_1_e, t_2_e]
-    return inf_data, par_means, par_hdi
-
-
 def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, ecl_par_err,
                             c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level, i_sectors, verbose=False):
     """NUTS sampling of a linear + sinusoid + eclipse model
@@ -1022,7 +877,6 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     # unpack parameters
     e, w, i, r_sum, r_rat, sb_rat = ecl_par
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat)
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = ecl_par_err[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = ecl_par_err[6:]
     # setup
     times_t = times.reshape(-1, 1)  # transposed times

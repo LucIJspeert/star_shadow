@@ -776,7 +776,7 @@ def curve_walker(signal, peaks, direction, mode='up'):
     Assumes a circular curve, so that it can walk from one end
     back onto the other end.
     """
-    steps = np.sign(direction).astype(np.int_)  # convert for foolproofness
+    steps = np.sign(direction).astype(np.int_)  # convert for fool-proof-ness
     len_s = len(signal)
     
     def check_condition(prev_signal, cur_signal):
@@ -1017,7 +1017,7 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     Parameters
     ----------
     t_model: numpy.ndarray[float]
-        Set of time points for a model of sinudoids
+        Set of time points for a model of sinusoids
     deriv_1: numpy.ndarray[float]
         Derivative of the sinusoids at t_model
     deriv_2: numpy.ndarray[float]
@@ -1091,13 +1091,11 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
-def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_sign):
+def refine_eclipse_peaks(deriv_1, deriv_2, zeros_1, zeros_1_in):
     """Refine existing prominent eclipse signatures
 
     Parameters
     ----------
-    t_model: numpy.ndarray[float]
-        Set of time points for a model of sinudoids
     deriv_1: numpy.ndarray[float]
         Derivative of the sinusoids at t_model
     deriv_2: numpy.ndarray[float]
@@ -1106,8 +1104,6 @@ def refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_s
         Set of indices indicating inner zero points in deriv_1
     zeros_1_in: numpy.ndarray[int]
         Set of indices indicating inner zero points in deriv_1
-    slope_sign: numpy.ndarray[int]
-        Sign of deriv_1 at peaks_1 (the sign of the slope)
 
     Returns
     -------
@@ -1179,7 +1175,7 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_model: numpy.ndarray[float]
-        Set of time points for a model of sinudoids
+        Set of time points for a model of sinusoids
     deriv_1: numpy.ndarray[float]
         Derivative of the sinusoids at t_model
     deriv_2: numpy.ndarray[float]
@@ -1305,7 +1301,7 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     Parameters
     ----------
     t_model: numpy.ndarray[float]
-        Set of time points for a model of sinudoids
+        Set of time points for a model of sinusoids
     model_h: numpy.ndarray[float]
         Model of harmonic sinusoids at t_model
     ecl_indices: numpy.ndarray[int]
@@ -1469,9 +1465,9 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
         if (np.sum(group_ecl) > 2):
             check_1 = (np.sum((depths > 0.99 * depths[i]) & (depths < 1.01 * depths[i])) > 2)
             check_2 = (np.sum((widths > 0.99 * widths[i]) & (widths < 1.01 * widths[i])) > 2)
-        half_p = check_1 & check_2
-        if half_p:
-            break
+            half_p = check_1 & check_2
+            if half_p:
+                break
     return best_comb, half_p
 
 
@@ -1593,7 +1589,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     sorter = np.array([0, 2, 1, 3])
     zeros_1 = np.append(ecl_indices[:, 0], ecl_indices[:, -1])[sorter]
     zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])[sorter]
-    slope_sign = np.sign(deriv_1[np.append(ecl_indices[:, 3], ecl_indices[:, -4])[sorter]]).astype(int)
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
     if (i < 2):
         for n in [np.max(harmonic_n), 40, 20]:
@@ -1602,7 +1597,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
             deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
             # refine the eclipses
-            output_c = refine_eclipse_peaks(t_model, deriv_1, deriv_2, zeros_1, zeros_1_in, slope_sign)
+            output_c = refine_eclipse_peaks(deriv_1, deriv_2, zeros_1, zeros_1_in)
             peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_c
             ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
                                                 zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
@@ -2096,7 +2091,7 @@ def contact_angles_radii(phi, e, w, i, r_sum_sma, ecl=1, contact=1):
     elif (ecl == 2) & (contact == 2):
         eqn = term_1 - r_sum_sma / (1 - e**2) * (1 - e * np.sin(w - phi))
     else:
-        print(f'ecl={ecl} and contact={contact} are not valid choises.')
+        print(f'ecl={ecl} and contact={contact} are not valid choices.')
         eqn = term_1 - r_sum_sma / (1 - e**2)
     return eqn
 
@@ -2391,7 +2386,7 @@ def r_ratio_from_rho_0(e, w, i, phi_0, rho_0):
     
     Notes
     -----
-    Using rho_0 can be advantagous in case of partial eclipses, however,
+    Using rho_0 can be advantageous in case of partial eclipses, however,
     some information is given up: we don't know which star is which size.
     (if we assume main sequence, star 1 - the primary - is the bigger one)
     """
@@ -2624,7 +2619,7 @@ def eclipse_times(p_orb, t_zero, e, w, i, r_sum_sma, r_ratio):
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
-        Time of deepest minimum with respect to the mean time
+        Time of the deepest minimum with respect to the mean time
     e: float
         Eccentricity of the orbit
     w: float
@@ -2842,6 +2837,8 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
         Eccentricity times cosine of omega
     esinw: float
         Eccentricity times sine of omega
+    phi_0: float
+        Auxiliary angle, see Kopal 1959
     timings_tau: numpy.ndarray[float]
         Eclipse timings of minima, durations from/to first/last contact,
         and durations from/to first/last internal tangency:
@@ -2926,8 +2923,9 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
     r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
-    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_err_tot
+    tau_b_err_tot = np.sqrt(t_b_1_1_err**2 + t_b_1_2_err**2 + t_b_2_1_err**2 + t_b_2_2_err**2)
+    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_b_err_tot
+    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_b_err_tot
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
@@ -3026,118 +3024,14 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
     r_depth_dif = ((d_1 - d_2) - (depth_1 - depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     r_depth_sum = ((d_1 + d_2) - (depth_1 + depth_2)) / np.sqrt(d_1_err**2 + d_2_err**2)
     # durations of the (flat) bottoms of the minima
-    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_err_tot
-    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_err_tot
+    tau_b_err_tot = np.sqrt(t_b_1_1_err**2 + t_b_1_2_err**2 + t_b_2_1_err**2 + t_b_2_2_err**2)
+    r_b_duration_sum = ((tau_b_1_1 + tau_b_1_2 + tau_b_2_1 + tau_b_2_2) - (bottom_dur_1 + bottom_dur_2)) / tau_b_err_tot
+    r_b_duration_dif = ((tau_b_1_1 + tau_b_1_2 - tau_b_2_1 - tau_b_2_2) - (bottom_dur_1 - bottom_dur_2)) / tau_b_err_tot
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
     likelihood = -tsf.calc_likelihood(resid)  # minus for minimisation
     return likelihood
-
-
-# def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
-#     """Determine all eclipse parameters using a combination of approximate
-#     functions and fitting procedures
-#
-#     Parameters
-#     ----------
-#     p_orb: float
-#         The orbital period
-#     timings_tau: numpy.ndarray[float]
-#         Eclipse timings of minima, durations from/to first/last contact,
-#         and durations from/to first/last internal tangency:
-#         t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2,
-#         tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2
-#     depths: numpy.ndarray[float]
-#         Eclipse depth of the primary and secondary, depth_1, depth_2
-#     timings_err: numpy.ndarray[float]
-#         Error estimates for the eclipse timings,
-#         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
-#         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
-#     depths_err: numpy.ndarray[float]
-#         Error estimates for the depths
-#     verbose: bool
-#         If set to True, this function will print some information
-#
-#     Returns
-#     -------
-#     ecosw: float
-#         Eccentricity times cosine of omega
-#     esinw: float
-#         Eccentricity times sine of omega
-#     cosi: float
-#         Cosine of the inclination of the orbit
-#     phi_0: float
-#         Auxiliary angle, see Kopal 1959
-#     log_rr: float
-#         Logarithm of the radius ratio r_2/r_1
-#     log_sb: float
-#         Logarithm of the surface brightness ratio sb_2/sb_1
-#     e: float
-#         Eccentricity of the orbit
-#     w: float
-#         Argument of periastron
-#     i: float
-#         Inclination of the orbit
-#     r_sum_sma: float
-#         Sum of radii in units of the semi-major axis
-#     r_ratio: float
-#         Radius ratio r_2/r_1
-#     sb_ratio: float
-#         Surface brightness ratio sb_2/sb_1
-#
-#     Notes
-#     -----
-#     phi_0: Auxiliary angle (see Kopal 1959)
-#     psi_0: Auxiliary angle like phi_0 but for the eclipse bottoms
-#     """
-#     # use mix of approximate and exact formulae iteratively to get a value for i
-#     args_a = (p_orb, timings_tau, depths, timings_err, depths_err)
-#     bounds_a = (0, 0.9)
-#     result_a = sp.optimize.minimize_scalar(objective_inclination, args=args_a, method='bounded', bounds=bounds_a)
-#     cosi = result_a.x
-#     i = np.arccos(cosi)
-#     # calculation phi_0, in durations: (duration_1 + duration_2)/4 = (2pi/P)(tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2)/4
-#     phi_0 = np.pi * (timings_tau[2] + timings_tau[3] + timings_tau[4] + timings_tau[5]) / (2 * p_orb)
-#     # psi_0 is like phi_0 but for the eclipse bottom
-#     psi_0 = np.pi * (timings_tau[6] + timings_tau[7] + timings_tau[8] + timings_tau[9]) / (2 * p_orb)
-#     # values of e and w by approximate formulae
-#     e, w = ecc_omega_approx(p_orb, *timings_tau[:6], i, phi_0)
-#     # value for r_sum_sma from ecc, incl and phi_0
-#     r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-#     # value for |r1 - r2|/a = r_dif_sma from ecc, incl and psi_0
-#     r_dif_sma = r_sum_sma_from_phi_0(e, i, psi_0)
-#     # r_dif_sma only valid if psi_0 is not zero, otherwise it will give limits on the radii
-#     r_small = (r_sum_sma - r_dif_sma) / 2  # if psi_0=0, this is a lower limit on the smaller radius
-#     r_large = (r_sum_sma + r_dif_sma) / 2  # if psi_0=0, this is an upper limit on the bigger radius
-#     if (r_small == 0) | (r_large == 0):
-#         log_rr_bounds = (-3.0, 3.0)
-#     else:
-#         log_rr_bounds = (np.log10(r_small / r_large / 1.1), np.log10(r_large / r_small * 1.1))
-#     # lower bound on cosi needs to be loose, upper bound can be more restrictive
-#     cosi_bounds = (0, min(cosi * 1.2, 0.9))
-#     # bounds for phi_0 can be fairly tight as the measurement is robust
-#     phi_0_bounds = (phi_0 / 2, min(phi_0 * 1.5, 1))
-#     # fit globally for: cosi, phi_0, r_ratio and sb_ratio
-#     ecosw, esinw = e * np.cos(w), e * np.sin(w)
-#     args_b = (p_orb, ecosw, esinw, timings_tau, depths, timings_err, depths_err)
-#     bounds_b = (cosi_bounds, phi_0_bounds, log_rr_bounds, (-3, 3))
-#     result_b = sp.optimize.shgo(objective_incl_plus, args=args_b, bounds=bounds_b)
-#     # local fit of: ecosw, esinw, cosi, phi_0, r_ratio and sb_ratio
-#     par_init_c = np.append([ecosw, esinw], result_b.x)
-#     args_c = (p_orb, timings_tau, depths, timings_err, depths_err)
-#     bounds_c = ((-1, 1), (-1, 1), cosi_bounds, phi_0_bounds, log_rr_bounds, (-3, 3))
-#     result_c = sp.optimize.minimize(objective_ecl_param, par_init_c, args=args_c, method='L-BFGS-B', bounds=bounds_c)
-#     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result_c.x
-#     e = np.sqrt(ecosw**2 + esinw**2)
-#     w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-#     i = np.arccos(cosi)
-#     r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-#     r_ratio = 10**log_rr
-#     sb_ratio = 10**log_sb
-#     if verbose:
-#         print(f'Fit convergence: {result_c.success} - BIC: {result_c.fun:1.2f}. N_iter: {int(result_c.nit)}.')
-#     return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum_sma, r_ratio, sb_ratio
 
 
 def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
@@ -3433,8 +3327,7 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
 
 
 def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings, depths, p_err, timings_err,
-                        depths_err, sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw,
-                        p_t_corr, verbose=False):
+                        depths_err, sigma_ecosw, sigma_esinw, sigma_phi_0, p_t_corr, verbose=False):
     """Estimate errors using importance sampling and
     the highest density interval (HDI)
 
@@ -3469,18 +3362,12 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
-    sigma_e: float
-        Formal error in eccentricity
-    sigma_w: float
-        Formal error in argument of periastron
-    sigma_phi_0: float
-        Formal error in auxiliary angle
-    sigma_r_sum_sma: float
-        Formal error in sum of radii in units of the semi-major axis
     sigma_ecosw: float
         Formal error in e*cos(w)
     sigma_esinw: float
         Formal error in e*sin(w)
+    sigma_phi_0: float
+        Formal error in auxiliary angle
     p_t_corr: float
         Correlation between orbital period and t_zero/t_1/t_2
     verbose: bool

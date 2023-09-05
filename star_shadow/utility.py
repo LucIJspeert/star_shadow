@@ -617,11 +617,11 @@ def convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat):
         Argument of periastron
     i: float, numpy.ndarray[float]
         Inclination of the orbit
-    r_sum_sma: float, numpy.ndarray[float]
+    r_sum: float, numpy.ndarray[float]
         Sum of radii in units of the semi-major axis
-    r_ratio: float, numpy.ndarray[float]
+    r_rat: float, numpy.ndarray[float]
         Radius ratio r_2/r_1
-    sb_ratio: float, numpy.ndarray[float]
+    sb_rat: float, numpy.ndarray[float]
         Surface brightness ratio sb_2/sb_1
     
     Returns
@@ -827,7 +827,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         Ephemerides of the EB, p_orb and t_zero
     ephem_err: None, numpy.ndarray[float]
         Error values for the ephemerides, p_err and t_zero_err
-    ephem_err: None, numpy.ndarray[float]
+    ephem_hdi: None, numpy.ndarray[float]
         Hdi values for the ephemerides, p_hdi and t_zero_hdi
     phys_mean: None, numpy.ndarray[float]
         Parameter mean values for the physical eclipse model in the order they appear below.
@@ -858,7 +858,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
     var_stats: None, list[union(float, numpy.ndarray[float])]
-        Varability level diagnostic statistics
+        Variability level diagnostic statistics
         std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
     stats: None, list[float]
         Some statistics: t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level
@@ -1020,7 +1020,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         file.create_dataset('passed_h', data=sin_select[2])
         file['passed_h'].attrs['description'] = 'harmonic sinusoids passing the sigma criterion'
         # the physical eclipse model parameters
-        # parameterisation used in optimisation
+        # parametrisation used in optimisation
         file.create_dataset('ecosw', data=np.array([phys_mean[0], phys_err[0], phys_hdi[0, 0], phys_hdi[0, 1]]))
         file['ecosw'].attrs['description'] = 'tangential part of the eccentricity'
         file.create_dataset('esinw', data=np.array([phys_mean[1], phys_err[1], phys_hdi[1, 0], phys_hdi[1, 1]]))
@@ -1033,7 +1033,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         file['log_rr'].attrs['description'] = 'logarithm of the ratio of radii r_2 / r_1'
         file.create_dataset('log_sb', data=np.array([phys_mean[5], phys_err[5], phys_hdi[5, 0], phys_hdi[5, 1]]))
         file['log_sb'].attrs['description'] = 'logarithm of the ratio of surface brightnesses sb_2 / sb_1'
-        # alternate parameterisation (also uses r_rat and sb_rat)
+        # alternate parametrisation (also uses r_rat and sb_rat)
         file.create_dataset('e', data=np.array([phys_mean[6], phys_err[6], phys_hdi[6, 0], phys_hdi[6, 1]]))
         file['e'].attrs['description'] = 'orbital eccentricity'
         file.create_dataset('w', data=np.array([phys_mean[7], phys_err[7], phys_hdi[7, 0], phys_hdi[7, 1]]))
@@ -1166,7 +1166,7 @@ def read_parameters_hdf5(file_name, verbose=False):
             t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
             t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
         var_stats: None, list[union(float, numpy.ndarray[float])]
-            Varability level diagnostic statistics
+            Variability level diagnostic statistics
             std_1, std_2, std_3, std_4, ratios_1, ratios_2, ratios_3, ratios_4
         stats: None, list[float]
             Some statistics: t_tot, t_mean, t_mean_s, t_int, n_param, bic, noise_level
@@ -1233,7 +1233,7 @@ def read_parameters_hdf5(file_name, verbose=False):
         phi_0 = np.copy(file['phi_0'])
         log_rr = np.copy(file['log_rr'])
         log_sb = np.copy(file['log_sb'])
-        # some alternate parameterisations
+        # some alternate parametrisations
         e = np.copy(file['e'])
         w = np.copy(file['w'])
         i = np.copy(file['i'])
@@ -1657,7 +1657,7 @@ def save_summary(target_id, save_dir, data_id='none'):
         results = read_parameters_hdf5(file_name, verbose=False)
         ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = results['phys_mean']
         sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum, _, _ = results['phys_err']
-        ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
+        # ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = results['phys_hdi'][6:]
         elem = [e, w, i, r_sum, r_rat, sb_rat, sigma_e, sigma_w, sigma_r_sum,
                 e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1],
@@ -1777,7 +1777,7 @@ def save_summary(target_id, save_dir, data_id='none'):
             'BIC after physical model optimisation', 'noise level after physical model optimisation',
             'total number of frequencies', 'number of frequencies that passed the sigma test',
             'number of frequencies that passed the S/R test', 'number of frequencies that passed both tests',
-            'number of hramonics that passed both tests',
+            'number of harmonics that passed both tests',
             'Standard deviation of the residuals of the linear+sinusoid+eclipse model',
             'Standard deviation of the residuals of the linear+eclipse model',
             'Standard deviation of the residuals of the linear+harmonic 1 and 2+eclipse model',
@@ -1916,10 +1916,6 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         n_param_5, bic_5, noise_level_5 = 0, 0, 0
         model_5 = np.zeros(len(times))
         f_h_5, a_h_5, ph_h_5 = np.array([[], [], []])
-    fn_ext = os.path.splitext(os.path.basename(file_name))[1]
-    file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
-    if os.path.isfile(file_name_mc):
-        inf_data_5 = read_inference_data(file_name)
     # stick together for sending to plot function
     models = [model_1, model_2, model_3, model_4, model_5]
     p_orb_i = [0, 0, p_orb_3, p_orb_3, p_orb_5]
@@ -1945,10 +1941,10 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
     file_name = os.path.join(load_dir, f'{target_id}_analysis_7.hdf5')
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
-        ecosw_7, esinw_7, cosi_7, phi_0_7, log_rr_7, log_sb_7 = results['phys_mean'][:6]
+        # ecosw_7, esinw_7, cosi_7, phi_0_7, log_rr_7, log_sb_7 = results['phys_mean'][:6]
         e_7, w_7, i_7, r_sum_7, r_rat_7, sb_rat_7 = results['phys_mean'][6:]
-        ecosw_err_7, esinw_err_7, cosi_err_7, phi_0_err_7, log_rr_err_7, log_sb_err_7 = results['phys_hdi'][:6]
-        e_err_7, w_err_7, i_err_7, r_sum_err_7, r_rat_err_7, sb_rat_err_7 = results['phys_hdi'][6:]
+        # ecosw_err_7, esinw_err_7, cosi_err_7, phi_0_err_7, log_rr_err_7, log_sb_err_7 = results['phys_hdi'][:6]
+        # e_err_7, w_err_7, i_err_7, r_sum_err_7, r_rat_err_7, sb_rat_err_7 = results['phys_hdi'][6:]
         ecl_par_7 = [e_7, w_7, i_7, r_sum_7, r_rat_7, sb_rat_7]
         dists_in_7, dists_out_7 = read_results_dists(file_name)
         # intervals_w #? for when the interval is disjoint
@@ -1961,7 +1957,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         ecosw_8, esinw_8, cosi_8, phi_0_8, log_rr_8, log_sb_8 = results['phys_mean'][:6]
         e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8 = results['phys_mean'][6:]
         timings_8, depths_8 = results['timings'][:10], results['timings'][10:]
-        t_tot, t_mean, t_mean_s, t_int, n_param_8, bic_8, noise_level_8 = results['stats']
+        # t_tot, t_mean, t_mean_s, t_int, n_param_8, bic_8, noise_level_8 = results['stats']
         ecl_par_8 = np.array([e_8, w_8, i_8, r_sum_8, r_rat_8, sb_rat_8])
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
@@ -2069,8 +2065,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_eclipse_analysis_pd_leftover_sinusoid.png')
         else:
             file_name = None
-        vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_8, noise_level_5, const_8, slope_8, f_n_8, a_n_8,
-                                       ph_n_8, passed_b_9, ecl_par_8, i_sectors, save_file=file_name, show=show)
+        vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
+                                       passed_b_9, ecl_par_8, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     return None

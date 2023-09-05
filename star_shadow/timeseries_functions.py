@@ -340,7 +340,6 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
     return noise
 
 
-# @nb.njit()  # not sped up (in this form)
 def spectral_window(times, freqs):
     """Computes the modulus square of the spectral window W_N(f) of a set of
     time points at the given frequencies.
@@ -1585,7 +1584,6 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     return sigma_const, sigma_slope, sigma_f, sigma_a, sigma_ph
 
 
-
 @nb.njit(cache=True)
 def measure_crossing_time(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors):
     """Determine the noise level crossing time of the eclipse slopes
@@ -1726,7 +1724,6 @@ def measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timi
     """
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
-    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = timings_err[6:]
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     model_sines = sum_sines(times, f_n, a_n, ph_n)
     model_line = linear_curve(times, const, slope, i_sectors)
@@ -2015,68 +2012,6 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def extract_single_harmonic(times, signal, signal_err, p_orb, i_sectors, f_n=None, verbose=True):
-    """Extract the highest amplitude harmonic from the signal
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    f_n: None, numpy.ndarray[float]
-        The frequencies of a number of sine waves (can be empty or None)
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. If only a single curve is wanted,
-        set i_sectors = np.array([[0, len(times)]]).
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    f_h: float
-        Frequency of the extracted sinusoid
-    a_h: float
-        Amplitude of the extracted sinusoid
-    ph_h: float
-        Phase of the extracted sinusoid
-
-    Notes
-    -----
-    Looks for missing harmonics and picks the one that increases
-    the likelihood most.
-    Assumes the harmonics are already fixed multiples of 1/p_orb
-    as can be achieved with fix_harmonic_frequency.
-    """
-    if f_n is None:
-        f_n = np.array([])
-    # setup
-    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
-    # extract the existing harmonics using the period
-    if (len(f_n) > 0):
-        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    else:
-        harmonics, harmonic_n = np.array([], dtype=int), np.array([], dtype=int)
-    n_harm = len(harmonics)
-    # make a list of not-present possible harmonics
-    h_candidate = np.arange(1, p_orb * f_max, dtype=int)
-    h_candidate = np.delete(h_candidate, harmonic_n - 1)  # harmonic_n minus one is the position
-    # calculate the harmonic candidates
-    f_c = h_candidate / p_orb
-    a_c = scargle_ampl(times, signal, f_c)
-    ph_c = scargle_phase(times, signal, f_c)
-    ph_c = np.mod(ph_c + np.pi, 2 * np.pi) - np.pi  # make sure the phase stays within + and - pi
-    # select the highest amplitude
-    i_best = np.argmax(a_c)
-    f_h, a_h, ph_h = f_c[i_best], a_c[i_best], ph_c[i_best]
-    return f_h, a_h, ph_h
-
-
 def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
     taking into account (and not changing the frequencies of) harmonics if present.
@@ -2092,7 +2027,7 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     p_orb: float
-        Orbital period of the eclipsing binary in days (may be 0)
+        Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2460,6 +2395,8 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
 
     Returns
     -------
@@ -2513,8 +2450,8 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         remove_harm_c = np.append(remove_harm_c, remove)
         if verbose:
             print(f'Harmonic number {n} re-extracted, replacing {len(remove)} candidates', end='\r')
-    # lastly re-determine slope and const
-    const, slope = linear_pars(times, cur_resid, i_sectors)
+    # lastly re-determine slope and const (not needed here)
+    # const, slope = linear_pars(times, cur_resid, i_sectors)
     # finally, remove all the designated sinusoids from the lists and add the new ones
     f_n = np.append(np.delete(f_n, remove_harm_c), f_new)
     a_n = np.append(np.delete(a_n, remove_harm_c), a_new)
@@ -2561,7 +2498,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
-        Orbital period of the eclipsing binary in days (may be 0)
+        Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2600,7 +2537,6 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
     n_sectors = len(i_sectors)
     n_freq = len(f_n)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
-    non_harm = np.delete(np.arange(n_freq), harmonics)
     n_harm = len(harmonics)
     # indices of single frequencies to remove
     remove_single = np.zeros(0, dtype=np.int_)
@@ -2661,7 +2597,7 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
-        Orbital period of the eclipsing binary in days (may be 0)
+        Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2738,8 +2674,6 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
             if i in used_sets:
                 continue
             
-            # temporarily add this iteration to the remove indices
-            remove = np.append([k for j in remove_sets for k in f_sets[j]], set_i).astype(np.int_)
             # make a model of the removed and new sinusoids and subtract/add it from/to the full sinusoid model
             model_sinusoid_r = sum_sines(times, f_n[set_i], a_n[set_i], ph_n[set_i])
             resid = best_resid + model_sinusoid_r
@@ -2801,7 +2735,7 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
     signal_err: numpy.ndarray[float]
         Errors in the measurement values
     p_orb: float
-        Orbital period of the eclipsing binary in days (may be 0)
+        Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -2902,7 +2836,7 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     t_tot = np.ptp(times)
     n_points = len(times)
     freq_res = 1.5 / t_tot  # Rayleigh criterion
-    # obtain the errors on the sine waves (dependends on residual and thus model)
+    # obtain the errors on the sine waves (depends on residual and thus model)
     model_lin = linear_curve(times, const, slope, i_sectors)
     model_sin = sum_sines(times, f_n, a_n, ph_n)
     residuals = signal - (model_lin + model_sin)

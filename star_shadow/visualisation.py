@@ -224,7 +224,6 @@ def plot_lc_timings_harmonics(times, signal, p_orb, timings, depths, timings_err
     t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = timings_err[6:]
     dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
     dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
-    t_mean = np.mean(times)
     # plotting bounds
     t_ext_1 = t_1_1 - 6 * t_1_1_err - t_1
     t_ext_2 = t_1_2 + 6 * t_1_2_err - t_1
@@ -513,12 +512,12 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     dur_1, dur_2 = (t_1_2 - t_1_1), (t_2_2 - t_2_1)
     dur_b_1, dur_b_2 = (t_b_1_2 - t_b_1_1), (t_b_2_2 - t_b_2_1)
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
-    t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[6:]
+    t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err = timings_err[6:]
     depth_1, depth_2 = depths_em
     h_1, h_2 = heights_em
     depth_1_err, depth_2_err = depths_err
-    dur_b_1_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2)
-    dur_b_2_err = np.sqrt(t_2_1_err**2 + t_2_2_err**2)
+    dur_b_1_err = np.sqrt(t_b_1_1_err**2 + t_b_1_2_err**2)
+    dur_b_2_err = np.sqrt(t_b_2_1_err**2 + t_b_2_2_err**2)
     # plotting bounds
     t_ext_1 = min(timings[2] - t_zero_init, t_1_1 - t_zero)
     t_ext_2 = max(timings[3] - t_zero_init, t_1_2 - t_zero)
@@ -605,32 +604,28 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
         ax[0].plot([t_b_1_1, t_b_1_1], s_minmax, '--', c='tab:brown')
         ax[0].plot([t_b_1_2, t_b_1_2], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax[0].fill_between([t_b_1_1 - t_1_1_err, t_b_1_1 + t_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_1_1 - t_b_1_1_err, t_b_1_1 + t_b_1_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
-        ax[0].fill_between([t_b_1_2 - t_1_2_err, t_b_1_2 + t_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_1_2 - t_b_1_2_err, t_b_1_2 + t_b_1_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_1_1 - 3 * t_1_1_err, t_b_1_1 + 3 * t_1_1_err], y1=s_minmax[[0, 0]],
-                           y2=s_minmax[[1, 1]],
-                           color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_1_2 - 3 * t_1_2_err, t_b_1_2 + 3 * t_1_2_err], y1=s_minmax[[0, 0]],
-                           y2=s_minmax[[1, 1]],
-                           color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_1_1 - 3 * t_b_1_1_err, t_b_1_1 + 3 * t_b_1_1_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_1_2 - 3 * t_b_1_2_err, t_b_1_2 + 3 * t_b_1_2_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax[0].plot([t_b_2_1, t_b_2_1], s_minmax, '--', c='tab:brown')
         ax[0].plot([t_b_2_2, t_b_2_2], s_minmax, '--', c='tab:brown')
         # 1 sigma errors
-        ax[0].fill_between([t_b_2_1 - t_2_1_err, t_b_2_1 + t_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_2_1 - t_b_2_1_err, t_b_2_1 + t_b_2_1_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
-        ax[0].fill_between([t_b_2_2 - t_2_2_err, t_b_2_2 + t_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
+        ax[0].fill_between([t_b_2_2 - t_b_2_2_err, t_b_2_2 + t_b_2_2_err], y1=s_minmax[[0, 0]], y2=s_minmax[[1, 1]],
                            color='tab:brown', alpha=0.3)
         # 3 sigma errors
-        ax[0].fill_between([t_b_2_1 - 3 * t_2_1_err, t_b_2_1 + 3 * t_2_1_err], y1=s_minmax[[0, 0]],
-                           y2=s_minmax[[1, 1]],
-                           color='tab:brown', alpha=0.2)
-        ax[0].fill_between([t_b_2_2 - 3 * t_2_2_err, t_b_2_2 + 3 * t_2_2_err], y1=s_minmax[[0, 0]],
-                           y2=s_minmax[[1, 1]],
-                           color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_2_1 - 3 * t_b_2_1_err, t_b_2_1 + 3 * t_b_2_1_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
+        ax[0].fill_between([t_b_2_2 - 3 * t_b_2_2_err, t_b_2_2 + 3 * t_b_2_2_err], y1=s_minmax[[0, 0]],
+                           y2=s_minmax[[1, 1]], color='tab:brown', alpha=0.2)
     if ((t_b_1_2 - t_b_1_1) / dur_b_1_err > 1) | ((t_b_2_2 - t_b_2_1) / dur_b_2_err > 1):
         ax[0].plot([], [], '--', c='tab:brown', label='flat bottom')  # ghost label
     ax[0].set_ylabel('normalised flux')
@@ -987,7 +982,7 @@ def plot_corner_eclipse_elements(p_orb, timings, depths, ecl_par, dists_in, dist
         plt.show()
     else:
         plt.close()
-    # also make the other parameterisation corner plot
+    # also make the other parametrisation corner plot
     value_names = np.array(['e', 'w (deg)', 'i (deg)', r'$\frac{r_1+r_2}{a}$', r'$\frac{r_2}{r_1}$',
                             r'$\frac{sb_2}{sb_1}$'])
     dist_data = np.column_stack((e_vals, w_vals * r2d, i_vals * r2d, r_sum_vals, r_rat_vals, sb_rat_vals))
@@ -1028,7 +1023,6 @@ def plot_lc_model_sigma(times, signal, p_orb, t_zero, timings, const, slope, f_n
     # make the eclipse signal by subtracting the non-harmonics and the linear curve from the signal
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(len(f_n)), harmonics)
-    f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     model_nh = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
     model_line = tsf.linear_curve(times, const, slope, i_sectors)
     ecl_signal = signal - model_nh - model_line
@@ -1226,8 +1220,8 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings
     return
 
 
-def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, noise_level, const_r, slope_r, f_n_r, a_n_r, ph_n_r,
-                               passed_r, param_lc, i_sectors, model='simple', save_file=None, show=True):
+def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, const_r, slope_r, f_n_r, a_n_r, ph_n_r, passed_r,
+                               param_lc, i_sectors, model='simple', save_file=None, show=True):
     """Shows an overview of the eclipses over one period with the determination
     of orbital parameters using both the eclipse timings and the ellc light curve
     models over two consecutive fits.
@@ -1388,9 +1382,8 @@ def plot_pair_harmonics(inf_data, p_orb, const, slope, f_n, a_n, ph_n, save_file
                  coords={'f_n_dim_0': [0, 1, 2], 'a_n_dim_0': [0, 1, 2], 'ph_n_dim_0': [0, 1, 2]}, **kwargs)
     az.plot_pair(inf_data, var_names=['p_orb', 'f_n'], coords={'f_n_dim_0': np.arange(9)}, **kwargs)
     ax = az.plot_pair(inf_data, var_names=['p_orb', 'const', 'slope', 'f_n', 'a_n', 'ph_n', 'a_h', 'ph_h'],
-                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0],
-                         'a_h_dim_0': [0], 'ph_h_dim_0': [0]},
-                 **kwargs)
+                      coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0],
+                              'ph_n_dim_0': [0], 'a_h_dim_0': [0], 'ph_h_dim_0': [0]}, **kwargs)
     # save if wanted (only last plot - most interesting one)
     if save_file is not None:
         fig = ax.ravel()[0].figure
@@ -1418,7 +1411,7 @@ def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, log_rr, log_sb, const
     # convert phases to interval [-pi, pi] from [0, 2pi]
     above_pi = (ph_n >= np.pi)
     ph_n[above_pi] = ph_n[above_pi] - 2 * np.pi
-    ref_values = {'t_zero': t_zero, 'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
+    ref_values = {'const': const, 'slope': slope, 'f_n': f_n, 'a_n': a_n, 'ph_n': ph_n,
                   'ecosw': ecosw, 'esinw': esinw, 'cosi': cosi, 'phi_0': phi_0, 'log_rr': log_rr, 'log_sb': log_sb}
     kwargs = {'marginals': True, 'textsize': 14, 'kind': ['scatter', 'kde'],
               'marginal_kwargs': {'quantiles': [0.158, 0.5, 0.842]}, 'point_estimate': 'mean',
@@ -1426,8 +1419,8 @@ def plot_pair_eclipse(inf_data, ecosw, esinw, cosi, phi_0, log_rr, log_sb, const
     az.plot_pair(inf_data, var_names=['f_n', 'a_n', 'ph_n'],
                  coords={'f_n_dim_0': [0, 1], 'a_n_dim_0': [0, 1], 'ph_n_dim_0': [0, 1]}, **kwargs)
     ax1 = az.plot_pair(inf_data, var_names=['const', 'slope', 'f_n', 'a_n', 'ph_n'],
-                 coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0], 'ph_n_dim_0': [0]},
-                 **kwargs)
+                       coords={'const_dim_0': [0], 'slope_dim_0': [0], 'f_n_dim_0': [0], 'a_n_dim_0': [0],
+                               'ph_n_dim_0': [0]}, **kwargs)
     ax2 = az.plot_pair(inf_data, var_names=['t_zero', 'ecosw', 'esinw', 'cosi', 'phi_0', 'log_rr', 'log_sb'], **kwargs)
     # save if wanted (only last plot - most interesting one)
     if save_file is not None:
