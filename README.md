@@ -2,6 +2,13 @@
 ### Satellite Time-series Analysis Routine using Sinusoids and Harmonics Automatedly for Double stars with Occultations and Waves
 
 
+![Language Badge](https://img.shields.io/badge/Language-Python-blue.svg)
+<a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License Badge"/></a>
+
+[//]: # (<a href="https://github.com/LucIJspeert/star_shadow/blob/master/LICENCE.md"><img src="https://img.shields.io/github/license/LucIJspeert/star_shadow" alt="License Badge"/></a>)
+
+[//]: # (make the badges dynamic...)
+
 ## What is STAR SHADOW?
 STAR SHADOW is a Python code that is aimed at the automatic analysis of space based light curves of eclipsing binaries 
 and provide a measurement of eccentricity, among other parameters. It provides a recipe to measure timings of eclipses 
@@ -9,7 +16,7 @@ using the time derivatives of the light curves, using a model of orbital harmoni
 prewhitening of sinusoids. Since the algorithm extracts the harmonics from the rest of the sinusoidal variability 
 eclipse timings can be measured even in the presence of other (astrophysical) signals. The aim is to determine 
 the orbital eccentricity automatically from the light curve along with information about the other variability present 
-in the light curve. The output includes, but is not limited to, a sinusoid plus piece-wise linear model of 
+in the light curve. The output includes, but is not limited to, a sinusoid plus linear model of 
 the light curve, the orbital period, the eccentricity, argument of periastron and inclination. See the documentation 
 for more information.
 
@@ -18,6 +25,8 @@ for more information.
 
 * This algorithm has been documented, tested and applied in the publication: [link](link)
 
+
+![Example of an analysed EB light curve](./data/sim_042_lc_readme_img.png?raw=true)
 
 ## Getting started
 
