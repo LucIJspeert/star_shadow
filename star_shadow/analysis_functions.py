@@ -1233,7 +1233,7 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     for comb in combinations:
         # restrict duration to half the orbital period
         duration = t_model[minimum_1[comb[1]]] - t_model[minimum_1[comb[0]]]
-        condition = (duration < p_orb / 2)
+        condition = (duration < (p_orb * 1.01) / 2)
         # eclipses may not be in gaps in the phase coverage
         t_ingress = t_model[peaks_2_n[comb[0]]]
         t_egress = t_model[peaks_2_n[comb[1]]]
@@ -1565,7 +1565,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # find the eclipses
         output_a = mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_prominent=24)
         peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_a
-        print(peaks_1)
         ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
                                         peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
         # measure them up
