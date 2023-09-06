@@ -1057,7 +1057,8 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
     peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), height=noise_level, prominence=noise_level)
     if (len(peaks_1) == 0):
-        return (None,) * 8  # No eclipse signatures found above the noise level
+        empty_output = np.zeros((8, 0), dtype=int)
+        return empty_output  # No eclipse signatures found above the noise level
     # 24 or fewer (most prominent) peaks (increased from 8 as side peaks of the primary were higher than the secondary)
     ecl_peaks = np.argsort(props['prominences'])[-n_prominent:]
     # increase the amount if any peaks fell into gaps
@@ -1564,6 +1565,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # find the eclipses
         output_a = mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_prominent=24)
         peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_a
+        print(peaks_1)
         ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
                                         peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
         # measure them up
