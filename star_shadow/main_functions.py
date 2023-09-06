@@ -884,6 +884,8 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     esinw_err = np.array([max(esinw_err[0], sigma_esinw), max(esinw_err[1], sigma_esinw)])
     cosi_err = np.array([max(cosi_err[0], cosi_err_est), max(cosi_err[1], cosi_err_est)])
     phi_0_err = np.array([max(phi_0_err[0], sigma_phi_0), max(phi_0_err[1], sigma_phi_0)])
+    errors = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
+                         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     # check physical result
     if (e > 0.99):
         logger.info(f'Unphysically large eccentricity found: {e}')
@@ -893,11 +895,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     phys_mean = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat])
     phys_err = np.array([sigma_ecosw, sigma_esinw, cosi_err_est, sigma_phi_0, -1, -1,
                          sigma_e, sigma_w, i_err_est, sigma_r_sum, -1, -1])
-    phys_hdi = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
-                         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     desc = 'Eclipse elements from timings.'
     ut.save_parameters_hdf5(file_name, ephem=ephem, ephem_err=ephem_err, phys_mean=phys_mean, phys_err=phys_err,
-                            phys_hdi=phys_hdi, timings=timings, timings_err=timings_err, description=desc,
+                            phys_hdi=errors, timings=timings, timings_err=timings_err, description=desc,
                             data_id=data_id)
     ut.save_results_dists(file_name, dists_in, dists_out, data_id=data_id)
     # print some useful stuff
@@ -1657,6 +1657,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     phys_err = np.array([max(e_err), max(w_err), max(i_err), max(r_sum_err), max(r_rat_err), max(sb_rat_err),
                          max(ecosw_err), max(esinw_err), max(cosi_err), max(phi_0_err),
                          max(log_rr_err), max(log_sb_err)])
+    phys_err =
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # save the results in ascii format
     if save_ascii:
