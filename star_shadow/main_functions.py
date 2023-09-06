@@ -863,7 +863,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
-    i_err_est = 0.1  # fairly good guess at the inability to pinpoint i
+    i_err_est = 0.087  # fairly good guess at the inability to pinpoint i (5 degrees)
     cosi_err_est = np.sin(i_err_est)
     formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
@@ -1657,7 +1657,6 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     phys_err = np.array([max(e_err), max(w_err), max(i_err), max(r_sum_err), max(r_rat_err), max(sb_rat_err),
                          max(ecosw_err), max(esinw_err), max(cosi_err), max(phi_0_err),
                          max(log_rr_err), max(log_sb_err)])
-    phys_err =
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # save the results in ascii format
     if save_ascii:

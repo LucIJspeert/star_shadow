@@ -1274,9 +1274,9 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
         combinations = np.append(combinations, np.column_stack((ecl_1, ecl_2)), axis=0)
     ecl_remove = []
     for comb in combinations:
-        overlap_1 = (ecl_indices[comb[0], 2] > ecl_indices[comb[1], 2])
+        overlap_1 = (ecl_indices[comb[0], 2] >= ecl_indices[comb[1], 2])
         overlap_1 &= (ecl_indices[comb[0], 2] < ecl_indices[comb[1], -3])
-        overlap_2 = (ecl_indices[comb[0], 2] < ecl_indices[comb[1], 2])
+        overlap_2 = (ecl_indices[comb[0], 2] <= ecl_indices[comb[1], 2])
         overlap_2 &= (ecl_indices[comb[0], -3] > ecl_indices[comb[1], 2])
         if (overlap_1 | overlap_2):
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
@@ -3407,14 +3407,10 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     normal_t_2 = mvn[:, 1]
     normal_p = mvn[:, 2]
     # the edges cannot surpass the midpoints so use truncnorm
-    normal_t_1_1 = sp.stats.truncnorm.rvs(((normal_t_2 - p_orb) - t_1_1) / t_1_1_err, (normal_t_1 - t_1_1) / t_1_1_err,
-                                          loc=t_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_1_2 = sp.stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, (normal_t_2 - t_1_2) / t_1_2_err,
-                                          loc=t_1_2, scale=t_1_2_err, size=n_gen)
-    normal_t_2_1 = sp.stats.truncnorm.rvs((normal_t_1 - t_2_1) / t_2_1_err, (normal_t_2 - t_2_1) / t_2_1_err,
-                                          loc=t_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_2_2 = sp.stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, (normal_t_1 + p_orb - t_2_2) / t_2_2_err,
-                                          loc=t_2_2, scale=t_2_2_err, size=n_gen)
+    normal_t_1_1 = sp.stats.truncnorm.rvs(-9, (normal_t_1 - t_1_1) / t_1_1_err, loc=t_1_1, scale=t_1_1_err, size=n_gen)
+    normal_t_1_2 = sp.stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, 9, loc=t_1_2, scale=t_1_2_err, size=n_gen)
+    normal_t_2_1 = sp.stats.truncnorm.rvs(-9, (normal_t_2 - t_2_1) / t_2_1_err, loc=t_2_1, scale=t_2_1_err, size=n_gen)
+    normal_t_2_2 = sp.stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, 9, loc=t_2_2, scale=t_2_2_err, size=n_gen)
     # if we have wide eclipses, they possibly overlap, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
