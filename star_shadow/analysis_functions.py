@@ -1076,8 +1076,6 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
     # walk inward from peaks_1 to zero in deriv_1
@@ -1085,8 +1083,6 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps, n_promine
     # find the maxima in deriv_2 between peaks_1 and zeros_1_in
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
@@ -1152,15 +1148,11 @@ def refine_eclipse_peaks(deriv_1, deriv_2, zeros_1, zeros_1_in):
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_n = curve_walker(deriv_2, peaks_2_n, slope_sign, mode='down')
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
     # find the maxima in deriv_2 between peaks_1 and zeros_1_in
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
-    # adjust slightly to account for any misalignment with peaks_1
-    peaks_2_p = curve_walker(deriv_2, peaks_2_p, -slope_sign, mode='up')
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
@@ -1233,7 +1225,7 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
     for comb in combinations:
         # restrict duration to half the orbital period
         duration = t_model[minimum_1[comb[1]]] - t_model[minimum_1[comb[0]]]
-        condition = (duration < (p_orb * 1.1) / 2)
+        condition = (duration < 1.25 * p_orb / 2)
         # eclipses may not be in gaps in the phase coverage
         t_ingress = t_model[peaks_2_n[comb[0]]]
         t_egress = t_model[peaks_2_n[comb[1]]]
@@ -1266,8 +1258,8 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
                    peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
             # check in the harmonic light curve model that all points in eclipse lie beneath the top points
             i_mid_ecl = (ecl[2] + ecl[-3]) // 2
-            flux_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= 1.001 * model_h[ecl[2]])
-            flux_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= 1.001 * model_h[ecl[-3]])
+            flux_check_1 = np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]] + 0.001 * abs(model_h[ecl[2]]))
+            flux_check_2 = np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]] + 0.001 * abs(model_h[ecl[-3]]))
             # and that the flux in a possible flat bottom doesn't go up to similar levels as the rest of the lc
             h_70 = np.min(model_h[ecl[1]:ecl[-2]]) + 0.7 * np.ptp(model_h[ecl[1]:ecl[-2]])
             flux_check_3 = np.all(model_h[ecl[4]:ecl[-5]] <= h_70)
@@ -1282,20 +1274,10 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
         combinations = np.append(combinations, np.column_stack((ecl_1, ecl_2)), axis=0)
     ecl_remove = []
     for comb in combinations:
-        overlap_1 = (ecl_indices[comb[0], 1] > ecl_indices[comb[1], 1])
-        overlap_1 &= (ecl_indices[comb[0], 1] < ecl_indices[comb[1], -2])
-        overlap_2 = (ecl_indices[comb[0], 1] < ecl_indices[comb[1], 1])
-        overlap_2 &= (ecl_indices[comb[0], -2] > ecl_indices[comb[1], 1])
-        if (overlap_1 | overlap_2):
-            duration_1 = t_model[ecl_indices[comb[0], -2]] - t_model[ecl_indices[comb[0], 1]]
-            duration_2 = t_model[ecl_indices[comb[1], -2]] - t_model[ecl_indices[comb[1], 1]]
-            # if eclipses are long, allow some overlap
-            overlap_1 = (duration_1 > 0.9 * p_orb / 2)
-            overlap_1 &= (ecl_indices[comb[0], 2] > ecl_indices[comb[1], 2])
-            overlap_1 &= (ecl_indices[comb[0], 2] < ecl_indices[comb[1], -3])
-            overlap_2 = (duration_2 > 0.9 * p_orb / 2)
-            overlap_2 &= (ecl_indices[comb[0], 2] < ecl_indices[comb[1], 2])
-            overlap_2 &= (ecl_indices[comb[0], -3] > ecl_indices[comb[1], 2])
+        overlap_1 = (ecl_indices[comb[0], 2] > ecl_indices[comb[1], 2])
+        overlap_1 &= (ecl_indices[comb[0], 2] < ecl_indices[comb[1], -3])
+        overlap_2 = (ecl_indices[comb[0], 2] < ecl_indices[comb[1], 2])
+        overlap_2 &= (ecl_indices[comb[0], -3] > ecl_indices[comb[1], 2])
         if (overlap_1 | overlap_2):
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
             ecl_remove.append(comb[np.argmin(peak_height)])
