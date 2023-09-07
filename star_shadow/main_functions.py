@@ -661,8 +661,8 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
         Error estimates for the eclipse timings and depths,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err,
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
-    half_p: bool
-        Suggests whether the orbital period must be halved
+    n_fold: int
+        Suggests to divide the orbital period by this number
     
     Notes
     -----
@@ -681,8 +681,8 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
         timings = results['timings']
         timings_err = results['timings_err']
         p_orb_cur, _ = results['ephem']
-        half_p = (p_orb_cur != p_orb)
-        return timings, timings_err, half_p
+        n_fold = int(np.round(p_orb / p_orb_cur))
+        return timings, timings_err, n_fold
     elif (not os.path.isfile(file_name)) & os.path.isfile(file_name_2) & (not overwrite):
         if verbose:
             print('Not enough eclipses found last time (see log)')
@@ -694,7 +694,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     t_gaps = tsf.mark_folded_gaps(times, p_orb, p_orb / 100)
     t_gaps = np.vstack((t_gaps, t_gaps + p_orb))  # duplicate for interval [0, 2p]
     # measure eclipse timings - the deepest eclipse is put first in each measurement
-    ecl_indices, half_p = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
+    ecl_indices, n_fold = af.detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps)
     output_a = af.timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n)
     t_1, t_2, t_contacts, t_tangency, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_a
     # account for not finding eclipses
@@ -711,8 +711,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     t_1_err = timings_err[0]
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
-    if half_p:
-        p_orb = p_orb / 2
+    p_orb = p_orb / n_fold  # divide the period by the suggested n_fold because of eclipse overlap
     ephem = np.array([p_orb, t_1])
     ephem_err = np.array([p_err, t_1_err])
     desc = 'Eclipse timings and depths.'
@@ -767,7 +766,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
               f'depth_1: {depths[0]:.{rnd_d_1}f} (+-{timings_err[6]:.{rnd_d_1}f}), '
               f'depth_2: {depths[1]:.{rnd_d_2}f} (+-{timings_err[7]:.{rnd_d_2}f}). \n'
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
-    return timings, timings_err, half_p
+    return timings, timings_err, n_fold
 
 
 def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, file_name, data_id='none',
@@ -1550,7 +1549,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')
     out_6 = find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
                                  noise_level, file_name, **arg_dict)
-    timings, timings_err, half_p = out_6
+    timings, timings_err, n_fold = out_6
     # perform checks for stopping the analysis
     if np.any([item is None for item in out_6]):
         return (None,)  # could not find eclipses for some reason
@@ -1653,10 +1652,12 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     errors, formal_errors, dists_in, dists_out = out_7[6:]
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
     # for the spherical model optimisation, take maximum errors for bounds and priors
-    phys_err = np.array([max(e_err), max(w_err), max(i_err), max(r_sum_err), max(r_rat_err), max(sb_rat_err),
-                         max(ecosw_err), max(esinw_err), max(cosi_err), max(phi_0_err),
-                         max(log_rr_err), max(log_sb_err)])
+    phys_err = np.array([max(max(e_err), sigma_e), max(max(w_err), sigma_w), max(i_err),
+                         max(max(r_sum_err), sigma_r_sum_sma), max(r_rat_err), max(sb_rat_err),
+                         max(max(ecosw_err), sigma_ecosw), max(max(esinw_err), sigma_esinw), max(cosi_err),
+                         max(max(phi_0_err), sigma_phi_0), max(log_rr_err), max(log_sb_err)])
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # save the results in ascii format
     if save_ascii:
@@ -1880,9 +1881,10 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
         out_c = (None,)
     # do a check for the change of period after analyse_eclipse_timings
     if (out_c[0] is not None) & (stage in stg_2):
-        if out_c[0][2]:
-            logger.info('Halving period, redoing some steps')  # info to save to log
-            p_orb = out_b[0][-1] / 2
+        n_fold = out_c[0][2]
+        if (n_fold != 1):
+            logger.info(f'Dividing period by {n_fold}, redoing some steps')  # info to save to log
+            p_orb = out_b[0][-1] / n_fold
             kw_args_2 = {'save_dir': save_dir, 'data_id': data_id, 'overwrite': True, 'save_ascii': save_ascii,
                          'verbose': verbose}
             out_b = analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, target_id, **kw_args_2)

@@ -1388,6 +1388,62 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
 
 
 @nb.njit(cache=True)
+def eclipse_dupli_checker(n_fold, p_orb, ecl_min, widths, depths):
+    """Check duplication of primary and secondary for wrong period
+    
+    Parameters
+    ----------
+    n_fold: int
+        Divisor for the period
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    ecl_min: numpy.ndarray[float]
+        Times of the eclipse minima
+    widths: numpy.ndarray[float]
+        Durations of the eclipses
+    depths: numpy.ndarray[float]
+        Depths of the eclipses
+    
+    Returns
+    -------
+    div_p: int
+        Divisor for the period after check
+    n_group: numpy.ndarray[int]
+        Number of matches per eclipse group
+    """
+    ecl_min_folded = ecl_min % (p_orb / n_fold)
+    ecl_matched = np.zeros(len(ecl_min), dtype=np.bool_)
+    n_group = []
+    div_p = 1
+    counter = 0
+    for i in range(len(ecl_min)):
+        # we expect at most 2 eclipses
+        group_ecl = (ecl_min_folded > ecl_min_folded[i] - widths[i] / 2)
+        group_ecl &= (ecl_min_folded < ecl_min_folded[i] + widths[i] / 2)
+        group_ecl &= np.invert(ecl_matched)
+        # check similarity
+        similar_depths = (depths[group_ecl] > 0.99 * depths[i]) & (depths[group_ecl] < 1.01 * depths[i])
+        similar_widths = (widths[group_ecl] > 0.99 * widths[i]) & (widths[group_ecl] < 1.01 * widths[i])
+        similar = similar_depths & similar_widths
+        # record which eclipses we already matched
+        i_similar = np.arange(len(ecl_min))[group_ecl][similar]
+        ecl_matched[i_similar] = True
+        # we expect at most 2 primaries and 2 secondaries at the correct period
+        n_match = np.sum(similar)
+        n_group.append(n_match)
+        if (n_match > 2):
+            counter += 1
+        # we need to meet these conditions twice (once for prim once for sec)
+        if counter >= 2:
+            div_p = n_fold
+        # stop when we have matched all eclipses
+        if np.all(ecl_matched):
+            break
+    n_group = np.array(n_group)
+    return div_p, n_group
+
+
+@nb.njit(cache=True)
 def select_eclipses(p_orb, ecl_min, widths, depths):
     """Select the best combination of primary and secondary
     
@@ -1407,10 +1463,10 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     best_comb: numpy.ndarray[int]
         Best combination of eclipses based on
         the combined depth.
-    half_p: boolean
+    n_fold: int
         If there are too many eclipses found with
         depths and widths within 1% at the right phases,
-        this will suggest half the given period is correct.
+        this suggests dividing the period by this number.
     """
     n_ecl = len(ecl_min)
     # now pick out two consecutive, fully covered eclipses
@@ -1448,20 +1504,24 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     # sum of depths should be largest for the most complete set of eclipses
     comb_d = depths[combinations[:, 0]] + depths[combinations[:, 1]]
     best_comb = combinations[np.argmax(comb_d)]  # argmax automatically picks the first in ties
-    # check half the period for eclipse overlap (could be wrongly doubled)
-    ecl_min_half_p = ecl_min % (p_orb / 2)
-    half_p = False
-    for i in range(len(ecl_min)):
-        group_ecl = (ecl_min_half_p > ecl_min_half_p[i] - widths[i] / 2)
-        group_ecl &= (ecl_min_half_p < ecl_min_half_p[i] + widths[i] / 2)
-        # if more than 2 eclipse candidates overlap and have similar width and depth, wrong p
-        if (np.sum(group_ecl) > 2):
-            check_1 = (np.sum((depths > 0.99 * depths[i]) & (depths < 1.01 * depths[i])) > 2)
-            check_2 = (np.sum((widths > 0.99 * widths[i]) & (widths < 1.01 * widths[i])) > 2)
-            half_p = check_1 & check_2
-            if half_p:
-                break
-    return best_comb, half_p
+    # check fraction of the period for eclipse overlap (could be wrongly multiplied)
+    folds = 5
+    n_fold_i = np.ones(folds, dtype=np.int_)
+    n_max_group = np.ones(folds, dtype=np.int_)
+    for i in range(folds):
+        n_fold_i[i], n_group = eclipse_dupli_checker(i + 1, p_orb, ecl_min, widths, depths)
+        n_max_group[i] = np.max(n_group)
+    # did we get multiple division suggestions?
+    n_fold_gt_1 = (n_fold_i > 1)
+    n_greater = np.sum(n_fold_gt_1)
+    if n_greater == 0:
+        n_fold = n_fold_i[0]
+    if n_greater == 1:
+        n_fold = n_fold_i[n_fold_gt_1][0]
+    else:
+        # if we got multiple, pick the one with the largest number of eclipses in a single group
+        n_fold = n_fold_i[np.argmax(n_max_group)]
+    return best_comb, n_fold
 
 
 @nb.njit(cache=True)
@@ -1532,9 +1592,10 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     ecl_indices: numpy.ndarray[int]
         Indices of several important points in the harmonic model
         as generated here (see function for details)
-    ecl_indices: numpy.ndarray[int]
-        Indices of several important points in the harmonic model
-        refined by using all harmonics (may or may not equal ecl_indices)
+    n_fold: int
+        If there are too many eclipses found with
+        depths and widths within 1% at the right phases,
+        this suggests dividing the period by this number.
     
     Notes
     -----
@@ -1565,7 +1626,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         if (len(ecl_min) == 0):
             continue
         # pick the best pair
-        best_comb, half_p = select_eclipses(p_orb, ecl_min, widths, depths)
+        best_comb, n_fold = select_eclipses(p_orb, ecl_min, widths, depths)
         if (len(best_comb) == 0):
             continue
         else:
@@ -1573,9 +1634,9 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             break
     # if still nothing was found, return
     if (len(ecl_min) == 0):
-        return np.zeros((0, 15), dtype=np.int_), half_p
+        return np.zeros((0, 15), dtype=np.int_), n_fold
     elif (len(best_comb) == 0):
-        return ecl_indices[0, np.newaxis], half_p
+        return ecl_indices[0, np.newaxis], n_fold
     # select the best combination of eclipses
     ecl_indices = ecl_indices[best_comb]
     # prepare zeros_1_in and slope_sign for refinement step
@@ -1600,7 +1661,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     else:
         ecl_indices_ref = ecl_indices
     ecl_indices = ecl_indices_ref
-    return ecl_indices, half_p
+    return ecl_indices, n_fold
 
 
 def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
