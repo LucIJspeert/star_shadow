@@ -838,10 +838,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = results['phys_mean']
         sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum, _, _ = results['phys_err']
         formal_errors = sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw
-        ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
-        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = results['phys_hdi'][6:]
-        errors = (e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err,
-                  ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err)
+        errors = results['phys_hdi']
         dists_in, dists_out = ut.read_results_dists(file_name)
         return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out
     
