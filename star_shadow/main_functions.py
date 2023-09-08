@@ -865,11 +865,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     i_err_est = 0.087  # fairly good guess at the inability to pinpoint i (5 degrees)
     cosi_err_est = np.sin(i_err_est)
     formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
     # calculate the errors for cosi, log_rr, log_sb with importance sampling
     out_b = af.error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings[:10], timings[10:],
-                                   p_err, timings_err[:10], timings_err[10:], sigma_ecosw, sigma_esinw, sigma_phi_0,
-                                   p_t_corr, verbose=verbose)
+                                   p_err, timings_err[:10], timings_err[10:], p_t_corr, verbose=verbose)
     errors, dists_in, dists_out = out_b
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
@@ -884,7 +882,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     cosi_err = np.array([max(cosi_err[0], cosi_err_est), max(cosi_err[1], cosi_err_est)])
     phi_0_err = np.array([max(phi_0_err[0], sigma_phi_0), max(phi_0_err[1], sigma_phi_0)])
     errors = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
-                         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
+                       e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     # check physical result
     if (e > 0.99):
         logger.info(f'Unphysically large eccentricity found: {e}')
