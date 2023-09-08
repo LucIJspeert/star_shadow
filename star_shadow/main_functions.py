@@ -1648,8 +1648,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, file_name, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
-    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
-    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
+    ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[:6]
+    e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[6:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
     # for the spherical model optimisation, take maximum errors for bounds and priors
     phys_err = np.array([max(max(e_err), sigma_e), max(max(w_err), sigma_w), max(i_err),
