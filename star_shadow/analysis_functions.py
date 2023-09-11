@@ -2827,12 +2827,7 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
     """
     # unpack parameters and arguments
     cosi, log_rr, log_sb = params
-    e = np.sqrt(ecosw**2 + esinw**2)
-    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    i = np.arccos(cosi)
-    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-    r_ratio = 10**log_rr
-    sb_ratio = 10**log_sb
+    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
     t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau[:6]
     tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2 = timings_tau[6:]
     d_1, d_2 = depths
@@ -2847,9 +2842,9 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum_sma)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum)
     # minimise for the internal tangency angles
-    r_dif_sma = abs(r_sum_sma * (1 - r_ratio) / (1 + r_ratio))
+    r_dif_sma = abs(r_sum * (1 - r_rat) / (1 + r_rat))
     psi_1_1, psi_1_2, psi_2_1, psi_2_2 = root_contact_phase_angles_radii(e, w, i, r_dif_sma)
     # calculate the true anomaly of minima
     nu_1 = true_anomaly(theta_1, w)
@@ -2874,9 +2869,9 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
     bottom_dur_1 = integral_bottom_1_1 + integral_bottom_1_2
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
-    # sb_ratio = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum_sma, r_ratio, theta_1, theta_2)
+    # sb_rat = sb_ratio_from_d_ratio((d_2 / d_1), e, w, i, r_sum, r_rat, theta_1, theta_2)
     phases_min = np.array([theta_1, theta_2])
-    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum, r_rat, sb_rat, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -2929,12 +2924,7 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
         time spans of the eclipses compared to the measured values.
     """
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = params
-    e = np.sqrt(ecosw**2 + esinw**2)
-    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    i = np.arccos(cosi)
-    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-    r_ratio = 10**log_rr
-    sb_ratio = 10**log_sb
+    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
     t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2 = timings_tau[:6]
     tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2 = timings_tau[6:]
     d_1, d_2 = depths
@@ -2949,9 +2939,9 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
         # if no solution is possible (no opposite signs), return infinite
         return 10**9
     # minimise for the contact angles
-    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum_sma)
+    phi_1_1, phi_1_2, phi_2_1, phi_2_2 = root_contact_phase_angles_radii(e, w, i, r_sum)
     # minimise for the internal tangency angles
-    r_dif_sma = abs(r_sum_sma * (1 - r_ratio) / (1 + r_ratio))
+    r_dif_sma = abs(r_sum * (1 - r_rat) / (1 + r_rat))
     psi_1_1, psi_1_2, psi_2_1, psi_2_2 = root_contact_phase_angles_radii(e, w, i, r_dif_sma)
     # calculate the true anomaly of minima
     nu_1 = true_anomaly(theta_1, w)
@@ -2977,7 +2967,7 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
     bottom_dur_2 = integral_bottom_2_1 + integral_bottom_2_2
     # calculate the depths
     phases_min = np.array([theta_1, theta_2])
-    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4)
+    depth_1, depth_2 = eclipse_depth(phases_min, e, w, i, r_sum, r_rat, sb_rat, theta_3, theta_4)
     # displacement of the minima, linearly sensitive to e cos(w) (and sensitive to i)
     r_displacement = ((t_2 - t_1) - disp) / np.sqrt(t_1_err**2 + t_2_err**2)
     # difference in duration of the minima, linearly sensitive to e sin(w) (and sensitive to i and phi_0)
@@ -3043,11 +3033,11 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
         Argument of periastron
     i: float
         Inclination of the orbit
-    r_sum_sma: float
+    r_sum: float
         Sum of radii in units of the semi-major axis
-    r_ratio: float
+    r_rat: float
         Radius ratio r_2/r_1
-    sb_ratio: float
+    sb_rat: float
         Surface brightness ratio sb_2/sb_1
 
     Notes
@@ -3083,19 +3073,18 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
     #     log_rr_bounds = (np.log10(r_small / r_large / 1.1), np.log10(r_large / r_small * 1.1))
     # fit globally for: cosi, r_ratio and sb_ratio
     args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err)
-    bounds = ((0, 0.9), (-3, 3), (-3, 3))
+    bounds = ((0, 0.7), (-3, 3), (-3, 3))
     result = sp.optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     cosi, log_rr, log_sb = result.x
-    e = np.sqrt(ecosw**2 + esinw**2)
-    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
+    # re-evaluate e, w
     i = np.arccos(cosi)
-    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-    r_ratio = 10**log_rr
-    sb_ratio = 10**log_sb
+    e, w = ecc_omega_approx(p_orb, *timings_tau[:6], i, phi_0)
+    ecosw, esinw = e * np.cos(w), e * np.sin(w)
+    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
     if verbose:
         print(f'Fit convergence: {result.success} - BIC: {result.fun:1.2f}. N_iter: {int(result.nit)}.')
-    return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum_sma, r_ratio, sb_ratio
+    return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat
 
 
 def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
@@ -3142,11 +3131,11 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
         Argument of periastron
     i: float
         Inclination of the orbit
-    r_sum_sma: float
+    r_sum: float
         Sum of radii in units of the semi-major axis
-    r_ratio: float
+    r_rat: float
         Radius ratio r_2/r_1
-    sb_ratio: float
+    sb_rat: float
         Surface brightness ratio sb_2/sb_1
     """
     # fit globally for: ecosw, esinw, cosi, phi_0, log_rr, log_sb
@@ -3156,15 +3145,17 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     result = sp.optimize.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result.x
-    e = np.sqrt(ecosw**2 + esinw**2)
-    w = np.arctan2(esinw, ecosw) % (2 * np.pi)
-    i = np.arccos(cosi)
-    r_sum_sma = r_sum_sma_from_phi_0(e, i, phi_0)
-    r_ratio = 10**log_rr
-    sb_ratio = 10**log_sb
+    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
+    # check that the model depths are not tiny
+    depths_th = eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
+    if np.any(depths_th < 0.01 * depths):
+        output = eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_err, verbose=verbose)
+        ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = output
+        if verbose:
+            print(f'Used approximations due to deviant depth.')
     if verbose:
         print(f'Fit convergence: {result.success} - BIC: {result.fun:1.2f}. N_iter: {int(result.nit)}.')
-    return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum_sma, r_ratio, sb_ratio
+    return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat
 
 
 @nb.njit(cache=True)

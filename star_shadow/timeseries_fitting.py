@@ -1472,27 +1472,51 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par
     # initial parameters and bounds
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat)
     par_init = (ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset_init)
-    par_bounds = ((max(ecosw - 4 * ecosw_err, -1), min(ecosw + 4 * ecosw_err, 1)),
-                  (max(esinw - 4 * esinw_err, -1), min(esinw + 4 * esinw_err, 1)),
-                  (max(cosi - 4 * cosi_err, 0), min(cosi + 4 * cosi_err, 1)),
-                  (max(phi_0 - 4 * phi_0_err, 0), min(phi_0 + 4 * phi_0_err, 1)),
-                  (-3, 3), (-3, 3), (-1, 1))
+    # upper bound for cosi is restricted because the measurement is sort of an upper limit
+    par_bounds = ((max(ecosw - 3 * ecosw_err, -1), min(ecosw + 3 * ecosw_err, 1)),
+                  (max(esinw - 3 * esinw_err, -1), min(esinw + 3 * esinw_err, 1)),
+                  (max(cosi - 3 * cosi_err, 0), min(cosi + 0.001, 0.9)),
+                  (max(phi_0 - 3 * phi_0_err, 0), min(phi_0 + 3 * phi_0_err, 0.9)),
+                  (max(log_rr - 3 * log_rr_err, -3), min(log_rr + 3 * log_rr_err, 3)),
+                  (max(log_sb - 3 * log_sb_err, -3), min(log_sb + 3 * log_sb_err, 3)), (-1, 1))
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
-    result = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
-                                  bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
-    par_out = result.x
+    # do a local fit and then a global fit within bounds to compare
+    result_a = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+                                    bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
+    # limit bounds for global fit if errors are big
+    par_bounds = ((max(ecosw - min(3 * ecosw_err, 0.2), -1), min(ecosw + min(3 * ecosw_err, 0.2), 1)),
+                  (max(esinw - min(3 * esinw_err, 0.2), -1), min(esinw + min(3 * esinw_err, 0.2), 1)),
+                  (max(cosi - min(3 * cosi_err, 0.2), 0), min(cosi + 0.001, 0.9)),
+                  (max(phi_0 - min(3 * phi_0_err, 0.1), 0), min(phi_0 + min(3 * phi_0_err, 0.1), 0.9)),
+                  (max(log_rr - 3 * log_rr_err, -3), min(log_rr + 3 * log_rr_err, 3)),
+                  (max(log_sb - 3 * log_sb_err, -3), min(log_sb + 3 * log_sb_err, 3)), (-1, 1))
+    result_b = sp.optimize.shgo(objective_physcal_lc, args=arguments, bounds=par_bounds,
+                                minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
+    # compare objective function values
+    model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_a.x[:6]))
+    bic_a = tsf.calc_bic((ecl_signal - (model_ecl + result_a.x[6])) / signal_err, 2 + len(result_a.x))
+    model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_b.x[:6]))
+    bic_b = tsf.calc_bic((ecl_signal - (model_ecl + result_b.x[6])) / signal_err, 2 + len(result_b.x))
+    if (bic_a < bic_b - 2):
+        opt = 'local'
+        result = result_a
+    elif (abs(result_b.x[0]) == 1) | (abs(result_b.x[1]) == 1) | (abs(result_b.x[6]) == 1):
+        # global opt could fail drastically when bumping against outer bounds
+        opt = 'local'
+        result = result_a
+    else:
+        opt = 'global'
+        result = result_b
+    # convert back parameters
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset = result.x
+    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
+    par_out = np.array([e, w, i, r_sum, r_rat, sb_rat, offset])
     if verbose:
-        ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset = par_out
-        e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
         model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
         resid = ecl_signal - (model_ecl + offset)
         bic = tsf.calc_bic(resid / signal_err, 2 + len(par_out))
-        print(f'Fit convergence: {result.success} - BIC: {bic:1.2f}. '
+        print(f'Fit convergence: {result.success}. Used {opt} optimiser result - BIC: {bic:1.2f}. '
               f'N_iter: {int(result.nit)}, N_fev: {int(result.nfev)}.')
-    # convert back parameters
-    ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset = par_out
-    e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
-    par_out = np.array([e, w, i, r_sum, r_rat, sb_rat, offset])
     return par_out
 
 
