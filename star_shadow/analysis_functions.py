@@ -3146,13 +3146,6 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
                               options={'minimize_every_iter': True})
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result.x
     e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
-    # check that the model depths are not tiny
-    depths_th = eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
-    if np.any(depths_th < 0.01 * depths):
-        output = eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_err, verbose=verbose)
-        ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = output
-        if verbose:
-            print(f'Used approximations due to deviant depth.')
     if verbose:
         print(f'Fit convergence: {result.success} - BIC: {result.fun:1.2f}. N_iter: {int(result.nit)}.')
     return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat
