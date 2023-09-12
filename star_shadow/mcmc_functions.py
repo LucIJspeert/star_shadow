@@ -13,10 +13,16 @@ import numpy as np
 import scipy as sp
 import scipy.stats
 
-import pymc3 as pm
-import theano.tensor as tt
 import arviz as az
-from fastprogress import fastprogress
+try:
+    # optional functionality
+    import pymc3 as pm
+    import theano.tensor as tt
+    from fastprogress import fastprogress
+except ImportError:
+    pm = None
+    tt = None
+    fastprogress = None
 
 from . import analysis_functions as af
 from . import utility as ut

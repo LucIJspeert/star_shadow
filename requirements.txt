@@ -3,9 +3,6 @@ scipy
 numba
 h5py
 astropy
-pymc3
-fastprogress
-theano
-arviz
 matplotlib
+arviz
 corner

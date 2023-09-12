@@ -1908,7 +1908,7 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
     return None
 
 
-def find_period_from_file(file_name, i_sectors=None, data_id='none', overwrite=False, verbose=False):
+def find_period_from_file(file_name, i_sectors=None, data_id='none', save_dir=None, overwrite=False, verbose=False):
     """Do the global period search for a given light curve file
 
     Parameters
@@ -1925,6 +1925,9 @@ def find_period_from_file(file_name, i_sectors=None, data_id='none', overwrite=F
         i_sectors = np.array([[0, len(times)]]).
     data_id: int, str
         User defined identification for the dataset used
+    save_dir: str
+        Path to a directory for saving the results. Also used to load
+        previous analysis results.
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
@@ -1946,7 +1949,8 @@ def find_period_from_file(file_name, i_sectors=None, data_id='none', overwrite=F
     """
     t_a = time.time()
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
-    save_dir = os.path.dirname(file_name)
+    if save_dir is None:
+        save_dir = os.path.dirname(file_name)
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     # if sectors not given, take full length
@@ -1979,7 +1983,7 @@ def find_period_from_file(file_name, i_sectors=None, data_id='none', overwrite=F
 
 
 def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='none',
-                         overwrite=False, verbose=False):
+                         save_dir=None, overwrite=False, verbose=False):
     """Do all steps of the analysis for a given light curve file
 
     Parameters
@@ -2007,6 +2011,9 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
         Fitter is much faster and still accurate
     data_id: int, str
         User defined identification for the dataset used
+    save_dir: str
+        Path to a directory for saving the results. Also used to load
+        previous analysis results.
     overwrite: bool
         If set to True, overwrite old results in the same directory as
         save_dir, or (if False) to continue from the last save-point.
@@ -2028,7 +2035,8 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
     The expected text file format is space separated.
     """
     target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
-    save_dir = os.path.dirname(file_name)
+    if save_dir is None:
+        save_dir = os.path.dirname(file_name)
     # load the data
     times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
     # if sectors not given, take full length
@@ -2087,6 +2095,8 @@ def analyse_lc_from_tic(tic, all_files, p_orb=0, stage='all', method='fitter', d
     Expects to find standardly formatted fits files from the TESS mission
     in the locations provided with all_files.
     """
+    if save_dir is None:
+        save_dir = os.path.dirname(all_files[0])
     # load the data
     lc_data = ut.load_tess_lc(tic, all_files, apply_flags=True)
     times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data

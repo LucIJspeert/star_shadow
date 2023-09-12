@@ -20,6 +20,7 @@ import numpy as np
 import numba as nb
 import scipy as sp
 import scipy.optimize
+
 try:
     import ellc  # optional functionality
 except ImportError:

@@ -9,7 +9,7 @@ from setuptools import setup
 # package version
 MAJOR = 1
 MINOR = 1
-ATTR = '4'
+ATTR = '5'
 # full acronym
 ACRONYM = ('Satellite Time-series Analysis Routine using Sinusoids and Harmonics Automatedly '
            'for Double stars with Occultations and Waves')
@@ -26,7 +26,6 @@ setup(name="star_shadow",
                                     'star_shadow/data/sim_000_lc.dat']},
       include_package_data=True,
       python_requires='>=3.6',
-      install_requires=['numpy', 'scipy', 'numba', 'h5py', 'astropy', 'pymc3', 'fastprogress', 'theano', 'arviz',
-                        'matplotlib', 'corner'],
-      extras_require={'ellc': ['ellc']}
+      install_requires=['numpy', 'scipy', 'numba', 'h5py', 'astropy', 'matplotlib', 'arviz', 'corner'],
+      extras_require={'ellc': ['ellc'], 'mcmc': ['pymc3', 'fastprogress', 'theano']}
      )
