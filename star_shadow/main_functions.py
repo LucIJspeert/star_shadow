@@ -860,8 +860,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
     # check that the model depths are not tiny - if so, use approximations
     depths_th = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
-    if np.any(depths_th < 0.01 * depths):
-        output = eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_err, verbose=verbose)
+    if np.any(depths_th < 0.01 * timings_err[10:]):
+        output = af.eclipse_parameters_approx(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:],
+                                              verbose=verbose)
         ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = output
         logger.info(f'Used formula approximations due to deviant eclipse depth.')
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
