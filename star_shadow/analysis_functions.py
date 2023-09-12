@@ -3140,7 +3140,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     """
     # fit globally for: ecosw, esinw, cosi, phi_0, log_rr, log_sb
     args = (p_orb, timings_tau, depths, timings_err, depths_err)
-    bounds = ((-1, 1), (-1, 1), (0, 0.9), (0, 0.9), (-3, 3), (-3, 3))
+    bounds = ((-1, 1), (-1, 1), (0, 0.9), (0, np.pi / 2), (-3, 3), (-3, 3))
     # SLSQP is actually what it defaults to (and is more consistent than L-BFGS-B)
     result = sp.optimize.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})

@@ -1472,24 +1472,23 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par
     # initial parameters and bounds
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat)
     par_init = (ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset_init)
-    # upper bound for cosi is restricted because the measurement is sort of an upper limit
-    par_bounds = ((max(ecosw - 3 * ecosw_err, -1), min(ecosw + 3 * ecosw_err, 1)),
-                  (max(esinw - 3 * esinw_err, -1), min(esinw + 3 * esinw_err, 1)),
-                  (max(cosi - 3 * cosi_err, 0), min(cosi + 0.001, 0.9)),
-                  (max(phi_0 - 3 * phi_0_err, 0), min(phi_0 + 3 * phi_0_err, 0.9)),
-                  (max(log_rr - 3 * log_rr_err, -3), min(log_rr + 3 * log_rr_err, 3)),
-                  (max(log_sb - 3 * log_sb_err, -3), min(log_sb + 3 * log_sb_err, 3)), (-1, 1))
+    # limit bounds for fit if errors big (ubound for cosi is restricted - its measurement is sort of an upper limit)
+    par_bounds = ((min(max(ecosw - min(3 * ecosw_err, 0.2), -1), 0.9),
+                   min(max(ecosw + min(3 * ecosw_err, 0.2), -0.9), 1)),
+                  (min(max(esinw - min(3 * esinw_err, 0.2), -1), 0.9),
+                   min(max(esinw + min(3 * esinw_err, 0.2), -0.9), 1)),
+                  (min(max(cosi - min(3 * cosi_err, 0.2), 0), 0.7),
+                   min(max(cosi + min(3 * cosi_err, 0.001), 0.1), 0.9)),
+                  (min(max(phi_0 - min(3 * phi_0_err, 0.1), 0), 0.7),
+                   min(max(phi_0 + min(3 * phi_0_err, 0.1), 0.3), 1.57)),
+                  (min(max(log_rr - min(3 * log_rr_err, 1), -3), 1),
+                   min(max(log_rr + min(3 * log_rr_err, 1), -1), 3)),
+                  (min(max(log_sb - min(3 * log_sb_err, 1), -3), 1),
+                   min(max(log_sb + min(3 * log_sb_err, 1), -1), 3)), (-1, 1))
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
     # do a local fit and then a global fit within bounds to compare
     result_a = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                     bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
-    # limit bounds for global fit if errors are big
-    par_bounds = ((max(ecosw - min(3 * ecosw_err, 0.2), -1), min(ecosw + min(3 * ecosw_err, 0.2), 1)),
-                  (max(esinw - min(3 * esinw_err, 0.2), -1), min(esinw + min(3 * esinw_err, 0.2), 1)),
-                  (max(cosi - min(3 * cosi_err, 0.2), 0), min(cosi + 0.001, 0.9)),
-                  (max(phi_0 - min(3 * phi_0_err, 0.1), 0), min(phi_0 + min(3 * phi_0_err, 0.1), 0.9)),
-                  (max(log_rr - 3 * log_rr_err, -3), min(log_rr + 3 * log_rr_err, 3)),
-                  (max(log_sb - 3 * log_sb_err, -3), min(log_sb + 3 * log_sb_err, 3)), (-1, 1))
     result_b = sp.optimize.shgo(objective_physcal_lc, args=arguments, bounds=par_bounds,
                                 minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
     # compare objective function values
@@ -1959,7 +1958,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
         # fit only the frequencies in this group (and eclipse model, constant and slope)
         par_init = np.concatenate((res_ecl_par, res_const, res_slope, res_freqs[group], res_ampls[group],
                                    res_phases[group]))
-        par_bounds = [(-1, 1), (-1, 1), (0, 1), (0, 1), (-3, 3), (-3, 3)]
+        par_bounds = [(-1, 1), (-1, 1), (0, 0.9), (0, 1.57), (-3, 3), (-3, 3)]
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin_g)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
