@@ -866,7 +866,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = output
         logger.info(f'Used formula approximations due to deviant eclipse depth.')
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
-    i_err_est = 0.087  # fairly good guess at the inability to pinpoint i (5 degrees)
+    i_err_est = 0.035  # fairly good guess at the inability to pinpoint i (2 degrees)
     cosi_err_est = np.sin(i_err_est)
     formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
     # calculate the errors for cosi, log_rr, log_sb with importance sampling
@@ -1940,7 +1940,8 @@ def find_period_from_file(file_name, i_sectors=None, data_id='none', save_dir=No
 
     Notes
     -----
-    Results are saved in the same directory as the given file
+    If save_dir is not given, results are saved in the same directory as
+    the given light curve file (will create a subfolder)
 
     The input text files are expected to have three columns with in order:
     times (bjd), signal (flux), signal_err (flux error)
@@ -2026,8 +2027,8 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
 
     Notes
     -----
-    Results are saved in the same directory as the given file
-    (will create a subfolder)
+    If save_dir is not given, results are saved in the same directory as
+    the given light curve file (will create a subfolder)
     
     The input text files are expected to have three columns with in order:
     times (bjd), signal (flux), signal_err (flux error)
@@ -2089,8 +2090,8 @@ def analyse_lc_from_tic(tic, all_files, p_orb=0, stage='all', method='fitter', d
     
     Notes
     -----
-    Results are saved in the same directory as the given file
-    (will create a subfolder)
+    If save_dir is not given, results are saved in the same directory as
+    the given light curve files (will create a subfolder)
     
     Expects to find standardly formatted fits files from the TESS mission
     in the locations provided with all_files.
