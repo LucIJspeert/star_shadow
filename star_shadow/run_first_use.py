@@ -21,5 +21,5 @@ script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the scri
 data_dir = script_dir.replace('star_shadow', 'data')
 file = os.path.join(data_dir, 'sim_000_lc.dat')
 # execute the code
-sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='', overwrite=True,
-                         verbose=True)
+sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='', save_dir=None,
+                         overwrite=True, verbose=True)
