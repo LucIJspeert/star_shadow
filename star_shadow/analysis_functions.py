@@ -1381,17 +1381,18 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     # calculate duration error
     widths_err = np.sqrt(t_i_1_err**2 + t_i_2_err**2)
     # remove too shallow and too narrow eclipses
-    remove_shallow = (depths > noise_level / 4)
-    remove_narrow = (widths > 3 * widths_err)
-    ecl_indices = ecl_indices[remove_shallow]
-    ecl_min = ecl_min[remove_shallow]
-    ecl_mid = ecl_mid[remove_shallow]
-    widths = widths[remove_shallow]
-    depths = depths[remove_shallow]
-    t_i_1_err = t_i_1_err[remove_shallow]
-    t_i_2_err = t_i_2_err[remove_shallow]
-    t_b_i_1_err = t_b_i_1_err[remove_shallow]
-    t_b_i_2_err = t_b_i_2_err[remove_shallow]
+    keep_shallow = (depths > noise_level / 4)
+    keep_narrow = (widths > 3 * widths_err)
+    keep = (keep_shallow & keep_narrow)
+    ecl_indices = ecl_indices[keep]
+    ecl_min = ecl_min[keep]
+    ecl_mid = ecl_mid[keep]
+    widths = widths[keep]
+    depths = depths[keep]
+    t_i_1_err = t_i_1_err[keep]
+    t_i_2_err = t_i_2_err[keep]
+    t_b_i_1_err = t_b_i_1_err[keep]
+    t_b_i_2_err = t_b_i_2_err[keep]
     return (ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err,
             t_b_i_1_err, t_b_i_2_err)
 
