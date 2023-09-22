@@ -1306,6 +1306,10 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
 
     Returns
     -------
+    ecl_indices: numpy.ndarray[int]
+        Two dimensional array of eclipse indices.
+        Each eclipse has indices corresponding to
+        several prominent points.
     ecl_min: numpy.ndarray[float]
         Times of the eclipse minima
     ecl_mid: numpy.ndarray[float]
@@ -1376,6 +1380,7 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     depths[d2_larger] = depths_2[d2_larger]  # max no support for optional args numba
     # remove too shallow eclipses
     remove_shallow = (depths > noise_level / 4)
+    ecl_indices = ecl_indices[remove_shallow]
     ecl_min = ecl_min[remove_shallow]
     ecl_mid = ecl_mid[remove_shallow]
     widths = widths[remove_shallow]
@@ -1384,7 +1389,8 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     t_i_2_err = t_i_2_err[remove_shallow]
     t_b_i_1_err = t_b_i_1_err[remove_shallow]
     t_b_i_2_err = t_b_i_2_err[remove_shallow]
-    return ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
+    return (ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err,
+            t_b_i_1_err, t_b_i_2_err)
 
 
 @nb.njit(cache=True)
@@ -1498,7 +1504,11 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
             comb_remove = np.append(comb_remove, i)
     remove_mask = np.ones(len(combinations), dtype=np.bool_)
     remove_mask[comb_remove] = False
+    print(p_orb)
+    print(combinations)
+    print(comb_remove)
     combinations = combinations[remove_mask]  # delete only has first two args in numba
+    print(combinations)
     if (len(combinations) == 0):
         return np.zeros(0, dtype=np.int_), False
     # sum of depths should be largest for the most complete set of eclipses
@@ -1610,6 +1620,15 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     harmonics, harmonic_n = find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     f_h, a_h, ph_h = f_n[harmonics], a_n[harmonics], ph_n[harmonics]
     n_fold = 1  # just in case it is never initialised
+
+
+    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
+    model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
+    import matplotlib.pyplot as plt
+    plt.plot(t_model, model_h)
+    
+    
+    
     for i, n in enumerate([20, 40, np.max(harmonic_n)]):
         low_h = (harmonic_n <= n)  # restrict harmonics to avoid interference of high frequencies
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
@@ -1620,12 +1639,16 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_a
         ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
                                         peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
+
+        plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+
         # measure them up
         output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
-        ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b
+        ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_b[:7]
+        t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b[7:]
         if (len(ecl_min) == 0):
             continue
-        # pick the best pair
+        # see if we can identify a best pair (only done as a check)
         best_comb, n_fold = select_eclipses(p_orb, ecl_min, widths, depths)
         if (len(best_comb) == 0):
             continue
@@ -1637,12 +1660,27 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return np.zeros((0, 15), dtype=np.int_), n_fold
     elif (len(best_comb) == 0):
         return ecl_indices[0, np.newaxis], n_fold
+    
+    
+    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+    
+    
     # select the best combination of eclipses
-    ecl_indices = ecl_indices[best_comb]
+    # ecl_indices = ecl_indices[best_comb]
+    print(len(ecl_indices), len(ecl_min))
+    plt.scatter(t_model[ecl_indices[best_comb]], model_h[ecl_indices[best_comb]])
+
+    
     # prepare zeros_1_in and slope_sign for refinement step
-    sorter = np.array([0, 2, 1, 3])
-    zeros_1 = np.append(ecl_indices[:, 0], ecl_indices[:, -1])[sorter]
-    zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])[sorter]
+    # sorter = np.array([0, 2, 1, 3])
+    # zeros_1 = np.append(ecl_indices[:, 0], ecl_indices[:, -1])[sorter]
+    # zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])[sorter]
+    
+    # prepare the starting points for refinement
+    zeros_1 = np.append(ecl_indices[:, 0], ecl_indices[:, -1])
+    zeros_1 = np.sort(zeros_1)  # should sort properly (overlap was taken care of)
+    zeros_1_in = np.append(ecl_indices[:, 6], ecl_indices[:, -7])
+    zeros_1_in = np.sort(zeros_1_in)  # should sort properly (overlap was taken care of)
     # refine measurements for the selected eclipses by using all harmonics (or fewer if necessary)
     if (i < 2):
         for n in [np.max(harmonic_n), 40, 20]:
@@ -1656,11 +1694,33 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
             ecl_indices_ref = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign,
                                                 zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
             # too small depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
-            if (len(ecl_indices_ref) == 2):
+            # if (len(ecl_indices_ref) == 2):
+            if (len(ecl_indices_ref) >= 2):
                 break
     else:
         ecl_indices_ref = ecl_indices
     ecl_indices = ecl_indices_ref
+   
+    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+
+    # measure them up
+    output_d = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
+    ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_d[:7]
+    t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_d[7:]
+    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+    # pick the best pair
+    print(ecl_min, widths, depths)
+    print(len(ecl_indices), len(ecl_min))
+
+    best_comb, n_fold = select_eclipses(p_orb, ecl_min, widths, depths)
+    print(best_comb)
+    print(ecl_indices)
+    ecl_indices = ecl_indices[best_comb]
+    
+    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+
+    
+    # raise
     return ecl_indices, n_fold
 
 
@@ -1716,7 +1776,8 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
         low_h = (harmonic_n <= n)
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
         output = measure_eclipses(t_model, model_h, ecl_indices, 0)
-        ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output
+        ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output[:7]
+        t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output[7:]
         # negative depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
         if (len(ecl_min) == 2):
             break
