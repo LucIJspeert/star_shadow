@@ -1274,16 +1274,16 @@ def assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1
         combinations = np.append(combinations, np.column_stack((ecl_1, ecl_2)), axis=0)
     ecl_remove = []
     for comb in combinations:
-        overlap_1 = (ecl_indices[comb[0], 2] >= ecl_indices[comb[1], 2])
+        overlap_1 = (ecl_indices[comb[0], 2] > ecl_indices[comb[1], 2])
         overlap_1 &= (ecl_indices[comb[0], 2] < ecl_indices[comb[1], -3])
-        overlap_2 = (ecl_indices[comb[0], 2] <= ecl_indices[comb[1], 2])
-        overlap_2 &= (ecl_indices[comb[0], -3] > ecl_indices[comb[1], 2])
+        overlap_2 = (ecl_indices[comb[0], -3] > ecl_indices[comb[1], 2])
+        overlap_2 &= (ecl_indices[comb[0], -3] < ecl_indices[comb[1], -3])
         if (overlap_1 | overlap_2):
             peak_height = deriv_1[ecl_indices[comb, -4]] - deriv_1[ecl_indices[comb, 3]]
             ecl_remove.append(comb[np.argmin(peak_height)])
-    remove_mask = np.ones(len(ecl_indices), dtype=np.bool_)
-    remove_mask[np.array(ecl_remove).astype(np.int_)] = False
-    ecl_indices = ecl_indices[remove_mask]  # delete only first two args in numba
+    keep_mask = np.ones(len(ecl_indices), dtype=np.bool_)
+    keep_mask[np.array(ecl_remove).astype(np.int_)] = False
+    ecl_indices = ecl_indices[keep_mask]  # delete has only first two args in numba
     return ecl_indices
 
 
@@ -1508,11 +1508,7 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
             comb_remove = np.append(comb_remove, i)
     remove_mask = np.ones(len(combinations), dtype=np.bool_)
     remove_mask[comb_remove] = False
-    print(p_orb)
-    print(combinations)
-    print(comb_remove)
     combinations = combinations[remove_mask]  # delete only has first two args in numba
-    print(combinations)
     if (len(combinations) == 0):
         return np.zeros(0, dtype=np.int_), False
     # sum of depths should be largest for the most complete set of eclipses
@@ -1626,10 +1622,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     n_fold = 1  # just in case it is never initialised
 
 
-    low_h = (harmonic_n <= 20)  # restrict harmonics to avoid interference of high frequencies
-    model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
     import matplotlib.pyplot as plt
-    plt.plot(t_model, model_h)
     
     
     
@@ -1644,7 +1637,10 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         ecl_indices = assemble_eclipses(p_orb, t_model, deriv_1, deriv_2, model_h, t_gaps, peaks_1, slope_sign, zeros_1,
                                         peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
 
-        plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+        plt.plot(t_model, model_h)
+        plt.scatter(t_model[peaks_1], model_h[peaks_1], c='tab:olive')
+        plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:blue')
+        plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:blue')
 
         # measure them up
         output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
@@ -1664,15 +1660,15 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return np.zeros((0, 15), dtype=np.int_), n_fold
     elif (len(best_comb) == 0):
         return ecl_indices[0, np.newaxis], n_fold
-    
-    
-    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+
+    plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:orange')
+    plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:orange')
     
     
     # select the best combination of eclipses
     # ecl_indices = ecl_indices[best_comb]
-    print(len(ecl_indices), len(ecl_min))
-    plt.scatter(t_model[ecl_indices[best_comb]], model_h[ecl_indices[best_comb]])
+    plt.scatter(t_model[ecl_indices[:, 3][best_comb]], model_h[ecl_indices[:, 3][best_comb]], c='tab:green')
+    plt.scatter(t_model[ecl_indices[:, -4][best_comb]], model_h[ecl_indices[:, -4][best_comb]], c='tab:green')
 
     
     # prepare zeros_1_in and slope_sign for refinement step
@@ -1705,26 +1701,24 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         ecl_indices_ref = ecl_indices
     ecl_indices = ecl_indices_ref
    
-    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+    plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:red')
+    plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:red')
 
     # measure them up
     output_d = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
     ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_d[:7]
     t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_d[7:]
-    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+    plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:purple')
+    plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:purple')
     # pick the best pair
-    print(ecl_min, widths, depths)
-    print(len(ecl_indices), len(ecl_min))
-
     best_comb, n_fold = select_eclipses(p_orb, ecl_min, widths, depths)
-    print(best_comb)
-    print(ecl_indices)
     ecl_indices = ecl_indices[best_comb]
     
-    plt.scatter(t_model[ecl_indices], model_h[ecl_indices])
+    plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:brown')
+    plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:brown')
 
     
-    # raise
+    raise
     return ecl_indices, n_fold
 
 
