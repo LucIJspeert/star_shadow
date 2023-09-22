@@ -1378,8 +1378,11 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     depths = np.copy(depths_1)
     d2_larger = (depths_2 > depths_1)
     depths[d2_larger] = depths_2[d2_larger]  # max no support for optional args numba
-    # remove too shallow eclipses
+    # calculate duration error
+    widths_err = np.sqrt(t_i_1_err**2 + t_i_2_err**2)
+    # remove too shallow and too narrow eclipses
     remove_shallow = (depths > noise_level / 4)
+    remove_narrow = (widths > 3 * widths_err)
     ecl_indices = ecl_indices[remove_shallow]
     ecl_min = ecl_min[remove_shallow]
     ecl_mid = ecl_mid[remove_shallow]
