@@ -503,7 +503,7 @@ def plot_lc_derivatives(p_orb, f_h, a_h, ph_h, ecl_indices, save_file=None, show
 
 def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope, f_n, a_n, ph_n, timings_em, depths_em,
                             heights_em, timings_err, depths_err, i_sectors, save_file=None, show=True):
-    """Shows the initial and final simple empirical cubic function eclipse model
+    """Shows the initial and final simple empirical function eclipse model
     """
     # unpack/define parameters
     t_zero_init = timings[0]
@@ -563,7 +563,7 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     ax[0].plot([timings[3], timings[3]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings[4], timings[4]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings[5], timings[5]], s_minmax, ':', c='tab:grey')
-    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label='eclipse edges (cubics)')
+    ax[0].plot([t_1_1, t_1_1], s_minmax, '--', c='tab:purple', label='eclipse edges')
     ax[0].plot([t_1_2, t_1_2], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_1, t_2_1], s_minmax, '--', c='tab:purple')
     ax[0].plot([t_2_2, t_2_2], s_minmax, '--', c='tab:purple')
@@ -638,7 +638,7 @@ def plot_lc_empirical_model(times, signal, p_orb, timings, depths, const, slope,
     ax[1].plot([timings[3], timings[3]], s_minmax_r, ':', c='tab:grey')
     ax[1].plot([timings[4], timings[4]], s_minmax_r, ':', c='tab:grey')
     ax[1].plot([timings[5], timings[5]], s_minmax_r, ':', c='tab:grey')
-    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='tab:purple', label='eclipse edges (cubics)')
+    ax[1].plot([t_1_1, t_1_1], s_minmax_r, '--', c='tab:purple', label='eclipse edges')
     ax[1].plot([t_1_2, t_1_2], s_minmax_r, '--', c='tab:purple')
     ax[1].plot([t_2_1, t_2_1], s_minmax_r, '--', c='tab:purple')
     ax[1].plot([t_2_2, t_2_2], s_minmax_r, '--', c='tab:purple')
@@ -1181,7 +1181,7 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings
                label='(linear + sinusoid + eclipse) model')
     ax[0].plot(t_extended[sorter], model_ecl_init[sorter], c='tab:orange', label='initial physical eclipse model')
     ax[0].plot(t_extended[sorter], model_ecl_2[sorter], c='tab:red', label='final physical eclipse model')
-    ax[0].plot([timings_init[2], timings_init[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges (cubics)')
+    ax[0].plot([timings_init[2], timings_init[2]], s_minmax, ':', c='tab:grey', label='previous eclipse edges')
     ax[0].plot([timings_init[3], timings_init[3]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings_init[4], timings_init[4]], s_minmax, ':', c='tab:grey')
     ax[0].plot([timings_init[5], timings_init[5]], s_minmax, ':', c='tab:grey')
@@ -1198,7 +1198,7 @@ def plot_lc_physical_model_h(times, signal, p_orb, t_zero, timings_init, timings
     ax[1].plot(t_extended[sorter], model_r_h[sorter], c='tab:brown', alpha=0.8, label='candidate harmonics')
     ax[1].plot(t_extended[sorter], model_r_p_h[sorter], c='tab:red', label='candidate harmonics passing criteria')
     ax[1].plot([timings_init[2], timings_init[2]], s_minmax_r, ':', c='tab:grey',
-               label='previous eclipse edges (cubics)')
+               label='previous eclipse edges')
     ax[1].plot([timings_init[3], timings_init[3]], s_minmax_r, ':', c='tab:grey')
     ax[1].plot([timings_init[4], timings_init[4]], s_minmax_r, ':', c='tab:grey')
     ax[1].plot([timings_init[5], timings_init[5]], s_minmax_r, ':', c='tab:grey')

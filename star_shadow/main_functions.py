@@ -856,35 +856,39 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
     # minimisation procedure for parameters from formulae
-    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
+    out_a = af.eclipse_parameters_approx(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:],
+                                         verbose=verbose)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
-    # check that the model depths are not tiny - if so, use approximations
-    depths_th = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
-    if np.any(depths_th < 0.01 * timings_err[10:]):
-        output = af.eclipse_parameters_approx(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:],
-                                              verbose=verbose)
-        ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = output
-        logger.info(f'Used formula approximations due to deviant eclipse depth.')
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
     i_err_est = 0.035  # fairly good guess at the inability to pinpoint i (2 degrees)
     cosi_err_est = np.sin(i_err_est)
     formal_errors = af.formal_uncertainties(e, w, i, p_orb, *timings_tau[:6], p_err, i_err_est, *timings_err[:6])
+    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
     # calculate the errors for cosi, log_rr, log_sb with importance sampling
     out_b = af.error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings[:10], timings[10:],
                                    p_err, timings_err[:10], timings_err[10:], p_t_corr, verbose=verbose)
     errors, dists_in, dists_out = out_b
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
+    # for 'formal' errors in r_rat and sb_rat scale their errors up using the formal error of e
+    e_err_factor = max(sigma_e / e_err[0], sigma_e / e_err[1])  # hope that (e_err_factor > 1)?
+    sigma_log_rr = max(log_rr_err * e_err_factor)
+    sigma_log_sb = max(log_sb_err * e_err_factor)
+    sigma_r_rat = abs(sigma_log_rr / log_rr) * r_rat
+    sigma_sb_rat = abs(sigma_log_sb / log_sb) * sb_rat
     # take the bigger error if sigma is bigger
-    sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
     e_err = np.array([max(e_err[0], sigma_e), max(e_err[1], sigma_e)])
     w_err = np.array([max(w_err[0], sigma_w), max(w_err[1], sigma_w)])
     i_err = np.array([max(i_err[0], i_err_est), max(i_err[1], i_err_est)])
     r_sum_err = np.array([max(r_sum_err[0], sigma_r_sum), max(r_sum_err[1], sigma_r_sum)])
+    r_rat_err = np.array([max(r_rat_err[0], sigma_r_rat), max(r_rat_err[1], sigma_r_rat)])
+    sb_rat_err = np.array([max(sb_rat_err[0], sigma_sb_rat), max(sb_rat_err[1], sigma_sb_rat)])
     ecosw_err = np.array([max(ecosw_err[0], sigma_ecosw), max(ecosw_err[1], sigma_ecosw)])
     esinw_err = np.array([max(esinw_err[0], sigma_esinw), max(esinw_err[1], sigma_esinw)])
     cosi_err = np.array([max(cosi_err[0], cosi_err_est), max(cosi_err[1], cosi_err_est)])
     phi_0_err = np.array([max(phi_0_err[0], sigma_phi_0), max(phi_0_err[1], sigma_phi_0)])
+    log_rr_err = np.array([max(log_rr_err[0], sigma_log_rr), max(log_rr_err[1], sigma_log_rr)])
+    log_sb_err = np.array([max(log_sb_err[0], sigma_log_sb), max(log_sb_err[1], sigma_log_sb)])
     errors = np.array([ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err,
                        e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err])
     # check physical result
@@ -894,8 +898,8 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     ephem = np.array([p_orb, timings[0]])
     ephem_err = np.array([p_err, timings_err[0]])
     phys_mean = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat])
-    phys_err = np.array([sigma_ecosw, sigma_esinw, cosi_err_est, sigma_phi_0, -1, -1,
-                         sigma_e, sigma_w, i_err_est, sigma_r_sum, -1, -1])
+    phys_err = np.array([sigma_ecosw, sigma_esinw, cosi_err_est, sigma_phi_0, sigma_log_rr, sigma_log_sb,
+                         sigma_e, sigma_w, i_err_est, sigma_r_sum, sigma_r_rat, sigma_sb_rat])
     desc = 'Eclipse elements from timings.'
     ut.save_parameters_hdf5(file_name, ephem=ephem, ephem_err=ephem_err, phys_mean=phys_mean, phys_err=phys_err,
                             phys_hdi=errors, timings=timings, timings_err=timings_err, description=desc,

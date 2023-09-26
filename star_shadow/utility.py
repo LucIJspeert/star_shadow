@@ -1619,7 +1619,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     """
     prew_par = -np.ones(7)
     timings_par = -np.ones(36)
-    form_par = -np.ones(21)
+    form_par = -np.ones(48)
     fit_par = -np.ones(39)
     freqs_par = -np.ones(5, dtype=int)
     level_par = -np.ones(12)
@@ -1656,13 +1656,17 @@ def save_summary(target_id, save_dir, data_id='none'):
     if os.path.isfile(file_name):
         results = read_parameters_hdf5(file_name, verbose=False)
         ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = results['phys_mean']
-        sigma_ecosw, sigma_esinw, _, sigma_phi_0, _, _, sigma_e, sigma_w, _, sigma_r_sum, _, _ = results['phys_err']
-        # ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
+        sigma_ecosw, sigma_esinw, sigma_cosi, sigma_phi_0, sigma_log_rr, sigma_log_sb = results['phys_err'][:6]
+        sigma_e, sigma_w, sigma_i, sigma_r_sum, sigma_r_rat, sigma_sb_rat = results['phys_err'][6:]
+        ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = results['phys_hdi'][:6]
         e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = results['phys_hdi'][6:]
-        elem = [e, w, i, r_sum, r_rat, sb_rat, sigma_e, sigma_w, sigma_r_sum,
-                e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1],
-                r_sum_err[0], r_sum_err[1], r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1]]
-        form_par = elem
+        form_par = [ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat,
+                    sigma_ecosw, sigma_esinw, sigma_cosi, sigma_phi_0, sigma_log_rr, sigma_log_sb,
+                    sigma_e, sigma_w, sigma_i, sigma_r_sum, sigma_r_rat, sigma_sb_rat,
+                    ecosw_err[0], ecosw_err[1], esinw_err[0], esinw_err[1], cosi_err[0], cosi_err[1],
+                    phi_0_err[0], phi_0_err[1], log_rr_err[0], log_rr_err[1], log_sb_err[0], log_sb_err[1],
+                    e_err[0], e_err[1], w_err[0], w_err[1], i_err[0], i_err[1],
+                    r_sum_err[0], r_sum_err[1], r_rat_err[0], r_rat_err[1], sb_rat_err[0], sb_rat_err[1]]
     # load parameter results from physical model fit (8)
     file_name = os.path.join(save_dir, f'{target_id}_analysis_8.hdf5')
     if os.path.isfile(file_name):
@@ -1695,8 +1699,12 @@ def save_summary(target_id, save_dir, data_id='none'):
            't_b_1_1_err', 't_b_1_2_err', 't_b_2_1_err', 't_b_2_2_err', 'd_1_err', 'd_2_err',
            't_1_ind_err', 't_2_ind_err', 't_1_1_ind_err', 't_1_2_ind_err', 't_2_1_ind_err', 't_2_2_ind_err',
            't_b_1_1_ind_err', 't_b_1_2_ind_err', 't_b_2_1_ind_err', 't_b_2_2_ind_err', 'd_1_ind_err', 'd_2_ind_err',
+           'ecosw_form', 'esinw_form', 'cosi_form', 'phi_0_form', 'log_rr_form', 'log_sb_form',
            'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
-           'e_sig', 'w_sig', 'r_sum_sig',
+            'ecosw_sig', 'esinw_sig', 'cosi_sig', 'phi_0_sig', 'log_rr_sig', 'log_sb_sig',
+           'e_sig', 'w_sig', 'i_sig', 'r_sum_sig', 'r_rat_sig', 'sb_rat_sig',
+           'ecosw_low', 'ecosw_upp', 'esinw_low', 'esinw_upp', 'cosi_low', 'cosi_upp',
+           'phi_0_low', 'phi_0_upp', 'log_rr_low', 'log_rr_upp', 'log_sb_low', 'log_sb_upp',
            'e_low', 'e_upp', 'w_low', 'w_upp', 'i_low', 'i_upp',
            'r_sum_low', 'r_sum_upp', 'r_rat_low', 'r_rat_upp', 'sb_rat_low', 'sb_rat_upp',
            'ecosw_phys', 'esinw_phys', 'cosi_phys', 'phi_0_phys', 'log_rr_phys', 'log_sb_phys',
@@ -1744,11 +1752,26 @@ def save_summary(target_id, save_dir, data_id='none'):
             'individual error in start of (flat) eclipse bottom left of secondary minimum',
             'individual error in end of (flat) eclipse bottom right of secondary minimum',
             'individual error in depth of primary minimum', 'individual error in depth of secondary minimum',
+            'e*cos(w) from timing formulae', 'e*sin(w) from timing formulae',
+            'cosine of inclination from timing formulae', 'phi_0 angle (Kopal 1959) from timing formulae',
+            'logarithm of the radius ratio r2/r1 from timing formulae',
+            'logarithm of the surface brightness ratio sb2/sb1 from timing formulae',
             'eccentricity from timing formulae', 'argument of periastron (radians) from timing formulae',
             'inclination (radians) from timing formulae',
             'sum of radii divided by the semi-major axis of the relative orbit from timing formulae',
             'radius ratio r2/r1 from timing formulae', 'surface brightness ratio sb2/sb1 from timing formulae',
-            'formal uncorrelated error in e', 'formal uncorrelated error in w', 'formal uncorrelated error in r_sum',
+            'formal uncorrelated error in ecosw', 'formal uncorrelated error in esinw',
+            'error estimate for cosi used for formal errors', 'formal uncorrelated error in phi_0',
+            'scaled error formal estimate for log_rr', 'scaled formal error estimate for log_sb',
+            'formal uncorrelated error in e', 'formal uncorrelated error in w',
+            'error estimate for i used for formal errors', 'formal uncorrelated error in r_sum',
+            'scaled error formal estimate for r_rat', 'scaled error formal estimate for sb_rat',
+            'upper error estimate in ecosw', 'lower error estimate in ecosw',
+            'upper error estimate in esinw', 'lower error estimate in esinw',
+            'upper error estimate in cosi', 'lower error estimate in cosi',
+            'upper error estimate in phi_0', 'lower error estimate in phi_0',
+            'upper error estimate in log_rr', 'lower error estimate in log_rr',
+            'upper error estimate in log_sb', 'lower error estimate in log_sb',
             'upper error estimate in e', 'lower error estimate in e',
             'upper error estimate in w', 'lower error estimate in w',
             'upper error estimate in i', 'lower error estimate in i',
