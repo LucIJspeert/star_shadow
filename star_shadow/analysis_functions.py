@@ -1011,6 +1011,7 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
     return depth_1, depth_2
 
 
+# @nb.njit(cache=True)
 def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
     """Find and refine the prominent eclipse signatures
     
@@ -1076,7 +1077,8 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
-def refine_eclipse_peaks(model_h, deriv_1, deriv_2, zeros_1, zeros_1_in):
+# @nb.njit(cache=True)
+def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
     """Refine existing prominent eclipse signatures
 
     Parameters
@@ -1087,8 +1089,8 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, zeros_1, zeros_1_in):
         Derivative of the sinusoids at t_model
     deriv_2: numpy.ndarray[float]
         Second derivative of the sinusoids at t_model
-    zeros_1: numpy.ndarray[int]
-        Set of indices indicating inner zero points in deriv_1
+    peaks_1: numpy.ndarray[int]
+        Set of indices indicating extrema in deriv_1
     zeros_1_in: numpy.ndarray[int]
         Set of indices indicating inner zero points in deriv_1
 
@@ -1121,47 +1123,66 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, zeros_1, zeros_1_in):
     the larger number of harmonics used here.
     """
     max_i = len(deriv_1) - 1
+    p1_orig = np.copy(peaks_1)
     # adjust zeros_1_in to the new zero
     slope_sign_tmp = np.sign(deriv_1[zeros_1_in]).astype(int)
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='zero')
     # make sure we are as close to zero as possible
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='down_abs')
     # find the extrema in deriv_1 between zeros_1 and zeros_1_in
-    l_side = (zeros_1 < zeros_1_in)  # left side (ingress)
-    peaks_1 = np.zeros(len(zeros_1), dtype=int)
-    peaks_1[l_side] = [z1 + np.argmin(deriv_1[z1:z1i]) for z1i, z1 in zip(zeros_1_in[l_side], zeros_1[l_side])]
-    peaks_1[~l_side] = [z1i + np.argmax(deriv_1[z1i:z1]) for z1i, z1 in zip(zeros_1_in[~l_side], zeros_1[~l_side])]
+    l_side = (p1_orig < zeros_1_in)  # left side (ingress)
+    peaks_1 = np.zeros(len(p1_orig), dtype=int)
+    peaks_1[l_side] = [z1 + np.argmin(deriv_1[z1:z1i]) for z1i, z1 in zip(zeros_1_in[l_side], p1_orig[l_side])]
+    peaks_1[~l_side] = [z1i + np.argmax(deriv_1[z1i:z1]) for z1i, z1 in zip(zeros_1_in[~l_side], p1_orig[~l_side])]
     # define the actual slope_sign
     slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
-    # adjust zeros_1 to the new zero - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
-    new_zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
-    zeros_1[l_side] = [max(z1, z1n) for z1n, z1 in zip(new_zeros_1[l_side], zeros_1[l_side])]
-    zeros_1[~l_side] = [min(z1, z1n) for z1n, z1 in zip(new_zeros_1[~l_side], zeros_1[~l_side])]
-    
-    # check height of secondary peaks outward of peaks_1 (limited to zeros_1)
-    loc_peaks_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='down_abs')
-    sec_peaks_1 = curve_walker(deriv_1, loc_peaks_1, slope_sign, mode='up_abs')
-    sec_peaks_1[l_side] = [sp1 if (sp1 > z1) else p1
-                           for p1, sp1, z1 in zip(peaks_1[l_side], sec_peaks_1[l_side], zeros_1[l_side])]
-    sec_peaks_1[~l_side] = [sp1 if (sp1 < z1) else p1
-                            for p1, sp1, z1 in zip(peaks_1[~l_side], sec_peaks_1[~l_side], zeros_1[~l_side])]
-    check = (np.abs(deriv_1[sec_peaks_1]) > 0.8 * np.abs(deriv_1[peaks_1]))
-    check &= (model_h[sec_peaks_1] > model_h[peaks_1])
-    peaks_1[check] = sec_peaks_1[check]
-    
-    
-    # adjust zeros_1_in in case of multiple zero crossings - walk inward from peaks_1 to zero in deriv_1
-    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
+    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
+    zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
+    # find second peaks outward of peaks_1 - move up then down or down then up
+    walk_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
+    walk_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
+    sec_p1_l = curve_walker(deriv_1, walk_p1_l, slope_sign[l_side], mode='down')
+    sec_p1_r = curve_walker(deriv_1, walk_p1_r, slope_sign[~l_side], mode='up')
+    # limit second peaks to zeros_1 - if they go past, revert to first peaks
+    sec_p1 = np.zeros(len(p1_orig), dtype=int)
+    sec_p1_l = [sp1 if (sp1 > z1) else p1 for p1, sp1, z1 in zip(peaks_1[l_side], sec_p1_l, zeros_1[l_side])]
+    sec_p1_r = [sp1 if (sp1 < z1) else p1 for p1, sp1, z1 in zip(peaks_1[~l_side], sec_p1_r, zeros_1[~l_side])]
+    sec_p1[l_side] = sec_p1_l
+    sec_p1[~l_side] = sec_p1_r
+    # check height of second peaks outward of peaks_1 (limited to zeros_1)
+    check = (np.abs(deriv_1[sec_p1]) > 0.8 * np.abs(deriv_1[peaks_1]))
+    check &= (model_h[sec_p1] > model_h[peaks_1])
+    peaks_1[check] = sec_p1[check]
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
     peaks_2_n = np.array(peaks_2_n).astype(int)
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
+    # adjust zeros_1_in for the case of multiple zero crossings - walk inward from peaks_1 to zero in deriv_1
+    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
     # find the maxima in deriv_2 between peaks_1 and zeros_1_in
     peaks_2_p = [min(p1, z1) + np.argmax(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1_in)]
     peaks_2_p = np.array(peaks_2_p).astype(int)
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
+    # if minimum_1 is inside the original peaks_1, need to walk outward further (but we keep inner points)
+    l_inside = l_side & (minimum_1 > p1_orig)  # left side (ingress) is inside peaks_1_orig
+    r_inside = (~l_side) & (minimum_1 < p1_orig)  # left side (ingress) is inside peaks_1_orig
+    # walk outward analogously to before
+    walk_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
+    walk_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
+    sec_p1_l = curve_walker(deriv_1, walk_p1_l, slope_sign[l_side], mode='down')
+    sec_p1_r = curve_walker(deriv_1, walk_p1_r, slope_sign[~l_side], mode='up')
+    # adjust peaks_1 where needed and redo some steps
+    peaks_1[l_inside] = sec_p1_l[minimum_1[l_side] > p1_orig[l_side]]
+    peaks_1[r_inside] = sec_p1_r[minimum_1[~l_side] < p1_orig[~l_side]]
+    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
+    zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
+    # find the minima in deriv_2 between peaks_1 and zeros_1
+    peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
+    peaks_2_n = np.array(peaks_2_n).astype(int)
+    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
+    minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
 
 
@@ -1214,9 +1235,9 @@ def assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1
     in conjunction with mark_eclipse_peaks.
     
     ecl_indices:
-    ecl = [zeros_1, minimum_1, peaks_2_n, peaks_1, p2p_1, m1i_1,
+    ecl = [z1_1, m1_1, peaks_2_n, peaks_1, p2p_1, m1i_1,
            zeros_1_in, minimum_1_in_mid, zeros_1_in,
-           m1i_2, p2p_2, peaks_1, peaks_2_n, minimum_1, zeros_1]
+           m1i_2, p2p_2, peaks_1, peaks_2_n, m1_2, z1_2]
     """
     # group peaks into pairs with negative and then positive slopes
     indices = np.arange(len(peaks_1))
@@ -1246,56 +1267,30 @@ def assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1
                 gap_cond = False  # at least one side in gap or too big a gap
         condition &= gap_cond
         if condition:
-            # decide about the presence of a flat bottom (deriv_2 has to become negative)
-            z1i_1, z1i_2 = zeros_1_in[comb[0]], zeros_1_in[comb[1]]
-            if (np.min(deriv_2[peaks_2_p[comb[0]]:peaks_2_p[comb[1]] + 1]) > 0):
-                p2p_1, p2p_2 = z1i_1, z1i_2  # adjust peaks_2_p for consistency
-                m1i_1, m1i_2 = z1i_1, z1i_2  # adjust minimum_1_in for consistency
-            else:
-                p2p_1, p2p_2 = peaks_2_p[comb[0]], peaks_2_p[comb[1]]
-                m1i_1, m1i_2 = minimum_1_in[comb[0]], minimum_1_in[comb[1]]
-            # if one side is less than half as deep, remove flat bottom
-            d_l = model_h[peaks_2_n[comb[0]]] - model_h[peaks_2_p[comb[0]]]
-            d_r = model_h[peaks_2_n[comb[1]]] - model_h[peaks_2_p[comb[1]]]
-            if (d_l < d_r / 2):
-                p2p_1, p2p_2 = zeros_1_in[comb[1]], peaks_2_p[comb[1]]
-                m1i_1, m1i_2 = zeros_1_in[comb[1]], minimum_1_in[comb[1]]
-                z1i_1, z1i_2 = zeros_1_in[comb[1]], zeros_1_in[comb[1]]
-            elif (d_r < d_l / 2):
-                p2p_1, p2p_2 = peaks_2_p[comb[0]], zeros_1_in[comb[0]]
-                m1i_1, m1i_2 = minimum_1_in[comb[0]], zeros_1_in[comb[0]]
-                z1i_1, z1i_2 = zeros_1_in[comb[0]], zeros_1_in[comb[0]]
-                # put the eclipse minimum at or in the middle between the minimum_1_in and outter points
-            minimum_1_in_mid = (peaks_2_n[comb[0]] + m1i_1 + m1i_2 + peaks_2_n[comb[1]]) // 4
-            # if this new midpoint falls outside the flat bottom, remove flat bottom
-            if (minimum_1_in_mid < z1i_1) | (minimum_1_in_mid > z1i_2):
-                p2p_1, p2p_2 = minimum_1_in_mid, minimum_1_in_mid
-                m1i_1, m1i_2 = minimum_1_in_mid, minimum_1_in_mid
-                z1i_1, z1i_2 = minimum_1_in_mid, minimum_1_in_mid
+            minimum_1_in_mid = (minimum_1_in[comb[0]] + minimum_1_in[comb[1]]) // 2
             # assemble eclipse indices
             ecl = [zeros_1[comb[0]], minimum_1[comb[0]], peaks_2_n[comb[0]], peaks_1[comb[0]],
-                   p2p_1, m1i_1, z1i_1, minimum_1_in_mid, z1i_2, m1i_2, p2p_2,
+                   peaks_2_p[comb[0]], minimum_1_in[comb[0]], zeros_1_in[comb[0]], minimum_1_in_mid,
+                   zeros_1_in[comb[1]], minimum_1_in[comb[1]], peaks_2_p[comb[1]],
                    peaks_1[comb[1]], peaks_2_n[comb[1]], minimum_1[comb[1]], zeros_1[comb[1]]]
-            # check in the harmonic light curve model that all points in eclipse lie beneath the top points
-            i_mid_ecl = (ecl[2] + ecl[-3]) // 2
-            flux_check_1 = True#np.all(model_h[ecl[2]:i_mid_ecl] <= model_h[ecl[2]] + 0.001 * abs(model_h[ecl[2]]))
-            flux_check_2 = True#np.all(model_h[i_mid_ecl:ecl[-3]] <= model_h[ecl[-3]] + 0.001 * abs(model_h[ecl[-3]]))
-            # and that the flux in a possible flat bottom doesn't go up to similar levels as the rest of the lc
+            # check that the flux in a possible flat bottom doesn't go up to similar levels as the rest of the lc
             h_70 = np.min(model_h[ecl[1]:ecl[-2]]) + 0.7 * np.ptp(model_h[ecl[1]:ecl[-2]])
             if (ecl[4] != ecl[-5]):
-                flux_check_3 = (np.mean(model_h[ecl[4]:ecl[-5]]) <= h_70)
+                flux_check_1 = (np.mean(model_h[ecl[4]:ecl[-5]]) <= h_70)
             else:
-                flux_check_3 = True
+                flux_check_1 = True
             # check depth on either side - if one side is tiny, does not pass
-            flux_check_4 = (d_l > d_r / 8) & (d_r > d_l / 8)
+            d_l = model_h[ecl[1]] - model_h[ecl[5]]
+            d_r = model_h[ecl[-2]] - model_h[ecl[-6]]
+            flux_check_2 = (d_l > d_r / 8) & (d_r > d_l / 8)
             # if all checks succeed, add the eclipse
-            if flux_check_1 & flux_check_2 & flux_check_3 & flux_check_4:
+            if flux_check_1 & flux_check_2:
                 ecl_indices = np.vstack((ecl_indices, np.array([ecl])))
     return ecl_indices
 
 
 @nb.njit(cache=True)
-def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
+def measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level):
     """Measure the times, durations and depths of the eclipses
     
     Parameters
@@ -1344,42 +1339,104 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     with mark_eclipse_peaks.
     Will remove eclipses below noise_level/4
     """
-    # make the timing measurements
-    t_m1_1 = t_model[ecl_indices[:, 1]]  # first times of minimum deriv_1 (from minimum_1)
-    t_m1_2 = t_model[ecl_indices[:, -2]]  # last times of minimum deriv_1 (from minimum_1)
-    t_p2n_1 = t_model[ecl_indices[:, 2]]  # first times of negative extremum deriv_2 (from peaks_2_n)
-    t_p2n_2 = t_model[ecl_indices[:, -3]]  # last times of negative extremum deriv_2 (from peaks_2_n)
-    t_m1i_1 = t_model[ecl_indices[:, 5]]  # first times of inner minimum deriv_1 (from minimum_1_in)
-    t_m1i_2 = t_model[ecl_indices[:, -6]]  # last times of inner minimum deriv_1 (from minimum_1_in)
-    t_p2p_1 = t_model[ecl_indices[:, 4]]  # first times of positive extremum deriv_2 (from peaks_2_p)
-    t_p2p_2 = t_model[ecl_indices[:, -5]]  # last times of positive extremum deriv_2 (from peaks_2_p)
-    ecl_min = t_model[ecl_indices[:, 7]]  # minimum taken from minimum_1_in_mid
+    # take the timing measurements from the indices
+    z1_1 = ecl_indices[:, 0]  # first minimum deriv_1 (from minimum_1)
+    t_z1_1 = t_model[z1_1]  # first times of minimum deriv_1 (from minimum_1)
+    z1_2 = ecl_indices[:, -1]  # last minimum deriv_1 (from minimum_1)
+    t_z1_2 = t_model[z1_2]  # last times of minimum deriv_1 (from minimum_1)
+    m1_1 = ecl_indices[:, 1]  # first minimum deriv_1 (from minimum_1)
+    t_m1_1 = t_model[m1_1]  # first times of minimum deriv_1 (from minimum_1)
+    m1_2 = ecl_indices[:, -2]  # last minimum deriv_1 (from minimum_1)
+    t_m1_2 = t_model[m1_2]  # last times of minimum deriv_1 (from minimum_1)
+    p2n_1 = ecl_indices[:, 2]  # first negative extremum deriv_2 (from peaks_2_n)
+    t_p2n_1 = t_model[p2n_1]  # first times of negative extremum deriv_2 (from peaks_2_n)
+    p2n_2 = ecl_indices[:, -3]  # last negative extremum deriv_2 (from peaks_2_n)
+    t_p2n_2 = t_model[p2n_2]  # last times of negative extremum deriv_2 (from peaks_2_n)
+    p1_1 = ecl_indices[:, 3]  # first negative extremum deriv_2 (from peaks_2_n)
+    t_p1_1 = t_model[p1_1]  # first times of negative extremum deriv_2 (from peaks_2_n)
+    p1_2 = ecl_indices[:, -4]  # last negative extremum deriv_2 (from peaks_2_n)
+    t_p1_2 = t_model[p1_2]  # last times of negative extremum deriv_2 (from peaks_2_n)
+    p2p_1 = ecl_indices[:, 4]  # first positive extremum deriv_2 (from peaks_2_p)
+    t_p2p_1 = t_model[p2p_1]  # first times of positive extremum deriv_2 (from peaks_2_p)
+    p2p_2 = ecl_indices[:, -5]  # last positive extremum deriv_2 (from peaks_2_p)
+    t_p2p_2 = t_model[p2p_2]  # last times of positive extremum deriv_2 (from peaks_2_p)
+    m1i_1 = ecl_indices[:, 5]  # first inner minimum deriv_1 (from minimum_1_in)
+    t_m1i_1 = t_model[m1i_1]  # first times of inner minimum deriv_1 (from minimum_1_in)
+    m1i_2 = ecl_indices[:, -6]  # last inner minimum deriv_1 (from minimum_1_in)
+    t_m1i_2 = t_model[m1i_2]  # last times of inner minimum deriv_1 (from minimum_1_in)
+    z1i_1 = ecl_indices[:, 6]  # first positive extremum deriv_2 (from zeros_1_in)
+    t_z1i_1 = t_model[z1i_1]  # first times of positive extremum deriv_2 (from zeros_1_in)
+    z1i_2 = ecl_indices[:, -7]  # last positive extremum deriv_2 (from zeros_1_in)
+    t_z1i_2 = t_model[z1i_2]  # last times of positive extremum deriv_2 (from zeros_1_in)
+    i_ecl_min = ecl_indices[:, 7]  # minimum taken from minimum_1_in_mid
+    ecl_min = t_model[i_ecl_min]  # minimum taken from minimum_1_in_mid
+    # decide about the presence of a flat bottom
+    m1_mid = (m1_1 + m1_2) // 2
+    m1i_mid = (m1i_1 + m1i_2) // 2
+    d_l = model_h[m1_1] - model_h[m1i_1]
+    d_r = model_h[m1_2] - model_h[m1i_2]
+    d_alt_l = model_h[m1_2] - model_h[m1i_mid]
+    d_alt_r = model_h[m1_1] - model_h[m1i_mid]
+    # deriv_2 has to become negative
+    pos_deriv = np.array([(np.min(deriv_2[p2p_1[i]:p2p_2[i] + 1]) > 0) for i in range(len(p2p_1))])
+    # midpoint of outter points falls outside bottom
+    mid_asym = (m1_mid < z1i_1) | (m1_mid > z1i_2)
+    # depths on each side must be somewhat similar (and if not, changing the bottom should fix it)
+    depth_asym = (d_r < d_l / 2) | (d_l < d_r / 2)
+    depth_alt_sym = (d_alt_l > d_l / 2) & (d_alt_r > d_r / 2)
+    no_bottom = pos_deriv | mid_asym | (depth_asym & depth_alt_sym)
+    p2p_1[no_bottom], p2p_2[no_bottom] = m1i_mid[no_bottom], m1i_mid[no_bottom]
+    m1i_1[no_bottom], m1i_2[no_bottom] = m1i_mid[no_bottom], m1i_mid[no_bottom]
+    z1i_1[no_bottom], z1i_2[no_bottom] = m1i_mid[no_bottom], m1i_mid[no_bottom]
+    # decide on shifting one of the upper edges
+    d_l = model_h[m1_1] - model_h[m1i_1]
+    d_r = model_h[m1_2] - model_h[m1i_2]
+    d_alt_l = model_h[z1_1] - model_h[m1i_1]
+    d_alt_r = model_h[z1_2] - model_h[m1i_2]
+    # depths on each side must be somewhat similar (and if not, changing the top should fix it)
+    depth_asym_l = (d_l < 0.8 * d_r)
+    depth_alt_sym_l = (d_alt_l > 0.8 * d_r) & (d_alt_l < 1.2 * d_r)
+    depth_asym_r = (d_r < 0.8 * d_l)
+    depth_alt_sym_r = (d_alt_r > 0.8 * d_l) & (d_alt_r < 1.2 * d_l)
+    shift_l = depth_asym_l & depth_alt_sym_l
+    shift_r = depth_asym_r & depth_alt_sym_r
+    m1_1[shift_l], m1_2[shift_r] = z1_1[shift_l], z1_2[shift_r]
     # determine the eclipse edges from the midpoint between peaks_2_n and minimum_1
-    t_i_1 = (t_m1_1 + t_p2n_1) / 2
-    t_i_2 = (t_m1_2 + t_p2n_2) / 2
-    indices_t_i_1 = np.searchsorted(t_model, t_i_1)  # if t_model is granular enough, this should be precise enough
-    indices_t_i_2 = np.searchsorted(t_model, t_i_2)  # if t_model is granular enough, this should be precise enough
+    indices_t_i_1 = (m1_1 + p2n_1) // 2
+    indices_t_i_2 = (m1_2 + p2n_2) // 2
     # determine the bottom edges from the midpoint between peaks_2_p and minimum_1_in
-    t_b_i_1 = (t_m1i_1 + t_p2p_1) / 2
-    t_b_i_2 = (t_m1i_2 + t_p2p_2) / 2
-    indices_t_b_i_1 = np.searchsorted(t_model, t_b_i_1)  # if t_model is granular enough, this should be precise enough
-    indices_t_b_i_2 = np.searchsorted(t_model, t_b_i_2)  # if t_model is granular enough, this should be precise enough
+    indices_t_b_i_1 = (m1i_1 + p2p_1) // 2
+    indices_t_b_i_2 = (m1i_2 + p2p_2) // 2
     # use the intervals as 3 sigma limits on either side
-    t_i_1_err = (t_p2n_1 - t_m1_1) / 6
+    t_i_1_err = (t_model[p2n_1] - t_model[m1_1]) / 6
     t_i_1_err[t_i_1_err == 0] = 0.00001  # avoid zeros
-    t_i_2_err = (t_m1_2 - t_p2n_2) / 6
+    t_i_2_err = (t_model[m1_2] - t_model[p2n_2]) / 6
     t_i_2_err[t_i_2_err == 0] = 0.00001  # avoid zeros
     # do the same for the inner intervals (flat bottom)
-    t_b_i_1_err = (t_m1i_1 - t_p2p_1) / 6
+    t_b_i_1_err = (t_m1i_1 - t_p2p_1) / 6  # use original timings here
     t_b_i_1_err[t_b_i_1_err == 0] = 0.00001  # avoid zeros
-    t_b_i_2_err = (t_p2p_2 - t_m1i_2) / 6
+    t_b_i_2_err = (t_p2p_2 - t_m1i_2) / 6  # use original timings here
     t_b_i_2_err[t_b_i_2_err == 0] = 0.00001  # avoid zeros
+    # if one is particularly small, use other points
+    small_err_1 = np.argmin(t_i_1_err)
+    if (t_i_1_err[small_err_1] < t_i_2_err[small_err_1] / 10):
+        t_i_1_err[small_err_1] = (t_model[p1_1][small_err_1] - t_model[m1_1][small_err_1]) / 6
+    small_err_2 = np.argmin(t_i_2_err)
+    if (t_i_2_err[small_err_2] < t_i_1_err[small_err_2] / 10):
+        t_i_2_err[small_err_2] = (t_model[m1_2][small_err_2] - t_model[p1_2][small_err_2]) / 6
+    # also for the bottom, if one is particularly small, use other points
+    small_err_1 = np.argmin(t_b_i_1_err)
+    if (t_b_i_1_err[small_err_1] < t_b_i_2_err[small_err_1] / 10):
+        t_b_i_1_err[small_err_1] = (t_model[m1i_1][small_err_1] - t_model[p1_1][small_err_1]) / 6
+    small_err_2 = np.argmin(t_b_i_2_err)
+    if (t_b_i_2_err[small_err_2] < t_b_i_1_err[small_err_2] / 10):
+        t_b_i_2_err[small_err_2] = (t_model[p1_2][small_err_2] - t_model[m1i_2][small_err_2]) / 6
     # convert to midpoints and widths and take the deepest depth measured in two ways
-    ecl_mid = (t_i_1 + t_i_2) / 2
-    widths = (t_i_2 - t_i_1)
-    ecl_mid_b = (t_b_i_1 + t_b_i_2) / 2
-    widths_b = (t_b_i_2 - t_b_i_1)
-    depths_1 = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[ecl_indices[:, 6]]
+    ecl_mid = (t_model[indices_t_i_1] + t_model[indices_t_i_2]) / 2
+    widths = (t_model[indices_t_i_2] - t_model[indices_t_i_1])
+    ecl_mid_b = (t_model[indices_t_b_i_1] + t_model[indices_t_b_i_2]) / 2
+    widths_b = (t_model[indices_t_b_i_2] - t_model[indices_t_b_i_1])
+    depths_1 = (model_h[indices_t_i_1] + model_h[indices_t_i_2]) / 2 - model_h[i_ecl_min]
     depths_2 = (model_h[indices_t_i_1] - model_h[indices_t_b_i_1]
                 + model_h[indices_t_i_2] - model_h[indices_t_b_i_2]) / 2
     depths = np.copy(depths_1)
@@ -1389,7 +1446,7 @@ def measure_eclipses(t_model, model_h, ecl_indices, noise_level):
     widths_err = np.sqrt(t_i_1_err**2 + t_i_2_err**2)
     # remove too shallow and too narrow eclipses
     keep_shallow = (depths > noise_level / 4)
-    keep_narrow = (widths > 3 * widths_err)
+    keep_narrow = (widths > 2 * widths_err)
     keep = (keep_shallow & keep_narrow)
     ecl_indices = ecl_indices[keep]
     ecl_min = ecl_min[keep]
@@ -1497,8 +1554,10 @@ def check_overlapping_eclipses(ecl_indices, model_h, model_lh):
     for comb in combinations:
         # widths in terms of indices
         widths_i = ecl_indices[comb, -2] - ecl_indices[comb, 1]
+        widths_b_i = ecl_indices[comb, -6] - ecl_indices[comb, 5]
         i_wide = np.argmax(widths_i)
         i_narrow = np.argmin(widths_i)
+        width_ratio = widths_i[i_wide] / widths_i[i_narrow]
         # peak to peak differences used as depths here
         f_ptp_w = np.ptp(model_h[ecl_indices[comb[i_wide], 1]:ecl_indices[comb[i_wide], -2]])
         f_ptp_wl = np.ptp(model_h[ecl_indices[comb[i_wide], 1]:ecl_indices[comb[i_wide], 7]])
@@ -1507,55 +1566,52 @@ def check_overlapping_eclipses(ecl_indices, model_h, model_lh):
         f_ptp_nl = np.ptp(model_h[ecl_indices[comb[i_narrow], 1]:ecl_indices[comb[i_narrow], 7]])
         f_ptp_nr = np.ptp(model_h[ecl_indices[comb[i_narrow], 7]:ecl_indices[comb[i_narrow], -2]])
         # for very wide eclipses, we can impose stricter checks
-        width_check = (max(widths_i) > 3 * min(widths_i))
-        width_check_2 = (max(widths_i) > 1.5 * min(widths_i))
+        much_wider = (max(widths_i) > 3 * min(widths_i))
+        wider = (max(widths_i) > 1.5 * min(widths_i))
         # if we choose narrow, make sure it is somewhat symmetric in height
-        narrow_sym_check = (min(f_ptp_nl, f_ptp_nr) / max(f_ptp_nl, f_ptp_nr) > 0.7)
+        narrow_sym = (min(f_ptp_nl, f_ptp_nr) / max(f_ptp_nl, f_ptp_nr) > 0.7)
         # if we choose wide, make sure it is somewhat symmetric in height
-        wide_sym_check = (min(f_ptp_wl, f_ptp_wr) / max(f_ptp_wl, f_ptp_wr) > 0.8)
+        wide_sym = (min(f_ptp_wl, f_ptp_wr) / max(f_ptp_wl, f_ptp_wr) > 0.8)
         # if the much narrower eclipse is much smaller in depth, remove it
-        narrow_small_check = (f_ptp_n < f_ptp_w / 2)
+        narrow_smaller = (f_ptp_n < f_ptp_w / 2)
         # if the narrower eclipse is much smaller in depth, remove it
-        narrow_vsmall_check = (f_ptp_n < f_ptp_w / 6)
+        narrow_much_smaller = (f_ptp_n < f_ptp_w / 6)
         # if the much narrower eclipse is more than half the depth, and symmetric, keep only it
-        narrow_large_check = (f_ptp_n > f_ptp_w / 2)
+        narrow_large = (f_ptp_n > f_ptp_w / 2)
         # if the narrower eclipse is more than 90% the depth, and symmetric, keep only it
-        narrow_vlarge_check = (f_ptp_n > 0.9 * f_ptp_w)
+        narrow_very_large = (f_ptp_n > 0.9 * f_ptp_w)
         # find the outter and inner indices to compute min and mean flux levels
         i_left_1 = min(ecl_indices[comb[0], 1], ecl_indices[comb[1], 1])
         i_left_2 = max(ecl_indices[comb[0], 1], ecl_indices[comb[1], 1])
         i_right_1 = min(ecl_indices[comb[0], -2], ecl_indices[comb[1], -2])
         i_right_2 = max(ecl_indices[comb[0], -2], ecl_indices[comb[1], -2])
         if (i_left_1 != i_left_2):
-            f_mean_l = np.mean(model_lh[i_left_1:i_left_2])
             f_min_l = np.min(model_lh[i_left_1:i_left_2])
         else:
-            f_mean_l = model_lh[i_left_1]
             f_min_l = model_lh[i_left_1]
         if (i_right_1 != i_right_2):
-            f_mean_r = np.mean(model_lh[i_right_1:i_right_2])
             f_min_r = np.min(model_lh[i_right_1:i_right_2])
         else:
-            f_mean_r = model_lh[i_right_2]
             f_min_r = model_lh[i_right_2]
         f_max_n = np.max(model_lh[i_left_2:i_right_1])
         f_min_w = np.min(model_lh[i_left_1:i_right_2])
         f_ptp_w_lh = np.ptp(model_lh[i_left_1:i_right_2])
         # if the maximum narrow flux is below 40% the total depth, we can be more strict
-        f_max_check = (f_max_n < f_min_w + 0.4 * f_ptp_w_lh)
-        # if the mean flux left or right is lower than 70% the depth, and symmetric, keep wide
-        f_mean_check = (f_mean_l < f_min_w + 0.7 * f_ptp_w_lh) | (f_mean_r < f_min_w + 0.7 * f_ptp_w_lh)
+        narrow_too_low = (f_max_n < f_min_w + 0.4 * f_ptp_w_lh)
         # if the minimum flux left and right is higher than half the depth, remove much wider
-        f_min_check = (f_min_l > f_min_w + f_ptp_w_lh / 2) & (f_min_r > f_min_w + f_ptp_w_lh / 2)
-        if narrow_vsmall_check | (narrow_small_check & width_check) | (wide_sym_check & f_mean_check & f_max_check):
-            # keep only the wider one
-            ecl_remove.append(comb[np.argmin(widths_i)])
-        elif ((narrow_large_check & width_check & narrow_sym_check)
-              | (narrow_vlarge_check & narrow_sym_check & width_check_2)
-              | ((not wide_sym_check) & narrow_sym_check & narrow_large_check)
-              | (f_min_check & width_check) | (f_mean_check & width_check)):
+        wide_too_high = (f_min_l > f_min_w + f_ptp_w_lh / 2) & (f_min_r > f_min_w + f_ptp_w_lh / 2)
+        # the wider eclipse needs to be deeper proportional to how much wider it is (with some margin)
+        check_wider_not_deeper = (f_ptp_w < max(0.9 * width_ratio, 1) * f_ptp_n)
+        # the bottom of the wider eclipse needs to be within the narrower eclipse
+        check_wider_bottom = (widths_b_i[i_wide] > widths_i[i_narrow])
+        if ((narrow_large & narrow_sym & much_wider) | (narrow_very_large & narrow_sym & wider)
+            | (narrow_large & (not wide_sym) & narrow_sym) | (wide_too_high & much_wider)
+            | check_wider_not_deeper | check_wider_bottom):
             # keep only the narrower one
             ecl_remove.append(comb[np.argmax(widths_i)])
+        elif narrow_much_smaller | (narrow_smaller & wide_sym & narrow_too_low):
+            # keep only the wider one
+            ecl_remove.append(comb[np.argmin(widths_i)])
     keep_mask = np.ones(len(ecl_indices), dtype=np.bool_)
     keep_mask[np.array(ecl_remove).astype(np.int_)] = False
     ecl_indices = ecl_indices[keep_mask]  # delete has only first two args in numba
@@ -1598,16 +1654,16 @@ def check_depth_change(ecl_indices, model_h_lh, model_h):
         d_lh_right = model_h_lh[ecl[-2]] - model_h_lh[ecl[-6]]
         # if depth of all h is decreased by more than half, likely not eclipse
         keep_mask[i] = (ptp_h > ptp_lh / 2)
-        # extra condition for some of the following checks
-        condition = (ptp_lh > min(0.05, np.std(model_h_lh) / 2))
-        # if depth of all h is increased by more than 4, and condition applies, likely not eclipse
-        keep_mask[i] &= (ptp_lh > ptp_h / 4) | condition
-        # if depth of all h is increased by more than 8, likely not eclipse
-        keep_mask[i] &= (ptp_lh > ptp_h / 8)
-        # if depth (per side) of all h is increased by more than 4, and condition applies, likely not eclipse
-        keep_mask[i] &= ((d_lh_left > d_left / 4) & (d_lh_right > d_right / 4)) | condition
-        # if depth (per side) of all h is increased by more than 8, likely not eclipse
-        keep_mask[i] &= ((d_lh_left > d_left / 8) & (d_lh_right > d_right / 8))
+        # extra condition for some of the following checks (to not remove fairly deep eclipses)
+        condition = (max(ptp_lh, ptp_h) > min(0.05, np.std(model_h_lh) / 2))
+        # if depth of all h is increased by more than 6, and condition applies, likely not eclipse
+        keep_mask[i] &= (ptp_lh > ptp_h / 6) | condition
+        # if depth of all h is increased by more than 10, likely not eclipse
+        keep_mask[i] &= (ptp_lh > ptp_h / 10)
+        # if depth (per side) of all h is increased by more than 6, and condition applies, likely not eclipse
+        keep_mask[i] &= ((d_lh_left > d_left / 6) & (d_lh_right > d_right / 6)) | condition
+        # if depth (per side) of all h is increased by more than 12, likely not eclipse
+        keep_mask[i] &= ((d_lh_left > d_left / 12) & (d_lh_right > d_right / 12))
         # if lh side depth is much smaller than ptp, likely wrong eclipse detection
         keep_mask[i] &= (d_lh_left > ptp_lh / 8) & (d_lh_right > ptp_lh / 8)
     ecl_indices = ecl_indices[keep_mask]
@@ -1725,7 +1781,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:blue')
 
         # measure them up
-        output_b = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
+        output_b = measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level)
         ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_b[:7]
         t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_b[7:]
         if (len(ecl_min) == 0):
@@ -1747,13 +1803,12 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
 
     # prepare the starting points for refinement
     zeros_1_lh = np.append(ecl_indices[:, 0], ecl_indices[:, -1])
-    zeros_1_in_lh = np.append(ecl_indices[:, 6], ecl_indices[:, -7])
-    # also keep all markers from detection stage
     minimum_1_lh = np.append(ecl_indices[:, 1], ecl_indices[:, -2])
     peaks_2_n_lh = np.append(ecl_indices[:, 2], ecl_indices[:, -3])
     peaks_1_lh = np.append(ecl_indices[:, 3], ecl_indices[:, -4])
     peaks_2_p_lh = np.append(ecl_indices[:, 4], ecl_indices[:, -5])
     minimum_1_in_lh = np.append(ecl_indices[:, 5], ecl_indices[:, -6])
+    zeros_1_in_lh = np.append(ecl_indices[:, 6], ecl_indices[:, -7])
     # deduplicate them (duplicates will appear after decoupling ecl_indices)
     markers = np.column_stack((peaks_1_lh, zeros_1_lh, peaks_2_n_lh, minimum_1_lh, zeros_1_in_lh, peaks_2_p_lh,
                                minimum_1_in_lh))
@@ -1767,14 +1822,13 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
         deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
         # refine the eclipse markers
-        output_c = refine_eclipse_peaks(model_h, deriv_1, deriv_2, zeros_1_lh, zeros_1_in_lh)
+        output_c = refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1_lh, zeros_1_in_lh)
         # deduplicate (some duplicates can appear in refinement step)
         markers = np.column_stack(output_c)
         markers = np.unique(markers, axis=0)
         peaks_1, slope_sign, zeros_1, peaks_2_n = markers[:, 0], markers[:, 1], markers[:, 2], markers[:, 3]
         minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = markers[:, 4], markers[:, 5], markers[:, 6], markers[:, 7]
         # assemble eclipses and check for change in depth and overlap
-
         ecl_indices = assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1, slope_sign,
                                         zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
         
@@ -1788,12 +1842,16 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:red')
         
         # measure them up
-        output_d = measure_eclipses(t_model, model_h, ecl_indices, noise_level)
+        output_d = measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level)
         ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_d[:7]
         t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_d[7:]
         
         # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:purple')
         # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:purple')
+        # plt.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:grey', marker='>')
+        # plt.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:grey', marker='<')
+        # plt.scatter(t_model[ecl_indices[:, 5]], model_h[ecl_indices[:, 5]], c='tab:pink', marker='>')
+        # plt.scatter(t_model[ecl_indices[:, -6]], model_h[ecl_indices[:, -6]], c='tab:pink', marker='<')
         
         if (len(ecl_min) == 0):
             continue
@@ -1884,7 +1942,8 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     for n in [np.max(harmonic_n), 40, 20]:
         low_h = (harmonic_n <= n)
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
-        output = measure_eclipses(t_model, model_h, ecl_indices, 0)
+        deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
+        output = measure_eclipses(t_model, model_h, deriv_2, ecl_indices, 0)
         _, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output[:7]
         t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output[7:]
         # negative depths could occur, returning <2 eclipses - n_h 40 or 20 should be guaranteed to give 2
