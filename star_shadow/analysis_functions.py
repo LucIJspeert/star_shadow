@@ -1011,7 +1011,7 @@ def measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2
     return depth_1, depth_2
 
 
-# @nb.njit(cache=True)
+# @nb.njit(cache=True)  # doesn't work because of scipy
 def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
     """Find and refine the prominent eclipse signatures
     
@@ -1078,7 +1078,7 @@ def mark_eclipse_peaks(t_model, deriv_1, deriv_2, noise_level, t_gaps):
 
 
 # @nb.njit(cache=True)
-def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
+def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_in):
     """Refine existing prominent eclipse signatures
 
     Parameters
@@ -1091,6 +1091,8 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
         Second derivative of the sinusoids at t_model
     peaks_1: numpy.ndarray[int]
         Set of indices indicating extrema in deriv_1
+    minimum_1: numpy.ndarray[int]
+        Set of indices indicating local minima in deriv_1
     zeros_1_in: numpy.ndarray[int]
         Set of indices indicating inner zero points in deriv_1
 
@@ -1124,18 +1126,19 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
     """
     max_i = len(deriv_1) - 1
     p1_orig = np.copy(peaks_1)
+    m1_orig = np.copy(minimum_1)
     # adjust zeros_1_in to the new zero
-    slope_sign_tmp = np.sign(deriv_1[zeros_1_in]).astype(int)
+    slope_sign_tmp = np.sign(deriv_1[zeros_1_in]).astype(np.int_)
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='zero')
     # make sure we are as close to zero as possible
     zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='down_abs')
     # find the extrema in deriv_1 between peaks_1_orig and zeros_1_in
     l_side = (p1_orig < zeros_1_in)  # left side (ingress)
-    peaks_1 = np.zeros(len(p1_orig), dtype=int)
+    peaks_1 = np.zeros(len(p1_orig), dtype=np.int_)
     peaks_1[l_side] = [p1o + np.argmin(deriv_1[p1o:z1i]) for z1i, p1o in zip(zeros_1_in[l_side], p1_orig[l_side])]
     peaks_1[~l_side] = [z1i + np.argmax(deriv_1[z1i:p1o]) for z1i, p1o in zip(zeros_1_in[~l_side], p1_orig[~l_side])]
     # define the actual slope_sign
-    slope_sign = np.sign(deriv_1[peaks_1]).astype(int)  # sign reveals ingress or egress
+    slope_sign = np.sign(deriv_1[peaks_1]).astype(np.int_)  # sign reveals ingress or egress
     # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
     zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
     # find second peaks outward of peaks_1 - move up then down or down then up
@@ -1144,9 +1147,11 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
     sec_p1_l = curve_walker(deriv_1, walk_p1_l, slope_sign[l_side], mode='down')
     sec_p1_r = curve_walker(deriv_1, walk_p1_r, slope_sign[~l_side], mode='up')
     # limit second peaks to zeros_1 - if they go past, revert to first peaks
-    sec_p1 = np.zeros(len(p1_orig), dtype=int)
-    sec_p1_l = [sp1 if (sp1 > z1) else p1 for p1, sp1, z1 in zip(peaks_1[l_side], sec_p1_l, zeros_1[l_side])]
-    sec_p1_r = [sp1 if (sp1 < z1) else p1 for p1, sp1, z1 in zip(peaks_1[~l_side], sec_p1_r, zeros_1[~l_side])]
+    past_zeros_1_l = (sec_p1_l <= zeros_1[l_side])
+    sec_p1_l[past_zeros_1_l] = peaks_1[l_side][past_zeros_1_l]
+    past_zeros_1_r = (sec_p1_r >= zeros_1[~l_side])
+    sec_p1_r[past_zeros_1_r] = peaks_1[~l_side][past_zeros_1_r]
+    sec_p1 = np.zeros(len(p1_orig), dtype=np.int_)
     sec_p1[l_side] = sec_p1_l
     sec_p1[~l_side] = sec_p1_r
     # check height of second peaks outward of peaks_1 (limited to zeros_1)
@@ -1155,18 +1160,18 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
     peaks_1[check] = sec_p1[check]
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
-    peaks_2_n = np.array(peaks_2_n).astype(int)
+    peaks_2_n = np.array(peaks_2_n).astype(np.int_)
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
     # adjust zeros_1_in for the case of multiple zero crossings - walk inward from peaks_1 to zero in deriv_1
     zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
     # find the maxima in deriv_2 between peaks_1 and zeros_1_in
     peaks_2_p = [min(p1, z1i) + np.argmax(deriv_2[min(p1, z1i):max(p1, z1i)]) for p1, z1i in zip(peaks_1, zeros_1_in)]
-    peaks_2_p = np.array(peaks_2_p).astype(int)
+    peaks_2_p = np.array(peaks_2_p).astype(np.int_)
     # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
     # if minimum_1 is inside the original peaks_1, need to walk outward further (but we keep inner points)
-    indices = np.arange(len(p1_orig), dtype=int)
+    indices = np.arange(len(p1_orig), dtype=np.int_)
     i_l_side = indices[l_side]
     i_r_side = indices[~l_side]
     # walk outward analogously to before
@@ -1178,119 +1183,37 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, zeros_1_in):
     i_l_side = i_l_side[minimum_1[l_side] > p1_orig[l_side]]
     i_r_side = i_r_side[minimum_1[~l_side] < p1_orig[~l_side]]
     new_peaks_1 = np.copy(peaks_1)
-    new_peaks_1[i_l_side] = sec_p1_l[(minimum_1[l_side] > p1_orig[l_side])]
-    new_peaks_1[i_r_side] = sec_p1_r[(minimum_1[~l_side] < p1_orig[~l_side])]
+    # new_peaks_1[i_l_side] = sec_p1_l[(minimum_1[l_side] > p1_orig[l_side])]
+    new_peaks_1[l_side] = sec_p1_l
+    # new_peaks_1[i_r_side] = sec_p1_r[(minimum_1[~l_side] < p1_orig[~l_side])]
+    new_peaks_1[~l_side] = sec_p1_r
     # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
     new_zeros_1 = curve_walker(deriv_1, new_peaks_1, slope_sign, mode='zero')
     # find the minima in deriv_2 between peaks_1 and zeros_1
-    new_peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)])
+    new_peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) if (p1 != z1) else p1
                      for p1, z1 in zip(new_peaks_1, new_zeros_1)]
-    new_peaks_2_n = np.array(new_peaks_2_n).astype(int)
+    new_peaks_2_n = np.array(new_peaks_2_n).astype(np.int_)
     # walk outward from the minima in deriv_2 to (local) minima in deriv_1
     new_minimum_1 = curve_walker(deriv_1, new_peaks_2_n, slope_sign, mode='down_abs')
-    # do check that the new points are situated higher (at least 80% proportional to shift)
-    width_frac = 0.8 * np.abs(minimum_1_in - new_minimum_1) / np.abs(minimum_1_in - minimum_1)
-    height_fac = (np.clip(width_frac, 1, None) - 1) * (model_h[minimum_1] - model_h[minimum_1_in])
-    new_m1_higher = (model_h[new_minimum_1] > model_h[minimum_1] + height_fac)
+    # must be narrow compared to low harmonics eclipse
+    # narrow_l = (minimum_1[l_side] > p1_orig[l_side])
+    # narrow_r = (minimum_1[~l_side] < p1_orig[~l_side])
+    narrow_l = ((p1_orig[l_side] - minimum_1[l_side]) / (p1_orig[l_side] - m1_orig[l_side]) < 0.25)
+    narrow_r = ((minimum_1[~l_side] - p1_orig[~l_side]) / (m1_orig[~l_side] - p1_orig[~l_side]) < 0.25)
+    # must stay within width of low harmonics eclipse
+    narrower_l = (new_minimum_1[l_side] > m1_orig[l_side])
+    narrower_r = (new_minimum_1[~l_side] < m1_orig[~l_side])
+    # must increase in depth compared to previous positions
+    height_frac = (model_h[new_minimum_1] - model_h[minimum_1_in]) / (model_h[minimum_1] - model_h[minimum_1_in])
+    conditions = (height_frac > 1.2)
     # assign where conditions met
-    peaks_1[new_m1_higher] = new_peaks_1[new_m1_higher]
-    zeros_1[new_m1_higher] = new_zeros_1[new_m1_higher]
-    peaks_2_n[new_m1_higher] = new_peaks_2_n[new_m1_higher]
-    minimum_1[new_m1_higher] = new_minimum_1[new_m1_higher]
+    conditions[l_side] &= (narrow_l & narrower_l)
+    conditions[~l_side] &= (narrow_r & narrower_r)
+    peaks_1[conditions] = new_peaks_1[conditions]
+    zeros_1[conditions] = new_zeros_1[conditions]
+    peaks_2_n[conditions] = new_peaks_2_n[conditions]
+    minimum_1[conditions] = new_minimum_1[conditions]
     return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
-
-
-# @nb.njit(cache=True)
-def lh_eclipse_peaks(deriv_1, deriv_2, ecl_indices):
-    """Backtrack to low harmonic positions of existing prominent eclipse signatures
-
-    Parameters
-    ----------
-    deriv_1: numpy.ndarray[float]
-        Derivative of the sinusoids at t_model
-        This one includes only low harmonics.
-    deriv_2: numpy.ndarray[float]
-        Second derivative of the sinusoids at t_model
-        This one includes only low harmonics.
-    ecl_indices: numpy.ndarray[int]
-        Two dimensional array of eclipse indices.
-        Each eclipse has indices corresponding to
-        several prominent points.
-
-    Returns
-    -------
-    ecl_indices_lh: numpy.ndarray[int]
-        Two dimensional array of eclipse indices.
-        Each eclipse has indices corresponding to
-        several prominent points.
-    
-    Notes
-    -----
-    Intended for use in detect_eclipses, with a fine grid of time points
-    spanning two times the orbital period.
-    """
-    zeros_1_l = ecl_indices[:, 0]
-    zeros_1_r = ecl_indices[:, -1]
-    minimum_1_l = ecl_indices[:, 1]
-    minimum_1_r = ecl_indices[:, -2]
-    peaks_2_n_l = ecl_indices[:, 2]
-    peaks_2_n_r = ecl_indices[:, -3]
-    peaks_1_l = ecl_indices[:, 3]
-    peaks_1_r = ecl_indices[:, -4]
-    peaks_2_p_l = ecl_indices[:, 4]
-    peaks_2_p_r = ecl_indices[:, -5]
-    minimum_1_in_l = ecl_indices[:, 5]
-    minimum_1_in_r = ecl_indices[:, -6]
-    zeros_1_in_l = ecl_indices[:, 6]
-    zeros_1_in_r = ecl_indices[:, -7]
-    # define the slope_sign
-    slope_sign_l = -np.ones(len(zeros_1_l))
-    slope_sign_r = np.ones(len(zeros_1_r))
-    # get zeros_1 - walk outward from peaks_2_n to zero in deriv_1 and limit to old zeros_1
-    zeros_1_l = curve_walker(deriv_1, peaks_2_n_l, slope_sign_l, mode='zero')
-    zeros_1_r = curve_walker(deriv_1, peaks_2_n_r, slope_sign_r, mode='zero')
-    # find the extrema in deriv_1 - walk inward from zeros_1 to extrema in deriv_1
-    peaks_1_l = curve_walker(deriv_1, zeros_1_l, -slope_sign_l, mode='down')
-    peaks_1_r = curve_walker(deriv_1, zeros_1_r, -slope_sign_r, mode='up')
-    # find the minima in deriv_2 between peaks_1 and zeros_1
-    peaks_2_n_l = [z1 + np.argmin(deriv_2[z1:p1]) if (p1 > z1) else z1 for p1, z1 in zip(peaks_1_l, zeros_1_l)]
-    peaks_2_n_l = np.array(peaks_2_n_l).astype(int)
-    peaks_2_n_r = [p1 + np.argmin(deriv_2[p1:z1]) if (p1 < z1) else z1 for p1, z1 in zip(peaks_1_r, zeros_1_r)]
-    peaks_2_n_r = np.array(peaks_2_n_r).astype(int)
-    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    minimum_1_l = curve_walker(deriv_1, peaks_2_n_l, slope_sign_l, mode='down_abs')
-    minimum_1_r = curve_walker(deriv_1, peaks_2_n_r, slope_sign_r, mode='down_abs')
-    # get zeros_1_in with actual peaks_1 - walk inward from peaks_1 to zero in deriv_1
-    zeros_1_in_l = curve_walker(deriv_1, peaks_1_l, -slope_sign_l, mode='zero')
-    zeros_1_in_r = curve_walker(deriv_1, peaks_1_r, -slope_sign_r, mode='zero')
-    # find the maxima in deriv_2 between peaks_1 and zeros_1_in
-    peaks_2_p_l = [p1 + np.argmax(deriv_2[p1:z1i]) if (p1 < z1i) else z1i for p1, z1i in zip(peaks_1_l, zeros_1_in_l)]
-    peaks_2_p_l = np.array(peaks_2_p_l).astype(int)
-    peaks_2_p_r = [z1i + np.argmax(deriv_2[z1i:p1]) if (p1 > z1i) else z1i for p1, z1i in zip(peaks_1_r, zeros_1_in_r)]
-    peaks_2_p_r = np.array(peaks_2_p_r).astype(int)
-    # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
-    minimum_1_in_l = curve_walker(deriv_1, peaks_2_p_l, -slope_sign_l, mode='down_abs')
-    minimum_1_in_r = curve_walker(deriv_1, peaks_2_p_r, -slope_sign_r, mode='down_abs')
-    # midpoint
-    minimum_1_in_mid = (minimum_1_in_l + minimum_1_in_r) // 2
-    # reverse the steps of assigning indices
-    ecl_indices_lh = np.copy(ecl_indices)
-    ecl_indices_lh[:, 0] = zeros_1_l
-    ecl_indices_lh[:, -1] = zeros_1_r
-    ecl_indices_lh[:, 1] = minimum_1_l
-    ecl_indices_lh[:, -2] = minimum_1_r
-    ecl_indices_lh[:, 2] = peaks_2_n_l
-    ecl_indices_lh[:, -3] = peaks_2_n_r
-    ecl_indices_lh[:, 3] = peaks_1_l
-    ecl_indices_lh[:, -4] = peaks_1_r
-    ecl_indices_lh[:, 4] = peaks_2_p_l
-    ecl_indices_lh[:, -5] = peaks_2_p_r
-    ecl_indices_lh[:, 5] = minimum_1_in_l
-    ecl_indices_lh[:, -6] = minimum_1_in_r
-    ecl_indices_lh[:, 6] = zeros_1_in_l
-    ecl_indices_lh[:, -7] = zeros_1_in_r
-    ecl_indices_lh[:, 7] = minimum_1_in_mid
-    return ecl_indices_lh
 
 
 @nb.njit(cache=True)
@@ -1396,6 +1319,99 @@ def assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1
     return ecl_indices
 
 
+# @nb.njit(cache=True)
+def lh_eclipse_indices(deriv_1, deriv_2, ecl_indices):
+    """Backtrack to low harmonic positions of existing prominent eclipse signatures
+
+    Parameters
+    ----------
+    deriv_1: numpy.ndarray[float]
+        Derivative of the sinusoids at t_model
+        This one includes only low harmonics.
+    deriv_2: numpy.ndarray[float]
+        Second derivative of the sinusoids at t_model
+        This one includes only low harmonics.
+    ecl_indices: numpy.ndarray[int]
+        Two dimensional array of eclipse indices.
+        Each eclipse has indices corresponding to
+        several prominent points.
+
+    Returns
+    -------
+    ecl_indices_lh: numpy.ndarray[int]
+        Two dimensional array of eclipse indices.
+        Each eclipse has indices corresponding to
+        several prominent points.
+
+    Notes
+    -----
+    Intended for use in detect_eclipses, with a fine grid of time points
+    spanning two times the orbital period.
+    """
+    zeros_1_l = ecl_indices[:, 0]
+    zeros_1_r = ecl_indices[:, -1]
+    minimum_1_l = ecl_indices[:, 1]
+    minimum_1_r = ecl_indices[:, -2]
+    peaks_2_n_l = ecl_indices[:, 2]
+    peaks_2_n_r = ecl_indices[:, -3]
+    peaks_1_l = ecl_indices[:, 3]
+    peaks_1_r = ecl_indices[:, -4]
+    peaks_2_p_l = ecl_indices[:, 4]
+    peaks_2_p_r = ecl_indices[:, -5]
+    minimum_1_in_l = ecl_indices[:, 5]
+    minimum_1_in_r = ecl_indices[:, -6]
+    zeros_1_in_l = ecl_indices[:, 6]
+    zeros_1_in_r = ecl_indices[:, -7]
+    # define the slope_sign
+    slope_sign_l = -np.ones(len(zeros_1_l))
+    slope_sign_r = np.ones(len(zeros_1_r))
+    # get zeros_1 - walk outward from peaks_2_n to zero in deriv_1 and limit to old zeros_1
+    zeros_1_l = curve_walker(deriv_1, peaks_2_n_l, slope_sign_l, mode='zero')
+    zeros_1_r = curve_walker(deriv_1, peaks_2_n_r, slope_sign_r, mode='zero')
+    # find the extrema in deriv_1 - walk inward from zeros_1 to extrema in deriv_1
+    peaks_1_l = curve_walker(deriv_1, zeros_1_l, -slope_sign_l, mode='down')
+    peaks_1_r = curve_walker(deriv_1, zeros_1_r, -slope_sign_r, mode='up')
+    # find the minima in deriv_2 between peaks_1 and zeros_1
+    peaks_2_n_l = [z1 + np.argmin(deriv_2[z1:p1]) if (p1 > z1) else z1 for p1, z1 in zip(peaks_1_l, zeros_1_l)]
+    peaks_2_n_l = np.array(peaks_2_n_l).astype(int)
+    peaks_2_n_r = [p1 + np.argmin(deriv_2[p1:z1]) if (p1 < z1) else z1 for p1, z1 in zip(peaks_1_r, zeros_1_r)]
+    peaks_2_n_r = np.array(peaks_2_n_r).astype(int)
+    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
+    minimum_1_l = curve_walker(deriv_1, peaks_2_n_l, slope_sign_l, mode='down_abs')
+    minimum_1_r = curve_walker(deriv_1, peaks_2_n_r, slope_sign_r, mode='down_abs')
+    # get zeros_1_in with actual peaks_1 - walk inward from peaks_1 to zero in deriv_1
+    zeros_1_in_l = curve_walker(deriv_1, peaks_1_l, -slope_sign_l, mode='zero')
+    zeros_1_in_r = curve_walker(deriv_1, peaks_1_r, -slope_sign_r, mode='zero')
+    # find the maxima in deriv_2 between peaks_1 and zeros_1_in
+    peaks_2_p_l = [p1 + np.argmax(deriv_2[p1:z1i]) if (p1 < z1i) else z1i for p1, z1i in zip(peaks_1_l, zeros_1_in_l)]
+    peaks_2_p_l = np.array(peaks_2_p_l).astype(int)
+    peaks_2_p_r = [z1i + np.argmax(deriv_2[z1i:p1]) if (p1 > z1i) else z1i for p1, z1i in zip(peaks_1_r, zeros_1_in_r)]
+    peaks_2_p_r = np.array(peaks_2_p_r).astype(int)
+    # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
+    minimum_1_in_l = curve_walker(deriv_1, peaks_2_p_l, -slope_sign_l, mode='down_abs')
+    minimum_1_in_r = curve_walker(deriv_1, peaks_2_p_r, -slope_sign_r, mode='down_abs')
+    # midpoint
+    minimum_1_in_mid = (minimum_1_in_l + minimum_1_in_r) // 2
+    # reverse the steps of assigning indices
+    ecl_indices_lh = np.copy(ecl_indices)
+    ecl_indices_lh[:, 0] = zeros_1_l
+    ecl_indices_lh[:, -1] = zeros_1_r
+    ecl_indices_lh[:, 1] = minimum_1_l
+    ecl_indices_lh[:, -2] = minimum_1_r
+    ecl_indices_lh[:, 2] = peaks_2_n_l
+    ecl_indices_lh[:, -3] = peaks_2_n_r
+    ecl_indices_lh[:, 3] = peaks_1_l
+    ecl_indices_lh[:, -4] = peaks_1_r
+    ecl_indices_lh[:, 4] = peaks_2_p_l
+    ecl_indices_lh[:, -5] = peaks_2_p_r
+    ecl_indices_lh[:, 5] = minimum_1_in_l
+    ecl_indices_lh[:, -6] = minimum_1_in_r
+    ecl_indices_lh[:, 6] = zeros_1_in_l
+    ecl_indices_lh[:, -7] = zeros_1_in_r
+    ecl_indices_lh[:, 7] = minimum_1_in_mid
+    return ecl_indices_lh
+
+
 @nb.njit(cache=True)
 def measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level):
     """Measure the times, durations and depths of the eclipses
@@ -1446,6 +1462,13 @@ def measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level):
     with mark_eclipse_peaks.
     Will remove eclipses below noise_level/4
     """
+    # guard against empty ecl_indices
+    if not (len(ecl_indices) > 0):
+        ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = np.zeros((6, 0))
+        t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = np.zeros((4, 0))
+        return (ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b, t_i_1_err, t_i_2_err,
+                t_b_i_1_err, t_b_i_2_err)
+    
     # take the timing measurements from the indices
     z1_1 = ecl_indices[:, 0]  # first minimum deriv_1 (from minimum_1)
     t_z1_1 = t_model[z1_1]  # first times of minimum deriv_1 (from minimum_1)
@@ -1485,7 +1508,8 @@ def measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level):
     d_alt_l = model_h[m1_2] - model_h[m1i_mid]
     d_alt_r = model_h[m1_1] - model_h[m1i_mid]
     # deriv_2 has to become negative
-    pos_deriv = np.array([(np.min(deriv_2[p2p_1[i]:p2p_2[i] + 1]) > 0) for i in range(len(p2p_1))])
+    pos_deriv = np.array([(np.min(deriv_2[p2p_1[i]:p2p_2[i] + 1]) > 0) if (p2p_1[i] < p2p_2[i] + 1) else True
+                          for i in range(len(p2p_1))])
     # midpoint of outter points falls outside bottom
     mid_asym = (m1_mid < z1i_1) | (m1_mid > z1i_2)
     # depths on each side must be somewhat similar (and if not, changing the bottom should fix it)
@@ -1725,7 +1749,7 @@ def check_overlapping_eclipses(ecl_indices, model_h, model_lh):
     return ecl_indices
 
 
-# @nb.njit(cache=True)
+@nb.njit(cache=True)
 def check_depth_change(ecl_indices_lh, ecl_indices, model_h_lh, model_h):
     """Checks whether eclipses decrease or increase too much in depth
     between harmonic models with different number of harmonics
@@ -1875,9 +1899,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
     model_lh = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
     deriv_1_lh = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
     deriv_2_lh = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
-    
-    # import matplotlib.pyplot as plt
-
     for i, n in enumerate([20, 40, np.max(harmonic_n)]):
         low_h = (harmonic_n <= n)  # restrict harmonics to avoid interference of high frequencies
         model_h = tsf.sum_sines(t_model, f_h[low_h], a_h[low_h], ph_h[low_h])
@@ -1888,12 +1909,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in = output_a
         ecl_indices = assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1, slope_sign, zeros_1,
                                         peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
-
-        # plt.plot(t_model, model_h)
-        # plt.scatter(t_model[peaks_1], model_h[peaks_1], c='k')
-        # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:blue')
-        # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:blue')
-
         # measure them up
         output_b = measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level)
         ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_b[:7]
@@ -1910,11 +1925,6 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         return np.zeros((0, 15), dtype=np.int_), n_fold
     elif (len(best_comb) == 0):
         return ecl_indices[0, np.newaxis], n_fold
-    
-    
-    # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:orange')
-    # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:orange')
-
     # prepare the starting points for refinement
     zeros_1_lh = np.append(ecl_indices[:, 0], ecl_indices[:, -1])
     minimum_1_lh = np.append(ecl_indices[:, 1], ecl_indices[:, -2])
@@ -1936,7 +1946,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         deriv_1 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=1)
         deriv_2 = tsf.sum_sines_deriv(t_model, f_h[low_h], a_h[low_h], ph_h[low_h], deriv=2)
         # refine the eclipse markers
-        output_c = refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1_lh, zeros_1_in_lh)
+        output_c = refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1_lh, minimum_1_lh, zeros_1_in_lh)
         # deduplicate (some duplicates can appear in refinement step)
         markers = np.column_stack(output_c)
         markers = np.unique(markers, axis=0)
@@ -1945,16 +1955,8 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # assemble eclipses and check for change in depth and overlap
         ecl_indices = assemble_eclipses(p_orb, t_model, model_h, deriv_1, deriv_2, t_gaps, peaks_1, slope_sign,
                                         zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in)
-        
-        # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:green')
-        # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:green')
-        # plt.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:grey', marker='>')
-        # plt.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:grey', marker='<')
-        # plt.scatter(t_model[ecl_indices[:, 5]], model_h[ecl_indices[:, 5]], c='tab:pink', marker='>')
-        # plt.scatter(t_model[ecl_indices[:, -6]], model_h[ecl_indices[:, -6]], c='tab:pink', marker='<')
-        
         # reverse the indices to low harmonics
-        ecl_indices_lh = lh_eclipse_peaks(deriv_1_lh, deriv_2_lh, ecl_indices)
+        ecl_indices_lh = lh_eclipse_indices(deriv_1_lh, deriv_2_lh, ecl_indices)
         # the slope could change sign - we don't want that
         same_slope = (np.sign(deriv_1_lh[ecl_indices_lh[:, 3]]) < 0)
         same_slope &= (np.sign(deriv_1_lh[ecl_indices_lh[:, -4]]) > 0)
@@ -1964,35 +1966,16 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         
         ecl_indices = check_depth_change(ecl_indices_lh, ecl_indices, model_lh, model_h)
         ecl_indices = check_overlapping_eclipses(ecl_indices, model_h, model_lh)
-        
-        # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:red')
-        # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:red')
-        
         # measure them up
         output_d = measure_eclipses(t_model, model_h, deriv_2, ecl_indices, noise_level)
         ecl_indices, ecl_min, ecl_mid, widths, depths, ecl_mid_b, widths_b = output_d[:7]
         t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err = output_d[7:]
-        
-        # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:purple')
-        # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:purple')
-        # plt.scatter(t_model[ecl_indices[:, 1]], model_h[ecl_indices[:, 1]], c='tab:grey', marker='>')
-        # plt.scatter(t_model[ecl_indices[:, -2]], model_h[ecl_indices[:, -2]], c='tab:grey', marker='<')
-        # plt.scatter(t_model[ecl_indices[:, 5]], model_h[ecl_indices[:, 5]], c='tab:pink', marker='>')
-        # plt.scatter(t_model[ecl_indices[:, -6]], model_h[ecl_indices[:, -6]], c='tab:pink', marker='<')
-        
         if (len(ecl_min) == 0):
             continue
         best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
         if (len(best_comb) != 0):
             ecl_indices = ecl_indices[best_comb]
             break
-    
-    # model_h = tsf.sum_sines(t_model, f_h, a_h, ph_h)
-    # plt.plot(t_model, model_h)
-    # plt.scatter(t_model[ecl_indices[:, 3]], model_h[ecl_indices[:, 3]], c='tab:olive')
-    # plt.scatter(t_model[ecl_indices[:, -4]], model_h[ecl_indices[:, -4]], c='tab:olive')
-    # raise
-    
     # if in the end nothing is left, return
     if (len(ecl_min) == 0):
         return np.zeros((0, 15), dtype=np.int_), n_fold
