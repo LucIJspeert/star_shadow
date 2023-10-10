@@ -1334,10 +1334,10 @@ def lh_eclipse_indices(deriv_1, deriv_2, ecl_indices):
     zeros_1_r = ecl_indices[:, -1]
     # minimum_1_l = ecl_indices[:, 1]
     # minimum_1_r = ecl_indices[:, -2]
-    peaks_2_n_l = ecl_indices[:, 2]
-    peaks_2_n_r = ecl_indices[:, -3]
-    # peaks_1_l = ecl_indices[:, 3]
-    # peaks_1_r = ecl_indices[:, -4]
+    # peaks_2_n_l = ecl_indices[:, 2]
+    # peaks_2_n_r = ecl_indices[:, -3]
+    peaks_1_l = ecl_indices[:, 3]
+    peaks_1_r = ecl_indices[:, -4]
     # peaks_2_p_l = ecl_indices[:, 4]
     # peaks_2_p_r = ecl_indices[:, -5]
     # minimum_1_in_l = ecl_indices[:, 5]
@@ -1347,9 +1347,9 @@ def lh_eclipse_indices(deriv_1, deriv_2, ecl_indices):
     # define the slope_sign
     slope_sign_l = -np.ones(len(zeros_1_l))
     slope_sign_r = np.ones(len(zeros_1_r))
-    # get zeros_1 - walk outward from peaks_2_n to zero in deriv_1 and limit to old zeros_1
-    zeros_1_l = curve_walker(deriv_1, peaks_2_n_l, slope_sign_l, mode='zero')
-    zeros_1_r = curve_walker(deriv_1, peaks_2_n_r, slope_sign_r, mode='zero')
+    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
+    zeros_1_l = curve_walker(deriv_1, peaks_1_l, slope_sign_l, mode='zero')
+    zeros_1_r = curve_walker(deriv_1, peaks_1_r, slope_sign_r, mode='zero')
     # find the extrema in deriv_1 - walk inward from zeros_1 to extrema in deriv_1
     peaks_1_l = curve_walker(deriv_1, zeros_1_l, -slope_sign_l, mode='down')
     peaks_1_r = curve_walker(deriv_1, zeros_1_r, -slope_sign_r, mode='up')
@@ -1932,7 +1932,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         # if slopes of deriv_1 vs deriv_1_lh change, throw candidate away
         ecl_indices_lh = ecl_indices_lh[same_slope]
         ecl_indices = ecl_indices[same_slope]
-        
+        # perform checks on overlap and changing depths
         ecl_indices = check_depth_change(ecl_indices_lh, ecl_indices, model_lh, model_h)
         ecl_indices = check_overlapping_eclipses(ecl_indices, model_h, model_lh)
         # measure them up
