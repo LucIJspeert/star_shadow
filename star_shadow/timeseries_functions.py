@@ -886,6 +886,8 @@ def find_orbital_period(times, signal, f_n):
     -------
     p_orb: float
         Orbital period of the eclipsing binary in days
+    multiple: float
+        Multiple of the initial period that was chosen
 
     Notes
     -----
@@ -931,13 +933,24 @@ def find_orbital_period(times, signal, f_n):
         f_r_bound = f_refine[mask_peak][-1]
     bound_interval = f_r_bound - f_l_bound
     # decide on the multiple of the period
-    p_multiples = p_orb * np.array([1/2, 2, 3, 4, 5])  # check these (commonly missed) multiples
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
+    completeness_p = (len(harmonics) / (f_nyquist // (1 / p_orb)))
+    # check these (commonly missed) multiples
+    n_multiply = np.array([1/2, 2, 3, 4, 5])
+    p_multiples = p_orb * n_multiply
     n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
     h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
+    # compute diagnostic fractions that need to meet some threshold
     test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
+    compl_frac = completeness_r_m / completeness_p
     minimal_frac = 1.1  # empirically determined threshold
-    if np.any(test_frac > minimal_frac):
-        p_orb = p_multiples[np.argmax(test_frac)]
+    minimal_compl_frac = 0.9  # empirically determined threshold
+    compl_condition = (compl_frac > minimal_compl_frac)
+    multiple = 1
+    if np.any((test_frac > minimal_frac) & compl_condition):
+        i_best = np.argmax(test_frac[compl_condition])
+        p_orb = p_multiples[compl_condition][i_best]
+        multiple = n_multiply[compl_condition][i_best]
         f_left_b = 1 / p_orb - (bound_interval / 2)
         f_right_b = 1 / p_orb + (bound_interval / 2)
         # refine by using a dense sampling and the harmonic distances
@@ -947,7 +960,7 @@ def find_orbital_period(times, signal, f_n):
         mask_peak = (h_measure_2 > np.max(h_measure_2) / 1.5)  # constrain the domain of the search
         i_min_dist = np.argmin(distance_r2[mask_peak])
         p_orb = 1 / f_refine_2[mask_peak][i_min_dist]
-    return p_orb
+    return p_orb, multiple
 
 
 @nb.njit(cache=True)

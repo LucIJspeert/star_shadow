@@ -315,7 +315,10 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # if given, the input p_orb is refined locally, otherwise the period is searched for globally
     if (p_orb == 0):
-        p_orb = tsf.find_orbital_period(times, signal, f_n)
+        p_orb, mult = tsf.find_orbital_period(times, signal, f_n)
+        # notify the user if a multiple was chosen
+        if (mult != 1):
+            logger.info(f'Multiple of the period chosen: {mult}')
     else:
         p_orb = tsf.refine_orbital_period(p_orb, times, f_n)
     # if time series too short, or no harmonics found, log and warn and maybe cut off the analysis
@@ -1863,6 +1866,10 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
     Returns
     -------
     None
+    
+    Notes
+    -----
+    If only an orbital period is desired, go for stage='harmonics'.
     """
     t_a = time.time()
     # for saving, make a folder if not there yet
@@ -1921,81 +1928,6 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
     t_b = time.time()
     logger.info(f'End of analysis. Total time elapsed: {t_b - t_a:1.1f}s.')  # info to save to log
     return None
-
-
-def find_period_from_file(file_name, i_sectors=None, data_id='none', save_dir=None, overwrite=False, verbose=False):
-    """Do the global period search for a given light curve file
-
-    Parameters
-    ----------
-    file_name: str
-        Path to a file containing the light curve data, with
-        timestamps, normalised flux, error values as the
-        first three columns, respectively.
-    i_sectors: numpy.ndarray[int]
-        Pair(s) of indices indicating the separately handled timespans
-        in the piecewise-linear curve. These can indicate the TESS
-        observation sectors, but taking half the sectors is recommended.
-        If only a single curve is wanted, set
-        i_sectors = np.array([[0, len(times)]]).
-    data_id: int, str
-        User defined identification for the dataset used
-    save_dir: str
-        Path to a directory for saving the results. Also used to load
-        previous analysis results.
-    overwrite: bool
-        If set to True, overwrite old results in the same directory as
-        save_dir, or (if False) to continue from the last save-point.
-    verbose: bool
-        If set to True, this function will print some information
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    If save_dir is not given, results are saved in the same directory as
-    the given light curve file (will create a subfolder)
-
-    The input text files are expected to have three columns with in order:
-    times (bjd), signal (flux), signal_err (flux error)
-    And the timestamps should be in ascending order.
-    The expected text file format is space separated.
-    """
-    t_a = time.time()
-    target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
-    if save_dir is None:
-        save_dir = os.path.dirname(file_name)
-    # load the data
-    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
-    # if sectors not given, take full length
-    if i_sectors is None:
-        i_sectors = np.array([[0, len(times)]])  # no sector information
-    i_half_s = i_sectors  # in this case no differentiation between half or full sectors
-    t_tot = np.ptp(times)  # total time base of observations
-    t_int = np.median(np.diff(times))  # integration time, taken to be the median time step
-    # do the prewhitening and frequency optimisation
-    analyse_light_curve(times, signal, signal_err, 0, i_half_s, target_id, save_dir, stage='frequencies',
-                        method='fitter', data_id=data_id, overwrite=overwrite, save_ascii=False, verbose=verbose)
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
-    if os.path.isfile(file_name):
-        results = ut.read_parameters_hdf5(file_name)
-        const, slope, f_n, a_n, ph_n = results['sin_mean']
-    else:
-        return -1
-    # find orbital period
-    p_orb = tsf.find_orbital_period(times, signal, f_n)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
-    # save p_orb
-    file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_period.txt')
-    col1 = ['period (days)', 'period error (days)', 'time-base (days)', 'number of frequencies']
-    col2 = [p_orb, p_err, t_tot, len(f_n)]
-    np.savetxt(file_name, np.column_stack((col1, col2)), fmt='%s', delimiter=',')
-    t_b = time.time()
-    if verbose:
-        print(f'P_orb = {p_orb}. Time taken: {t_b - t_a:1.1f}s')
-    return p_orb
 
 
 def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='none',
