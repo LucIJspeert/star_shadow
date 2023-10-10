@@ -1372,7 +1372,7 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat):
 
 
 @nb.njit(cache=True)
-def objective_physcal_lc(params, times, signal, signal_err, p_orb, t_zero):
+def objective_physical_lc(params, times, signal, signal_err, p_orb, t_zero):
     """Objective function for a set of eclipse parameters
 
     Parameters
@@ -1488,9 +1488,9 @@ def fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, par_init, par
                    min(max(log_sb + min(3 * log_sb_err, 1), -1), 3)), (-1, 1))
     arguments = (times, ecl_signal, signal_err, p_orb, t_zero)
     # do a local fit and then a global fit within bounds to compare
-    result_a = sp.optimize.minimize(objective_physcal_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+    result_a = sp.optimize.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                     bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
-    result_b = sp.optimize.shgo(objective_physcal_lc, args=arguments, bounds=par_bounds,
+    result_b = sp.optimize.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
                                 minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
     # compare objective function values
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_a.x[:6]))
@@ -1804,7 +1804,7 @@ def jacobian_eclipse_sinusoids(params, times, signal, signal_err, p_orb, t_zero,
     epsilon = 1.4901161193847656e-08
     args = (times, resid_sin, signal_err, p_orb, t_zero)
     params_ecl = np.append(params_ecl, [0])  # account for the offset parameter
-    jac_ecl = sp.optimize.approx_fprime(params_ecl, objective_physcal_lc, epsilon, *args)
+    jac_ecl = sp.optimize.approx_fprime(params_ecl, objective_physical_lc, epsilon, *args)
     jac_ecl = jac_ecl[:-1]
     jac = np.append(jac_ecl, jac_sin)
     return jac
@@ -2001,3 +2001,156 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
     e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
     res_ecl_par = np.array([e, w, i, r_sum, r_rat, sb_rat])
     return res_const, res_slope, res_freqs, res_ampls, res_phases, res_ecl_par
+
+
+def delta_obj_physical_lc(par, i_par, params, obj_min, delta, times, signal, signal_err, p_orb, t_zero):
+    """Displaces the objective function minimum to a certain delta
+    
+    Parameters
+    ----------
+    par: float
+        The parameter to change
+    i_par: int
+        The index in params of the parameter to change
+    params: numpy.ndarray[float]
+        The parameters of a simple eclipse light curve model.
+        Has to be ordered in the following way:
+        [ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset]
+    obj_min: float
+        Minimum objective function value
+    delta: float
+        Target delta objective function to reach
+    times: numpy.ndarray[float]
+        Timestamps of the time series, zero point at primary minimum
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of the deepest minimum with respect to the mean time
+
+    Returns
+    -------
+    -ln_likelihood: float
+        Minus the (natural)log-likelihood of the residuals
+
+    See Also
+    --------
+    objective_physcal_lc
+    """
+    params[i_par] = par
+    obj = objective_physical_lc(params, times, signal, signal_err, p_orb, t_zero)
+    delta_obj = abs(obj - obj_min - delta)
+    return delta_obj
+
+
+def fit_delta_error_estimate(times, signal, signal_err, p_orb, t_zero, f_n, a_n, ph_n, f_n_err, params, freq_res,
+                             i_sectors, verbose=False):
+    """Scan the parameter space to find errors by taking a delta cost function approach
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
+    p_orb: float
+        Orbital period of the eclipsing binary in days
+    t_zero: float
+        Time of the deepest minimum with respect to the mean time
+    params: tuple[float], list[float], numpy.ndarray[float]
+        Initial eclipse parameters to start the fit, consisting of:
+        e, w, i, r_sum, r_rat, sb_rat
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. If only a single curve is wanted,
+        set i_sectors = np.array([[0, len(times)]]).
+    verbose: bool
+        If set to True, this function will print some information
+
+    Returns
+    -------
+    par_out: numpy.ndarray[float]
+        Fit results from the scipy optimizer,
+        e, w, i, r_sum, r_rat, sb_rat, offset
+
+    Notes
+    -----
+    Strictly speaking it is doing a maximum log-likelihood fit, but that is
+    in essence identical (and numerically more stable due to the logarithm).
+
+    Fit is performed in the parameter space:
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb
+    """
+    e, w, i, r_sum, r_rat, sb_rat = params
+    # select harmonics in the remaining frequencies
+    harmonics, harmonic_n = af.select_harmonics_sigma(f_n, f_n_err, p_orb, f_tol=freq_res / 2, sigma_f=3)
+    non_harm = np.delete(np.arange(len(f_n)), harmonics)
+    # make sure we remove trends and non-harmonics
+    const, slope = tsf.linear_pars(times, signal - np.mean(signal), i_sectors)
+    model_linear = tsf.linear_curve(times, const, slope, i_sectors)
+    model_sinusoid = tsf.sum_sines(times, f_n[non_harm], a_n[non_harm], ph_n[non_harm])
+    ecl_signal = signal - model_sinusoid - model_linear
+    # remove initial model to obtain initial offset level
+    model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *params)
+    offset = np.mean(ecl_signal - model_ecl)
+    # parameters and bounds
+    ecosw, esinw, cosi, phi_0, log_rr, log_sb = ut.convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat)
+    params_obj = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, offset])
+    obj_min = objective_physical_lc(params_obj, times, signal, signal_err, p_orb, t_zero)
+    delta = 14
+    # parameter bounds, aranged in order
+    # all_pars = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat])
+    # bounds_a = [(max(ecosw - 0.1, -1), ecosw), (max(esinw - 0.25, -1), esinw), (max(cosi - 0.25, 0), cosi),
+    #             (max(phi_0 - 0.2, 0), phi_0), (max(log_rr - 2, -3), log_rr), (max(log_sb - 2, -3), log_sb),
+    #             (max(e - 0.25, 0), e), (w - np.pi, w), (max(i - np.pi / 4, 0), i),
+    #             (max(r_sum - 0.3, 0), r_sum), (max(r_rat - 10, 0.001), r_rat), (max(sb_rat - 10, 0.001), sb_rat)]
+    # bounds_b = [(ecosw, min(ecosw + 0.1, 1)), (esinw, min(esinw + 0.25, 1)), (cosi, min(cosi + 0.25, 1)),
+    #             (phi_0, min(phi_0 + 0.2, np.pi / 2)), (log_rr, min(log_rr + 2, 3)), (log_sb, min(log_sb + 2, 3)),
+    #             (e, min(e + 0.25, 0.99)), (w, w + np.pi), (i, min(i + np.pi / 4, np.pi / 2)),
+    #             (r_sum, min(r_sum + 0.3, 1)), (r_rat, min(r_rat + 10, 1000)), (sb_rat, min(sb_rat + 10, 1000))]
+    all_pars = np.array([ecosw, esinw, cosi, phi_0, log_rr, log_sb])
+    bounds_a = [(max(ecosw - 0.1, -1), ecosw), (max(esinw - 0.25, -1), esinw), (max(cosi - 0.25, 0), cosi),
+                (max(phi_0 - 0.2, 0), phi_0), (max(log_rr - 2, -3), log_rr), (max(log_sb - 2, -3), log_sb)]
+    bounds_b = [(ecosw, min(ecosw + 0.1, 1)), (esinw, min(esinw + 0.25, 1)), (cosi, min(cosi + 0.25, 1)),
+                (phi_0, min(phi_0 + 0.2, np.pi / 2)), (log_rr, min(log_rr + 2, 3)), (log_sb, min(log_sb + 2, 3))]
+    # loop over the parameters
+    par_left = np.copy(all_pars)
+    par_right = np.copy(all_pars)
+    for i, (bnd_a, bnd_b) in enumerate(zip(bounds_a, bounds_b)):
+        # arguments, with i corresponding to the right parameter
+        arguments = (i, params_obj, obj_min, delta, times, signal, signal_err, p_orb, t_zero)
+        # find the minima on each side with a delta offset in objective function
+        result_a = sp.optimize.minimize_scalar(delta_obj_physical_lc, args=arguments, method='bounded', bounds=bnd_a)
+        result_b = sp.optimize.minimize_scalar(delta_obj_physical_lc, args=arguments, method='bounded', bounds=bnd_b)
+        par_left[i] = result_a.x
+        par_right[i] = result_b.x
+    # convert intervals to errors
+    ecosw_err = [ecosw - par_left[0], par_right[0] - ecosw]
+    esinw_err = [esinw - par_left[1], par_right[1] - esinw]
+    cosi_err = [cosi - par_left[2], par_right[2] - cosi]
+    phi_0_err = [phi_0 - par_left[3], par_right[3] - phi_0]
+    log_rr_err = [log_rr - par_left[4], par_right[4] - log_rr]
+    log_sb_err = [log_sb - par_left[5], par_right[5] - log_sb]
+    # e_err = [e - par_left[6], par_right[6] - e]
+    # w_err = [w - par_left[7], par_right[7] - w]
+    # i_err = [i - par_left[8], par_right[8] - i]
+    # r_sum_err = [r_sum - par_left[9], par_right[9] - r_sum]
+    # r_rat_err = [r_rat - par_left[10], par_right[10] - r_rat]
+    # sb_rat_err = [sb_rat - par_left[11], par_right[11] - sb_rat]
+    
+    # todo: callibrate by setting width of kde to 1
+    # params_a = np.copy(params_obj)
+    # params_a[1] = result_a.x
+    # params_b = np.copy(params_obj)
+    # params_b[1] = result_b.x
+    # obj_a = objective_physical_lc(params_a, times, signal, signal_err, p_orb, t_zero)
+    # obj_b = objective_physical_lc(params_b, times, signal, signal_err, p_orb, t_zero)
+    #
+    # print(obj_min, result_a.fun, result_b.fun, obj_a, obj_b)
+    # print(esinw, result_a.x, result_b.x, esinw_err, 3*esinw_err)
+    return ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err

@@ -856,8 +856,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
     # minimisation procedure for parameters from formulae
-    out_a = af.eclipse_parameters_approx(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:],
-                                         verbose=verbose)
+    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
     i_err_est = 0.035  # fairly good guess at the inability to pinpoint i (2 degrees)
@@ -1028,6 +1027,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     if verbose:
         print(f'Starting multi-sine NL-LS optimisation with physical eclipse model.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
+    freq_res = 1.5 / t_tot  # Rayleigh criterion
     # convert some parameters and fit initial physical model
     out_a = tsfit.fit_eclipse_physical(times, signal, signal_err, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors,
                                        verbose=verbose)
@@ -1071,6 +1071,17 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     e, w, i, r_sum, r_rat, sb_rat = par_mean[11:]
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)  # for function output
+    
+    
+    
+    
+    # tsfit.fit_delta_error_estimate(times, signal, signal_err, p_orb, t_zero, f_n, a_n, ph_n, f_n_err, ecl_par,
+    #                                ecl_par_err, freq_res, i_sectors, verbose=verbose)
+    
+    
+    
+    
+    
     # get theoretical timings and depths
     timings = af.eclipse_times(p_orb, t_zero, e, w, i, r_sum, r_rat)
     depths = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
