@@ -1134,21 +1134,17 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_
     peaks_1[~l_side] = [z1i + np.argmax(deriv_1[z1i:p1o]) for z1i, p1o in zip(zeros_1_in[~l_side], p1_orig[~l_side])]
     # define the actual slope_sign
     slope_sign = np.sign(deriv_1[peaks_1]).astype(np.int_)  # sign reveals ingress or egress
-    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
+    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1
     zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
-    # find second peaks outward of peaks_1 - move up then down or down then up
-    walk_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
-    walk_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
-    sec_p1_l = curve_walker(deriv_1, walk_p1_l, slope_sign[l_side], mode='down')
-    sec_p1_r = curve_walker(deriv_1, walk_p1_r, slope_sign[~l_side], mode='up')
-    # limit second peaks to zeros_1 - if they go past, revert to first peaks
-    past_zeros_1_l = (sec_p1_l <= zeros_1[l_side])
-    sec_p1_l[past_zeros_1_l] = peaks_1[l_side][past_zeros_1_l]
-    past_zeros_1_r = (sec_p1_r >= zeros_1[~l_side])
-    sec_p1_r[past_zeros_1_r] = peaks_1[~l_side][past_zeros_1_r]
+    # find second peaks outward of peaks_1 - first move off the previous peak
+    off_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
+    off_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
+    # then pick the extrema and limit to zeros_1 - if they go past, revert to first peaks
     sec_p1 = np.zeros(len(p1_orig), dtype=np.int_)
-    sec_p1[l_side] = sec_p1_l
-    sec_p1[~l_side] = sec_p1_r
+    sec_p1[l_side] = [z1 + np.argmin(deriv_1[z1:wp1]) if (z1 < wp1) else p1
+                      for z1, wp1, p1 in zip(zeros_1[l_side], off_p1_l, peaks_1[l_side])]
+    sec_p1[~l_side] = [wp1 + np.argmax(deriv_1[wp1:z1]) if (z1 > wp1) else p1
+                       for z1, wp1, p1 in zip(zeros_1[~l_side], off_p1_r, peaks_1[~l_side])]
     # check height of second peaks outward of peaks_1 (limited to zeros_1)
     check = (np.abs(deriv_1[sec_p1]) > 0.8 * np.abs(deriv_1[peaks_1]))
     check &= (model_h[sec_p1] > model_h[peaks_1])
@@ -1167,10 +1163,10 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_
     minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
     # if minimum_1 is inside the original peaks_1, need to walk outward further (but we keep inner points)
     # walk outward analogously to before
-    walk_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
-    walk_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
-    sec_p1_l = curve_walker(deriv_1, walk_p1_l, slope_sign[l_side], mode='down')
-    sec_p1_r = curve_walker(deriv_1, walk_p1_r, slope_sign[~l_side], mode='up')
+    off_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
+    off_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
+    sec_p1_l = curve_walker(deriv_1, off_p1_l, slope_sign[l_side], mode='down')
+    sec_p1_r = curve_walker(deriv_1, off_p1_r, slope_sign[~l_side], mode='up')
     # adjust peaks_1 where needed and redo some steps
     new_peaks_1 = np.copy(peaks_1)
     new_peaks_1[l_side] = sec_p1_l
