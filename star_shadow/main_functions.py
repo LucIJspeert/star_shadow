@@ -772,7 +772,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     return timings, timings_err, n_fold
 
 
-def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, file_name, data_id='none',
+def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, data_id='none',
                                 overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
@@ -791,6 +791,10 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err, depth_1_err, depth_2_err
     p_t_corr: float
         Correlation between period and t_1
+    f_n: numpy.ndarray[float]
+        The frequencies of a number of sine waves
+    a_n: numpy.ndarray[float]
+        The amplitudes of a number of sine waves
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
@@ -872,7 +876,23 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, fi
     errors, dists_in, dists_out = out_b
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
-    # for 'formal' errors in r_rat and sb_rat scale their errors up using the formal error of e
+    # esinw errors are subject to an additional minimum (affecting e_err and w_err as well)
+    min_depth = min(timings[10:])  # secondary depth is predictor of bad esinw
+    harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+    low_high_h = (harmonic_n < 6) | (harmonic_n > 15)
+    sum_harm_ampls = np.sum(a_n[harmonics][low_high_h])  # low and high harmonic amplitudes are predictor of bad esinw
+    min_esinw_err = 0.2 * np.exp(-(min_depth / sum_harm_ampls) / 0.3)  # scaling relation
+    # modify errors
+    esinw_err[0] = max(esinw_err[0], min_esinw_err)
+    esinw_err[1] = max(esinw_err[1], min_esinw_err)
+    cos_w, sin_w = np.cos(w), np.sin(w)
+    min_e_err = np.sqrt(cos_w**2 * ecosw_err**2 + sin_w**2 * esinw_err**2)
+    min_w_err = np.sqrt(sin_w**2 / e**2 * ecosw_err**2 + cos_w**2 / e**2 * esinw_err**2)
+    e_err[0] = max(e_err[0], min_e_err[0])
+    e_err[1] = max(e_err[1], min_e_err[1])
+    w_err[0] = max(w_err[0], min_w_err[0])
+    w_err[1] = max(w_err[1], min_w_err[1])
+    # for 'formal' errors in r_rat and sb_rat scale their errors using the formal error of e
     e_err_factor = max(sigma_e / e_err[0], sigma_e / e_err[1])  # hope that (e_err_factor > 1)?
     sigma_log_rr = max(log_rr_err * e_err_factor)
     sigma_log_sb = max(log_sb_err * e_err_factor)
@@ -1074,17 +1094,6 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     const, slope, f_n, a_n, ph_n = par_mean[:5]
     e, w, i, r_sum, r_rat, sb_rat = par_mean[11:]
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)  # for function output
-    
-    
-    
-    
-    # tsfit.fit_delta_error_estimate(times, signal, signal_err, p_orb, t_zero, f_n, a_n, ph_n, f_n_err, ecl_par,
-    #                                ecl_par_err, freq_res, i_sectors, verbose=verbose)
-    
-    
-    
-    
-    
     # get theoretical timings and depths
     timings = af.eclipse_times(p_orb, t_zero, e, w, i, r_sum, r_rat)
     depths = af.eclipse_depths(e, w, i, r_sum, r_rat, sb_rat)
@@ -1662,22 +1671,22 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     p_err, _ = results_6['ephem_err']
     timings = results_6['timings']
     timings_err = results_6['timings_err']
+    _, _, f_n, a_n, _ = results_6['sin_mean']
     # ------------------------------------
     # --- [7] --- Initial orbital elements
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
     _, _, p_t_corr = af.linear_regression_uncertainty(p_orb, np.ptp(times), sigma_t=t_int / 2)
-    out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, file_name, **arg_dict)
+    out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[:6]
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[6:]
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum_sma, sigma_ecosw, sigma_esinw = formal_errors
     # for the spherical model optimisation, take maximum errors for bounds and priors
-    phys_err = np.array([max(max(e_err), sigma_e), max(max(w_err), sigma_w), max(i_err),
-                         max(max(r_sum_err), sigma_r_sum_sma), max(r_rat_err), max(sb_rat_err),
-                         max(max(ecosw_err), sigma_ecosw), max(max(esinw_err), sigma_esinw), max(cosi_err),
-                         max(max(phi_0_err), sigma_phi_0), max(log_rr_err), max(log_sb_err)])
+    phys_err = np.array([max(e_err), max(w_err), max(i_err), max(r_sum_err), max(r_rat_err), max(sb_rat_err),
+                         max(ecosw_err), max(esinw_err), max(cosi_err), max(phi_0_err),
+                         max(log_rr_err), max(log_sb_err)])
     ecl_par = (e, w, i, r_sum, r_rat, sb_rat)
     # save the results in ascii format
     if save_ascii:
