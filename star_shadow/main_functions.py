@@ -892,6 +892,10 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_
     e_err[1] = max(e_err[1], min_e_err[1])
     w_err[0] = max(w_err[0], min_w_err[0])
     w_err[1] = max(w_err[1], min_w_err[1])
+    # same goes for phi_0 (also based on eclipse widths)
+    min_phi_0_err = 0.05 * np.exp(-(min_depth / sum_harm_ampls) / 0.3)  # scaling relation
+    phi_0_err[0] = max(phi_0_err[0], min_phi_0_err)
+    phi_0_err[1] = max(phi_0_err[1], min_phi_0_err)
     # for 'formal' errors in r_rat and sb_rat scale their errors using the formal error of e
     e_err_factor = max(sigma_e / e_err[0], sigma_e / e_err[1])  # hope that (e_err_factor > 1)?
     sigma_log_rr = max(log_rr_err * e_err_factor)
