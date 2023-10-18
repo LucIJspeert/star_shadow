@@ -2835,8 +2835,6 @@ def ecc_omega(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, cosi, phi_0):
     """
     sin_i_2 = 1 - cosi**2
     sin_p0_2 = np.sin(phi_0)**2
-    # calculation phi_0, in durations: (duration_1 + duration_2)/4 = (2pi/P)(tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2)/4
-    phi_0 = np.pi * (tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) / (2 * p_orb)
     # duration difference in angular phase units
     dur_dif = np.pi * (tau_1_1 + tau_1_2 - tau_2_1 - tau_2_2) / (2 * p_orb)
     # phase difference between primary and secondary
