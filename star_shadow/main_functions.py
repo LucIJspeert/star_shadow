@@ -1594,10 +1594,12 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     dur_1_err, dur_2_err = np.sqrt(t_1_1_err**2 + t_1_2_err**2), np.sqrt(t_2_1_err**2 + t_2_2_err**2)
     dur_diff = (dur_1 < 0.001 * dur_2) | (dur_2 < 0.001 * dur_1)
     depth_insig = (d_1 < depth_1_err) | (d_2 < depth_2_err)  # being not so strict here
+    depth_snr = (d_1 / noise_level < 0.5) | (d_2 / noise_level < 0.5)  # and also not very strict here
     dur_insig = (dur_1 < 3 * dur_1_err) | (dur_2 < 3 * dur_2_err)  # being strict here
-    if dur_diff | depth_insig | dur_insig:
-        if depth_insig:
-            message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}'
+    if dur_diff | depth_insig | depth_snr | dur_insig:
+        if depth_insig | depth_snr:
+            message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err},' \
+                      f'noise level: {noise_level}'
         elif dur_insig:
             message = f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}'
         else:
