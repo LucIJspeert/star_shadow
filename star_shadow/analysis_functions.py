@@ -2050,7 +2050,7 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     t_contacts = (t_1_1 + t_1, t_1_2 + t_1, t_2_1 + t_1, t_2_2 + t_1)
     t_int_tan = (t_b_1_1 + t_1, t_b_1_2 + t_1, t_b_2_1 + t_1, t_b_2_2 + t_1)
     # redetermine depths a tiny bit more precisely
-    depths = measure_harmonic_depths(f_h[low_h], a_h[low_h], ph_h[low_h], t_1, t_2, *t_contacts, *t_int_tan)
+    depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
     return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
 
 
