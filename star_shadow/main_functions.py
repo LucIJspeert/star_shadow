@@ -84,7 +84,7 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     if verbose:
         print(f'Looking for frequencies')
     # extract all frequencies with the iterative scheme
-    out_a = tsf.extract_sinusoids(times, signal, signal_err, i_sectors, verbose=verbose)
+    out_a = tsf.extract_sinusoids(times, signal, signal_err, i_sectors, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_b = tsf.reduce_frequencies(times, signal, signal_err, 0, *out_a, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
@@ -445,7 +445,8 @@ def add_sinusoids(times, signal, signal_err, p_orb, f_n, a_n, ph_n, i_sectors, t
     # start by looking for more harmonics
     out_a = tsf.extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n, a_n, ph_n, verbose=verbose)
     # look for any additional non-harmonics with the iterative scheme
-    out_b = tsf.extract_sinusoids(times, signal, signal_err, i_sectors, p_orb, *out_a[2:], verbose=verbose)
+    out_b = tsf.extract_sinusoids(times, signal, signal_err, i_sectors, p_orb, *out_a[2:], select='hybrid',
+                                  verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_c = tsf.reduce_frequencies(times, signal, signal_err, p_orb, *out_b, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
@@ -1062,7 +1063,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     # extract the leftover signal from the residuals with the iterative scheme
     model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a[:6])
     resid_ecl = signal - model_eclipse
-    out_b = tsf.extract_sinusoids(times, resid_ecl, signal_err, i_sectors, verbose=verbose)
+    out_b = tsf.extract_sinusoids(times, resid_ecl, signal_err, i_sectors, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
     out_c = tsf.reduce_frequencies(times, resid_ecl, signal_err, 0, *out_b, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
@@ -1598,7 +1599,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     dur_insig = (dur_1 < 3 * dur_1_err) | (dur_2 < 3 * dur_2_err)  # being strict here
     if dur_diff | depth_insig | depth_snr | dur_insig:
         if depth_insig | depth_snr:
-            message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err},' \
+            message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}, ' \
                       f'noise level: {noise_level}'
         elif dur_insig:
             message = f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}'
