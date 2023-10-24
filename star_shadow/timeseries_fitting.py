@@ -335,7 +335,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)}', end='\r')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -351,7 +351,7 @@ def fit_multi_sinusoid_per_group(times, signal, signal_err, const, slope, f_n, a
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             resid = signal - model_linear - model_sinusoid
             bic = tsf.calc_bic(resid / signal_err, 2 * n_sect + 3 * n_sin)
-            print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)} - BIC: {bic:1.2f}')
     return res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
@@ -704,7 +704,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)}', end='\r')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -720,7 +720,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, signal_err, p_orb, con
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             resid_new = signal - (model_linear + model_sinusoid)
             bic = tsf.calc_bic(resid_new / signal_err, 1 + 2 * n_sect + 3 * n_sin + 2 * n_harm)
-            print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)} - BIC: {bic:1.2f}')
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
@@ -1275,7 +1275,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)}', end='\r')
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
                                        np.delete(res_phases, group))
@@ -1308,7 +1308,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, signal_err, p_orb, timings, c
             model_ecl = eclipse_empirical_lc(times, p_orb, *res_cubics)
             resid_new = signal - (model_linear + model_sinusoid + model_ecl)
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 11)
-            print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}. '
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)} - BIC: {bic:1.2f}. '
                   f'N_iter: {int(result.nit)}, N_fev: {int(result.nfev)}.')
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = res_cubics
     # compute the times of eclipse contact and tangency
@@ -1951,7 +1951,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
     # update the parameters for each group
     for k, group in enumerate(f_groups):
         if verbose:
-            print(f'Fit of group {k + 1} of {n_groups}', end='\r')
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)}', end='\r')
         n_sin_g = len(res_freqs[group])
         # subtract all other sines from the data, they are fixed now
         resid = signal - tsf.sum_sines(times, np.delete(res_freqs, group), np.delete(res_ampls, group),
@@ -1994,7 +1994,7 @@ def fit_eclipse_physical_sinusoid(times, signal, signal_err, p_orb, t_zero, ecl_
                 model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
             resid_new = signal - (model_linear + model_sinusoid + model_ecl)
             bic = tsf.calc_bic(resid_new / signal_err, 2 * n_sect + 3 * n_sin + 1 + len(res_ecl_par))
-            print(f'Fit of group {k + 1} of {n_groups} - BIC: {bic:1.2f}. '
+            print(f'Fit of group {k + 1} of {n_groups} - N_f(group)= {len(group)} - BIC: {bic:1.2f}. '
                   f'N_iter: {result.nit}, N_fev: {int(result.nfev)}.')
     # convert back parameters
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = res_ecl_par
