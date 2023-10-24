@@ -589,23 +589,7 @@ def scargle_ampl(times, signal, fs):
     Parameters
     ----------
     times: numpy.ndarray[float]
-        Timestamps of the tiScargle periodogram with no weights.
-
-    Parameters
-    ----------
-    times: numpy.ndarray[float]
         Timestamps of the time series
-    signal: numpy.ndarray[float]
-        Measurement values of the time series
-    fs: numpy.ndarray[float]
-        A set of frequencies
-
-    Returns
-    -------
-    f1: numpy.ndarray[float]
-        Frequencies at which the periodogram was calculated
-    s1: numpy.ndarray[float]
-        The periodogram spectrum in the chosen units
     signal: numpy.ndarray[float]
         Measurement values of the time series
     fs: numpy.ndarray[float]
@@ -2536,6 +2520,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     non_harm = np.delete(np.arange(n_freq), harmonics)
     n_harm = len(harmonics)
+    remove_non_harm = np.zeros(0, dtype=np.int_)
     for i in non_harm:
         # make a model of the removed sinusoid and subtract it from the full sinusoid residual
         model_sinusoid_r = sum_sines(times, np.array([f_n[i]]), np.array([a_n[i]]), np.array([ph_n[i]]))
@@ -2546,11 +2531,19 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
         f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f0=fl, fn=fr, select='a', verbose=verbose)
         ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi  # make sure the phase stays within + and - pi
+        if (f_n[i] <= fl) | (f_n[i] >= fr):
+            remove_non_harm = np.append(remove_non_harm, [i])
         # make a model of the new sinusoid and add it to the full sinusoid residual
         model_sinusoid_n = sum_sines(times, np.array([f_n[i]]), np.array([a_n[i]]), np.array([ph_n[i]]))
         cur_resid -= model_sinusoid_n
-    # lastly re-determine slope and const
-    const, slope = linear_pars(times, cur_resid, i_sectors)
+    # finally, remove all the designated sinusoids from the lists and add the new ones
+    f_n = np.delete(f_n, non_harm[remove_non_harm])
+    a_n = np.delete(a_n, non_harm[remove_non_harm])
+    ph_n = np.delete(ph_n, non_harm[remove_non_harm])
+    # re-establish cur_resid
+    model_sinusoid = sum_sines(times, f_n, a_n, ph_n)
+    cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
+    const, slope = linear_pars(times, cur_resid, i_sectors)  # lastly re-determine slope and const
     if verbose:
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (n_freq - n_harm)
