@@ -1600,7 +1600,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     # additional constraints for bad eclipse detections
     low_snr = (d_2 / noise_level < 1.5)
     large_offset = (abs((t_2 - t_1) / p_orb - 0.5) > 0.25)
-    large_dur_diff = ((dur_2 - dur_1) / p_orb > 0.02)
+    large_dur_diff = (abs(dur_2 - dur_1) / p_orb > 0.02)
     large_asym = (abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb > 0.01)
     bad_sec = low_snr & ((large_offset & large_dur_diff) | (~large_offset & large_asym))
     if dur_diff | depth_insig | depth_snr | dur_insig | bad_sec:
