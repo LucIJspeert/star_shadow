@@ -959,6 +959,7 @@ def find_orbital_period(times, signal, f_n):
     # decide on the multiple of the period
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=freq_res / 2)
     completeness_p = (len(harmonics) / (f_nyquist // (1 / p_orb)))
+    completeness_p_l = (len(harmonics[harmonic_n <= 15]) / (f_nyquist // (1 / p_orb)))
     # check these (commonly missed) multiples
     n_multiply = np.array([1/2, 2, 3, 4, 5])
     p_multiples = p_orb * n_multiply
@@ -967,14 +968,31 @@ def find_orbital_period(times, signal, f_n):
     # compute diagnostic fractions that need to meet some threshold
     test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
     compl_frac = completeness_r_m / completeness_p
-    minimal_frac = 1.1  # empirically determined threshold
-    minimal_compl_frac = 0.9  # empirically determined threshold
+    # doubling the period may be done if the harmonic filling factor below f_16 is very high
+    f_cut = np.max(f_n[harmonics][harmonic_n <= 15])
+    f_n_c = f_n[f_n <= f_cut]
+    n_harm_r_2, completeness_r_2, distance_r_2 = af.harmonic_series_length(1/p_multiples, f_n_c, freq_res, f_nyquist)
+    compl_frac_2 = completeness_r_2[1] / completeness_p_l
+    # empirically determined thresholds for the various measures
+    minimal_frac = 1.1
+    minimal_compl_frac = 0.8
+    minimal_frac_low = 0.95
+    minimal_compl_frac_low = 0.95
+    # test conditions
+    test_condition = (test_frac > minimal_frac)
     compl_condition = (compl_frac > minimal_compl_frac)
+    test_condition_2 = (test_frac[1] > minimal_frac_low)
+    compl_condition_2 = (compl_frac_2 > minimal_compl_frac_low)
     multiple = 1
-    if np.any((test_frac > minimal_frac) & compl_condition):
-        i_best = np.argmax(test_frac[compl_condition])
-        p_orb = p_multiples[compl_condition][i_best]
-        multiple = n_multiply[compl_condition][i_best]
+    if np.any(test_condition & compl_condition) | (test_condition_2 & compl_condition_2):
+        if np.any(test_condition & compl_condition):
+            i_best = np.argmax(test_frac[compl_condition])
+            p_orb = p_multiples[compl_condition][i_best]
+            multiple = n_multiply[compl_condition][i_best]
+        else:
+            p_orb = 2 * p_orb
+            multiple = 2
+        # make new bounds for refining
         f_left_b = 1 / p_orb - (bound_interval / 2)
         f_right_b = 1 / p_orb + (bound_interval / 2)
         # refine by using a dense sampling and the harmonic distances
