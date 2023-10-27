@@ -975,7 +975,7 @@ def find_orbital_period(times, signal, f_n):
     compl_frac_2 = completeness_r_2[1] / completeness_p_l
     # empirically determined thresholds for the various measures
     minimal_frac = 1.1
-    minimal_compl_frac = 0.8
+    minimal_compl_frac = 0.85
     minimal_frac_low = 0.95
     minimal_compl_frac_low = 0.95
     # test conditions
