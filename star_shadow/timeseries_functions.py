@@ -965,6 +965,12 @@ def find_orbital_period(times, signal, f_n):
     p_multiples = p_orb * n_multiply
     n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
     h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
+    # if there are very high numbers, add double that fraction for testing
+    test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
+    if np.any(test_frac[2:] > 3):
+        p_multiples = np.append(p_multiples, [p_orb * 2 * n_multiply[2:][test_frac[2:] > 3]])
+        n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
+        h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
     # compute diagnostic fractions that need to meet some threshold
     test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
     compl_frac = completeness_r_m / completeness_p

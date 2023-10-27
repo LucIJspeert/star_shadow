@@ -32,7 +32,7 @@ for more information.
 
 The easiest way to install STAR SHADOW is to use pip:
 
-    pip install git+https://github.com/LucIJspeert/star_shadow@v1.1.6
+    pip install git+https://github.com/LucIJspeert/star_shadow@<version_tag>
 
 Or install the master branch by leaving out the version number. 
 One can then import the package from the python environment it was installed in. 
