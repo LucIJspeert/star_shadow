@@ -2074,7 +2074,7 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
     taking into account (and not changing the frequencies of) harmonics if present.
     
@@ -2084,8 +2084,6 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     close_f: list[int], numpy.ndarray[int]
         Indices of the subset of frequencies to be refined
     p_orb: float
@@ -2141,7 +2139,7 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     f_n_temp, a_n_temp, ph_n_temp = np.copy(f_n), np.copy(a_n), np.copy(ph_n)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_f - n_harm)
-    bic_prev = calc_bic(resid / signal_err, n_param)
+    bic_prev = calc_bic(resid, n_param)
     bic_init = bic_prev
     # stop the loop when the BIC increases
     accept = True
@@ -2167,7 +2165,7 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
         const, slope = linear_pars(times, cur_resid, i_sectors)
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # calculate BIC before moving to the next iteration
-        bic = calc_bic(resid / signal_err, n_param)
+        bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
         if (np.round(d_bic, 2) > 0):
             # adjust the shifted frequencies
@@ -2185,7 +2183,7 @@ def refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n, 
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a_n=None, ph_n=None, select='hybrid',
+def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_n=None, select='hybrid',
                       verbose=True):
     """Extract all the frequencies from a periodic signal.
 
@@ -2195,8 +2193,6 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
@@ -2280,7 +2276,7 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
     const, slope = linear_pars(times, cur_resid, i_sectors)
     resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
-    bic_prev = calc_bic(resid / signal_err, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
+    bic_prev = calc_bic(resid, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     bic_init = bic_prev
     if verbose:
         print(f'N_f= {len(f_n)}, BIC= {bic_init:1.2f} (delta= N/A) - start extraction')
@@ -2301,8 +2297,8 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
         model_sinusoid_r = sum_sines(times, f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f])
         model_sinusoid_r -= sum_sines(times, np.array([f_i]), np.array([a_i]), np.array([ph_i]))
         if (len(close_f) > 1):
-            refine_out = refine_subset(times, signal, signal_err, close_f, p_orb, const, slope, f_n_temp, a_n_temp,
-                                       ph_n_temp, i_sectors, verbose=verbose)
+            refine_out = refine_subset(times, signal, close_f, p_orb, const, slope, f_n_temp, a_n_temp, ph_n_temp,
+                                       i_sectors, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model_sinusoid_n = sum_sines(times, f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f])
@@ -2311,7 +2307,7 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # calculate BIC before moving to the next iteration
         n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq_cur + 1 - n_harm)
-        bic = calc_bic(resid / signal_err, n_param)
+        bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
         if (np.round(d_bic, 2) > 2):
             # accept the new frequency
@@ -2330,7 +2326,7 @@ def extract_sinusoids(times, signal, signal_err, i_sectors, p_orb=0, f_n=None, a
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=True):
+def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=True):
     """Tries to extract more harmonics from the signal
     
     Parameters
@@ -2339,8 +2335,6 @@ def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_n: None, numpy.ndarray[float]
@@ -2404,7 +2398,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n
     const, slope = linear_pars(times, cur_resid, i_sectors)
     resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
-    bic_init = calc_bic(resid / signal_err, n_param)
+    bic_init = calc_bic(resid, n_param)
     bic_prev = bic_init
     if verbose:
         print(f'N_f= {n_freq}, BIC= {bic_init:1.2f} (delta= N/A) - start extraction')
@@ -2423,7 +2417,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n
         # determine new BIC and whether it improved
         n_harm_cur = n_harm + len(n_h_acc) + 1
         n_param = 2 * n_sectors + 1 * (n_harm_cur > 0) + 2 * n_harm_cur + 3 * (n_freq - n_harm)
-        bic = calc_bic(resid / signal_err, n_param)
+        bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
         if (np.round(d_bic, 2) > 2):
             # h_c is accepted, add it to the final list and continue
@@ -2444,7 +2438,7 @@ def extract_harmonics(times, signal, signal_err, p_orb, i_sectors, f_n=None, a_n
     return const, slope, f_n, a_n, ph_n
 
 
-def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Fixes the frequency of harmonics to the theoretical value, then
     re-determines the amplitudes and phases.
 
@@ -2454,8 +2448,6 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -2505,7 +2497,7 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
     cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
     resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 + 2 * n_harm_init + 3 * (n_freq - n_harm_init)
-    bic_init = calc_bic(resid / signal_err, n_param)
+    bic_init = calc_bic(resid, n_param)
     # go through the harmonics by harmonic number and re-extract them (removing all duplicate n's in the process)
     for n in np.unique(harmonic_n):
         remove = np.arange(len(f_n))[harmonics][harmonic_n == n]
@@ -2565,14 +2557,14 @@ def fix_harmonic_frequency(times, signal, signal_err, p_orb, const, slope, f_n, 
     if verbose:
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         n_param = 2 * n_sectors + 1 + 2 * n_harm + 3 * (n_freq - n_harm)
-        bic = calc_bic(resid / signal_err, n_param)
+        bic = calc_bic(resid, n_param)
         print(f'Candidate harmonics replaced: {n_harm_init} ({n_harm} left). ')
         print(f'N_f= {len(f_n)}, BIC= {bic:1.2f} (delta= {bic_init - bic:1.2f})')
     return const, slope, f_n, a_n, ph_n
 
 
 @nb.njit(cache=True)
-def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt the removal of individual frequencies
     
     Parameters
@@ -2581,8 +2573,6 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
@@ -2631,7 +2621,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
     cur_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
     resid = cur_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
-    bic_prev = calc_bic(resid / signal_err, n_param)
+    bic_prev = calc_bic(resid, n_param)
     bic_init = bic_prev
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2650,7 +2640,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
             n_harm_i = n_harm - len([h for h in remove_single if h in harmonics]) - 1 * (i in harmonics)
             n_freq_i = n_freq - len(remove_single) - 1 - n_harm_i
             n_param = 2 * n_sectors + 1 * (n_harm_i > 0) + 2 * n_harm_i + 3 * n_freq_i
-            bic = calc_bic(resid / signal_err, n_param)
+            bic = calc_bic(resid, n_param)
             # if improvement, add to list of removed freqs
             if (np.round(bic_prev - bic, 2) > 0):
                 remove_single = np.append(remove_single, i)
@@ -2671,7 +2661,7 @@ def remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n,
 
 
 @nb.njit(cache=True)
-def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt the replacement of groups of frequencies by a single one
 
     Parameters
@@ -2680,8 +2670,6 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
@@ -2750,7 +2738,7 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     best_resid = signal - model_sinusoid  # the residual after subtracting the model of sinusoids
     resid = best_resid - linear_curve(times, const, slope, i_sectors)
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
-    bic_prev = calc_bic(resid / signal_err, n_param)
+    bic_prev = calc_bic(resid, n_param)
     bic_init = bic_prev
     n_prev = -1
     # while frequencies are added to the remove list, continue loop
@@ -2783,7 +2771,7 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
             # number of parameters and bic
             n_freq_i = n_freq - sum([len(f_sets[j]) for j in remove_sets]) - len(set_i) + len(f_new) + len(f_i) - n_harm
             n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * n_freq_i
-            bic = calc_bic(resid / signal_err, n_param)
+            bic = calc_bic(resid, n_param)
             if (np.round(bic_prev - bic, 2) > 0):
                 # do not look at sets with the same freqs as the just removed set anymore
                 overlap = [j for j, subset in enumerate(f_sets) if np.any(np.array([k in set_i for k in subset]))]
@@ -2809,7 +2797,7 @@ def replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n,
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt to reduce the number of frequencies taking into account any harmonics if present.
     
     Parameters
@@ -2818,8 +2806,6 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
-    signal_err: numpy.ndarray[float]
-        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days (can be 0)
     const: numpy.ndarray[float]
@@ -2859,12 +2845,10 @@ def reduce_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
     It is attempted to replace these by a single frequency.
     """
     # first check if any frequency can be left out (after the fit, this may be possible)
-    out_a = remove_sinusoids_single(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                    verbose=verbose)
+    out_a = remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_a
     # Now go on to trying to replace sets of frequencies that are close together
-    out_b = replace_sinusoid_groups(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                    verbose=verbose)
+    out_b = replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     return const, slope, f_n, a_n, ph_n
 
