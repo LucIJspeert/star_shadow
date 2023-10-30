@@ -1074,131 +1074,6 @@ def mark_eclipse_peaks(deriv_1, deriv_2, noise_level):
 
 
 # @nb.njit(cache=True)
-def refine_eclipse_peaks_old(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_in):
-    """Refine existing prominent eclipse signatures
-
-    Parameters
-    ----------
-    model_h: numpy.ndarray[float]
-        Model of harmonic sinusoids at t_model
-    deriv_1: numpy.ndarray[float]
-        Derivative of the sinusoids at t_model
-    deriv_2: numpy.ndarray[float]
-        Second derivative of the sinusoids at t_model
-    peaks_1: numpy.ndarray[int]
-        Set of indices indicating extrema in deriv_1
-    minimum_1: numpy.ndarray[int]
-        Set of indices indicating local minima in deriv_1
-    zeros_1_in: numpy.ndarray[int]
-        Set of indices indicating inner zero points in deriv_1
-
-    Returns
-    -------
-    peaks_1: numpy.ndarray[int]
-        Set of indices indicating extrema in deriv_1
-    slope_sign: numpy.ndarray[int]
-        Sign of deriv_1 at peaks_1 (the sign of the slope)
-    zeros_1: numpy.ndarray[int]
-        Set of indices indicating zero points in deriv_1
-    peaks_2_n: numpy.ndarray[int]
-        Set of indices indicating minima in deriv_2
-    minimum_1: numpy.ndarray[int]
-        Set of indices indicating local minima in deriv_1
-    zeros_1_in: numpy.ndarray[int]
-        Set of indices indicating inner zero points in deriv_1
-    peaks_2_p: numpy.ndarray[int]
-        Set of indices indicating maxima in deriv_2
-    minimum_1_in: numpy.ndarray[int]
-        Set of indices indicating inner local minima in deriv_1
-
-    Notes
-    -----
-    Intended for use in detect_eclipses, with a fine grid of time points
-    spanning two times the orbital period.
-    
-    This version is more robust against high frequency jitter, although
-    the initial positions zeros_1_in do need to not shift by too much in
-    the larger number of harmonics used here.
-    """
-    p1_orig = np.copy(peaks_1)
-    m1_orig = np.copy(minimum_1)
-    # adjust zeros_1_in to the new zero
-    slope_sign_tmp = np.sign(deriv_1[zeros_1_in]).astype(np.int_)
-    zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='zero')
-    # make sure we are as close to zero as possible
-    zeros_1_in = curve_walker(deriv_1, zeros_1_in, -slope_sign_tmp, mode='down_abs')
-    # find the extrema in deriv_1 between peaks_1_orig and zeros_1_in
-    l_side = (p1_orig < zeros_1_in)  # left side (ingress)
-    peaks_1 = np.zeros(len(p1_orig), dtype=np.int_)
-    peaks_1[l_side] = [p1o + np.argmin(deriv_1[p1o:z1i]) for z1i, p1o in zip(zeros_1_in[l_side], p1_orig[l_side])]
-    peaks_1[~l_side] = [z1i + np.argmax(deriv_1[z1i:p1o]) for z1i, p1o in zip(zeros_1_in[~l_side], p1_orig[~l_side])]
-    # define the actual slope_sign
-    slope_sign = np.sign(deriv_1[peaks_1]).astype(np.int_)  # sign reveals ingress or egress
-    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1
-    zeros_1 = curve_walker(deriv_1, peaks_1, slope_sign, mode='zero')
-    # find second peaks outward of peaks_1 - first move off the previous peak
-    off_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
-    off_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
-    # then pick the extrema and limit to zeros_1 - if they go past, revert to first peaks
-    sec_p1 = np.zeros(len(p1_orig), dtype=np.int_)
-    sec_p1[l_side] = [z1 + np.argmin(deriv_1[z1:wp1]) if (z1 < wp1) else p1
-                      for z1, wp1, p1 in zip(zeros_1[l_side], off_p1_l, peaks_1[l_side])]
-    sec_p1[~l_side] = [wp1 + np.argmax(deriv_1[wp1:z1]) if (z1 > wp1) else p1
-                       for z1, wp1, p1 in zip(zeros_1[~l_side], off_p1_r, peaks_1[~l_side])]
-    # check height of second peaks outward of peaks_1 (limited to zeros_1)
-    check = (np.abs(deriv_1[sec_p1]) > 0.8 * np.abs(deriv_1[peaks_1]))
-    check &= (model_h[sec_p1] > model_h[peaks_1])
-    peaks_1[check] = sec_p1[check]
-    # find the minima in deriv_2 between peaks_1 and zeros_1
-    peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
-    peaks_2_n = np.array(peaks_2_n).astype(np.int_)
-    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    minimum_1 = curve_walker(deriv_1, peaks_2_n, slope_sign, mode='down_abs')
-    # adjust zeros_1_in for the case of multiple zero crossings - walk inward from peaks_1 to zero in deriv_1
-    zeros_1_in = curve_walker(deriv_1, peaks_1, -slope_sign, mode='zero')
-    # find the maxima in deriv_2 between peaks_1 and zeros_1_in
-    peaks_2_p = [min(p1, z1i) + np.argmax(deriv_2[min(p1, z1i):max(p1, z1i)]) for p1, z1i in zip(peaks_1, zeros_1_in)]
-    peaks_2_p = np.array(peaks_2_p).astype(np.int_)
-    # walk inward from the maxima in deriv_2 to (local) minima in deriv_1
-    minimum_1_in = curve_walker(deriv_1, peaks_2_p, -slope_sign, mode='down_abs')
-    # if minimum_1 is inside the original peaks_1, need to walk outward further (but we keep inner points)
-    # walk outward analogously to before
-    off_p1_l = curve_walker(deriv_1, peaks_1[l_side], slope_sign[l_side], mode='up')
-    off_p1_r = curve_walker(deriv_1, peaks_1[~l_side], slope_sign[~l_side], mode='down')
-    sec_p1_l = curve_walker(deriv_1, off_p1_l, slope_sign[l_side], mode='down')
-    sec_p1_r = curve_walker(deriv_1, off_p1_r, slope_sign[~l_side], mode='up')
-    # adjust peaks_1 where needed and redo some steps
-    new_peaks_1 = np.copy(peaks_1)
-    new_peaks_1[l_side] = sec_p1_l
-    new_peaks_1[~l_side] = sec_p1_r
-    # get zeros_1 - walk outward from peaks_1 to zero in deriv_1 and limit to old zeros_1
-    new_zeros_1 = curve_walker(deriv_1, new_peaks_1, slope_sign, mode='zero')
-    # find the minima in deriv_2 between peaks_1 and zeros_1
-    new_peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) if (p1 != z1) else p1
-                     for p1, z1 in zip(new_peaks_1, new_zeros_1)]
-    new_peaks_2_n = np.array(new_peaks_2_n).astype(np.int_)
-    # walk outward from the minima in deriv_2 to (local) minima in deriv_1
-    new_minimum_1 = curve_walker(deriv_1, new_peaks_2_n, slope_sign, mode='down_abs')
-    # must be narrow compared to low harmonics eclipse
-    narrow_l = ((p1_orig[l_side] - minimum_1[l_side]) / (p1_orig[l_side] - m1_orig[l_side]) < 0.25)
-    narrow_r = ((minimum_1[~l_side] - p1_orig[~l_side]) / (m1_orig[~l_side] - p1_orig[~l_side]) < 0.25)
-    # must stay within width of low harmonics eclipse
-    narrower_l = (new_minimum_1[l_side] > m1_orig[l_side])
-    narrower_r = (new_minimum_1[~l_side] < m1_orig[~l_side])
-    # must increase in depth compared to previous positions
-    height_frac = (model_h[new_minimum_1] - model_h[minimum_1_in]) / (model_h[minimum_1] - model_h[minimum_1_in])
-    conditions = (height_frac > 1.2)
-    # assign where conditions met
-    conditions[l_side] &= (narrow_l & narrower_l)
-    conditions[~l_side] &= (narrow_r & narrower_r)
-    peaks_1[conditions] = new_peaks_1[conditions]
-    zeros_1[conditions] = new_zeros_1[conditions]
-    peaks_2_n[conditions] = new_peaks_2_n[conditions]
-    minimum_1[conditions] = new_minimum_1[conditions]
-    return peaks_1, slope_sign, zeros_1, peaks_2_n, minimum_1, zeros_1_in, peaks_2_p, minimum_1_in
-
-
-# @nb.njit(cache=True)
 def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_in):
     """Refine existing prominent eclipse signatures
 
@@ -1216,7 +1091,7 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_
         Set of indices indicating local minima in deriv_1
     zeros_1_in: numpy.ndarray[int]
         Set of indices indicating inner zero points in deriv_1
-
+    
     Returns
     -------
     peaks_1: numpy.ndarray[int]
@@ -1276,6 +1151,7 @@ def refine_eclipse_peaks(model_h, deriv_1, deriv_2, peaks_1, minimum_1, zeros_1_
     # check height of second peaks outward of peaks_1 (limited to zeros_1)
     check = (np.abs(deriv_1[sec_p1]) > 0.8 * np.abs(deriv_1[peaks_1]))
     check &= (model_h[sec_p1] > model_h[peaks_1])
+    check &= (sec_p1 != zeros_1)  # still need this check as above list comprehension does not exclude this
     peaks_1[check] = sec_p1[check]
     # find the minima in deriv_2 between peaks_1 and zeros_1
     peaks_2_n = [min(p1, z1) + np.argmin(deriv_2[min(p1, z1):max(p1, z1)]) for p1, z1 in zip(peaks_1, zeros_1)]
