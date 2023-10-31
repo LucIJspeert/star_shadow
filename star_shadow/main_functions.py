@@ -1581,12 +1581,16 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     depth_snr = (d_1 / noise_level < 0.5) | (d_2 / noise_level < 0.5)  # and also not very strict here
     dur_insig = (dur_1 < 3 * dur_1_err) | (dur_2 < 3 * dur_2_err)  # being strict here
     # additional constraints for bad eclipse detections
-    low_snr = (d_2 / noise_level < 1.5)
+    sec_shallow = (d_2 / noise_level < 1.5) | (d_2 / d_1 < 0.2)  # low s/n or one fifth the depth
     large_offset = (abs((t_2 - t_1) / p_orb - 0.5) > 0.25)
-    large_dur_diff = (abs(dur_2 - dur_1) / p_orb > 0.02)
-    large_asym = (abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb > 0.01)
-    bad_sec = low_snr & ((large_offset & large_dur_diff) | (~large_offset & large_asym))
-    if dur_diff | depth_insig | depth_snr | dur_insig | bad_sec:
+    medium_dur_diff = (abs(dur_2 - dur_1) / p_orb > 0.02)
+    medium_asym = (abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb > 0.01)
+    medium_offset = (abs((t_2 - t_1) / p_orb - 0.5) > 0.1)
+    large_dur_diff = (abs(dur_2 - dur_1) / p_orb > 0.2)
+    large_asym = (abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb > 0.1)
+    bad_sec = sec_shallow & ((large_offset & medium_dur_diff) | (~large_offset & medium_asym)
+                                        | (medium_offset & large_dur_diff) | large_asym)
+    if depth_insig | depth_snr | dur_insig | dur_diff | bad_sec:
         if depth_insig | depth_snr:
             message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}, ' \
                       f'noise level: {noise_level}'
@@ -1594,13 +1598,16 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
             message = f'One of the eclipses too narrow, durations: {dur_1}, {dur_2}, err: {dur_1_err}, {dur_2_err}'
         elif dur_diff:
             message = f'One of the eclipses too narrow compared to the other, durations: {dur_1}, {dur_2}'
-        elif low_snr & (large_offset & large_dur_diff):
-            message = f'Secondary is shallow (s/n={d_2 / noise_level}) and duration difference is too large ' \
-                      f'({(dur_2 - dur_1) / p_orb}) for its phase offset ({abs((t_2 - t_1) / p_orb - 0.5)})'
-        else:
-            message = f'Secondary is shallow (s/n={d_2 / noise_level}) ' \
+        elif sec_shallow & ((large_offset & medium_dur_diff) | (medium_offset & large_dur_diff)):
+            message = f'Secondary is shallow (d_1: {d_1}, d_2: {d_2}, noise level: {noise_level}) ' \
+                      f'and duration difference is too large ({(dur_2 - dur_1)/p_orb}) ' \
+                      f'for its phase offset ({abs((t_2 - t_1)/p_orb - 0.5)})'
+        elif sec_shallow & ((~large_offset & medium_asym) | large_asym):
+            message = f'Secondary is shallow (d_1: {d_1}, d_2: {d_2}, noise level: {noise_level})' \
                       f'and its asymmetry is too large ({abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb}) ' \
                       f'for its phase offset ({abs((t_2 - t_1) / p_orb - 0.5)})'
+        else:
+            message = ''
         logger.info(message)
         return (None,)  # likely unphysical parameters
     # save final results in ascii format
