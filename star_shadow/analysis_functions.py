@@ -1788,15 +1788,15 @@ def check_depth_change(ecl_indices_lh, ecl_indices, model_lh, model_h, cur_model
 
 
 @nb.njit(cache=True)
-def select_eclipses(p_orb, ecl_min, widths, depths):
+def select_eclipses(p_orb, ecl_mid, widths, depths):
     """Select the best combination of primary and secondary
     
     Parameters
     ----------
     p_orb: float
         Orbital period of the eclipsing binary in days
-    ecl_min: numpy.ndarray[float]
-        Times of the eclipse minima
+    ecl_mid: numpy.ndarray[float]
+        Times of the eclipse midpoints
     widths: numpy.ndarray[float]
         Durations of the eclipses
     depths: numpy.ndarray[float]
@@ -1809,7 +1809,7 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
         the combined depth.
     """
     # make the combinations of consecutive candidates and also skipping one or more candidates (so all combinations)
-    n_ecl = len(ecl_min)
+    n_ecl = len(ecl_mid)
     indices = np.arange(n_ecl)
     combinations = np.zeros((0, 2), dtype=np.int_)
     for i in range(1, n_ecl - 1):
@@ -1818,10 +1818,10 @@ def select_eclipses(p_orb, ecl_min, widths, depths):
     # check overlap of the eclipses (also over one orbital period)
     comb_remove = np.zeros(0, dtype=np.int_)
     for i, comb in enumerate(combinations):
-        comb_dist_direct = abs(ecl_min[comb[0]] - ecl_min[comb[1]])
+        comb_width = widths[comb[0]] / 2 + widths[comb[1]] / 2  # sum of half widths
+        comb_dist_direct = abs(ecl_mid[comb[0]] - ecl_mid[comb[1]])
         comb_dist_wrapped = abs(comb_dist_direct - p_orb)
-        max_width = max(widths[comb[0]] / 2, widths[comb[1]] / 2)
-        if (comb_dist_direct < max_width) | (comb_dist_wrapped < max_width):
+        if (comb_dist_direct < comb_width) | (comb_dist_wrapped < comb_width):
             comb_remove = np.append(comb_remove, i)
     remove_mask = np.ones(len(combinations), dtype=np.bool_)
     remove_mask[comb_remove] = False
@@ -1914,7 +1914,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         if (len(ecl_min) == 0):
             continue
         # see if we can identify a best pair (only done as a check)
-        best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
+        best_comb = select_eclipses(p_orb, ecl_mid, widths, depths)
         if (len(best_comb) != 0):
             break  # if we found a best pair, move on to stage two
     # if still nothing was found, return
@@ -2000,7 +2000,7 @@ def detect_eclipses(p_orb, f_n, a_n, ph_n, noise_level, t_gaps):
         if save_first:
             first_ecl_ind = ecl_indices
             save_first = False
-        best_comb = select_eclipses(p_orb, ecl_min, widths, depths)
+        best_comb = select_eclipses(p_orb, ecl_mid, widths, depths)
         if (len(best_comb) != 0):
             ecl_indices = ecl_indices[best_comb]
             break
