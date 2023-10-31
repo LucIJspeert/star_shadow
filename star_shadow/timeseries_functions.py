@@ -961,7 +961,7 @@ def find_orbital_period(times, signal, f_n):
     completeness_p = (len(harmonics) / (f_nyquist // (1 / p_orb)))
     completeness_p_l = (len(harmonics[harmonic_n <= 15]) / (f_nyquist // (1 / p_orb)))
     # check these (commonly missed) multiples
-    n_multiply = np.array([1/2, 2, 3, 4, 5], dtype=int)
+    n_multiply = np.array([1/2, 2, 3, 4, 5])
     p_multiples = p_orb * n_multiply
     n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
     h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
