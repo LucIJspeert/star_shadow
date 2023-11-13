@@ -1741,7 +1741,7 @@ def save_summary(target_id, save_dir, data_id='none'):
             'error in end of (flat) eclipse bottom right of primary minimum',
             'error in start of (flat) eclipse bottom left of secondary minimum',
             'error in end of (flat) eclipse bottom right of secondary minimum',
-            'individual error in depth of primary minimum', 'individual error in depth of secondary minimum',
+            'error in depth of primary minimum', 'error in depth of secondary minimum',
             'individual error in time of primary minimum (t_1)', 'individual error in time of secondary minimum (t_2)',
             'individual error in time of primary first contact (t_1_1)',
             'individual error in time of primary last contact (t_1_2)',
