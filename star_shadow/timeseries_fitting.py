@@ -167,14 +167,16 @@ def jacobian_sinusoids(params, times, signal, i_sectors):
     resid = signal - model_linear - model_sinusoid
     two_pi_t = 2 * np.pi * times_ms
     # factor 1 of df/dx: -n / S
-    df_1 = -len(times) / np.sum(resid**2)
+    df_1a = np.zeros(n_sect)  # calculated per sector
+    df_1b = -len(times) / np.sum(resid**2)
     # calculate the rest of the jacobian for the linear parameters, factor 2 of df/dx:
     df_2a = np.zeros(2 * n_sect)
     for i, (co, sl, s) in enumerate(zip(const, slope, i_sectors)):
         i_s = i + n_sect
-        df_2a[i] = np.sum(resid)
-        df_2a[i_s] = np.sum(resid * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
-    jac_lin = df_1 * df_2a
+        df_1a[i] = -len(times[s[0]:s[1]]) / np.sum(resid[s[0]:s[1]]**2)
+        df_2a[i] = np.sum(resid[s[0]:s[1]])
+        df_2a[i_s] = np.sum(resid[s[0]:s[1]] * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    jac_lin = df_1a * df_2a
     # calculate the rest of the jacobian for the sinusoid parameters, factor 2 of df/dx:
     df_2b = np.zeros(3 * n_sin)
     for i, (f, a, ph) in enumerate(zip(freqs, ampls, phases)):
@@ -184,7 +186,7 @@ def jacobian_sinusoids(params, times, signal, i_sectors):
         df_2b[i_a] = np.sum(resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
         df_2b[i_ph] = np.sum(resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
-    jac_sin = df_1 * df_2b
+    jac_sin = df_1b * df_2b
     jac = np.append(jac_lin, jac_sin)
     return jac
 
@@ -466,14 +468,16 @@ def jacobian_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
     # common factor
     two_pi_t = 2 * np.pi * times_ms
     # factor 1 of df/dx: -n / S
-    df_1 = -len(times) / np.sum(resid**2)
+    df_1a = np.zeros(n_sect)  # calculated per sector
+    df_1b = -len(times) / np.sum(resid**2)
     # calculate the rest of the jacobian for the linear parameters, factor 2 of df/dx:
     df_2a = np.zeros(2 * n_sect)
     for i, (co, sl, s) in enumerate(zip(const, slope, i_sectors)):
         i_s = i + n_sect
-        df_2a[i] = np.sum(resid)
-        df_2a[i_s] = np.sum(resid * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
-    jac_lin = df_1 * df_2a
+        df_1a[i] = -len(times[s[0]:s[1]]) / np.sum(resid[s[0]:s[1]]**2)
+        df_2a[i] = np.sum(resid[s[0]:s[1]])
+        df_2a[i_s] = np.sum(resid[s[0]:s[1]] * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    jac_lin = df_1a * df_2a
     # calculate the rest of the jacobian, factor 2 of df/dx:
     df_2b = np.zeros(3 * n_sin + 2 * n_harm + 1)
     for i, (f, a, ph) in enumerate(zip(freqs[:n_sin], ampls[:n_sin], phases[:n_sin])):
@@ -490,7 +494,7 @@ def jacobian_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
         df_2b[i_a] = np.sum(resid * dsin_dx(two_pi_t, f, a, ph, d='a'))
         df_2b[i_ph] = np.sum(resid * dsin_dx(two_pi_t, f, a, ph, d='ph'))
     # jacobian = df/dx = df/dy * dy/dx (f is objective function, y is model)
-    jac_sin = df_1 * df_2b
+    jac_sin = df_1b * df_2b
     jac = np.append(jac_lin, jac_sin)
     return jac
 
