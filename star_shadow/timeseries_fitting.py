@@ -176,6 +176,7 @@ def jacobian_sinusoids(params, times, signal, i_sectors):
         df_1a[i] = -len(times[s[0]:s[1]]) / np.sum(resid[s[0]:s[1]]**2)
         df_2a[i] = np.sum(resid[s[0]:s[1]])
         df_2a[i_s] = np.sum(resid[s[0]:s[1]] * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    df_1a = np.append(df_1a, df_1a)  # copy to double length
     jac_lin = df_1a * df_2a
     # calculate the rest of the jacobian for the sinusoid parameters, factor 2 of df/dx:
     df_2b = np.zeros(3 * n_sin)
@@ -477,6 +478,7 @@ def jacobian_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
         df_1a[i] = -len(times[s[0]:s[1]]) / np.sum(resid[s[0]:s[1]]**2)
         df_2a[i] = np.sum(resid[s[0]:s[1]])
         df_2a[i_s] = np.sum(resid[s[0]:s[1]] * (times[s[0]:s[1]] - np.mean(times[s[0]:s[1]])))
+    df_1a = np.append(df_1a, df_1a)  # copy to double length
     jac_lin = df_1a * df_2a
     # calculate the rest of the jacobian, factor 2 of df/dx:
     df_2b = np.zeros(3 * n_sin + 2 * n_harm + 1)
