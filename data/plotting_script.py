@@ -1,20 +1,13 @@
 """Script for making some of the plots in IJspeert et al. 2024"""
 
 import os
-import time
 import fnmatch
 import numpy as np
 import scipy as sp
 import scipy.stats
-import numba as nb
 import pandas as pd
 import matplotlib.pyplot as plt
-import astropy.io as aio
-import itertools as iter
-import ellc
-import importlib as ilib
-import eclipsr as ecl
-import star_shadow.star_shadow as sts
+import star_shadow as sts
 
 ## SYNTHETIC TESTS
 syn_dir = '~/data'
@@ -739,14 +732,7 @@ plt.tight_layout()
 plt.show()
 
 # frequency analysis
-# number of pulsations found
-n_f_true = true_par['npulsations'].to_numpy()
-n_f_tot = obs_par['total_freqs'].to_numpy()
-n_f_pass = obs_par['passed_both'].to_numpy()
-n_f_hpass = obs_par['passed_harmonics'].to_numpy()
-sorter_n_f = np.argsort(true_par['npulsations'].to_numpy())
-data_range = np.array([0, np.max(n_f_tot)])
-# n_f in vs out
+# number of pulsations found vs. input
 n_f_true = true_par['npulsations'][fin_good].to_numpy()
 n_f_tot = obs_par['total_freqs'][fin_good].to_numpy()
 n_f_pass = obs_par['passed_both'][fin_good].to_numpy()
