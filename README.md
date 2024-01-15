@@ -26,7 +26,7 @@ for more information.
 * This algorithm has been documented, tested and applied in the publication: [link](link)
 
 
-![Example of an analysed EB light curve](./data/sim_042_lc_readme_img.png?raw=true)
+![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
 
 ## Getting started
 
