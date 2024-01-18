@@ -22,7 +22,7 @@ from . import utility as ut
 
 # mpl style sheet
 script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
-plt.style.use(script_dir.replace('star_shadow/star_shadow', 'star_shadow/data/mpl_stylesheet.dat'))
+plt.style.use(os.path.join(script_dir, 'data', 'mpl_stylesheet.dat'))
 
 
 def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_sectors, annotate=True,
