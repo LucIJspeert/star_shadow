@@ -1625,7 +1625,8 @@ def save_summary(target_id, save_dir, data_id='none'):
     level_par = -np.ones(12)
     t_tot, t_mean = 0, 0
     # read results
-    save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
+    if not save_dir.endswith(f'{target_id}_analysis'):
+        save_dir = os.path.join(save_dir, f'{target_id}_analysis')  # add subdir
     # get period from last prewhitening step
     file_name_3 = os.path.join(save_dir, f'{target_id}_analysis_3.hdf5')
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis_5.hdf5')
