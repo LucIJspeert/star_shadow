@@ -2092,7 +2092,7 @@ def analyse_set(target_list, function='analyse_lc_from_tic', n_threads=os.cpu_co
         List of either file names or TIC identifiers to analyse
     function: str
         Name  of the function to use for the analysis
-        Choose from [analyse_lc_from_tic, analyse_lc_from_tic]
+        Choose from [analyse_lc_from_tic, analyse_lc_from_file]
     n_threads: int
         Number of threads to use.
         Uses two fewer than the available amount by default.
