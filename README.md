@@ -23,7 +23,7 @@ for more information.
 
 ### Reference Material
 
-* This algorithm has been documented, tested and applied in the publication: [link](link)
+* This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
 
 ![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
