@@ -1862,7 +1862,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         Path to a directory for loading analysis results.
         Will append <target_id> + _analysis automatically
     save_dir: str, None
-        Path to a directory for save the plots.
+        Path to a directory for saving the plots.
         Will append <target_id> + _analysis automatically
         Directory is created if it doesn't exist yet
     show: bool
@@ -2093,4 +2093,87 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
                                        passed_b_9, ecl_par_8, i_sectors, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
+    return None
+
+
+def plot_all_from_file(file_name, i_sectors=None, load_dir=None, save_dir=None, show=True):
+    """Plot all diagnostic plots of the results for a given light curve file
+
+    Parameters
+    ----------
+    file_name: str
+        Path to a file containing the light curve data, with
+        timestamps, normalised flux, error values as the
+        first three columns, respectively.
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_sectors = np.array([[0, len(times)]]).
+    load_dir: str
+        Path to a directory for loading analysis results.
+        Will append <target_id> + _analysis automatically.
+        Assumes the same directory as file_name if None.
+    save_dir: str, None
+        Path to a directory for saving the plots.
+        Will append <target_id> + _analysis automatically.
+        Directory is created if it doesn't exist yet.
+    show: bool
+        Whether to show the plots or not.
+
+    Returns
+    -------
+    None
+    """
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
+    if load_dir is None:
+        load_dir = os.path.dirname(file_name)
+    # load the data
+    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
+    # if sectors not given, take full length
+    if i_sectors is None:
+        i_sectors = np.array([[0, len(times)]])  # no sector information
+    # i_half_s = i_sectors  # in this case no differentiation between half or full sectors
+    # do the plotting
+    sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
+    return None
+
+
+def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
+    """Plot all diagnostic plots of the results for a given light curve file
+
+    Parameters
+    ----------
+    tic: int
+        The TESS Input Catalog (TIC) number for loading/saving the data
+        and later reference.
+    all_files: list[str]
+        List of all the TESS data product '.fits' files. The files
+        with the corresponding TIC number are selected.
+    load_dir: str
+        Path to a directory for loading analysis results.
+        Will append <target_id> + _analysis automatically.
+        Assumes the same directory as all_files if None.
+    save_dir: str, None
+        Path to a directory for saving the plots.
+        Will append <target_id> + _analysis automatically.
+        Directory is created if it doesn't exist yet.
+    show: bool
+        Whether to show the plots or not.
+
+    Returns
+    -------
+    None
+    """
+    if load_dir is None:
+        load_dir = os.path.dirname(all_files[0])
+    # load the data
+    lc_data = load_tess_lc(tic, all_files, apply_flags=True)
+    times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
+    i_sectors = convert_tess_t_sectors(times, t_sectors)
+    lc_processed = stitch_tess_sectors(times, signal, signal_err, i_sectors)
+    times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
+    # do the plotting
+    sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
     return None
