@@ -23,7 +23,7 @@ for more information.
 
 ### Reference Material
 
-* This algorithm has been documented, tested and applied in the publication: [link](link)
+* This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
 
 ![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
@@ -61,7 +61,7 @@ as simple as running one function:
 
     import star_shadow as sts
     # to analyse any light curve from a file: 
-    sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id=None, save_dir=None, overwrite=False, verbose=True)
+    sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='none', save_dir=None, overwrite=False, verbose=True)
     
     # or to analyse from a set of TESS data product .fits files:
     sts.analyse_lc_from_tic(tic, all_files, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id=None, save_dir=None, overwrite=False, verbose=True)

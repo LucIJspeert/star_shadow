@@ -18,7 +18,7 @@ import star_shadow as sts
 
 # get the path to the test light curve
 script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the script is in
-data_dir = script_dir.replace('star_shadow', 'data')
+data_dir = os.path.join(script_dir, 'data')
 file = os.path.join(data_dir, 'sim_000_lc.dat')
 # execute the code
 sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='', save_dir=None,
