@@ -1130,7 +1130,7 @@ def read_parameters_hdf5(file_name, verbose=False):
             sinusoid parameters: f_n_hdi, a_n_hdi, ph_n_hdi
         sin_select: None, list[numpy.ndarray[bool]]
             Sinusoids that pass certain selection criteria
-            passed_sigma, passed_snr, passed_h
+            passed_sigma, passed_snr, passed_b, passed_h
         ephem: None, numpy.ndarray[float]
             Ephemerides of the EB, p_orb and t_zero
         ephem_err: None, numpy.ndarray[float]
