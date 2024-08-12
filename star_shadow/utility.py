@@ -1101,7 +1101,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
     return None
 
 
-def read_parameters_hdf5(file_name, verbose=False):
+def read_parameters_hdf5(file_name, verbose=False, locking=True):
     """Read the full model parameters of the linear, sinusoid
     and eclipse models to an hdf5 file.
 
@@ -1182,7 +1182,7 @@ def read_parameters_hdf5(file_name, verbose=False):
     if (ext != '.hdf5'):
         file_name = file_name.replace(ext, '.hdf5')
     # create the file
-    with h5py.File(file_name, 'r') as file:
+    with h5py.File(file_name, 'r', locking=locking) as file:
         identifier = file.attrs['identifier']
         description = file.attrs['description']
         data_id = file.attrs['data_id']
