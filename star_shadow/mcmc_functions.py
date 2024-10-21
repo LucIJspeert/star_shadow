@@ -19,7 +19,9 @@ try:
     import pymc3 as pm
     import theano.tensor as tt
     from fastprogress import fastprogress
-except ImportError:
+except (ImportError, AttributeError) as e:
+    if e == AttributeError:
+        print('PyMC3 functionality unavailable, likely incompatible numpy version')
     pm = None
     tt = None
     fastprogress = None
