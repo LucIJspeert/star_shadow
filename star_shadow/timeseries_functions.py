@@ -1585,16 +1585,19 @@ def formal_uncertainties_linear(times, residuals, i_sectors):
 
 
 @nb.njit(cache=True)
-def formal_uncertainties(times, residuals, a_n, i_sectors):
+def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     """Calculates the corrected uncorrelated (formal) uncertainties for the extracted
     parameters (constant, slope, frequencies, amplitudes and phases).
     
     Parameters
     ----------
+    signal_err
     times: numpy.ndarray[float]
         Timestamps of the time series
     residuals: numpy.ndarray[float]
         Residual is signal - model
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     a_n: numpy.ndarray[float]
         The amplitudes of a number of sine waves
     i_sectors: numpy.ndarray[int]
@@ -1618,6 +1621,8 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     Notes
     -----
     As in Aerts 2021, https://ui.adsabs.harvard.edu/abs/2021RvMP...93a5001A/abstract
+    The sigma value in the formulae is approximated by taking the maximum of the
+    standard deviation of the residuals and the standard error of the minimum data error.
     Errors in const and slope:
     https://pages.mtu.edu/~fmorriso/cm3215/UncertaintySlopeInterceptOfLeastSquaresFit.pdf
     """
@@ -1629,6 +1634,10 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     for r in residuals:
         sum_r_2 += r**2
     std = np.sqrt(sum_r_2 / n_dof)  # standard deviation of the residuals
+    # calculate the standard error based on the smallest data error
+    ste = np.min(signal_err) / np.sqrt(n_data)
+    # take the maximum of the standard deviation and standard error as sigma N
+    sigma_n = max(std, ste)
     # calculate the D factor (square root of the average number of consecutive data points of the same sign)
     positive = (residuals > 0).astype(np.int_)
     indices = np.arange(n_data)
@@ -1636,9 +1645,9 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
     sss_i = np.concatenate((np.array([0]), zero_crossings, np.array([n_data])))  # same-sign sequence indices
     d_factor = np.sqrt(np.mean(np.diff(sss_i)))
     # uncertainty formulae for sinusoids
-    sigma_f = d_factor * std * np.sqrt(6 / n_data) / (np.pi * a_n * np.ptp(times))
-    sigma_a = d_factor * std * np.sqrt(2 / n_data)
-    sigma_ph = d_factor * std * np.sqrt(2 / n_data) / a_n  # times 2 pi w.r.t. the paper
+    sigma_f = d_factor * sigma_n * np.sqrt(6 / n_data) / (np.pi * a_n * np.ptp(times))
+    sigma_a = d_factor * sigma_n * np.sqrt(2 / n_data)
+    sigma_ph = d_factor * sigma_n * np.sqrt(2 / n_data) / a_n  # times 2 pi w.r.t. the paper
     # make an array of sigma_a (these are the same)
     sigma_a = np.full(len(a_n), sigma_a)
     # linear regression uncertainties
@@ -2860,7 +2869,7 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     return const, slope, f_n, a_n, ph_n
 
 
-def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Selects the credible frequencies from the given set
     
     Parameters
@@ -2871,6 +2880,8 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         Measurement values of the time series
         If the sinusoids exclude the eclipse model,
         this should be the residuals of the eclipse model
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days.
         May be zero.
@@ -2917,7 +2928,7 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     model_lin = linear_curve(times, const, slope, i_sectors)
     model_sin = sum_sines(times, f_n, a_n, ph_n)
     residuals = signal - (model_lin + model_sin)
-    errors = formal_uncertainties(times, residuals, a_n, i_sectors)
+    errors = formal_uncertainties(times, residuals, signal_err, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     # find the insignificant frequencies
     remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3, sigma_f=3)
