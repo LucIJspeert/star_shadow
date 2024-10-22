@@ -1591,7 +1591,6 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     
     Parameters
     ----------
-    signal_err
     times: numpy.ndarray[float]
         Timestamps of the time series
     residuals: numpy.ndarray[float]
@@ -1628,7 +1627,7 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     """
     n_data = len(residuals)
     n_param = 2 + 3 * len(a_n)  # number of parameters in the model
-    n_dof = n_data - n_param  # degrees of freedom
+    n_dof = max(n_data - n_param, 1)  # degrees of freedom
     # calculate the standard deviation of the residuals
     sum_r_2 = 0
     for r in residuals:
