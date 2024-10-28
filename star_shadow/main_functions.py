@@ -86,11 +86,11 @@ def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, file_n
     # extract all frequencies with the iterative scheme
     out_a = tsf.extract_sinusoids(times, signal, i_sectors, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_b = tsf.reduce_frequencies(times, signal, 0, *out_a, i_sectors, verbose=verbose)
+    out_b = tsf.reduce_sinusoids(times, signal, 0, *out_a, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     # select frequencies based on some significance criteria
-    out_c = tsf.select_frequencies(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_c = tsf.select_sinusoids(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_c
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -206,8 +206,8 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
         inf_data, par_mean, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_mean
     # select frequencies based on some significance criteria
-    out_b = tsf.select_frequencies(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_b = tsf.select_sinusoids(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_b
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -335,11 +335,11 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
         out_a = tsf.fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
                                            verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_b = tsf.reduce_frequencies(times, signal, p_orb, *out_a, i_sectors, verbose=verbose)
+    out_b = tsf.reduce_sinusoids(times, signal, p_orb, *out_a, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     # select frequencies based on some significance criteria
-    out_c = tsf.select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_c = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_c
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -450,11 +450,11 @@ def add_sinusoids(times, signal, signal_err, p_orb, f_n, a_n, ph_n, i_sectors, t
     # look for any additional non-harmonics with the iterative scheme
     out_b = tsf.extract_sinusoids(times, signal, i_sectors, p_orb, *out_a[2:], select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_c = tsf.reduce_frequencies(times, signal, p_orb, *out_b, i_sectors, verbose=verbose)
+    out_c = tsf.reduce_sinusoids(times, signal, p_orb, *out_b, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
     # select frequencies based on some significance criteria
-    out_d = tsf.select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_d = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_d
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -582,8 +582,8 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
         ephem_hdi = np.array([par_hdi[0], [-1, -1]])
     p_orb, const, slope, f_n, a_n, ph_n = par_mean
     # select frequencies based on some significance criteria
-    out_b = tsf.select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_b = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_b
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -1106,11 +1106,11 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
     resid_ecl = signal - model_eclipse
     out_b = tsf.extract_sinusoids(times, resid_ecl, i_sectors, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_c = tsf.reduce_frequencies(times, resid_ecl, 0, *out_b, i_sectors, verbose=verbose)
+    out_c = tsf.reduce_sinusoids(times, resid_ecl, 0, *out_b, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
     # select frequencies based on some significance criteria
-    out_d = tsf.select_frequencies(times, resid_ecl, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                   verbose=verbose)
+    out_d = tsf.select_sinusoids(times, resid_ecl, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_d
     # make model including everything to calculate noise level
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
