@@ -515,6 +515,93 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
+    else:  # unnormalised (PSD?)
+        s1 = s1
+    return f1, s1
+
+
+@nb.njit(cache=True)
+def scargle_simple_psd(times, signal):
+    """Scargle periodogram with no weights and PSD normalisation.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+
+    Returns
+    -------
+    f1: numpy.ndarray[float]
+        Frequencies at which the periodogram was calculated
+    s1: numpy.ndarray[float]
+        The periodogram spectrum in the chosen units
+
+    Notes
+    -----
+    Translated from Fortran (and just as fast when JIT-ted with Numba!)
+        Computation of Scargles periodogram without explicit tau
+        calculation, with iteration (Method Cuypers)
+
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
+
+    Useful extra information: VanderPlas 2018,
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
+    n = len(signal_ms)
+    t_tot = np.ptp(times_ms)
+    f0 = 0
+    df = 0.1 / t_tot
+    fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+    nf = int((fn - f0) / df + 0.001) + 1
+    # pre-assign some memory
+    ss = np.zeros(nf)
+    sc = np.zeros(nf)
+    ss2 = np.zeros(nf)
+    sc2 = np.zeros(nf)
+    # here is the actual calculation:
+    two_pi = 2 * np.pi
+    for i in range(n):
+        t_f0 = (times_ms[i] * two_pi * f0) % two_pi
+        sin_f0 = np.sin(t_f0)
+        cos_f0 = np.cos(t_f0)
+        mc_1_a = 2 * sin_f0 * cos_f0
+        mc_1_b = cos_f0 * cos_f0 - sin_f0 * sin_f0
+
+        t_df = (times_ms[i] * two_pi * df) % two_pi
+        sin_df = np.sin(t_df)
+        cos_df = np.cos(t_df)
+        mc_2_a = 2 * sin_df * cos_df
+        mc_2_b = cos_df * cos_df - sin_df * sin_df
+
+        sin_f0_s = sin_f0 * signal_ms[i]
+        cos_f0_s = cos_f0 * signal_ms[i]
+        for j in range(nf):
+            ss[j] = ss[j] + sin_f0_s
+            sc[j] = sc[j] + cos_f0_s
+            temp_cos_f0_s = cos_f0_s
+            cos_f0_s = temp_cos_f0_s * cos_df - sin_f0_s * sin_df
+            sin_f0_s = sin_f0_s * cos_df + temp_cos_f0_s * sin_df
+            ss2[j] = ss2[j] + mc_1_a
+            sc2[j] = sc2[j] + mc_1_b
+            temp_mc_1_b = mc_1_b
+            mc_1_b = temp_mc_1_b * mc_2_b - mc_1_a * mc_2_a
+            mc_1_a = mc_1_a * mc_2_b + temp_mc_1_b * mc_2_a
+
+    f1 = f0 + np.arange(nf) * df
+    s1 = ((sc**2 * (n - sc2) + ss**2 * (n + sc2) - 2 * ss * sc * ss2) / (n**2 - sc2**2 - ss2**2))
+    # conversion to amplitude spectrum (or power density or statistical distribution)
+    if not np.isfinite(s1[0]):
+        s1[0] = 0  # sometimes there can be a nan value
     return f1, s1
 
 
@@ -853,6 +940,62 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
+    else:  # unnormalised (PSD?)
+        s1 = s1
+    return f1, s1
+
+
+def astropy_scargle_simple_psd(times, signal):
+    """Wrapper for the astropy Scargle periodogram and PSD normalisation.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+
+    Returns
+    -------
+    f1: numpy.ndarray[float]
+        Frequencies at which the periodogram was calculated
+    s1: numpy.ndarray[float]
+        The periodogram spectrum in the chosen units
+
+    Notes
+    -----
+    Approximation using fft, much faster than the other scargle in mode='fast'.
+    Beware of computing narrower frequency windows, as there is inconsistency
+    when doing this.
+
+    Useful extra information: VanderPlas 2018,
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
+
+    Note that the astropy implementation uses functions under the hood
+    that use the blas package for multithreading by default.
+    """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
+    n = len(signal)
+    t_tot = np.ptp(times_ms)
+    f0 = 0
+    df = 0.1 / t_tot
+    fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+    nf = int((fn - f0) / df + 0.001) + 1
+    f1 = np.arange(nf) * df
+    # use the astropy fast algorithm and normalise afterward
+    ls = apy.LombScargle(times_ms, signal_ms, fit_mean=False, center_data=False)
+    s1 = ls.power(f1, normalization='psd', method='fast', assume_regular_frequency=True)
+    # replace negative or nan by zero
+    s1[0] = 0
     return f1, s1
 
 
@@ -1014,7 +1157,7 @@ def find_orbital_period(times, signal, f_n):
 
 @nb.njit(cache=True)
 def calc_likelihood(residuals):
-    """Natural logarithm of the likelihood function.
+    """Natural logarithm of the independent and identically distributed likelihood function.
     
     Parameters
     ----------
@@ -1040,6 +1183,61 @@ def calc_likelihood(residuals):
     for i, r in enumerate(residuals):
         sum_r_2 += r**2
     like = -n / 2 * (np.log(2 * np.pi * sum_r_2 / n) + 1)
+    return like
+
+
+def calc_likelihood_2(residuals, signal_err=None):
+    """Natural logarithm of the correlated likelihood function.
+
+    Only assumes that the data is distributed according to a normal distribution.
+    Correlation in the data is taken into account. If signal_err is given, these
+    measurement errors take precedence over the measured variance in the data.
+    This means the distributions need not be identical, either.
+
+    ln(L(θ)) = -n ln(2 pi) / 2 - ln(det(∑)) / 2 - residuals @ ∑^-1 @ residuals^T / 2
+    ∑ is the covariance matrix
+
+    The covariance matrix is calculated using the power spectral density, following
+    the Wiener–Khinchin theorem.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+    """
+    n = len(residuals)
+    # calculate the PSD, fast
+    freqs, psd = astropy_scargle_simple_psd(times, signal)
+    # calculate the autocorrelation function
+    psd_ext = np.append(psd, psd[1:][::-1])  # double the PSD domain for ifft
+    acf = np.fft.ifft(psd_ext)
+    # unbias the variance measure and put the array the right way around
+    acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
+    # calculate the acf lags
+    lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
+    lags = np.append(lags[len(ampls):], lags[:len(ampls)])  # put them the right way around
+    # interpolate - I need the lags at specific times
+    lags_matrix = time - time[:, np.newaxis]  # same as np.outer
+    cov_matrix = np.interp(lags_matrix, lags, acf)  # already mean-subtracted in PSD
+    # substitute individual data errors if given
+    if signal_err is not None:
+        var = cov_matrix[0, 0]  # diag elements are the same by construction
+        corr_matrix = cov_matrix / var  # divide out the variance to get correlation matrix
+        err_matrix = err * err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
+        cov_matrix = err_matrix * corr_matrix  # multiply to get back to covariance
+    # invert the covariance matrix
+    cov_t_matrix = np.linalg.inv(cov_matrix)
+    # log of the determinant (avoids too small eigenvalues that would result in 0)
+    ln_det = np.sum(np.log(np.linalg.eigvals(cov_matrix)))
+    # likelihood for multivariate normal distribution
+    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - residuals @ cov_t_matrix @ residuals[:, np.newaxis] / 2
     return like
 
 
@@ -1081,6 +1279,32 @@ def calc_bic(residuals, n_param):
     for i, r in enumerate(residuals):
         sum_r_2 += r**2
     bic = n * np.log(2 * np.pi * sum_r_2 / n) + n + n_param * np.log(n)
+    return bic
+
+
+def calc_bic_2(residuals, n_param, signal_err=None):
+    """Bayesian Information Criterion with correlated likelihood function.
+
+    BIC = k ln(n) − 2 ln(L(θ))
+    where L is the likelihood as function of the parameters θ, n the number of data points
+    and k the number of free parameters.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    n_param: int
+        Number of free parameters in the model
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+
+    Returns
+    -------
+    bic: float
+        Bayesian Information Criterion
+    """
+    n = len(residuals)
+    bic = n_param * np.log(n) - 2 * calc_likelihood_2(residuals, signal_err=signal_err)
     return bic
 
 
@@ -1632,7 +1856,7 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     sum_r_2 = 0
     for r in residuals:
         sum_r_2 += r**2
-    std = np.sqrt(sum_r_2 / n_dof)  # standard deviation of the residuals
+    std = np.sqrt(sum_r_2 / n_dof)  # unbiased standard deviation of the residuals
     # calculate the standard error based on the smallest data error
     ste = np.min(signal_err) / np.sqrt(n_data)
     # take the maximum of the standard deviation and standard error as sigma N
@@ -2812,7 +3036,7 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def reduce_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt to reduce the number of frequencies taking into account any harmonics if present.
     
     Parameters
@@ -2868,7 +3092,7 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     return const, slope, f_n, a_n, ph_n
 
 
-def select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Selects the credible frequencies from the given set
     
     Parameters
