@@ -1186,7 +1186,7 @@ def calc_likelihood(residuals):
     return like
 
 
-def calc_likelihood_2(residuals, signal_err=None):
+def calc_likelihood_2(times, residuals, signal_err=None):
     """Natural logarithm of the correlated likelihood function.
 
     Only assumes that the data is distributed according to a normal distribution.
@@ -1202,6 +1202,8 @@ def calc_likelihood_2(residuals, signal_err=None):
 
     Parameters
     ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
     residuals: numpy.ndarray[float]
         Residual is signal - model
     signal_err: None, numpy.ndarray[float]
@@ -1214,7 +1216,7 @@ def calc_likelihood_2(residuals, signal_err=None):
     """
     n = len(residuals)
     # calculate the PSD, fast
-    freqs, psd = astropy_scargle_simple_psd(times, signal)
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)
     # calculate the autocorrelation function
     psd_ext = np.append(psd, psd[1:][::-1])  # double the PSD domain for ifft
     acf = np.fft.ifft(psd_ext)
@@ -1222,9 +1224,9 @@ def calc_likelihood_2(residuals, signal_err=None):
     acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
     # calculate the acf lags
     lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
-    lags = np.append(lags[len(ampls):], lags[:len(ampls)])  # put them the right way around
+    lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
     # interpolate - I need the lags at specific times
-    lags_matrix = time - time[:, np.newaxis]  # same as np.outer
+    lags_matrix = times - times[:, np.newaxis]  # same as np.outer
     cov_matrix = np.interp(lags_matrix, lags, acf)  # already mean-subtracted in PSD
     # substitute individual data errors if given
     if signal_err is not None:
@@ -1232,12 +1234,17 @@ def calc_likelihood_2(residuals, signal_err=None):
         corr_matrix = cov_matrix / var  # divide out the variance to get correlation matrix
         err_matrix = err * err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
         cov_matrix = err_matrix * corr_matrix  # multiply to get back to covariance
-    # invert the covariance matrix
-    cov_t_matrix = np.linalg.inv(cov_matrix)
+
+    # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
+    cho_decomp = sp.linalg.cho_factor(cov_matrix, lower=False)
+    # Solve M @ x = v^T using the Cholesky factorization
+    x = sp.linalg.cho_solve(cho_decomp, residuals[:, np.newaxis])
+    # log of the exponent - analogous to the matrix multiplication
+    ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
     # log of the determinant (avoids too small eigenvalues that would result in 0)
-    ln_det = np.sum(np.log(np.linalg.eigvals(cov_matrix)))
+    ln_det = 2 * np.sum(np.log(np.diag(cho_decomp[0])))
     # likelihood for multivariate normal distribution
-    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - residuals @ cov_t_matrix @ residuals[:, np.newaxis] / 2
+    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - ln_exp / 2
     return like
 
 
