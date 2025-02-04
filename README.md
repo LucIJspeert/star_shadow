@@ -128,8 +128,6 @@ implemented in the source code.
 
 ## Contact
 
-For questions and suggestions, please contact:
+For questions and suggestions, please open an issue.
 
-* luc.ijspeert(at)kuleuven.be
-
-**Developer:** Luc IJspeert (KU Leuven)
+**Developer:** Luc IJspeert (developed while at KU Leuven)

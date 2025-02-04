@@ -1705,7 +1705,7 @@ def save_summary(target_id, save_dir, data_id='none'):
            't_b_1_1_ind_err', 't_b_1_2_ind_err', 't_b_2_1_ind_err', 't_b_2_2_ind_err', 'd_1_ind_err', 'd_2_ind_err',
            'ecosw_form', 'esinw_form', 'cosi_form', 'phi_0_form', 'log_rr_form', 'log_sb_form',
            'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
-            'ecosw_sig', 'esinw_sig', 'cosi_sig', 'phi_0_sig', 'log_rr_sig', 'log_sb_sig',
+           'ecosw_sig', 'esinw_sig', 'cosi_sig', 'phi_0_sig', 'log_rr_sig', 'log_sb_sig',
            'e_sig', 'w_sig', 'i_sig', 'r_sum_sig', 'r_rat_sig', 'sb_rat_sig',
            'ecosw_low', 'ecosw_upp', 'esinw_low', 'esinw_upp', 'cosi_low', 'cosi_upp',
            'phi_0_low', 'phi_0_upp', 'log_rr_low', 'log_rr_upp', 'log_sb_low', 'log_sb_upp',
@@ -1840,7 +1840,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     return None
 
 
-def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=None, show=True):
+def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=None, show=True):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
     
@@ -1850,6 +1850,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -2001,7 +2003,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_pd_full.png')
         else:
             file_name = None
-        vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
+        vis.plot_pd_full_output(times, signal, signal_err, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
                                 save_file=file_name, show=show)
         if np.any([len(fs) != 0 for fs in f_n_i]):
             plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
@@ -2017,7 +2019,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=
             else:
                 file_name = None
             plot_data = [p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1]] + plot_data
-            vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, annotate=False,
+            vis.plot_pd_single_output(times, signal, signal_err, *plot_data, i_sectors, annotate=False,
                                       save_file=file_name, show=show)
             if save_dir is not None:
                 file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_lc_harmonics_{plot_nr}.png')
@@ -2139,7 +2141,7 @@ def plot_all_from_file(file_name, i_sectors=None, load_dir=None, save_dir=None, 
         i_sectors = np.array([[0, len(times)]])  # no sector information
     # i_half_s = i_sectors  # in this case no differentiation between half or full sectors
     # do the plotting
-    sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
+    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
     return None
 
 
@@ -2178,5 +2180,5 @@ def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
     lc_processed = stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # do the plotting
-    sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
+    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
     return None

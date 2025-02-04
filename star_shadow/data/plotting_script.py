@@ -25,7 +25,7 @@ for file in all_files:
     # load the light curve (this needs to be different for TESS files)
     times, signal, signal_err = np.loadtxt(file, usecols=(0, 1, 2), unpack=True)
     i_half_s = np.array([[0, len(times)]])
-    sts.ut.sequential_plotting(times, signal, i_half_s, target_id, save_dir, save_dir=save_dir, show=False)
+    sts.ut.sequential_plotting(times, signal, signal_err, i_half_s, target_id, save_dir, save_dir=save_dir, show=False)
 
 # collect results in a summary file (run analysis to get the individual case results)
 summary_file = os.path.join(os.path.dirname(all_files[0]), 'sim_000_lc_analysis', 'sim_000_lc_analysis_summary.csv')
