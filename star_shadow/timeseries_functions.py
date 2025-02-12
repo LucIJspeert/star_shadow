@@ -1865,7 +1865,7 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
         sum_r_2 += r**2
     std = np.sqrt(sum_r_2 / n_dof)  # unbiased standard deviation of the residuals
     # calculate the standard error based on the smallest data error
-    ste = np.min(signal_err) / np.sqrt(n_data)
+    ste = np.median(signal_err) / np.sqrt(n_data)
     # take the maximum of the standard deviation and standard error as sigma N
     sigma_n = max(std, ste)
     # calculate the D factor (square root of the average number of consecutive data points of the same sign)
