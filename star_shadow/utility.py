@@ -66,6 +66,31 @@ def weighted_mean(x, w):
 
 
 @nb.njit(cache=True)
+def std(x, n):
+    """Unbiased standard deviation
+
+    Parameters
+    ----------
+    x: numpy.ndarray[float]
+        Values to calculate the std over
+    n: int
+        Number of degrees of freedom
+
+    Returns
+    -------
+    std: float
+        Unbiased standard deviation
+    """
+    residuals = x - np.mean(x)
+    # tested to be faster in numba than np.sum(x**2)
+    sum_r_2 = 0
+    for r in residuals:
+        sum_r_2 += r**2
+    std = np.sqrt(sum_r_2 / n)  # unbiased standard deviation of the residuals
+    return std
+
+
+@nb.njit(cache=True)
 def interp_two_points(x, xp1, yp1, xp2, yp2):
     """Interpolate on a straight line between two points
 
