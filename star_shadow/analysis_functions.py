@@ -736,7 +736,7 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
     n_harm = len(f_orb)
     wavg_f_orb = ut.weighted_mean(f_orb, 1 / f_orb_err**2)
     # wavg_f_orb = np.average(f_orb, weights=1 / f_orb_err**2)
-    std_f_orb = np.std(f_orb)
+    std_f_orb = ut.std(f_orb, len(f_orb) - 1)
     werr_f_orb = np.sqrt(np.sum(1 / (f_orb_err**2 * n_harm**2))) / np.sum(1 / (f_orb_err**2 * n_harm))
     # convert to periods
     wavg_p_orb = 1 / wavg_f_orb

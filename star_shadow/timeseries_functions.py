@@ -1791,18 +1791,16 @@ def formal_uncertainties_linear(times, residuals, i_sectors):
     """
     n_data = len(residuals)
     n_param = 2
-    n_dof = n_data - n_param  # degrees of freedom
+
     # linear regression uncertainties
     sigma_const = np.zeros(len(i_sectors))
     sigma_slope = np.zeros(len(i_sectors))
     for i, s in enumerate(i_sectors):
         len_t = len(times[s[0]:s[1]])
         n_data = len(residuals[s[0]:s[1]])  # same as len_t, but just for the sake of clarity
+        n_dof = n_data - n_param  # degrees of freedom
         # standard deviation of the residuals but per sector
-        sum_r_2 = 0
-        for r in residuals[s[0]:s[1]]:
-            sum_r_2 += r**2
-        std = np.sqrt(sum_r_2 / n_dof)
+        std = ut.std(residuals[s[0]:s[1]], n_dof)
         # some sums for the uncertainty formulae
         sum_t = 0
         for t in times[s[0]:s[1]]:
@@ -1860,10 +1858,7 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     n_param = 2 + 3 * len(a_n)  # number of parameters in the model
     n_dof = max(n_data - n_param, 1)  # degrees of freedom
     # calculate the standard deviation of the residuals
-    sum_r_2 = 0
-    for r in residuals:
-        sum_r_2 += r**2
-    std = np.sqrt(sum_r_2 / n_dof)  # unbiased standard deviation of the residuals
+    std = ut.std(residuals, n_dof)
     # calculate the standard error based on the smallest data error
     ste = np.median(signal_err) / np.sqrt(n_data)
     # take the maximum of the standard deviation and standard error as sigma N
