@@ -66,7 +66,7 @@ def weighted_mean(x, w):
 
 
 @nb.njit(cache=True)
-def std(x, n):
+def std_unb(x, n):
     """Unbiased standard deviation
 
     Parameters
