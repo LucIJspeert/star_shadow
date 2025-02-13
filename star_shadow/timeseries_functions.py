@@ -1155,8 +1155,40 @@ def find_orbital_period(times, signal, f_n):
     return p_orb, multiple
 
 
+def calc_likelihood(residuals, times=None, signal_err=None, iid=True):
+    """Natural logarithm of the likelihood function.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+    iid: float
+        Use the independent and identically distributed likelihood
+        Else use a correlated one
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+
+    Notes
+    -----
+    Choose between a conventional iid simplification of the likelihood
+    or a full matrix implementation that costs a lot of memory for large datasets.
+    """
+    if iid:
+        like = calc_likelihood_1(residuals)
+    else:
+        like = calc_likelihood_2(times, residuals, signal_err=signal_err)
+    return like
+
+
 @nb.njit(cache=True)
-def calc_likelihood(residuals):
+def calc_likelihood_1(residuals):
     """Natural logarithm of the independent and identically distributed likelihood function.
     
     Parameters
@@ -1226,18 +1258,18 @@ def calc_likelihood_2(times, residuals, signal_err=None):
     lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
     lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
     # interpolate - I need the lags at specific times
-    lags_matrix = times - times[:, np.newaxis]  # same as np.outer
+    lags_matrix = times.astype('float32') - times[:, np.newaxis].astype('float32')  # same as np.outer
     cov_matrix = np.interp(lags_matrix, lags, acf)  # already mean-subtracted in PSD
     # substitute individual data errors if given
     if signal_err is not None:
         var = cov_matrix[0, 0]  # diag elements are the same by construction
         corr_matrix = cov_matrix / var  # divide out the variance to get correlation matrix
-        err_matrix = err * err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
+        err_matrix = signal_err * signal_err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
         cov_matrix = err_matrix * corr_matrix  # multiply to get back to covariance
 
     # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
     cho_decomp = sp.linalg.cho_factor(cov_matrix, lower=False)
-    # Solve M @ x = v^T using the Cholesky factorization
+    # Solve M @ x = v^T using the Cholesky factorization (x = M^-1 v^T)
     x = sp.linalg.cho_solve(cho_decomp, residuals[:, np.newaxis])
     # log of the exponent - analogous to the matrix multiplication
     ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
