@@ -118,7 +118,7 @@ def objective_sinusoids(params, times, signal, i_sectors):
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid
-    ln_likelihood = tsf.calc_likelihood(resid)
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -405,7 +405,7 @@ def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid
-    ln_likelihood = tsf.calc_likelihood(resid)
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -759,7 +759,8 @@ def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i
     model = model + tsf.linear_curve(times, const, slope, i_sectors)
     model = ut.model_crowdsap(model, 1 - light_3, i_sectors)  # incorporate third light
     # need minus the likelihood for minimisation
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    resid = signal - model
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -1011,7 +1012,7 @@ def objective_empirical_lc(params, times, signal, p_orb):
     # the model
     model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2)
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
     # make sure we don't allow impossible stuff
     dur_zero = (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0)
     if dur_zero | (dur_b_1 > dur_1) | (dur_b_2 > dur_2) | (d_1 < 0) | (d_2 < 0):
@@ -1157,7 +1158,8 @@ def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors):
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood (minus this for minimisation)
     model = model_linear + model_sinusoid + model_ecl
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    resid = signal - model
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -1377,7 +1379,7 @@ def objective_physical_lc(params, times, signal, p_orb, t_zero):
     # check for unphysical e
     model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat) + offset
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
     # check periastron distance
     d_peri = 1 - e
     if (r_sum < d_peri):
@@ -1578,7 +1580,7 @@ def objective_ellc_lc(params, times, signal, p_orb):
         # (try to) catch ellc errors
         return 10**9
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -1699,7 +1701,7 @@ def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors)
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     # make the linear model and calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid - model_ecl
-    ln_likelihood = tsf.calc_likelihood(resid)
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
@@ -1825,7 +1827,8 @@ def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
     model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat)
     # calculate the likelihood (minus this for minimisation)
     model = model_linear + model_sinusoid + model_ecl
-    ln_likelihood = tsf.calc_likelihood(signal - model)
+    resid = signal - model
+    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
     return -ln_likelihood
 
 
