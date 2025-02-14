@@ -8,6 +8,7 @@ specifically for the analysis of stellar oscillations and eclipses.
 Code written by: Luc IJspeert
 """
 
+import inspect
 import numpy as np
 import scipy as sp
 import scipy.stats
@@ -1155,58 +1156,24 @@ def find_orbital_period(times, signal, f_n):
     return p_orb, multiple
 
 
-def calc_likelihood(residuals, times=None, signal_err=None, iid=True):
-    """Natural logarithm of the likelihood function.
-
-    Parameters
-    ----------
-    residuals: numpy.ndarray[float]
-        Residual is signal - model
-    times: numpy.ndarray[float]
-        Timestamps of the time series
-    signal_err: None, numpy.ndarray[float]
-        Errors in the measurement values
-    iid: float
-        Use the independent and identically distributed likelihood
-        Else use a correlated one
-
-    Returns
-    -------
-    like: float
-        Natural logarithm of the likelihood
-
-    Notes
-    -----
-    Choose between a conventional iid simplification of the likelihood
-    or a full matrix implementation that costs a lot of memory for large datasets.
-    """
-    if iid:
-        like = calc_likelihood_1(residuals)
-    else:
-        like = calc_likelihood_2(times, residuals, signal_err=signal_err)
-    return like
-
-
 @nb.njit(cache=True)
-def calc_likelihood_1(residuals):
+def calc_iid_normal_likelihood(residuals):
     """Natural logarithm of the independent and identically distributed likelihood function.
-    
-    Parameters
-    ----------
-    residuals: numpy.ndarray[float]
-        Residual is signal - model
-    
-    Returns
-    -------
-    like: float
-        Natural logarithm of the likelihood
-    
-    Notes
-    -----
+
     Under the assumption that the errors are independent and identically distributed
     according to a normal distribution, the likelihood becomes:
     ln(L(θ)) = -n/2 (ln(2 pi σ^2) + 1)
     and σ^2 is estimated as σ^2 = sum((residuals)^2)/n
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
     """
     n = len(residuals)
     # like = -n / 2 * (np.log(2 * np.pi * np.sum(residuals**2) / n) + 1)
@@ -1218,13 +1185,125 @@ def calc_likelihood_1(residuals):
     return like
 
 
-def calc_likelihood_2(times, residuals, signal_err=None):
-    """Natural logarithm of the correlated likelihood function.
+def calc_approx_did_likelihood(times, residuals):
+    """Approximation for the likelihood using periodograms.
+
+    This function approximates the dependent likelihood for correlated data.
+    ln(L(θ)) =  -n ln(2 pi) - sum(ln(PSD(residuals)))
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+
+    Returns
+    -------
+    like: float
+        Log-likelihood approximation
+    """
+    n = len(times)
+    # Compute the Lomb-Scargle periodogram of the data
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)  # automatically mean subtracted
+    # Compute the Whittle likelihood
+    like = -n * np.log(2 * np.pi) - np.sum(np.log(psd))
+    return like
+
+
+def calc_whittle_likelihood(times, signal, model):
+    """Whittle likelihood approximation using periodograms.
+
+    This function approximates the dependent likelihood for correlated data.
+    It assumes the data is identically distributed according to a normal
+    distribution.
+    ln(L(θ)) =  -n ln(2 pi) - sum(ln(PSD_model) + (PSD_data / PSD_model))
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    model: numpy.ndarray[float]
+        Model values of the time series
+
+    Returns
+    -------
+    like: float
+        Log-likelihood approximation
+    """
+    n = len(times)
+    # Compute the Lomb-Scargle periodogram of the data
+    freqs, psd_d = astropy_scargle_simple_psd(times, signal)  # automatically mean subtracted
+    # Compute the Lomb-Scargle periodogram of the model
+    freqs_m, psd_m = astropy_scargle_simple_psd(times, model)  # automatically mean subtracted
+    # Avoid division by zero in likelihood calculation
+    psd_m = np.maximum(psd_m, 1e-15)  # Ensure numerical stability
+    # Compute the Whittle likelihood
+    like = -n * np.log(2 * np.pi) - np.sum(np.log(psd_m) + (psd_d / psd_m))
+    return like
+
+
+def calc_did_normal_likelihood(times, residuals):
+    """Natural logarithm of the dependent and identically distributed likelihood function.
+
+    Correlation in the data is taken into account. The data is still assumed to be
+    identically distributed according to a normal distribution.
+
+    ln(L(θ)) = -n ln(2 pi) / 2 - ln(det(∑)) / 2 - residuals @ ∑^-1 @ residuals^T / 2
+    ∑ is the covariance matrix
+
+    The covariance matrix is calculated using the power spectral density, following
+    the Wiener–Khinchin theorem.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+    """
+    n = len(residuals)
+    # calculate the PSD, fast
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)
+    # calculate the autocorrelation function
+    psd_ext = np.append(psd, psd[-1:0:-1])  # double the PSD domain for ifft
+    acf = np.fft.ifft(psd_ext)
+    # unbias the variance measure and put the array the right way around
+    acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
+    # calculate the acf lags
+    lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
+    lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
+    # make the lags matrix, but re-use the same matrix
+    matrix = times - times[:, np.newaxis]  # lags_matrix, same as np.outer
+    # interpolate - I need the lags at specific times
+    matrix = np.interp(matrix, lags, acf)  # cov_matrix, already mean-subtracted in PSD
+    # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
+    matrix = sp.linalg.cho_factor(matrix, lower=False, overwrite_a=True, check_finite=False)  # cho_decomp
+    # Solve M @ x = v^T using the Cholesky factorization (x = M^-1 v^T)
+    x = sp.linalg.cho_solve(matrix, residuals[:, np.newaxis], check_finite=False)
+    # log of the exponent - analogous to the matrix multiplication
+    ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
+    # log of the determinant (avoids too small eigenvalues that would result in 0)
+    ln_det = 2 * np.sum(np.log(np.diag(matrix[0])))
+    # likelihood for multivariate normal distribution
+    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - ln_exp / 2
+    return like
+
+
+def calc_ddd_normal_likelihood(times, residuals, signal_err):
+    """Natural logarithm of the dependent and differently distributed likelihood function.
 
     Only assumes that the data is distributed according to a normal distribution.
-    Correlation in the data is taken into account. If signal_err is given, these
-    measurement errors take precedence over the measured variance in the data.
-    This means the distributions need not be identical, either.
+    Correlation in the data is taken into account. The measurement errors take
+    precedence over the measured variance in the data. This means the distributions
+    need not be identical, either.
 
     ln(L(θ)) = -n ln(2 pi) / 2 - ln(det(∑)) / 2 - residuals @ ∑^-1 @ residuals^T / 2
     ∑ is the covariance matrix
@@ -1250,33 +1329,71 @@ def calc_likelihood_2(times, residuals, signal_err=None):
     # calculate the PSD, fast
     freqs, psd = astropy_scargle_simple_psd(times, residuals)
     # calculate the autocorrelation function
-    psd_ext = np.append(psd, psd[1:][::-1])  # double the PSD domain for ifft
+    psd_ext = np.append(psd, psd[-1:0:-1])  # double the PSD domain for ifft
     acf = np.fft.ifft(psd_ext)
     # unbias the variance measure and put the array the right way around
     acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
     # calculate the acf lags
     lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
     lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
+    # make the lags matrix, but re-use the same matrix
+    matrix = times - times[:, np.newaxis]  # lags_matrix, same as np.outer
     # interpolate - I need the lags at specific times
-    lags_matrix = times.astype('float32') - times[:, np.newaxis].astype('float32')  # same as np.outer
-    cov_matrix = np.interp(lags_matrix, lags, acf)  # already mean-subtracted in PSD
+    matrix = np.interp(matrix, lags, acf)  # cov_matrix, already mean-subtracted in PSD
     # substitute individual data errors if given
-    if signal_err is not None:
-        var = cov_matrix[0, 0]  # diag elements are the same by construction
-        corr_matrix = cov_matrix / var  # divide out the variance to get correlation matrix
-        err_matrix = signal_err * signal_err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
-        cov_matrix = err_matrix * corr_matrix  # multiply to get back to covariance
-
+    var = matrix[0, 0]  # diag elements are the same by construction
+    corr_matrix = matrix / var  # divide out the variance to get correlation matrix
+    err_matrix = signal_err * signal_err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
+    matrix = err_matrix * corr_matrix  # multiply to get back to covariance
     # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
-    cho_decomp = sp.linalg.cho_factor(cov_matrix, lower=False)
+    matrix = sp.linalg.cho_factor(matrix, lower=False, overwrite_a=True, check_finite=False)  # cho_decomp
     # Solve M @ x = v^T using the Cholesky factorization (x = M^-1 v^T)
-    x = sp.linalg.cho_solve(cho_decomp, residuals[:, np.newaxis])
+    x = sp.linalg.cho_solve(matrix, residuals[:, np.newaxis], check_finite=False)
     # log of the exponent - analogous to the matrix multiplication
     ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
     # log of the determinant (avoids too small eigenvalues that would result in 0)
-    ln_det = 2 * np.sum(np.log(np.diag(cho_decomp[0])))
+    ln_det = 2 * np.sum(np.log(np.diag(matrix[0])))
     # likelihood for multivariate normal distribution
     like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - ln_exp / 2
+    return like
+
+
+def calc_likelihood(times=None, signal=None, residuals=None, signal_err=None, func=calc_iid_normal_likelihood):
+    """Natural logarithm of the likelihood function.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+    func: function
+        The likelihood function to use for the calculation
+        Choose from: calc_iid_normal_likelihood, calc_approx_did_likelihood,
+        calc_whittle_likelihood, calc_did_normal_likelihood,
+        calc_ddd_normal_likelihood
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+
+    Notes
+    -----
+    Choose between a conventional iid simplification of the likelihood,
+    a full matrix implementation that costs a lot of memory for large datasets,
+    or some approximations in-between.
+    """
+    # make a dict of the given arguments
+    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err}
+    # check what the chosen function needs
+    func_args = list(inspect.signature(func).parameters)
+    # make a dict of those
+    args_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in func_args}
+    # feed to the function
+    like = func(**args_dict)
     return like
 
 
@@ -1314,9 +1431,7 @@ def calc_bic(residuals, n_param):
     n = len(residuals)
     # bic = n * np.log(2 * np.pi * np.sum(residuals**2) / n) + n + n_param * np.log(n)
     # originally JIT-ted function, but with for loop is slightly quicker
-    sum_r_2 = 0
-    for i, r in enumerate(residuals):
-        sum_r_2 += r**2
+    sum_r_2 = ut.std_unb(residuals, n)
     bic = n * np.log(2 * np.pi * sum_r_2 / n) + n + n_param * np.log(n)
     return bic
 
@@ -1343,7 +1458,7 @@ def calc_bic_2(residuals, n_param, signal_err=None):
         Bayesian Information Criterion
     """
     n = len(residuals)
-    bic = n_param * np.log(n) - 2 * calc_likelihood_2(residuals, signal_err=signal_err)
+    bic = n_param * np.log(n) - 2 * calc_likelihood(residuals, signal_err=signal_err)
     return bic
 
 
