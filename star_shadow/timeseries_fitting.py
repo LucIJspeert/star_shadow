@@ -1923,7 +1923,7 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin_g)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
         arguments = (times, resid, p_orb, t_zero, i_sectors)
-        if (model is 'ellc'):
+        if (model == 'ellc'):
             obj_fun = objective_ellc_sinusoids
         else:
             obj_fun = objective_eclipse_sinusoids
@@ -1945,7 +1945,7 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
             model_sinusoid = tsf.sum_sines(times, res_freqs, res_ampls, res_phases)
             ecosw, esinw, cosi, phi_0, log_rr, log_sb = res_ecl_par
             e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
-            if (model is 'ellc'):
+            if (model == 'ellc'):
                 f_c = res_ecl_par[0] / np.sqrt(e)
                 f_s = res_ecl_par[1] / np.sqrt(e)
                 model_ecl = wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat)
