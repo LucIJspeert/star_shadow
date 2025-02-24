@@ -46,7 +46,7 @@ def fold_time_series_phase(times, p_orb, zero=None):
 @nb.njit(cache=True)
 def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
     """Fold the given time series over the orbital period
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -60,7 +60,7 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
         Negative time interval to extend the folded time series to the left.
     t_ext_2: float
         Positive time interval to extend the folded time series to the right.
-    
+
     Returns
     -------
     t_extended: numpy.ndarray[float]
@@ -82,7 +82,7 @@ def fold_time_series(times, p_orb, t_zero, t_ext_1=0, t_ext_2=0):
 
 def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     """Average the phase folded signal within a given number of bins.
-    
+
     Parameters
     ----------
     phases: numpy.ndarray[float]
@@ -95,14 +95,14 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
         To return bins as midpoints instead of edges, set True
     statistic: str
         The statistic to calculate for each bin (see scipy.stats.binned_statistic)
-        
+
     Returns
     -------
     bins: numpy.ndarray[float]
         The bin edges, or bin midpoints if midpoints=True
     binned: numpy.ndarray[float]
         The calculated statistic for each bin
-    
+
     Notes
     -----
     Uses scipy.stats.binned_statistic for flexibility. For the use in number
@@ -177,7 +177,7 @@ def mask_timestamps(times, stamps):
 @nb.njit(cache=True)
 def phase_dispersion(phases, signal, n_bins):
     """Phase dispersion, as in PDM, without overlapping bins.
-    
+
     Parameters
     ----------
     phases: numpy.ndarray[float]
@@ -186,13 +186,13 @@ def phase_dispersion(phases, signal, n_bins):
         Measurement values of the time series
     n_bins: int
         The number of bins over the orbital phase
-    
+
     Returns
     -------
     total_var/overall_var: float
         Phase dispersion, or summed variance over the bins divided by
         the variance of the signal
-    
+
     Notes
     -----
     Intentionally does not make use of bin_folded_signal (which uses scipy)
@@ -200,7 +200,7 @@ def phase_dispersion(phases, signal, n_bins):
     """
     def var_no_avg(a):
         return np.sum(np.abs(a - np.mean(a))**2)  # if mean instead of sum, this is variance
-    
+
     edges = np.linspace(-0.5, 0.5, n_bins + 1)
     # binned, edges, indices = sp.stats.binned_statistic(phases, signal, statistic=statistic, bins=bins)
     binned_var = np.zeros(n_bins)
@@ -218,7 +218,7 @@ def phase_dispersion(phases, signal, n_bins):
 @nb.njit(cache=True)
 def phase_dispersion_minimisation(times, signal, f_n, local=False):
     """Determine the phase dispersion over a set of periods to find the minimum
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -230,7 +230,7 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     local: bool
         If set True, only searches the given frequencies,
         else also fractions of the frequencies are searched
-    
+
     Returns
     -------
     periods: numpy.ndarray[float]
@@ -263,7 +263,7 @@ def phase_dispersion_minimisation(times, signal, f_n, local=False):
     return periods, pd_all
 
 
-def scargle_noise_spectrum(times, resid, window_width=1.0):
+def scargle_noise_spectrum(times, resid, f_max, window_width=1.0):
     """Calculate the Lomb-Scargle noise spectrum by a convolution with a flat window of a certain width.
 
     Parameters
@@ -272,6 +272,9 @@ def scargle_noise_spectrum(times, resid, window_width=1.0):
         Timestamps of the time series
     resid: numpy.ndarray[float]
         Residual measurement values of the time series
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
     window_width: float
         The width of the window used to compute the noise spectrum,
         in inverse unit of the times array (i.e. 1/d if time is in d).
@@ -281,7 +284,7 @@ def scargle_noise_spectrum(times, resid, window_width=1.0):
     noise: numpy.ndarray[float]
         The noise spectrum calculated as the mean in a frequency window
         in the residual periodogram
-    
+
     Notes
     -----
     The values calculated here capture the amount of noise on fitting a
@@ -290,7 +293,7 @@ def scargle_noise_spectrum(times, resid, window_width=1.0):
     time series.
     """
     # calculate the periodogram
-    freqs, ampls = astropy_scargle(times, resid)  # use defaults to get full amplitude spectrum
+    freqs, ampls = astropy_scargle(times, resid, f_max)  # use defaults to get full amplitude spectrum or up to f_max if provided
     # determine the number of points to extend the spectrum with for convolution
     n_points = int(np.ceil(window_width / np.abs(freqs[1] - freqs[0])))  # .astype(int)
     window = np.full(n_points, 1 / n_points)
@@ -344,7 +347,7 @@ def scargle_noise_spectrum_redux(freqs, ampls, window_width=1.0):
     return noise
 
 
-def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
+def scargle_noise_at_freq(fs, times, resid, f_max, window_width=1.0):
     """Calculate the Lomb-Scargle noise at a given set of frequencies
 
     Parameters
@@ -355,6 +358,9 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
         Timestamps of the time series
     resid: numpy.ndarray[float]
         Residual measurement values of the time series
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
     window_width: float
         The width of the window used to compute the noise spectrum,
         in inverse unit of the times array (i.e. 1/d if time is in d).
@@ -364,7 +370,7 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
     noise: numpy.ndarray[float]
         The noise level calculated as the mean in a window around the
         frequency in the residual periodogram
-    
+
     Notes
     -----
     The values calculated here capture the amount of noise on fitting a
@@ -372,7 +378,7 @@ def scargle_noise_at_freq(fs, times, resid, window_width=1.0):
     Not to be confused with the noise on the individual data points of the
     time series.
     """
-    freqs, ampls = astropy_scargle(times, resid)  # use defaults to get full amplitude spectrum
+    freqs, ampls = astropy_scargle(times, resid, f_max)  # use defaults to get full amplitude spectrum or up to f_max if provided
     margin = window_width / 2
     # mask the frequency ranges and compute the noise
     f_masks = [(freqs > f - margin) & (freqs <= f + margin) for f in fs]
@@ -390,12 +396,12 @@ def spectral_window(times, freqs):
         Timestamps of the time series
     freqs: numpy.ndarray[float]
         Frequency points to calculate the window. Inverse unit of 'times'
-        
+
     Returns
     -------
     spec_win: numpy.ndarray[float]
         The spectral window at the given frequencies, |W(freqs)|^2
-    
+
     Notes
     -----
     The spectral window is the Fourier transform of the window function
@@ -413,15 +419,18 @@ def spectral_window(times, freqs):
 
 
 @nb.njit(cache=True)
-def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
+def scargle(times, signal, f_max, f0=0, fn=0, df=0, norm='amplitude'):
     """Scargle periodogram with no weights.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -434,24 +443,24 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     norm: str
         Normalisation of the periodogram. Choose from:
         'amplitude', 'density' or 'distribution'
-    
+
     Returns
     -------
     f1: numpy.ndarray[float]
         Frequencies at which the periodogram was calculated
     s1: numpy.ndarray[float]
         The periodogram spectrum in the chosen units
-    
+
     Notes
     -----
     Translated from Fortran (and just as fast when JIT-ted with Numba!)
         Computation of Scargles periodogram without explicit tau
         calculation, with iteration (Method Cuypers)
-    
+
     The times array is mean subtracted to reduce correlation between
     frequencies and phases. The signal array is mean subtracted to avoid
     a large peak at frequency equal to zero.
-    
+
     Useful extra information: VanderPlas 2018,
     https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
     """
@@ -467,7 +476,10 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     if (df == 0):
         df = 0.1 / t_tot
     if (fn == 0):
-        fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+        if (f_max == 0) :
+            fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+        else :
+            fn = f_max
     nf = int((fn - f0) / df + 0.001) + 1
     # pre-assign some memory
     ss = np.zeros(nf)
@@ -488,7 +500,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         cos_df = np.cos(t_df)
         mc_2_a = 2 * sin_df * cos_df
         mc_2_b = cos_df * cos_df - sin_df * sin_df
-        
+
         sin_f0_s = sin_f0 * signal_ms[i]
         cos_f0_s = cos_f0 * signal_ms[i]
         for j in range(nf):
@@ -502,7 +514,7 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
             temp_mc_1_b = mc_1_b
             mc_1_b = temp_mc_1_b * mc_2_b - mc_1_a * mc_2_a
             mc_1_a = mc_1_a * mc_2_b + temp_mc_1_b * mc_2_a
-    
+
     f1 = f0 + np.arange(nf) * df
     s1 = ((sc**2 * (n - sc2) + ss**2 * (n + sc2) - 2 * ss * sc * ss2) / (n**2 - sc2**2 - ss2**2))
     # conversion to amplitude spectrum (or power density or statistical distribution)
@@ -530,16 +542,16 @@ def scargle_ampl_single(times, signal, f):
         Measurement values of the time series
     f: float
         A single frequency
-    
+
     Returns
     -------
     ampl: float
         Amplitude at the given frequency
-    
+
     See Also
     --------
     scargle_ampl, scargle_phase, scargle_phase_single
-    
+
     Notes
     -----
     The times array is mean subtracted to reduce correlation between
@@ -585,7 +597,7 @@ def scargle_ampl_single(times, signal, f):
 @nb.njit(cache=True)
 def scargle_ampl(times, signal, fs):
     """Amplitude at one or a set of frequencies from the Scargle periodogram
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -594,16 +606,16 @@ def scargle_ampl(times, signal, fs):
         Measurement values of the time series
     fs: numpy.ndarray[float]
         A set of frequencies
-    
+
     Returns
     -------
     ampl: numpy.ndarray[float]
         Amplitude at the given frequencies
-    
+
     See Also
     --------
     scargle_phase
-    
+
     Notes
     -----
     The times array is mean subtracted to reduce correlation between
@@ -652,7 +664,7 @@ def scargle_ampl(times, signal, fs):
 @nb.njit(cache=True)
 def scargle_phase_single(times, signal, f):
     """Phase at one frequency from the Scargle periodogram
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -661,16 +673,16 @@ def scargle_phase_single(times, signal, f):
         Measurement values of the time series
     f: float
         A single frequency
-    
+
     Returns
     -------
     phi: float
         Phase at the given frequency
-    
+
     See Also
     --------
     scargle_phase, scargle_ampl_single
-    
+
     Notes
     -----
     The times array is mean subtracted to reduce correlation between
@@ -715,7 +727,7 @@ def scargle_phase_single(times, signal, f):
 @nb.njit(cache=True)
 def scargle_phase(times, signal, fs):
     """Phase at one or a set of frequencies from the Scargle periodogram
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -724,19 +736,19 @@ def scargle_phase(times, signal, fs):
         Measurement values of the time series
     fs: numpy.ndarray[float]
         A set of frequencies
-    
+
     Returns
     -------
     phi: numpy.ndarray[float]
         Phase at the given frequencies
-    
+
     Notes
     -----
     Uses a slightly modified version of the function in Hocke 1997
     ("Phase estimation with the Lomb-Scargle periodogram method")
     https://www.researchgate.net/publication/283359043_Phase_estimation_with_the_Lomb-Scargle_periodogram_method
     (only difference is an extra pi/2 for changing cos phase to sin phase)
-    
+
     Notes
     -----
     The times array is mean subtracted to reduce correlation between
@@ -781,7 +793,7 @@ def scargle_phase(times, signal, fs):
     return phi
 
 
-def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
+def astropy_scargle(times, signal, f_max, f0=0, fn=0, df=0, norm='amplitude'):
     """Wrapper for the astropy Scargle periodogram.
 
     Parameters
@@ -790,6 +802,9 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -815,14 +830,14 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     Approximation using fft, much faster than the other scargle in mode='fast'.
     Beware of computing narrower frequency windows, as there is inconsistency
     when doing this.
-    
+
     Useful extra information: VanderPlas 2018,
     https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
-    
+
     The times array is mean subtracted to reduce correlation between
     frequencies and phases. The signal array is mean subtracted to avoid
     a large peak at frequency equal to zero.
-    
+
     Note that the astropy implementation uses functions under the hood
     that use the blas package for multithreading by default.
     """
@@ -836,9 +851,12 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
     t_tot = np.ptp(times_ms)
     f0 = max(f0, 0.01 / t_tot)  # don't go lower than T/100
     if (df == 0):
-        df = 0.1 / t_tot
+        df = 0.1 / t_tot # Oversample by a factor 10
     if (fn == 0):
-        fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+        if (f_max == 0) :
+            fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+        else :
+            fn = f_max
     nf = int((fn - f0) / df + 0.001) + 1
     f1 = f0 + np.arange(nf) * df
     # use the astropy fast algorithm and normalise afterward
@@ -877,9 +895,9 @@ def refine_orbital_period(p_orb, times, f_n):
     -----
     Uses the sum of distances between the harmonics and their
     theoretical positions to refine the orbital period.
-    
+
     Period precision is 0.00001, but accuracy is a bit lower.
-    
+
     Same refine algorithm as used in find_orbital_period
     """
     freq_res = 1.5 / np.ptp(times)  # Rayleigh criterion
@@ -918,7 +936,7 @@ def find_orbital_period(times, signal, f_n):
     Uses a combination of phase dispersion minimisation and
     Lomb-Scargle periodogram (see Saha & Vivas 2017), and some
     refining steps to get the best period.
-    
+
     Also tests various multiples of the period.
     Precision is 0.00001 (one part in one-hundred-thousand).
     (accuracy might be slightly lower)
@@ -968,17 +986,8 @@ def find_orbital_period(times, signal, f_n):
     # if there are very high numbers, add double that fraction for testing
     test_frac = h_measure_m / h_measure[mask_peak][i_min_dist]
     if np.any(test_frac[2:] > 3):
-<<<<<<< HEAD
-<<<<<<< HEAD
-        p_multiples = np.append(p_multiples, [p_orb * 2 * n_multiply[2:][test_frac[2:] > 3]])
-=======
         n_multiply = np.append(n_multiply, [2 * n_multiply[2:][test_frac[2:] > 3]])
         p_multiples = p_orb * n_multiply
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-        n_multiply = np.append(n_multiply, [2 * n_multiply[2:][test_frac[2:] > 3]])
-        p_multiples = p_orb * n_multiply
->>>>>>> master
         n_harm_r_m, completeness_r_m, distance_r_m = af.harmonic_series_length(1/p_multiples, f_n, freq_res, f_nyquist)
         h_measure_m = n_harm_r_m * completeness_r_m  # compute h_measure for constraining a domain
     # compute diagnostic fractions that need to meet some threshold
@@ -1024,17 +1033,17 @@ def find_orbital_period(times, signal, f_n):
 @nb.njit(cache=True)
 def calc_likelihood(residuals):
     """Natural logarithm of the likelihood function.
-    
+
     Parameters
     ----------
     residuals: numpy.ndarray[float]
         Residual is signal - model
-    
+
     Returns
     -------
     like: float
         Natural logarithm of the likelihood
-    
+
     Notes
     -----
     Under the assumption that the errors are independent and identically distributed
@@ -1055,31 +1064,31 @@ def calc_likelihood(residuals):
 @nb.njit(cache=True)
 def calc_bic(residuals, n_param):
     """Bayesian Information Criterion.
-    
+
     Parameters
     ----------
     residuals: numpy.ndarray[float]
         Residual is signal - model
     n_param: int
         Number of free parameters in the model
-    
+
     Returns
     -------
     bic: float
         Bayesian Information Criterion
-    
+
     Notes
     -----
     BIC = −2 ln(L(θ)) + k ln(n)
     where L is the likelihood as function of the parameters θ, n the number of data points
     and k the number of free parameters.
-    
+
     Under the assumption that the errors are independent and identically distributed
     according to a normal distribution, the likelihood becomes:
     ln(L(θ)) = -n/2 (ln(2 pi σ^2) + 1)
     and σ^2 is the error variance estimated as σ^2 = sum((residuals)^2)/n
     (residuals being data - model).
-    
+
     Combining this gives:
     BIC = n ln(2 pi σ^2) + n + k ln(n)
     """
@@ -1097,7 +1106,7 @@ def calc_bic(residuals, n_param):
 def linear_curve(times, const, slope, i_sectors, t_shift=True):
     """Returns a piece-wise linear curve for the given time points
     with slopes and y-intercepts.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1112,12 +1121,12 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
         set i_sectors = np.array([[0, len(times)]]).
     t_shift: bool
         Mean center the time axis
-    
+
     Returns
     -------
     curve: numpy.ndarray[float]
         The model time series of a (set of) straight line(s)
-    
+
     Notes
     -----
     Assumes the constants and slopes are determined with respect
@@ -1136,7 +1145,7 @@ def linear_curve(times, const, slope, i_sectors, t_shift=True):
 @nb.njit(cache=True)
 def linear_pars(times, signal, i_sectors):
     """Calculate the slopes and y-intercepts of a linear trend with the MLE.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1147,14 +1156,14 @@ def linear_pars(times, signal, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    
+
     Returns
     -------
     y_inter: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
         The slopes of a piece-wise linear curve
-    
+
     Notes
     -----
     Source: https://towardsdatascience.com/linear-regression-91eeae7d6a2e
@@ -1182,7 +1191,7 @@ def linear_pars(times, signal, i_sectors):
 @nb.njit(cache=True)
 def linear_pars_two_points(x1, y1, x2, y2):
     """Calculate the slope(s) and y-intercept(s) of a linear curve defined by two points.
-    
+
     Parameters
     ----------
     x1: float, numpy.ndarray[float]
@@ -1193,7 +1202,7 @@ def linear_pars_two_points(x1, y1, x2, y2):
         The x-coordinate of the right point(s)
     y2: float, numpy.ndarray[float]
         The y-coordinate of the right point(s)
-    
+
     Returns
     -------
     y_inter: float, numpy.ndarray[float]
@@ -1225,7 +1234,7 @@ def quadratic_curve(times, a, b, c):
     -------
     curve: numpy.ndarray[float]
         The model time series of a (set of) straight line(s)
-    
+
     Notes
     -----
     Assumes the parameters are determined with respect
@@ -1256,7 +1265,7 @@ def quadratic_pars(times, signal):
         The linear coefficient
     c: float
         The constant coefficient
-    
+
     Notes
     -----
     Determines the parameters with respect to the mean time
@@ -1340,7 +1349,7 @@ def cubic_pars(times, signal):
         The linear coefficient
     d: float
         The constant coefficient
-    
+
     Notes
     -----
     Determines the parameters with respect to the mean time
@@ -1436,7 +1445,7 @@ def cubic_pars_two_points(x1, y1, x2, y2):
         The constant coefficient(s)
     d: float, numpy.ndarray[float]
         The constant coefficient(s)
-    
+
     Notes
     -----
     Determines the parameters with respect to the mean x
@@ -1457,7 +1466,7 @@ def cubic_pars_two_points(x1, y1, x2, y2):
 @nb.njit(cache=True)
 def sum_sines(times, f_n, a_n, ph_n, t_shift=True):
     """A sum of sine waves at times t, given the frequencies, amplitudes and phases.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1470,12 +1479,12 @@ def sum_sines(times, f_n, a_n, ph_n, t_shift=True):
         The phases of a number of sine waves
     t_shift: bool
         Mean center the time axis
-    
+
     Returns
     -------
     model_sines: numpy.ndarray[float]
         Model time series of a sum of sine waves. Varies around 0.
-    
+
     Notes
     -----
     Assumes the phases are determined with respect
@@ -1498,7 +1507,7 @@ def sum_sines(times, f_n, a_n, ph_n, t_shift=True):
 def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1, t_shift=True):
     """The derivative of a sum of sine waves at times t,
     given the frequencies, amplitudes and phases.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1513,12 +1522,12 @@ def sum_sines_deriv(times, f_n, a_n, ph_n, deriv=1, t_shift=True):
         Number of time derivatives taken (>= 1)
     t_shift: bool
         Mean center the time axis
-    
+
     Returns
     -------
     model_sines: numpy.ndarray[float]
         Model time series of a sum of sine wave derivatives. Varies around 0.
-    
+
     Notes
     -----
     Assumes the phases are determined with respect
@@ -1597,7 +1606,7 @@ def formal_uncertainties_linear(times, residuals, i_sectors):
 def formal_uncertainties(times, residuals, a_n, i_sectors):
     """Calculates the corrected uncorrelated (formal) uncertainties for the extracted
     parameters (constant, slope, frequencies, amplitudes and phases).
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1610,7 +1619,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    
+
     Returns
     -------
     sigma_const: numpy.ndarray[float]
@@ -1623,7 +1632,7 @@ def formal_uncertainties(times, residuals, a_n, i_sectors):
         Uncertainty in the amplitude for each sine wave (these are identical)
     sigma_ph: numpy.ndarray[float]
         Uncertainty in the phase for each sine wave
-    
+
     Notes
     -----
     As in Aerts 2021, https://ui.adsabs.harvard.edu/abs/2021RvMP...93a5001A/abstract
@@ -1787,7 +1796,7 @@ def measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timi
         Error in the depth of primary minimum
     depth_2_err: float
         Error in the depth of secondary minimum
-    
+
     Notes
     -----
     The given sinusoids must be those from after disentangling,
@@ -1837,7 +1846,7 @@ def measure_depth_error(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timi
 def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings, noise_level, i_sectors,
                            t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err):
     """Estimate individual and combined errors for eclipse timings and depths
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1875,7 +1884,7 @@ def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, t
         Measurement error estimates of the first internal tangencies
     t_b_i_2_err: numpy.ndarray[float]
         Measurement error estimates of the last internal tangencies
-    
+
     Returns
     -------
     p_err: float
@@ -1937,16 +1946,19 @@ def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, t
     return p_err, timings_ind_err, timings_err
 
 
-def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
+def extract_single(times, signal, f_max, f0=0, fn=0, select='a', verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -1957,7 +1969,7 @@ def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
         Select the next frequency based on amplitude 'a' or signal-to-noise 'sn'
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     f_final: float
@@ -1966,17 +1978,17 @@ def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
         Amplitude of the extracted sinusoid
     ph_final: float
         Phase of the extracted sinusoid
-    
+
     See Also
     --------
     scargle, scargle_phase_single
-    
+
     Notes
     -----
     The extracted frequency is based on the highest amplitude or signal-to-noise
     in the periodogram (over the interval where it is calculated). The highest
     peak is oversampled by a factor 100 to get a precise measurement.
-    
+
     If and only if the full periodogram is calculated using the defaults
     for f0=0 and fn=0, the fast implementation of astropy scargle is used.
     It is accurate to a very high degree when used like this and gives
@@ -1986,9 +1998,9 @@ def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
     # full LS periodogram
     if (f0 == 0) & (fn == 0):
         # inconsistency with astropy_scargle for small freq intervals, so only do the full pd
-        freqs, ampls = astropy_scargle(times, signal, f0=f0, fn=fn, df=df)
+        freqs, ampls = astropy_scargle(times, signal, f_max, f0=f0, fn=fn, df=df)
     else:
-        freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+        freqs, ampls = scargle(times, signal, f_max, f0=f0, fn=fn, df=df)
     # selection step based on signal to noise (refine step keeps using ampl)
     if (select == 'sn'):
         noise_spectrum = scargle_noise_spectrum_redux(freqs, ampls, window_width=1.0)
@@ -2002,7 +2014,7 @@ def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
     # now refine once by increasing the frequency resolution x100
     f_left = max(freqs[p1] - df, df / 10)  # may not get too low
     f_right = freqs[p1] + df
-    f_refine, a_refine = scargle(times, signal, f0=f_left, fn=f_right, df=df/100)
+    f_refine, a_refine = scargle(times, signal, f_max, f0=f_left, fn=f_right, df=df/100)
     p2 = np.argmax(a_refine)
     # check if we pick the boundary frequency
     if (p2 in [0, len(f_refine) - 1]):
@@ -2017,7 +2029,7 @@ def extract_single(times, signal, f0=0, fn=0, select='a', verbose=True):
 
 
 @nb.njit(cache=True)
-def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
+def extract_single_narrow(times, signal, f_max, f0=0, fn=0, verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
 
@@ -2027,6 +2039,9 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -2059,13 +2074,13 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     for f0 and fn, the fast implementation of astropy scargle is used.
     It is accurate to a very high degree when used like this and gives
     a significant speed increase.
-    
+
     Same as extract_single, but meant for narrow frequency ranges. Much
     slower on the full frequency range, even though JIT-ted.
     """
     df = 0.1 / np.ptp(times)  # default frequency sampling is about 1/10 of frequency resolution
     # full LS periodogram (over a narrow range)
-    freqs, ampls = scargle(times, signal, f0=f0, fn=fn, df=df)
+    freqs, ampls = scargle(times, signal, f_max, f0=f0, fn=fn, df=df)
     p1 = np.argmax(ampls)
     # check if we pick the boundary frequency
     if (p1 in [0, len(freqs) - 1]):
@@ -2075,7 +2090,7 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     # now refine once by increasing the frequency resolution x100
     f_left = max(freqs[p1] - df, df / 10)  # may not get too low
     f_right = freqs[p1] + df
-    f_refine, a_refine = scargle(times, signal, f0=f_left, fn=f_right, df=df/100)
+    f_refine, a_refine = scargle(times, signal, f_max, f0=f_left, fn=f_right, df=df/100)
     p2 = np.argmax(a_refine)
     # check if we pick the boundary frequency
     if (p2 in [0, len(f_refine) - 1]):
@@ -2090,18 +2105,10 @@ def extract_single_narrow(times, signal, f0=0, fn=0, verbose=True):
     return f_final, a_final, ph_final
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, bic_thr=2, verbose=True):
-=======
-def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
->>>>>>> master
+def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, bic_thr, f_max, verbose=True):
     """Refine a subset of frequencies that are within the Rayleigh criterion of each other,
     taking into account (and not changing the frequencies of) harmonics if present.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2126,9 +2133,15 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    bic_thr: float
+        The minimum decrease in BIC by fitting a sinusoid for the signal
+        to be considered significant
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     const: numpy.ndarray[float]
@@ -2141,11 +2154,11 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
         Updated amplitudes of a number of sine waves
     ph_n: numpy.ndarray[float]
         Updated phases of a number of sine waves
-    
+
     See Also
     --------
     extract_all
-    
+
     Notes
     -----
     Intended as a sub-loop within another extraction routine (extract_all),
@@ -2182,7 +2195,7 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
             else:
                 f0 = f_n_temp[j] - freq_res
                 fn = f_n_temp[j] + freq_res
-                f_j, a_j, ph_j = extract_single(times, resid, f0=f0, fn=fn, select='a', verbose=verbose)
+                f_j, a_j, ph_j = extract_single(times, resid, f_max, f0=f0, fn=fn, select='a', verbose=verbose)
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
             cur_resid -= sum_sines(times, np.array([f_j]), np.array([a_j]), np.array([ph_j]))
         # as a last model-refining step, redetermine the constant and slope
@@ -2207,16 +2220,8 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_n=None, select='hybrid', bic_thr=2,
-=======
-def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_n=None, select='hybrid',
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_n=None, select='hybrid',
->>>>>>> master
-                      verbose=True):
+def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=None, a_n=None, ph_n=None,
+                      select='hybrid', verbose=True):
     """Extract all the frequencies from a periodic signal.
 
     Parameters
@@ -2229,6 +2234,12 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    bic_thr: float
+        The minimum decrease in BIC by fitting a sinusoid for the signal
+        to be considered significant
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     p_orb: float
         Orbital period of the eclipsing binary in days (can be 0)
     f_n: None, numpy.ndarray[float]
@@ -2264,10 +2275,10 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
     before input into this function.
     Note: does not perform a non-linear least-squares fit at the end,
     which is highly recommended! (In fact, no fitting is done at all).
-    
+
     The function optionally takes a pre-existing frequency list to append
     additional frequencies to. Set these to np.array([]) to start from scratch.
-    
+
     i_sectors is a 2D array with start and end indices of each (half) sector.
     This is used to model a piecewise-linear trend in the data.
     If you have no sectors like the TESS mission does, set
@@ -2322,7 +2333,7 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
         # update number of current frequencies
         n_freq_cur = len(f_n)
         # attempt to extract the next frequency
-        f_i, a_i, ph_i = extract_single(times, resid, f0=0, fn=0, select=select, verbose=verbose)
+        f_i, a_i, ph_i = extract_single(times, resid, f_max, f0=0, fn=0, select=select, verbose=verbose)
         # now iterate over close frequencies (around f_i) a number of times to improve them
         f_n_temp, a_n_temp, ph_n_temp = np.append(f_n, f_i), np.append(a_n, a_i), np.append(ph_n, ph_i)
         close_f = af.f_within_rayleigh(n_freq_cur, f_n_temp, freq_res)
@@ -2330,15 +2341,7 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
         model_sinusoid_r -= sum_sines(times, np.array([f_i]), np.array([a_i]), np.array([ph_i]))
         if (len(close_f) > 1):
             refine_out = refine_subset(times, signal, close_f, p_orb, const, slope, f_n_temp, a_n_temp, ph_n_temp,
-<<<<<<< HEAD
-<<<<<<< HEAD
-                                       i_sectors, bic_thr=bic_thr, verbose=verbose)
-=======
-                                       i_sectors, verbose=verbose)
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-                                       i_sectors, verbose=verbose)
->>>>>>> master
+                                       i_sectors, bic_thr, f_max, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
         # as a last model-refining step, redetermine the constant and slope
         model_sinusoid_n = sum_sines(times, f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f])
@@ -2349,15 +2352,7 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
         n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq_cur + 1 - n_harm)
         bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
-<<<<<<< HEAD
-<<<<<<< HEAD
         if (np.round(d_bic, 2) > bic_thr):
-=======
-        if (np.round(d_bic, 2) > 2):
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-        if (np.round(d_bic, 2) > 2):
->>>>>>> master
             # accept the new frequency
             f_n, a_n, ph_n = np.append(f_n, f_i), np.append(a_n, a_i), np.append(ph_n, ph_i)
             # adjust the shifted frequencies
@@ -2374,17 +2369,9 @@ def extract_sinusoids(times, signal, i_sectors, p_orb=0, f_n=None, a_n=None, ph_
     return const, slope, f_n, a_n, ph_n
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, bic_thr=2, verbose=True):
-=======
-def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=True):
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=None, verbose=True):
->>>>>>> master
+def extract_harmonics(times, signal, p_orb, i_sectors, bic_thr, f_max, f_n=None, a_n=None, ph_n=None, verbose=True):
     """Tries to extract more harmonics from the signal
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2403,9 +2390,15 @@ def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    bic_thr: float
+        The minimum decrease in BIC by fitting a sinusoid for the signal
+        to be considered significant
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     const: numpy.ndarray[float]
@@ -2418,11 +2411,11 @@ def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=
         (Updated) amplitudes of a (higher) number of sine waves
     ph_n: numpy.ndarray[float]
         (Updated) phases of a (higher) number of sine waves
-    
+
     See Also
     --------
     fix_harmonic_frequency
-    
+
     Notes
     -----
     Looks for missing harmonics and checks whether adding them
@@ -2437,7 +2430,6 @@ def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=
     if ph_n is None:
         ph_n = np.array([])
     # setup
-    f_max = 1 / (2 * np.min(times[1:] - times[:-1]))  # Nyquist freq
     n_sectors = len(i_sectors)
     n_freq = len(f_n)
     # extract the existing harmonics using the period
@@ -2475,15 +2467,7 @@ def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=
         n_param = 2 * n_sectors + 1 * (n_harm_cur > 0) + 2 * n_harm_cur + 3 * (n_freq - n_harm)
         bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
-<<<<<<< HEAD
-<<<<<<< HEAD
         if (np.round(d_bic, 2) > bic_thr):
-=======
-        if (np.round(d_bic, 2) > 2):
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-        if (np.round(d_bic, 2) > 2):
->>>>>>> master
             # h_c is accepted, add it to the final list and continue
             bic_prev = bic
             f_n, a_n, ph_n = np.append(f_n, f_c), np.append(a_n, a_c), np.append(ph_n, ph_c)
@@ -2502,7 +2486,7 @@ def extract_harmonics(times, signal, p_orb, i_sectors, f_n=None, a_n=None, ph_n=
     return const, slope, f_n, a_n, ph_n
 
 
-def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max, verbose=True):
     """Fixes the frequency of harmonics to the theoretical value, then
     re-determines the amplitudes and phases.
 
@@ -2528,6 +2512,9 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -2549,7 +2536,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
     harmonics, harmonic_n = af.find_harmonics_tolerance(f_n, p_orb, f_tol=freq_res / 2)
     if (len(harmonics) == 0):
         raise ValueError('No harmonic frequencies found')
-    
+
     n_sectors = len(i_sectors)
     n_freq = len(f_n)
     n_harm_init = len(harmonics)
@@ -2603,7 +2590,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # extract the updated frequency
         fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
-        f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f0=fl, fn=fr, select='a', verbose=verbose)
+        f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f_max, f0=fl, fn=fr, select='a', verbose=verbose)
         ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi  # make sure the phase stays within + and - pi
         if (f_n[i] <= fl) | (f_n[i] >= fr):
             remove_non_harm = np.append(remove_non_harm, [i])
@@ -2630,7 +2617,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
 @nb.njit(cache=True)
 def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt the removal of individual frequencies
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2655,7 +2642,7 @@ def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         set i_sectors = np.array([[0, len(times)]]).
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     const: numpy.ndarray[float]
@@ -2668,7 +2655,7 @@ def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         (Updated) amplitudes of a (lower) number of sine waves
     ph_n: numpy.ndarray[float]
         (Updated) phases of a (lower) number of sine waves
-    
+
     Notes
     -----
     Checks whether the BIC can be improved by removing a frequency.
@@ -2694,7 +2681,7 @@ def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         for i in range(n_freq):
             if i in remove_single:
                 continue
-            
+
             # make a model of the removed sinusoids and subtract it from the full sinusoid model
             model_sinusoid_r = sum_sines(times, np.array([f_n[i]]), np.array([a_n[i]]), np.array([ph_n[i]]))
             resid = cur_resid + model_sinusoid_r
@@ -2725,7 +2712,7 @@ def remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
 
 
 @nb.njit(cache=True)
-def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max, verbose=True):
     """Attempt the replacement of groups of frequencies by a single one
 
     Parameters
@@ -2750,6 +2737,9 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -2811,7 +2801,7 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         for i, set_i in enumerate(f_sets):
             if i in used_sets:
                 continue
-            
+
             # make a model of the removed and new sinusoids and subtract/add it from/to the full sinusoid model
             model_sinusoid_r = sum_sines(times, f_n[set_i], a_n[set_i], ph_n[set_i])
             resid = best_resid + model_sinusoid_r
@@ -2825,7 +2815,7 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
                 ph_i = scargle_phase(times, resid, f_n[harm_i])
             else:
                 edges = [min(f_n[set_i]) - freq_res, max(f_n[set_i]) + freq_res]
-                out = extract_single_narrow(times, resid, f0=edges[0], fn=edges[1], verbose=verbose)
+                out = extract_single_narrow(times, resid, f_max, f0=edges[0], fn=edges[1], verbose=verbose)
                 f_i, a_i, ph_i = np.array([out[0]]), np.array([out[1]]), np.array([out[2]])
             # make a model including the new freq
             model_sinusoid_n = sum_sines(times, f_i, a_i, ph_i)
@@ -2861,9 +2851,9 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max, verbose=True):
     """Attempt to reduce the number of frequencies taking into account any harmonics if present.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2886,9 +2876,12 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     const: numpy.ndarray[float]
@@ -2901,7 +2894,7 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         (Updated) amplitudes of a (lower) number of sine waves
     ph_n: numpy.ndarray[float]
         (Updated) phases of a (lower) number of sine waves
-    
+
     Notes
     -----
     Checks whether the BIC can be improved by removing a frequency. Special attention
@@ -2912,22 +2905,14 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     out_a = remove_sinusoids_single(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_a
     # Now go on to trying to replace sets of frequencies that are close together
-    out_b = replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=verbose)
+    out_b = replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     return const, slope, f_n, a_n, ph_n
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, verbose=False):
-=======
-def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
->>>>>>> master
+def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=False):
     """Selects the credible frequencies from the given set
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -2955,6 +2940,14 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         observation sectors, but taking half the sectors is recommended.
         If only a single curve is wanted, set
         i_half_s = np.array([[0, len(times)]]).
+    sn_thr: float
+        Threshold for signal-to-noise ratio for a signal to be accepted as signficant
+    sn_thr_punish_gap: bool
+        Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
+        Only relevant if sn_thr == -1
+    f_max: float
+        Maximum allowed frequency at which signals are extracted
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -2968,7 +2961,7 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
         Non-harmonic frequencies that passed both checks
     passed_h: numpy.ndarray[bool]
         Non-harmonic frequencies that passed both checks
-    
+
     Notes
     -----
     Harmonic frequencies that are said to be passing the criteria
@@ -2987,16 +2980,8 @@ def select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     # find the insignificant frequencies
     remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3, sigma_f=3)
     # apply the signal-to-noise threshold
-    noise_at_f = scargle_noise_at_freq(f_n, times, residuals, window_width=1.0)
-<<<<<<< HEAD
-<<<<<<< HEAD
-    remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, times, sn_thr)
-=======
-    remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, n_points)
->>>>>>> b0e00e0c4be3a4b2faca0b23498d1af8592f94ce
-=======
-    remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, n_points)
->>>>>>> master
+    noise_at_f = scargle_noise_at_freq(f_n, times, residuals, f_max, window_width=1.0)
+    remove_snr = af.remove_insignificant_snr(a_n, noise_at_f, times, sn_thr, sn_thr_punish_gap)
     # frequencies that pass sigma criteria
     passed_sigma = np.ones(len(f_n), dtype=bool)
     passed_sigma[remove_sigma] = False
