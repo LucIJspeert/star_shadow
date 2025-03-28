@@ -2158,11 +2158,11 @@ def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
         with the corresponding TIC number are selected.
     load_dir: str
         Path to a directory for loading analysis results.
-        Will append <target_id> + _analysis automatically.
+        Will append <tic> + _analysis automatically.
         Assumes the same directory as all_files if None.
     save_dir: str, None
         Path to a directory for saving the plots.
-        Will append <target_id> + _analysis automatically.
+        Will append <tic> + _analysis automatically.
         Directory is created if it doesn't exist yet.
     show: bool
         Whether to show the plots or not.
@@ -2180,5 +2180,5 @@ def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
     lc_processed = stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # do the plotting
-    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
+    sequential_plotting(times, signal, signal_err, i_sectors, tic, load_dir, save_dir=save_dir, show=show)
     return None
