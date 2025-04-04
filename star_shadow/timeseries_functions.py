@@ -16,6 +16,7 @@ import astropy.timeseries as apy
 
 from . import analysis_functions as af
 from . import utility as ut
+from . import timeseries_fitting as tsf
 
 
 @nb.njit(cache=True)
@@ -793,7 +794,7 @@ def scargle_phase(times, signal, fs):
     return phi
 
 
-def astropy_scargle(times, signal, f_max, f0=0, fn=0, df=0, norm='amplitude'):
+def astropy_scargle(times, signal, f_max=0, f0=0, fn=0, df=0, norm='amplitude'):
     """Wrapper for the astropy Scargle periodogram.
 
     Parameters
@@ -804,7 +805,7 @@ def astropy_scargle(times, signal, f_max, f0=0, fn=0, df=0, norm='amplitude'):
         Measurement values of the time series
     f_max: float
         Maximum allowed frequency at which signals are extracted
-        Set to zero to automatically use Nyquist frequency
+        Set to zero to automatically use Nyquist frequency if fn=0
     f0: float
         Starting frequency of the periodogram.
         If left zero, default is f0 = 1/(100*T)
@@ -1946,7 +1947,8 @@ def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, t
     return p_err, timings_ind_err, timings_err
 
 
-def extract_single(times, signal, f_max, f0=0, fn=0, select='a', verbose=True):
+def extract_single(times, signal, f_max, f0=0, fn=0, freqs_to_avoid=np.array([]), avoidance_window=0.,
+                   select='a', verbose=True):
     """Extract a single frequency from a time series using oversampling
     of the periodogram.
 
@@ -1965,6 +1967,14 @@ def extract_single(times, signal, f_max, f0=0, fn=0, select='a', verbose=True):
     fn: float
         Last frequency of the periodogram.
         If left zero, default is fn = 1/(2*np.min(np.diff(times))) = Nyquist frequency
+    freqs_to_avoid: numpy.ndarray[float]
+        List of frequencies around which no signals should be extracted
+        No frequency ranges are avoided if freqs_to_avoid=[] (default)
+        NOT YET IMPLEMENTED
+    avoidance_window: float
+        Do not extract any frequency within the avoidance_window around a frequency in freqs_to_avoid
+        No frequency ranges are avoided if avoidance_window=0. (default)
+        NOT YET IMPLEMENTED
     select: str
         Select the next frequency based on amplitude 'a' or signal-to-noise 'sn'
     verbose: bool
@@ -1995,6 +2005,7 @@ def extract_single(times, signal, f_max, f0=0, fn=0, select='a', verbose=True):
     a significant speed increase. It cannot be used on smaller intervals.
     """
     df = 0.1 / np.ptp(times)  # default frequency sampling is about 1/10 of frequency resolution
+    window_width = 1.0  # Window to compute the noise
     # full LS periodogram
     if (f0 == 0) & (fn == 0):
         # inconsistency with astropy_scargle for small freq intervals, so only do the full pd
@@ -2002,8 +2013,9 @@ def extract_single(times, signal, f_max, f0=0, fn=0, select='a', verbose=True):
     else:
         freqs, ampls = scargle(times, signal, f_max, f0=f0, fn=fn, df=df)
     # selection step based on signal to noise (refine step keeps using ampl)
+    # Exclude freqs too close to previously extracted signals?
     if (select == 'sn'):
-        noise_spectrum = scargle_noise_spectrum_redux(freqs, ampls, window_width=1.0)
+        noise_spectrum = scargle_noise_spectrum_redux(freqs, ampls, window_width=window_width)
         ampls = ampls / noise_spectrum
     # select highest value
     p1 = np.argmax(ampls)
@@ -2195,6 +2207,7 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
             else:
                 f0 = f_n_temp[j] - freq_res
                 fn = f_n_temp[j] + freq_res
+                # Mathijs: Note that SNR is not used here
                 f_j, a_j, ph_j = extract_single(times, resid, f_max, f0=f0, fn=fn, select='a', verbose=verbose)
             f_n_temp[j], a_n_temp[j], ph_n_temp[j] = f_j, a_j, ph_j
             cur_resid -= sum_sines(times, np.array([f_j]), np.array([a_j]), np.array([ph_j]))
@@ -2220,8 +2233,8 @@ def refine_subset(times, signal, close_f, p_orb, const, slope, f_n, a_n, ph_n, i
     return const, slope, f_n, a_n, ph_n
 
 
-def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=None, a_n=None, ph_n=None,
-                      select='hybrid', verbose=True):
+def extract_sinusoids(times, signal, i_sectors, sn_thr, sn_thr_punish_gap, bic_thr, f_max, p_orb=0, f_n=None, a_n=None, ph_n=None,
+                      add_SNR_stop_crit=False, fit_each_step=False, select='hybrid', verbose=True):
     """Extract all the frequencies from a periodic signal.
 
     Parameters
@@ -2234,6 +2247,11 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    sn_thr: float
+        Threshold for signal-to-noise ratio for a signal to be accepted as signficant
+    sn_thr_punish_gap: bool
+        Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
+        Only relevant if sn_thr == -1
     bic_thr: float
         The minimum decrease in BIC by fitting a sinusoid for the signal
         to be considered significant
@@ -2248,6 +2266,13 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
         The amplitudes of a number of sine waves (can be empty or None)
     ph_n: None, numpy.ndarray[float]
         The phases of a number of sine waves (can be empty or None)
+    add_SNR_stop_crit: bool
+        If set to True, the signal-to-noise ratio is used as a second stopping criterion
+        on top of the demanded decrease in BIC.
+    fit_each_step:
+        If set to True, a non-linear least-squares fit of all extracted sinusoids in groups
+        is performed after each extracted frequency.
+        While this increases the quality of the extracted signals, it drastically slows down the code.
     select: str
         Select the next frequency based on amplitude ('a'),
         signal-to-noise ('sn'), or hybrid ('hybrid') (first a then sn).
@@ -2286,12 +2311,20 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
 
     Exclusively uses the Lomb-Scargle periodogram (and an iterative parameter
     improvement scheme) to extract the frequencies.
-    Uses a delta BIC > 2 stopping criterion.
+    Uses a delta BIC > bic_thr stopping criterion.
 
-    [Author's note] Although it is my belief that doing a non-linear
+    [Luc's author's note] Although it is my belief that doing a non-linear
     multi-sinusoid fit at each iteration of the prewhitening is the
     ideal approach, it is also a very (very!) time-consuming one and this
     algorithm aims to be fast while approaching the optimal solution.
+
+    [Mathijs's author's note] I added an option to do the non-linear multi-
+    sinusoid fit at each iteration. There are also options to exclude frequencies
+    too close to previously extracted frequencies and to stop the pre-prewhitening
+    when a candidate signal fails the SNR criterion instead of only using SNR to
+    filter frequencies after the pre-whitening. When used in concert, the pre-prewhitening
+    resembles that of Strategy 3 in Van Beeck et al. (2021) albeit with hybrid hinting
+    and stricter criteria.
     """
     if f_n is None:
         f_n = np.array([])
@@ -2300,6 +2333,7 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
     if ph_n is None:
         ph_n = np.array([])
     # setup
+    df = 0.1 / np.ptp(times)
     freq_res = 1.5 / np.ptp(times)  # frequency resolution
     n_sectors = len(i_sectors)
     n_freq = len(f_n)
@@ -2321,6 +2355,10 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
     n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq - n_harm)
     bic_prev = calc_bic(resid, n_param)  # initialise current BIC to the mean (and slope) subtracted signal
     bic_init = bic_prev
+    if float(sn_thr) == -1 :
+        snr_threshold = ut.signal_to_noise_threshold(times, sn_thr_punish_gap)
+    else :
+        snr_threshold = sn_thr
     if verbose:
         print(f'N_f= {len(f_n)}, BIC= {bic_init:1.2f} (delta= N/A) - start extraction')
     # stop the loop when the BIC decreases by less than 2 (or increases)
@@ -2343,20 +2381,37 @@ def extract_sinusoids(times, signal, i_sectors, bic_thr, f_max, p_orb=0, f_n=Non
             refine_out = refine_subset(times, signal, close_f, p_orb, const, slope, f_n_temp, a_n_temp, ph_n_temp,
                                        i_sectors, bic_thr, f_max, verbose=verbose)
             const, slope, f_n_temp, a_n_temp, ph_n_temp = refine_out
-        # as a last model-refining step, redetermine the constant and slope
+        # as a last model-refining step, redetermine the constant and slope and, if asked for, all fit parameters by NLLS
         model_sinusoid_n = sum_sines(times, f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f])
         cur_resid -= (model_sinusoid_n - model_sinusoid_r)  # add the changes to the sinusoid residuals
-        const, slope = linear_pars(times, cur_resid, i_sectors)
+        if fit_each_step :
+            const, slope, f_n_temp, a_n_temp, ph_n_temp = tsf.fit_multi_sinusoid_per_group(times, signal, const, slope, f_n_temp,
+                                                                                           a_n_temp, ph_n_temp, i_sectors, verbose=False)
+        else :
+            const, slope = linear_pars(times, cur_resid, i_sectors)
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # calculate BIC before moving to the next iteration
         n_param = 2 * n_sectors + 1 * (n_harm > 0) + 2 * n_harm + 3 * (n_freq_cur + 1 - n_harm)
         bic = calc_bic(resid, n_param)
         d_bic = bic_prev - bic
-        if (np.round(d_bic, 2) > bic_thr):
+        # Calculate SNR before moving to the next iteration
+        if add_SNR_stop_crit :
+            # Compute the SNR in a 1 c/d window around the extracted frequency
+            f_left = max(f_n_temp[-1] - 0.5, df / 10)  # may not get too low
+            f_right = f_n_temp[-1] + 0.5
+            freqs, ampls = astropy_scargle(times, resid, f_max=0, f0=f_left, fn=f_right, df=df, norm='amplitude')
+            noise_level = np.mean(ampls[(freqs > f_left) & (freqs < f_right)])
+            SNR = a_n_temp[-1] / noise_level
+
+        if (np.round(d_bic, 2) > bic_thr) and not (add_SNR_stop_crit and not (SNR > snr_threshold)) :
+        # if (np.round(d_bic, 2) > bic_thr):
             # accept the new frequency
-            f_n, a_n, ph_n = np.append(f_n, f_i), np.append(a_n, a_i), np.append(ph_n, ph_i)
+            # Question from Mathijs: shouldn't you use f_n_temp and co instead? Now you're adding the extracted signal from before the refinement
+            # Mathijs: I now copy f_n_temp into f_n etc. to ensure we use the updated f_i etc. so the NLLS fitting doesn't go to waste
+            # f_n, a_n, ph_n = np.append(f_n, f_i), np.append(a_n, a_i), np.append(ph_n, ph_i)
             # adjust the shifted frequencies
-            f_n[close_f], a_n[close_f], ph_n[close_f] = f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f]
+            #f_n[close_f], a_n[close_f], ph_n[close_f] = f_n_temp[close_f], a_n_temp[close_f], ph_n_temp[close_f]
+            f_n, a_n, ph_n = f_n_temp, a_n_temp, ph_n_temp
             bic_prev = bic
         if verbose:
             print(f'N_f= {len(f_n)}, BIC= {bic:1.2f} (delta= {d_bic:1.2f}, total= {bic_init - bic:1.2f}) - '
@@ -2590,6 +2645,7 @@ def fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i
         resid = cur_resid - linear_curve(times, const, slope, i_sectors)
         # extract the updated frequency
         fl, fr = f_n[i] - freq_res, f_n[i] + freq_res
+        # Mathijs: Note that SNR is not used here
         f_n[i], a_n[i], ph_n[i] = extract_single(times, resid, f_max, f0=fl, fn=fr, select='a', verbose=verbose)
         ph_n[i] = np.mod(ph_n[i] + np.pi, 2 * np.pi) - np.pi  # make sure the phase stays within + and - pi
         if (f_n[i] <= fl) | (f_n[i] >= fr):

@@ -199,7 +199,7 @@ def signal_to_noise_threshold(times, sn_thr_punish_gap):
     sn_thr = 1.201 * np.sqrt(1.05 * np.log(n_points) + 7.184)
     # logger.info("before gap check: sn_thr = "+str(sn_thr))
     # The two commented lines below are the optimal way to implement the increased SNR threshold caused by gaps.
-    #  However, for some reason numba cannot figure out how to use diff, apparently because times is not contiguous which is confusing as it is loaded in all at once
+    #  However, for some reason numba cannot figure out how to use diff, apparently because times is not contiguous which is confusing to me as it is loaded in all at once
     #  Regardless of the reason, the gap detection is now done in an ugly for-loop below
     # if sn_thr_punish_gap and np.any(np.diff(times) > 25) : # increase SNR threshold if a sector long (at least 25 days) gap appears
     #     sn_thr += 0.25
