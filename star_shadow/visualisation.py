@@ -1701,6 +1701,8 @@ def plot_pd_leftover_sinusoids(times, signal, p_orb, t_zero, const_r, slope_r, f
         Indices of frequencies passing criteria
     param_lc: numpy.ndarray[float]
         Parameters for the eclipse model
+   sn_thr: float
+        Signal-to-noise threshold for this data set
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS

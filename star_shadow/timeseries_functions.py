@@ -2276,6 +2276,9 @@ def extract_sinusoids(times, signal, i_sectors, sn_thr, sn_thr_punish_gap, bic_t
     select: str
         Select the next frequency based on amplitude ('a'),
         signal-to-noise ('sn'), or hybrid ('hybrid') (first a then sn).
+    bic_thr: float
+        The minimum decrease in BIC by fitting a sinusoid for the signal
+        to be considered significant
     verbose: bool
         If set to True, this function will print some information
 
