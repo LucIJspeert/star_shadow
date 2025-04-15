@@ -2280,17 +2280,17 @@ def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, t
     t_2_ind_err = np.sqrt(t_2_1_ind_err**2 + t_2_2_ind_err**2) / 2
     # estimate the timing errors over all eclipses with linear regression model
     t_1_t_2_err_avg = np.sqrt(t_1_ind_err**2 + t_2_ind_err**2) / 2
-    p_err, _, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_t_2_err_avg)
-    _, t_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_ind_err)
-    _, t_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_ind_err)
-    _, t_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_1_ind_err)
-    _, t_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_2_ind_err)
-    _, t_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_1_ind_err)
-    _, t_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_2_ind_err)
-    _, t_b_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_1_ind_err)
-    _, t_b_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_2_ind_err)
-    _, t_b_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_1_ind_err)
-    _, t_b_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_2_ind_err)
+    p_err, _, p_t_corr = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_t_2_err_avg)
+    _, t_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_ind_err)
+    _, t_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_ind_err)
+    _, t_1_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_1_ind_err)
+    _, t_1_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_2_ind_err)
+    _, t_2_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_1_ind_err)
+    _, t_2_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_2_ind_err)
+    _, t_b_1_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_1_1_ind_err)
+    _, t_b_1_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_1_2_ind_err)
+    _, t_b_2_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_2_1_ind_err)
+    _, t_b_2_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_2_2_ind_err)
     # collect in arrays
     timings_ind_err = np.array([t_1_ind_err, t_2_ind_err, t_1_1_ind_err, t_1_2_ind_err, t_2_1_ind_err, t_2_2_ind_err,
                                 t_b_1_1_ind_err, t_b_1_2_ind_err, t_b_2_1_ind_err, t_b_2_2_ind_err])
@@ -3326,3 +3326,65 @@ def select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
         print(f'Number of frequencies passed criteria: {np.sum(passed_both)} of {len(f_n)}. '
               f'Candidate harmonics: {np.sum(passed_h)}, of which {np.sum(passed_both[harmonics])} passed.')
     return passed_sigma, passed_snr, passed_both, passed_h
+
+
+def linear_regression_uncertainty_ephem(time, p_orb, sigma_t=1):
+    """Calculates the linear regression errors on period and t_zero
+
+    Parameters
+    ---------
+    time: numpy.ndarray[Any, dtype[float]]
+        Timestamps of the time series.
+    p_orb: float
+        Orbital period in days.
+    sigma_t: float
+        Error in the individual time measurements.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the following elements:
+        p_err: float
+            Error in the period.
+        t_err: float
+            Error in t_zero.
+        p_t_corr: float
+            Covariance between the period and t_zero.
+
+    Notes
+    -----
+    The number of eclipses, computed from the period and
+    time base, is taken to be a contiguous set.
+    var_matrix:
+    [[std[0]**2          , std[0]*std[1]*corr],
+     [std[0]*std[1]*corr,           std[1]**2]]
+    """
+    # number of observed eclipses (technically contiguous)
+    n = int(abs(np.ptp(time) // p_orb)) + 1
+
+    # the arrays
+    x = np.arange(n, dtype=int)  # 'time' points
+    y = np.ones(n, dtype=int)  # 'positive measurement'
+
+    # remove points in gaps
+    gaps = mark_gaps(time, min_gap=1.)
+    mask = mask_timestamps(x * p_orb, gaps)  # convert x to time domain
+    x = x[~mask] - n//2  # also centre the time for minimal correlation
+    y = y[~mask]
+
+    # M
+    matrix = np.column_stack((x, y))
+
+    # M^-1
+    matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
+
+    # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
+    var_matrix = matrix_inv @ matrix_inv.T
+    var_matrix = var_matrix * sigma_t ** 2
+
+    # errors in the period and t_zero
+    p_err = np.sqrt(var_matrix[0, 0])
+    t_err = np.sqrt(var_matrix[1, 1])
+    p_t_corr = var_matrix[0, 1] / (t_err * p_err)  # or [1, 0]
+
+    return p_err, t_err, p_t_corr
