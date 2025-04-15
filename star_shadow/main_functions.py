@@ -13,6 +13,7 @@ import numpy as np
 import functools as fct
 import multiprocessing as mp
 
+import star_shadow.timeseries_functions
 from . import timeseries_functions as tsf
 from . import timeseries_fitting as tsfit
 from . import mcmc_functions as mcf
@@ -351,7 +352,7 @@ def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, p
     bic = tsf.calc_bic(resid, n_param)
     noise_level = ut.std_unb(resid, len(times) - n_param)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -466,7 +467,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, f_n, a_n, ph_n, i_sectors, t
     bic = tsf.calc_bic(resid, n_param)
     noise_level = ut.std_unb(resid, len(times) - n_param)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -572,7 +573,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
         noise_level = ut.std_unb(resid, len(times) - n_param)
         # formal linear and sinusoid parameter errors
         c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
-        p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+        p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
         # do not include those frequencies that have too big uncertainty
         include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
         f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
@@ -598,7 +599,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     bic = tsf.calc_bic(resid, n_param)
     noise_level = ut.std_unb(resid, len(times) - n_param)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -1709,7 +1710,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [7] --- Initial orbital elements
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-    _, _, p_t_corr = af.linear_regression_uncertainty(p_orb, np.ptp(times), sigma_t=t_int / 2)
+    _, _, p_t_corr = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
