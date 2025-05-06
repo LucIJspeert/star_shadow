@@ -26,7 +26,7 @@ for more information.
 * This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
 
-![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
+![Example of an analysed EB light curve](star_shadow/data/images/Star_Shadow_dark.png)
 
 ## Getting started
 
@@ -103,6 +103,8 @@ with the functions of STAR SHADOW). The .hdf5 files can also be translated into 
 
 
 ### Diagnostic plots
+
+![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
 
 There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
 
