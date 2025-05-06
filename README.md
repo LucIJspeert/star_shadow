@@ -20,13 +20,12 @@ in the light curve. The output includes, but is not limited to, a sinusoid plus 
 the light curve, the orbital period, the eccentricity, argument of periastron and inclination. See the documentation 
 for more information.
 
+![Example of an analysed EB light curve](star_shadow/data/images/Star_Shadow_dark.png)
+
 
 ### Reference Material
 
 * This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
-
-
-![Example of an analysed EB light curve](star_shadow/data/images/Star_Shadow_dark.png)
 
 ## Getting started
 
