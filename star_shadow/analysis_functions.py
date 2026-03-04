@@ -10,7 +10,6 @@ Code written by: Luc IJspeert
 
 import numpy as np
 import scipy as sp
-import scipy.signal
 import scipy.stats
 import scipy.optimize
 import numba as nb
@@ -736,7 +735,7 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
     n_harm = len(f_orb)
     wavg_f_orb = ut.weighted_mean(f_orb, 1 / f_orb_err**2)
     # wavg_f_orb = np.average(f_orb, weights=1 / f_orb_err**2)
-    std_f_orb = np.std(f_orb)
+    std_f_orb = ut.std_unb(f_orb, len(f_orb) - 1)
     werr_f_orb = np.sqrt(np.sum(1 / (f_orb_err**2 * n_harm**2))) / np.sum(1 / (f_orb_err**2 * n_harm))
     # convert to periods
     wavg_p_orb = 1 / wavg_f_orb
@@ -2386,51 +2385,6 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     # redetermine depths a tiny bit more precisely
     depths = measure_harmonic_depths(f_h, a_h, ph_h, t_1, t_2, *t_contacts, *t_int_tan)
     return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
-
-
-def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):
-    """Calculates the linear regression errors on period and t_zero
-
-    Parameters
-    ---------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_tot: float
-        Total time base of observations
-    sigma_t: float
-        Error in the individual time measurements
-
-    Returns
-    -------
-    p_err: float
-        Error in the period
-    t_err: float
-        Error in t_zero
-    p_t_cov: float
-        Covariance between the period and t_zero
-    
-    Notes
-    -----
-    The number of eclipses, computed from the period and
-    time base, is taken to be a contiguous set.
-    var_matrix:
-    [[std[0]**2          , std[0]*std[1]*corr],
-     [std[0]*std[1]*corr,           std[1]**2]]
-    """
-    # number of observed eclipses (technically contiguous)
-    n = int(abs(t_tot // p_orb)) + 1
-    # M
-    matrix = np.column_stack((np.ones(n, dtype=int), np.arange(n, dtype=int)))
-    # M^-1
-    matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
-    # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
-    var_matrix = matrix_inv @ matrix_inv.T
-    var_matrix = var_matrix * sigma_t**2
-    # errors in the period and t_zero
-    t_err = np.sqrt(var_matrix[0, 0])
-    p_err = np.sqrt(var_matrix[1, 1])
-    p_t_corr = var_matrix[0, 1] / (t_err * p_err)  # or [1, 0]
-    return p_err, t_err, p_t_corr
 
 
 @nb.njit(cache=True)

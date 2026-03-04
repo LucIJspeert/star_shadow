@@ -8,6 +8,7 @@ specifically for the analysis of stellar oscillations and eclipses.
 Code written by: Luc IJspeert
 """
 
+import inspect
 import numpy as np
 import scipy as sp
 import scipy.stats
@@ -515,6 +516,93 @@ def scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
+    else:  # unnormalised (PSD?)
+        s1 = s1
+    return f1, s1
+
+
+@nb.njit(cache=True)
+def scargle_simple_psd(times, signal):
+    """Scargle periodogram with no weights and PSD normalisation.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+
+    Returns
+    -------
+    f1: numpy.ndarray[float]
+        Frequencies at which the periodogram was calculated
+    s1: numpy.ndarray[float]
+        The periodogram spectrum in the chosen units
+
+    Notes
+    -----
+    Translated from Fortran (and just as fast when JIT-ted with Numba!)
+        Computation of Scargles periodogram without explicit tau
+        calculation, with iteration (Method Cuypers)
+
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
+
+    Useful extra information: VanderPlas 2018,
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+    """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
+    n = len(signal_ms)
+    t_tot = np.ptp(times_ms)
+    f0 = 0
+    df = 0.1 / t_tot
+    fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+    nf = int((fn - f0) / df + 0.001) + 1
+    # pre-assign some memory
+    ss = np.zeros(nf)
+    sc = np.zeros(nf)
+    ss2 = np.zeros(nf)
+    sc2 = np.zeros(nf)
+    # here is the actual calculation:
+    two_pi = 2 * np.pi
+    for i in range(n):
+        t_f0 = (times_ms[i] * two_pi * f0) % two_pi
+        sin_f0 = np.sin(t_f0)
+        cos_f0 = np.cos(t_f0)
+        mc_1_a = 2 * sin_f0 * cos_f0
+        mc_1_b = cos_f0 * cos_f0 - sin_f0 * sin_f0
+
+        t_df = (times_ms[i] * two_pi * df) % two_pi
+        sin_df = np.sin(t_df)
+        cos_df = np.cos(t_df)
+        mc_2_a = 2 * sin_df * cos_df
+        mc_2_b = cos_df * cos_df - sin_df * sin_df
+
+        sin_f0_s = sin_f0 * signal_ms[i]
+        cos_f0_s = cos_f0 * signal_ms[i]
+        for j in range(nf):
+            ss[j] = ss[j] + sin_f0_s
+            sc[j] = sc[j] + cos_f0_s
+            temp_cos_f0_s = cos_f0_s
+            cos_f0_s = temp_cos_f0_s * cos_df - sin_f0_s * sin_df
+            sin_f0_s = sin_f0_s * cos_df + temp_cos_f0_s * sin_df
+            ss2[j] = ss2[j] + mc_1_a
+            sc2[j] = sc2[j] + mc_1_b
+            temp_mc_1_b = mc_1_b
+            mc_1_b = temp_mc_1_b * mc_2_b - mc_1_a * mc_2_a
+            mc_1_a = mc_1_a * mc_2_b + temp_mc_1_b * mc_2_a
+
+    f1 = f0 + np.arange(nf) * df
+    s1 = ((sc**2 * (n - sc2) + ss**2 * (n + sc2) - 2 * ss * sc * ss2) / (n**2 - sc2**2 - ss2**2))
+    # conversion to amplitude spectrum (or power density or statistical distribution)
+    if not np.isfinite(s1[0]):
+        s1[0] = 0  # sometimes there can be a nan value
     return f1, s1
 
 
@@ -853,6 +941,62 @@ def astropy_scargle(times, signal, f0=0, fn=0, df=0, norm='amplitude'):
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
+    else:  # unnormalised (PSD?)
+        s1 = s1
+    return f1, s1
+
+
+def astropy_scargle_simple_psd(times, signal):
+    """Wrapper for the astropy Scargle periodogram and PSD normalisation.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+
+    Returns
+    -------
+    f1: numpy.ndarray[float]
+        Frequencies at which the periodogram was calculated
+    s1: numpy.ndarray[float]
+        The periodogram spectrum in the chosen units
+
+    Notes
+    -----
+    Approximation using fft, much faster than the other scargle in mode='fast'.
+    Beware of computing narrower frequency windows, as there is inconsistency
+    when doing this.
+
+    Useful extra information: VanderPlas 2018,
+    https://ui.adsabs.harvard.edu/abs/2018ApJS..236...16V/abstract
+
+    The times array is mean subtracted to reduce correlation between
+    frequencies and phases. The signal array is mean subtracted to avoid
+    a large peak at frequency equal to zero.
+
+    Note that the astropy implementation uses functions under the hood
+    that use the blas package for multithreading by default.
+    """
+    # times and signal are mean subtracted (reduce correlation and avoid peak at f=0)
+    mean_t = np.mean(times)
+    mean_s = np.mean(signal)
+    times_ms = times - mean_t
+    signal_ms = signal - mean_s
+    # setup
+    n = len(signal)
+    t_tot = np.ptp(times_ms)
+    f0 = 0
+    df = 0.1 / t_tot
+    fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
+    nf = int((fn - f0) / df + 0.001) + 1
+    f1 = np.arange(nf) * df
+    # use the astropy fast algorithm and normalise afterward
+    ls = apy.LombScargle(times_ms, signal_ms, fit_mean=False, center_data=False)
+    s1 = ls.power(f1, normalization='psd', method='fast', assume_regular_frequency=True)
+    # replace negative or nan by zero
+    s1[0] = 0
     return f1, s1
 
 
@@ -1013,9 +1157,14 @@ def find_orbital_period(times, signal, f_n):
 
 
 @nb.njit(cache=True)
-def calc_likelihood(residuals):
-    """Natural logarithm of the likelihood function.
-    
+def calc_iid_normal_likelihood(residuals):
+    """Natural logarithm of the independent and identically distributed likelihood function.
+
+    Under the assumption that the errors are independent and identically distributed
+    according to a normal distribution, the likelihood becomes:
+    ln(L(θ)) = -n/2 (ln(2 pi σ^2) + 1)
+    and σ^2 is estimated as σ^2 = sum((residuals)^2)/n
+
     Parameters
     ----------
     residuals: numpy.ndarray[float]
@@ -1025,13 +1174,6 @@ def calc_likelihood(residuals):
     -------
     like: float
         Natural logarithm of the likelihood
-    
-    Notes
-    -----
-    Under the assumption that the errors are independent and identically distributed
-    according to a normal distribution, the likelihood becomes:
-    ln(L(θ)) = -n/2 (ln(2 pi σ^2) + 1)
-    and σ^2 is estimated as σ^2 = sum((residuals)^2)/n
     """
     n = len(residuals)
     # like = -n / 2 * (np.log(2 * np.pi * np.sum(residuals**2) / n) + 1)
@@ -1040,6 +1182,218 @@ def calc_likelihood(residuals):
     for i, r in enumerate(residuals):
         sum_r_2 += r**2
     like = -n / 2 * (np.log(2 * np.pi * sum_r_2 / n) + 1)
+    return like
+
+
+def calc_approx_did_likelihood(times, residuals):
+    """Approximation for the likelihood using periodograms.
+
+    This function approximates the dependent likelihood for correlated data.
+    ln(L(θ)) =  -n ln(2 pi) - sum(ln(PSD(residuals)))
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+
+    Returns
+    -------
+    like: float
+        Log-likelihood approximation
+    """
+    n = len(times)
+    # Compute the Lomb-Scargle periodogram of the data
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)  # automatically mean subtracted
+    # Compute the Whittle likelihood
+    like = -n * np.log(2 * np.pi) - np.sum(np.log(psd))
+    return like
+
+
+def calc_whittle_likelihood(times, signal, model):
+    """Whittle likelihood approximation using periodograms.
+
+    This function approximates the dependent likelihood for correlated data.
+    It assumes the data is identically distributed according to a normal
+    distribution.
+    ln(L(θ)) =  -n ln(2 pi) - sum(ln(PSD_model) + (PSD_data / PSD_model))
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal: numpy.ndarray[float]
+        Measurement values of the time series
+    model: numpy.ndarray[float]
+        Model values of the time series
+
+    Returns
+    -------
+    like: float
+        Log-likelihood approximation
+    """
+    n = len(times)
+    # Compute the Lomb-Scargle periodogram of the data
+    freqs, psd_d = astropy_scargle_simple_psd(times, signal)  # automatically mean subtracted
+    # Compute the Lomb-Scargle periodogram of the model
+    freqs_m, psd_m = astropy_scargle_simple_psd(times, model)  # automatically mean subtracted
+    # Avoid division by zero in likelihood calculation
+    psd_m = np.maximum(psd_m, 1e-15)  # Ensure numerical stability
+    # Compute the Whittle likelihood
+    like = -n * np.log(2 * np.pi) - np.sum(np.log(psd_m) + (psd_d / psd_m))
+    return like
+
+
+def calc_did_normal_likelihood(times, residuals):
+    """Natural logarithm of the dependent and identically distributed likelihood function.
+
+    Correlation in the data is taken into account. The data is still assumed to be
+    identically distributed according to a normal distribution.
+
+    ln(L(θ)) = -n ln(2 pi) / 2 - ln(det(∑)) / 2 - residuals @ ∑^-1 @ residuals^T / 2
+    ∑ is the covariance matrix
+
+    The covariance matrix is calculated using the power spectral density, following
+    the Wiener–Khinchin theorem.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+    """
+    n = len(residuals)
+    # calculate the PSD, fast
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)
+    # calculate the autocorrelation function
+    psd_ext = np.append(psd, psd[-1:0:-1])  # double the PSD domain for ifft
+    acf = np.fft.ifft(psd_ext)
+    # unbias the variance measure and put the array the right way around
+    acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
+    # calculate the acf lags
+    lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
+    lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
+    # make the lags matrix, but re-use the same matrix
+    matrix = times - times[:, np.newaxis]  # lags_matrix, same as np.outer
+    # interpolate - I need the lags at specific times
+    matrix = np.interp(matrix, lags, acf)  # cov_matrix, already mean-subtracted in PSD
+    # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
+    matrix = sp.linalg.cho_factor(matrix, lower=False, overwrite_a=True, check_finite=False)  # cho_decomp
+    # Solve M @ x = v^T using the Cholesky factorization (x = M^-1 v^T)
+    x = sp.linalg.cho_solve(matrix, residuals[:, np.newaxis], check_finite=False)
+    # log of the exponent - analogous to the matrix multiplication
+    ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
+    # log of the determinant (avoids too small eigenvalues that would result in 0)
+    ln_det = 2 * np.sum(np.log(np.diag(matrix[0])))
+    # likelihood for multivariate normal distribution
+    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - ln_exp / 2
+    return like
+
+
+def calc_ddd_normal_likelihood(times, residuals, signal_err):
+    """Natural logarithm of the dependent and differently distributed likelihood function.
+
+    Only assumes that the data is distributed according to a normal distribution.
+    Correlation in the data is taken into account. The measurement errors take
+    precedence over the measured variance in the data. This means the distributions
+    need not be identical, either.
+
+    ln(L(θ)) = -n ln(2 pi) / 2 - ln(det(∑)) / 2 - residuals @ ∑^-1 @ residuals^T / 2
+    ∑ is the covariance matrix
+
+    The covariance matrix is calculated using the power spectral density, following
+    the Wiener–Khinchin theorem.
+
+    Parameters
+    ----------
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+    """
+    n = len(residuals)
+    # calculate the PSD, fast
+    freqs, psd = astropy_scargle_simple_psd(times, residuals)
+    # calculate the autocorrelation function
+    psd_ext = np.append(psd, psd[-1:0:-1])  # double the PSD domain for ifft
+    acf = np.fft.ifft(psd_ext)
+    # unbias the variance measure and put the array the right way around
+    acf = np.real(np.append(acf[len(freqs):], acf[:len(freqs)])) * n / (n - 1)
+    # calculate the acf lags
+    lags = np.fft.fftfreq(len(psd_ext), d=(freqs[1] - freqs[0]))
+    lags = np.append(lags[len(psd):], lags[:len(psd)])  # put them the right way around
+    # make the lags matrix, but re-use the same matrix
+    matrix = times - times[:, np.newaxis]  # lags_matrix, same as np.outer
+    # interpolate - I need the lags at specific times
+    matrix = np.interp(matrix, lags, acf)  # cov_matrix, already mean-subtracted in PSD
+    # substitute individual data errors if given
+    var = matrix[0, 0]  # diag elements are the same by construction
+    corr_matrix = matrix / var  # divide out the variance to get correlation matrix
+    err_matrix = signal_err * signal_err[:, np.newaxis]  # make matrix of measurement errors (same as np.outer)
+    matrix = err_matrix * corr_matrix  # multiply to get back to covariance
+    # Compute the Cholesky decomposition of cov_matrix (by definition positive definite)
+    matrix = sp.linalg.cho_factor(matrix, lower=False, overwrite_a=True, check_finite=False)  # cho_decomp
+    # Solve M @ x = v^T using the Cholesky factorization (x = M^-1 v^T)
+    x = sp.linalg.cho_solve(matrix, residuals[:, np.newaxis], check_finite=False)
+    # log of the exponent - analogous to the matrix multiplication
+    ln_exp = (residuals @ x)[0]  # v @ x = v @ M^-1 @ v^T
+    # log of the determinant (avoids too small eigenvalues that would result in 0)
+    ln_det = 2 * np.sum(np.log(np.diag(matrix[0])))
+    # likelihood for multivariate normal distribution
+    like = -n * np.log(2 * np.pi) / 2 - ln_det / 2 - ln_exp / 2
+    return like
+
+
+def calc_likelihood(times=None, signal=None, residuals=None, signal_err=None, func=calc_iid_normal_likelihood):
+    """Natural logarithm of the likelihood function.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    times: numpy.ndarray[float]
+        Timestamps of the time series
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+    func: function
+        The likelihood function to use for the calculation
+        Choose from: calc_iid_normal_likelihood, calc_approx_did_likelihood,
+        calc_whittle_likelihood, calc_did_normal_likelihood,
+        calc_ddd_normal_likelihood
+
+    Returns
+    -------
+    like: float
+        Natural logarithm of the likelihood
+
+    Notes
+    -----
+    Choose between a conventional iid simplification of the likelihood,
+    a full matrix implementation that costs a lot of memory for large datasets,
+    or some approximations in-between.
+    """
+    # make a dict of the given arguments
+    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err}
+    # check what the chosen function needs
+    func_args = list(inspect.signature(func).parameters)
+    # make a dict of those
+    args_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in func_args}
+    # feed to the function
+    like = func(**args_dict)
     return like
 
 
@@ -1077,10 +1431,34 @@ def calc_bic(residuals, n_param):
     n = len(residuals)
     # bic = n * np.log(2 * np.pi * np.sum(residuals**2) / n) + n + n_param * np.log(n)
     # originally JIT-ted function, but with for loop is slightly quicker
-    sum_r_2 = 0
-    for i, r in enumerate(residuals):
-        sum_r_2 += r**2
+    sum_r_2 = ut.std_unb(residuals, n)
     bic = n * np.log(2 * np.pi * sum_r_2 / n) + n + n_param * np.log(n)
+    return bic
+
+
+def calc_bic_2(residuals, n_param, signal_err=None):
+    """Bayesian Information Criterion with correlated likelihood function.
+
+    BIC = k ln(n) − 2 ln(L(θ))
+    where L is the likelihood as function of the parameters θ, n the number of data points
+    and k the number of free parameters.
+
+    Parameters
+    ----------
+    residuals: numpy.ndarray[float]
+        Residual is signal - model
+    n_param: int
+        Number of free parameters in the model
+    signal_err: None, numpy.ndarray[float]
+        Errors in the measurement values
+
+    Returns
+    -------
+    bic: float
+        Bayesian Information Criterion
+    """
+    n = len(residuals)
+    bic = n_param * np.log(n) - 2 * calc_likelihood(residuals, signal_err=signal_err)
     return bic
 
 
@@ -1560,18 +1938,16 @@ def formal_uncertainties_linear(times, residuals, i_sectors):
     """
     n_data = len(residuals)
     n_param = 2
-    n_dof = n_data - n_param  # degrees of freedom
+
     # linear regression uncertainties
     sigma_const = np.zeros(len(i_sectors))
     sigma_slope = np.zeros(len(i_sectors))
     for i, s in enumerate(i_sectors):
         len_t = len(times[s[0]:s[1]])
         n_data = len(residuals[s[0]:s[1]])  # same as len_t, but just for the sake of clarity
+        n_dof = n_data - n_param  # degrees of freedom
         # standard deviation of the residuals but per sector
-        sum_r_2 = 0
-        for r in residuals[s[0]:s[1]]:
-            sum_r_2 += r**2
-        std = np.sqrt(sum_r_2 / n_dof)
+        std = ut.std_unb(residuals[s[0]:s[1]], n_dof)
         # some sums for the uncertainty formulae
         sum_t = 0
         for t in times[s[0]:s[1]]:
@@ -1629,12 +2005,9 @@ def formal_uncertainties(times, residuals, signal_err, a_n, i_sectors):
     n_param = 2 + 3 * len(a_n)  # number of parameters in the model
     n_dof = max(n_data - n_param, 1)  # degrees of freedom
     # calculate the standard deviation of the residuals
-    sum_r_2 = 0
-    for r in residuals:
-        sum_r_2 += r**2
-    std = np.sqrt(sum_r_2 / n_dof)  # standard deviation of the residuals
+    std = ut.std_unb(residuals, n_dof)
     # calculate the standard error based on the smallest data error
-    ste = np.min(signal_err) / np.sqrt(n_data)
+    ste = np.median(signal_err) / np.sqrt(n_data)
     # take the maximum of the standard deviation and standard error as sigma N
     sigma_n = max(std, ste)
     # calculate the D factor (square root of the average number of consecutive data points of the same sign)
@@ -1907,17 +2280,17 @@ def estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, t
     t_2_ind_err = np.sqrt(t_2_1_ind_err**2 + t_2_2_ind_err**2) / 2
     # estimate the timing errors over all eclipses with linear regression model
     t_1_t_2_err_avg = np.sqrt(t_1_ind_err**2 + t_2_ind_err**2) / 2
-    p_err, _, p_t_corr = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_t_2_err_avg)
-    _, t_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_ind_err)
-    _, t_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_ind_err)
-    _, t_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_1_ind_err)
-    _, t_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_1_2_ind_err)
-    _, t_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_1_ind_err)
-    _, t_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_2_2_ind_err)
-    _, t_b_1_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_1_ind_err)
-    _, t_b_1_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_1_2_ind_err)
-    _, t_b_2_1_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_1_ind_err)
-    _, t_b_2_2_err, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_b_2_2_ind_err)
+    p_err, _, p_t_corr = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_t_2_err_avg)
+    _, t_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_ind_err)
+    _, t_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_ind_err)
+    _, t_1_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_1_ind_err)
+    _, t_1_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_1_2_ind_err)
+    _, t_2_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_1_ind_err)
+    _, t_2_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_2_2_ind_err)
+    _, t_b_1_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_1_1_ind_err)
+    _, t_b_1_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_1_2_ind_err)
+    _, t_b_2_1_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_2_1_ind_err)
+    _, t_b_2_2_err, _ = linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_b_2_2_ind_err)
     # collect in arrays
     timings_ind_err = np.array([t_1_ind_err, t_2_ind_err, t_1_1_ind_err, t_1_2_ind_err, t_2_1_ind_err, t_2_2_ind_err,
                                 t_b_1_1_ind_err, t_b_1_2_ind_err, t_b_2_1_ind_err, t_b_2_2_ind_err])
@@ -2812,7 +3185,7 @@ def replace_sinusoid_groups(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     return const, slope, f_n, a_n, ph_n
 
 
-def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
+def reduce_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=True):
     """Attempt to reduce the number of frequencies taking into account any harmonics if present.
     
     Parameters
@@ -2868,7 +3241,7 @@ def reduce_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sec
     return const, slope, f_n, a_n, ph_n
 
 
-def select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
     """Selects the credible frequencies from the given set
     
     Parameters
@@ -2953,3 +3326,65 @@ def select_frequencies(times, signal, signal_err, p_orb, const, slope, f_n, a_n,
         print(f'Number of frequencies passed criteria: {np.sum(passed_both)} of {len(f_n)}. '
               f'Candidate harmonics: {np.sum(passed_h)}, of which {np.sum(passed_both[harmonics])} passed.')
     return passed_sigma, passed_snr, passed_both, passed_h
+
+
+def linear_regression_uncertainty_ephem(time, p_orb, sigma_t=1):
+    """Calculates the linear regression errors on period and t_zero
+
+    Parameters
+    ---------
+    time: numpy.ndarray[Any, dtype[float]]
+        Timestamps of the time series.
+    p_orb: float
+        Orbital period in days.
+    sigma_t: float
+        Error in the individual time measurements.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the following elements:
+        p_err: float
+            Error in the period.
+        t_err: float
+            Error in t_zero.
+        p_t_corr: float
+            Covariance between the period and t_zero.
+
+    Notes
+    -----
+    The number of eclipses, computed from the period and
+    time base, is taken to be a contiguous set.
+    var_matrix:
+    [[std[0]**2          , std[0]*std[1]*corr],
+     [std[0]*std[1]*corr,           std[1]**2]]
+    """
+    # number of observed eclipses (technically contiguous)
+    n = int(abs(np.ptp(time) // p_orb)) + 1
+
+    # the arrays
+    x = np.arange(n, dtype=int)  # 'time' points
+    y = np.ones(n, dtype=int)  # 'positive measurement'
+
+    # remove points in gaps
+    gaps = mark_gaps(time, min_gap=1.)
+    mask = mask_timestamps(x * p_orb, gaps)  # convert x to time domain
+    x = x[~mask] - n//2  # also centre the time for minimal correlation
+    y = y[~mask]
+
+    # M
+    matrix = np.column_stack((x, y))
+
+    # M^-1
+    matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
+
+    # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
+    var_matrix = matrix_inv @ matrix_inv.T
+    var_matrix = var_matrix * sigma_t ** 2
+
+    # errors in the period and t_zero
+    p_err = np.sqrt(var_matrix[0, 0])
+    t_err = np.sqrt(var_matrix[1, 1])
+    p_t_corr = var_matrix[0, 1] / (t_err * p_err)  # or [1, 0]
+
+    return p_err, t_err, p_t_corr
