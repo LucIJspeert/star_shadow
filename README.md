@@ -34,6 +34,9 @@ The easiest way to install STAR SHADOW is to use pip:
     pip install git+https://github.com/LucIJspeert/star_shadow@<version_tag>
 
 Or install the master branch by leaving out the version number. 
+Before doing so, it is recommended to install the packages specified in the requirements with Conda.
+Your favorite package manager may be used of course, but pip kind of sucks and may fail installation in a clean environment.
+
 One can then import the package from the python environment it was installed in. 
 Of course one can always still manually download it or make a fork on GitHub. 
 It is recommended to get the latest release from the GitHub page. 
