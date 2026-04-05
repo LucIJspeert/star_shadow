@@ -119,6 +119,35 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
 
 
 @nb.njit(cache=True)
+def mark_gaps(x, min_gap=1.):
+    """Mark gaps in a time series.
+
+    Parameters
+    ----------
+    x: numpy.ndarray[Any, dtype[float]]
+        Time series with gaps.
+    min_gap: float, optional
+        Minimum width for a gap (in time units).
+
+    Returns
+    -------
+    gaps: numpy.ndarray[Any, dtype[float]]
+        Gap timestamps in pairs.
+    """
+    # mark the gaps
+    t_sorted = np.sort(x)
+    t_diff = t_sorted[1:] - t_sorted[:-1]  # np.diff(a)
+    gaps = (t_diff > min_gap)
+
+    # get the timestamps
+    t_left = t_sorted[:-1][gaps]
+    t_right = t_sorted[1:][gaps]
+    gaps = np.column_stack((t_left, t_right))
+
+    return gaps
+
+
+@nb.njit(cache=True)
 def mark_folded_gaps(times, p_orb, width):
     """Mark gaps in a folded series of time points.
 
