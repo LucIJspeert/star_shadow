@@ -13,7 +13,6 @@ import numpy as np
 import functools as fct
 import multiprocessing as mp
 
-import star_shadow.timeseries_functions
 from . import timeseries_functions as tsf
 from . import timeseries_fitting as tsfit
 from . import mcmc_functions as mcf
