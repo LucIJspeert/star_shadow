@@ -55,6 +55,7 @@ Before first use, it is recommended to run one very short time-series (for examp
 folder). This will make sure that the just-in-time compiler can do its magic and make everything run as fast as it can. See the 
 script run_first_use.py.
 
+Note: there is a known incompatibility with Windows and the np.int_ types used for Numba.
 
 ### Example use
 
