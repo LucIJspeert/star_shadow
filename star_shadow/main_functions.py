@@ -634,8 +634,6 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
         harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
         n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
         noise_level = ut.std_unb(resid, len(times) - n_param)
-        n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
-        noise_level = ut.std_unb(resid, len(times) - n_param)
         # formal linear and sinusoid parameter errors
         c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
         p_err, _, _ = tsf.linear_regression_uncertainty_ephem(p_orb, t_tot, sigma_t=t_int / 2)
@@ -1849,7 +1847,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [7] --- Initial orbital elements
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-    _, _, p_t_corr = af.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
+    _, _, p_t_corr = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
