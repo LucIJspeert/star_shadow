@@ -229,7 +229,6 @@ def signal_to_noise_threshold(times, sn_thr_punish_gap):
     if sn_thr_punish_gap : # if requested, increase SNR threshold if a sector long (at least 25 days) gap appears
         if np.min(-np.diff(times)) > 25. :
             sn_thr += 0.25
-            break
     # logger.info("after gap check: sn_thr = "+str(sn_thr))
     sn_thr = np.round(sn_thr, 2)  # round to two decimals
     # logger.info("after rounding: sn_thr = "+str(sn_thr))
