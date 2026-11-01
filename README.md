@@ -20,13 +20,12 @@ in the light curve. The output includes, but is not limited to, a sinusoid plus 
 the light curve, the orbital period, the eccentricity, argument of periastron and inclination. See the documentation 
 for more information.
 
+![Example of an analysed EB light curve](star_shadow/data/images/Star_Shadow_dark.png)
+
 
 ### Reference Material
 
-* This algorithm has been documented, tested and applied in the publication: [link](link)
-
-
-![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
+* This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
 ## Getting started
 
@@ -35,6 +34,9 @@ The easiest way to install STAR SHADOW is to use pip:
     pip install git+https://github.com/LucIJspeert/star_shadow@<version_tag>
 
 Or install the master branch by leaving out the version number. 
+Before doing so, it is recommended to install the packages specified in the requirements with Conda.
+Your favorite package manager may be used of course, but pip kind of sucks and may fail installation in a clean environment.
+
 One can then import the package from the python environment it was installed in. 
 Of course one can always still manually download it or make a fork on GitHub. 
 It is recommended to get the latest release from the GitHub page. 
@@ -53,6 +55,7 @@ Before first use, it is recommended to run one very short time-series (for examp
 folder). This will make sure that the just-in-time compiler can do its magic and make everything run as fast as it can. See the 
 script run_first_use.py.
 
+Note: there is a known incompatibility with Windows and the np.int_ types used for Numba.
 
 ### Example use
 
@@ -61,7 +64,7 @@ as simple as running one function:
 
     import star_shadow as sts
     # to analyse any light curve from a file: 
-    sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id=None, save_dir=None, overwrite=False, verbose=True)
+    sts.analyse_lc_from_file(file, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id='none', save_dir=None, overwrite=False, verbose=True)
     
     # or to analyse from a set of TESS data product .fits files:
     sts.analyse_lc_from_tic(tic, all_files, p_orb=0, i_sectors=None, stage='all', method='fitter', data_id=None, save_dir=None, overwrite=False, verbose=True)
@@ -104,6 +107,8 @@ with the functions of STAR SHADOW). The .hdf5 files can also be translated into 
 
 ### Diagnostic plots
 
+![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
+
 There are several plotting functions available that show various diagnostics from throughout the analysis. The function:
 
     sts.ut.sequential_plotting(times, signal, i_sectors, target_id, load_dir, save_dir=None, show=False)
@@ -128,8 +133,6 @@ implemented in the source code.
 
 ## Contact
 
-For questions and suggestions, please contact:
+For questions and suggestions, please open an issue.
 
-* luc.ijspeert(at)kuleuven.be
-
-**Developer:** Luc IJspeert (KU Leuven)
+**Developer:** Luc IJspeert (developed while at KU Leuven)

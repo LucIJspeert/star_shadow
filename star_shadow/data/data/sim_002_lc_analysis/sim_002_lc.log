@@ -1,0 +1,8 @@
+2023-10-30 17:14:12 INFO main_functions - analyse_light_curve: Start of analysis
+2023-10-30 17:14:39 INFO main_functions - analyse_frequencies: Frequency extraction done. Total time elapsed: 26.5s.
+2023-10-30 17:16:40 INFO main_functions - analyse_harmonics: Harmonic analysis done. Total time elapsed: 121.3s.
+2023-10-30 17:29:09 INFO main_functions - analyse_light_curve: End of analysis. Total time elapsed: 897.2s.
+2023-10-30 18:23:40 INFO main_functions - analyse_light_curve: Start of analysis
+2023-10-30 18:23:40 INFO main_functions - analyse_frequencies: Frequency extraction done. Total time elapsed: 0.3s.
+2023-10-30 18:23:41 INFO main_functions - analyse_harmonics: Harmonic analysis done. Total time elapsed: 0.9s.
+2023-10-30 18:23:42 INFO main_functions - analyse_light_curve: End of analysis. Total time elapsed: 3.3s.

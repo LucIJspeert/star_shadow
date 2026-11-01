@@ -24,7 +24,7 @@ from . import utility as ut
 logger = logging.getLogger(__name__)
 
 
-def iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
+def iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
                            file_name, add_SNR_stop_crit=False, fit_each_step=False, data_id='none',
                            overwrite=False, verbose=False):
     """Iterative prewhitening of the input signal in the form of
@@ -36,6 +36,8 @@ def iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_pun
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -103,11 +105,11 @@ def iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_pun
     out_a = tsf.extract_sinusoids(times, signal, i_sectors, sn_thr, sn_thr_punish_gap, bic_thr, f_max, add_SNR_stop_crit=add_SNR_stop_crit,
                                   fit_each_step=fit_each_step, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_b = tsf.reduce_frequencies(times, signal, 0, *out_a, i_sectors, f_max, verbose=verbose)
+    out_b = tsf.reduce_sinusoids(times, signal, 0, *out_a, i_sectors, f_max, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     # select frequencies based on some significance criteria
-    out_c = tsf.select_frequencies(times, signal, 0, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr,
-                                   sn_thr_punish_gap, f_max, verbose=verbose)
+    out_c = tsf.select_sinusoids(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_c
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -115,8 +117,8 @@ def iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_pun
     resid = signal - model_linear - model_sinusoid
     n_param = 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -134,7 +136,7 @@ def iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_pun
     return const, slope, f_n, a_n, ph_n
 
 
-def optimise_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
+def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
                       file_name, method='fitter', data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model
 
@@ -144,6 +146,8 @@ def optimise_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, t_
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     const: numpy.ndarray[float]
         The y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
@@ -216,9 +220,10 @@ def optimise_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, t_
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
         model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
         resid = signal - (model_lin + model_sin)
-        noise_level = np.std(resid)
+        n_param = 2 * len(const) + 3 * len(f_n)
+        noise_level = ut.std_unb(resid, len(times) - n_param)
         # formal linear and sinusoid parameter errors
-        c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+        c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
         # do not include those frequencies that have too big uncertainty
         include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
         f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
@@ -229,7 +234,7 @@ def optimise_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, t_
         inf_data, par_mean, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_mean
     # select frequencies based on some significance criteria
-    out_b = tsf.select_frequencies(times, signal, 0, const, slope, f_n, a_n, ph_n, i_sectors,
+    out_b = tsf.select_sinusoids(times, signal, 0, const, slope, f_n, a_n, ph_n, i_sectors,
                                    sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_b
     # main function done, do the rest for this step
@@ -259,8 +264,9 @@ def optimise_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, t_
     return const, slope, f_n, a_n, ph_n
 
 
-def couple_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
-                     file_name, data_id='none', overwrite=False, verbose=False):
+def couple_harmonics(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats,
+                     sn_thr, sn_thr_punish_gap, f_max, file_name,
+                     data_id='none', overwrite=False, verbose=False):
     """Find the orbital period and couple harmonic frequencies to the orbital period
 
     Parameters
@@ -269,6 +275,8 @@ def couple_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -364,10 +372,11 @@ def couple_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
         out_a = tsf.fix_harmonic_frequency(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
                                            f_max, verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_b = tsf.reduce_frequencies(times, signal, p_orb, *out_a, i_sectors, f_max, verbose=verbose)
+    out_b = tsf.reduce_sinusoids(times, signal, p_orb, *out_a, i_sectors, f_max, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_b
     # select frequencies based on some significance criteria
-    out_c = tsf.select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
+    out_c = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_c
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -376,9 +385,9 @@ def couple_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -399,8 +408,9 @@ def couple_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
               f'Time taken: {t_b - t_a:1.1f}s\033[0m\n')
     return p_orb, const, slope, f_n, a_n, ph_n
 
-def add_sinusoids(times, signal, p_orb, f_n, a_n, ph_n, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
-                  file_name, add_SNR_stop_crit=False, fit_each_step=False, data_id='none', overwrite=False, verbose=False):
+def add_sinusoids(times, signal, signal_err, p_orb, f_n, a_n, ph_n, i_sectors, t_stats,
+                  sn_thr, sn_thr_punish_gap, bic_thr, f_max, file_name,
+                  add_SNR_stop_crit=False, fit_each_step=False, data_id='none', overwrite=False, verbose=False):
     """Find and add more (harmonic and non-harmonic) frequencies if possible
 
     Parameters
@@ -409,6 +419,8 @@ def add_sinusoids(times, signal, p_orb, f_n, a_n, ph_n, i_sectors, t_stats, sn_t
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     f_n: numpy.ndarray[float]
@@ -488,17 +500,17 @@ def add_sinusoids(times, signal, p_orb, f_n, a_n, ph_n, i_sectors, t_stats, sn_t
     t_tot, t_mean, t_mean_s, t_int = t_stats
     n_f_init = len(f_n)
     # start by looking for more harmonics
-    out_a = tsf.extract_harmonics(times, signal, p_orb, i_sectors, bic_thr, f_max, f_n, a_n, ph_n, verbose=verbose)
+    out_a = tsf.extract_harmonics(times, signal, signal_err, p_orb, i_sectors, bic_thr, f_max, f_n, a_n, ph_n, verbose=verbose)
     # look for any additional non-harmonics with the iterative scheme
     out_b = tsf.extract_sinusoids(times, signal, i_sectors, sn_thr, sn_thr_punish_gap, bic_thr, f_max, p_orb, *out_a[2:],
                                   add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step,
                                   select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_c = tsf.reduce_frequencies(times, signal, p_orb, *out_b, i_sectors, f_max, verbose=verbose)
+    out_c = tsf.reduce_sinusoids(times, signal, p_orb, *out_b, i_sectors, f_max, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
     # select frequencies based on some significance criteria
-    out_d = tsf.select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr,
-                                   sn_thr_punish_gap, f_max, verbose=verbose)
+    out_d = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_d
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -507,9 +519,9 @@ def add_sinusoids(times, signal, p_orb, f_n, a_n, ph_n, i_sectors, t_stats, sn_t
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -529,8 +541,9 @@ def add_sinusoids(times, signal, p_orb, f_n, a_n, ph_n, i_sectors, t_stats, sn_t
     return const, slope, f_n, a_n, ph_n
 
 
-def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
-                        file_name, method='fitter', data_id='none', overwrite=False, verbose=False):
+def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, t_stats,
+                        sn_thr, sn_thr_punish_gap, f_max, file_name,
+                        method='fitter', data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the sinusoid and linear model with coupled harmonics
 
     Parameters
@@ -539,6 +552,8 @@ def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_se
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     const: numpy.ndarray[float]
@@ -569,6 +584,7 @@ def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_se
         Set to zero to automatically use Nyquist frequency
     file_name: str
         File name (including path) for saving the results. Also used to
+        load previous analysis results if found.
     method: str
         Method of optimisation. Can be 'sampler' or 'fitter'.
     data_id: int, str
@@ -615,10 +631,14 @@ def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_se
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
         model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
         resid = signal - (model_lin + model_sin)
-        noise_level = np.std(resid)
+        harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
+        n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+        noise_level = ut.std_unb(resid, len(times) - n_param)
+        n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
+        noise_level = ut.std_unb(resid, len(times) - n_param)
         # formal linear and sinusoid parameter errors
-        c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-        p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+        c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
+        p_err, _, _ = tsf.linear_regression_uncertainty_ephem(p_orb, t_tot, sigma_t=t_int / 2)
         # do not include those frequencies that have too big uncertainty
         include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
         f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
@@ -631,7 +651,8 @@ def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_se
         ephem_hdi = np.array([par_hdi[0], [-1, -1]])
     p_orb, const, slope, f_n, a_n, ph_n = par_mean
     # select frequencies based on some significance criteria
-    out_b = tsf.select_frequencies(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
+    out_b = tsf.select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_b
     # main function done, do the rest for this step
     model_linear = tsf.linear_curve(times, const, slope, i_sectors)
@@ -641,9 +662,9 @@ def optimise_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_se
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n, p_orb, f_tol=1e-9)
     n_param = 2 * len(const) + 1 + 2 * len(harmonics) + 3 * (len(f_n) - len(harmonics))
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
-    p_err, _, _ = af.linear_regression_uncertainty(p_orb, t_tot, sigma_t=t_int / 2)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
+    p_err, _, _ = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -764,10 +785,6 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     output_b = tsf.estimate_timing_errors(times, signal, p_orb, const, slope, f_n, a_n, ph_n, timings,
                                           noise_level, i_sectors, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err)
     p_err, timings_ind_err, timings_err = output_b
-    t_1_err = timings_err[0]
-
-
-
     # check for significance
     t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, d_1, d_2 = timings
     t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err = timings_err[:6]
@@ -1067,8 +1084,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_
     return e, w, i, r_sum, r_rat, sb_rat, errors, formal_errors, dists_in, dists_out
 
 
-def optimise_physical_elements(times, signal, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
-                               file_name, add_SNR_stop_crit=False, fit_each_step=False, method='fitter', data_id='none', overwrite=False, verbose=False):
+def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors, t_stats,
+                               sn_thr, sn_thr_punish_gap, bic_thr, f_max, file_name,
+                               add_SNR_stop_crit=False, fit_each_step=False, method='fitter', data_id='none', overwrite=False, verbose=False):
     """Optimise the parameters of the physical eclipse, sinusoid and linear model
 
     Parameters
@@ -1077,6 +1095,8 @@ def optimise_physical_elements(times, signal, p_orb, t_zero, ecl_par, ecl_par_er
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days
     t_zero: float
@@ -1174,18 +1194,20 @@ def optimise_physical_elements(times, signal, p_orb, t_zero, ecl_par, ecl_par_er
     out_b = tsf.extract_sinusoids(times, resid_ecl, i_sectors, sn_thr, sn_thr_punish_gap, bic_thr, f_max, add_SNR_stop_crit=add_SNR_stop_crit,
                                   fit_each_step=fit_each_step, select='hybrid', verbose=verbose)
     # remove any frequencies that end up not making the statistical cut
-    out_c = tsf.reduce_frequencies(times, resid_ecl, 0, *out_b, i_sectors, f_max, verbose=verbose)
+    out_c = tsf.reduce_sinusoids(times, resid_ecl, 0, *out_b, i_sectors, f_max, verbose=verbose)
     const, slope, f_n, a_n, ph_n = out_c
     # select frequencies based on some significance criteria
-    out_d = tsf.select_frequencies(times, resid_ecl, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
+    out_d = tsf.select_sinusoids(times, resid_ecl, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
+                                 sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_d
     # make model including everything to calculate noise level
     model_lin = tsf.linear_curve(times, const, slope, i_sectors)
     model_sin = tsf.sum_sines(times, f_n, a_n, ph_n)
     resid = signal - (model_lin + model_sin + model_eclipse)
-    noise_level = np.std(resid)
+    n_param = 2 + 6 + 2 * len(const) + 3 * len(f_n)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
     # formal linear and sinusoid parameter errors
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
     # do not include those frequencies that have too big uncertainty
     include = (ph_n_err < 1 / np.sqrt(6))  # circular distribution for ph_n cannot handle these
     f_n, a_n, ph_n = f_n[include], a_n[include], ph_n[include]
@@ -1218,8 +1240,8 @@ def optimise_physical_elements(times, signal, p_orb, t_zero, ecl_par, ecl_par_er
     resid = signal - (model_lin + model_sin + model_eclipse)
     n_param = 2 + 6 + 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -1379,8 +1401,8 @@ def variability_amplitudes(times, signal, model_eclipse, p_orb, const, slope, f_
 
 
 def analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
-                        save_dir, add_SNR_stop_crit=False, fit_each_step=False, data_id='none', overwrite=False,
-                        save_ascii=False, verbose=False):
+                        save_dir, add_SNR_stop_crit=False, fit_each_step=False, data_id='none',
+                        overwrite=False, save_ascii=False, verbose=False):
     """Recipe for the extraction of sinusoids from light curves.
 
     Parameters
@@ -1459,13 +1481,13 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id
         using groups of frequencies to limit the number of free parameters.
     """
     t_a = time.time()
-    # signal_err = 1 # signal errors are ignored for now. The likelihood assumes the same errors and uses the MLE
+    # signal_err = # signal errors are largely ignored for now. The likelihood assumes the same errors and uses the MLE
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}  # these stay the same
     # -------------------------------------------------------
     # --- [1] --- Initial iterative extraction of frequencies
     # -------------------------------------------------------
     file_name_1 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_1.hdf5')
-    out_1 = iterative_prewhitening(times, signal, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
+    out_1 = iterative_prewhitening(times, signal, signal_err, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
                                    file_name_1, add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step, **arg_dict)
     const_1, slope_1, f_n_1, a_n_1, ph_n_1 = out_1
     if (len(f_n_1) == 0):
@@ -1480,8 +1502,8 @@ def analyse_frequencies(times, signal, signal_err, i_sectors, t_stats, target_id
     # --- [2] --- Multi-sinusoid non-linear least-squares optimisation
     # ----------------------------------------------------------------
     file_name_2 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_2.hdf5')
-    out_2 = optimise_sinusoid(times, signal, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
-                              file_name_2, method='fitter', **arg_dict)
+    out_2 = optimise_sinusoid(times, signal, signal_err, const_1, slope_1, f_n_1, a_n_1, ph_n_1, i_sectors, t_stats,
+                              sn_thr, sn_thr_punish_gap, f_max, file_name_2, method='fitter', **arg_dict)
     const_2, slope_2, f_n_2, a_n_2, ph_n_2 = out_2
     # save final freqs and linear curve in ascii format
     if save_ascii:
@@ -1524,6 +1546,7 @@ def analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, targ
         Some time series statistics: t_tot, t_mean, t_mean_s, t_int
     target_id: int, str
         The TESS Input Catalog number for saving and loading.
+        Use the name of the input light curve file if not available.
     sn_thr: float
         Threshold for signal-to-noise ratio for a signal to be accepted as signficant
     sn_thr_punish_gap: bool
@@ -1594,7 +1617,7 @@ def analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, targ
         and including the orbital period and the coupled harmonics.
     """
     t_a = time.time()
-    # signal_err = 1 # signal errors are ignored for now. The likelihood assumes the same errors and uses the MLE
+    # signal_err = # signal errors are largely ignored for now. The likelihood assumes the same errors and uses the MLE
     t_tot, t_mean, t_mean_s, t_int = t_stats
     freq_res = 1.5 / t_tot  # Rayleigh criterion
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}  # these stay the same
@@ -1610,8 +1633,8 @@ def analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, targ
     # --- [3] --- Measure the orbital period and couple the harmonic frequencies
     # --------------------------------------------------------------------------
     file_name_3 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_3.hdf5')
-    out_3 = couple_harmonics(times, signal, p_orb, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, f_max,
-                             file_name_3, **arg_dict)
+    out_3 = couple_harmonics(times, signal, signal_err, p_orb, const_2, slope_2, f_n_2, a_n_2, ph_n_2, i_sectors,
+                             t_stats, sn_thr, sn_thr_punish_gap, f_max, file_name_3, **arg_dict)
     p_orb_3, const_3, slope_3, f_n_3, a_n_3, ph_n_3 = out_3
     # save info and exit in the following cases (and log message)
     harmonics, harmonic_n = af.find_harmonics_from_pattern(f_n_2, p_orb_3, f_tol=freq_res / 2)
@@ -1637,15 +1660,16 @@ def analyse_harmonics(times, signal, signal_err, i_sectors, p_orb, t_stats, targ
     # --- [4] --- Attempt to extract additional frequencies
     # -----------------------------------------------------
     file_name_4 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_4.hdf5')
-    out_4 = add_sinusoids(times, signal, p_orb_3, f_n_3, a_n_3, ph_n_3, i_sectors, t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
-                          file_name_4, add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step, **arg_dict)
+    out_4 = add_sinusoids(times, signal, signal_err, p_orb_3, f_n_3, a_n_3, ph_n_3, i_sectors, t_stats,
+                          sn_thr, sn_thr_punish_gap, bic_thr, f_max, file_name_4,
+                          add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step, **arg_dict)
     const_4, slope_4, f_n_4, a_n_4, ph_n_4 = out_4
     # -----------------------------------------------
     # --- [5] --- Optimisation with coupled harmonics
     # -----------------------------------------------
     file_name_5 = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
-    out_5 = optimise_sinusoid_h(times, signal, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4, i_sectors, t_stats,
-                                sn_thr, sn_thr_punish_gap, f_max, file_name_5, method='fitter', **arg_dict)
+    out_5 = optimise_sinusoid_h(times, signal, signal_err, p_orb_3, const_4, slope_4, f_n_4, a_n_4, ph_n_4, i_sectors,
+                                t_stats, sn_thr, sn_thr_punish_gap, f_max, file_name_5, method='fitter', **arg_dict)
     p_orb_5, const_5, slope_5, f_n_5, a_n_5, ph_n_5 = out_5
     # save final freqs and linear curve in ascii format
     if save_ascii:
@@ -1709,7 +1733,7 @@ def analyse_eclipse_timings(times, signal, signal_err, i_sectors, t_stats, targe
     The followed recipe is:
     1) identify the eclipses and determine their timings
     """
-    # signal_err = 1 # signal errors are ignored for now. The likelihood assumes the same errors and uses the MLE
+    # signal_err = # signal errors are largely ignored for now. The likelihood assumes the same errors and uses the MLE
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the frequency analysis results
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_5.hdf5')
@@ -1806,7 +1830,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     1) convert the timings to physical parameters using formulae
     2) optimise the physical parameters using a physical model of the eclipses
     """
-    # signal_err = 1 # signal errors are ignored for now. The likelihood assumes the same errors and uses the MLE
+    # signal_err = # signal errors are largely ignored for now. The likelihood assumes the same errors and uses the MLE
     t_tot, t_mean, t_mean_s, t_int = t_stats
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the timing analysis results
@@ -1825,7 +1849,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [7] --- Initial orbital elements
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
-    _, _, p_t_corr = af.linear_regression_uncertainty(p_orb, np.ptp(times), sigma_t=t_int / 2)
+    _, _, p_t_corr = af.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
     out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
@@ -1845,8 +1869,8 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # --- [8] --- Optimise elements with physical model
     # --------------------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_8.hdf5')
-    out_8 = optimise_physical_elements(times, signal, p_orb, timings[0], ecl_par, phys_err, i_sectors, t_stats,
-                                       sn_thr, sn_thr_punish_gap, bic_thr, f_max, file_name, add_SNR_stop_crit=add_SNR_stop_crit,
+    out_8 = optimise_physical_elements(times, signal, signal_err, p_orb, timings[0], ecl_par, phys_err, i_sectors,
+                                       t_stats, sn_thr, sn_thr_punish_gap, bic_thr, f_max, file_name, add_SNR_stop_crit=add_SNR_stop_crit,
                                        fit_each_step=fit_each_step, method=method, **arg_dict)
     # save the results in ascii format
     if save_ascii:
@@ -1896,7 +1920,7 @@ def analyse_pulsations(times, signal, signal_err, i_sectors, t_stats, target_id,
     out_9: tuple, None
         output of variability_amplitudes
     """
-    # signal_err = 1 # signal errors are ignored for now. The likelihood assumes the same errors and uses the MLE
+    # signal_err = # signal errors are largely ignored for now. The likelihood assumes the same errors and uses the MLE
     arg_dict = {'data_id': data_id, 'overwrite': overwrite, 'verbose': verbose}
     # read in the eclipse depths
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_6.hdf5')

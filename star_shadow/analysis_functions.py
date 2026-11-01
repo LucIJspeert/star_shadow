@@ -9,7 +9,6 @@ Code written by: Luc IJspeert
 """
 
 import numpy as np
-import scipy as sp
 import scipy.signal
 import scipy.stats
 import scipy.optimize
@@ -745,7 +744,7 @@ def measure_harmonic_period(f_n, f_n_err, p_orb, f_tol):
     n_harm = len(f_orb)
     wavg_f_orb = ut.weighted_mean(f_orb, 1 / f_orb_err**2)
     # wavg_f_orb = np.average(f_orb, weights=1 / f_orb_err**2)
-    std_f_orb = np.std(f_orb)
+    std_f_orb = ut.std_unb(f_orb, len(f_orb) - 1)
     werr_f_orb = np.sqrt(np.sum(1 / (f_orb_err**2 * n_harm**2))) / np.sum(1 / (f_orb_err**2 * n_harm))
     # convert to periods
     wavg_p_orb = 1 / wavg_f_orb
@@ -1058,7 +1057,7 @@ def mark_eclipse_peaks(deriv_1, deriv_2, noise_level):
     spanning two times the orbital period.
     """
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
-    peaks_1, props = sp.signal.find_peaks(np.abs(deriv_1), prominence=noise_level / 4)
+    peaks_1, props = signal.find_peaks(np.abs(deriv_1), prominence=noise_level / 4)
     if (len(peaks_1) == 0):
         empty_output = np.zeros((8, 0), dtype=int)
         return empty_output  # No eclipse signatures found above the noise level
@@ -2397,51 +2396,6 @@ def timings_from_ecl_indices(ecl_indices, p_orb, f_n, a_n, ph_n):
     return t_1, t_2, t_contacts, t_int_tan, depths, t_i_1_err, t_i_2_err, t_b_i_1_err, t_b_i_2_err
 
 
-def linear_regression_uncertainty(p_orb, t_tot, sigma_t=1):
-    """Calculates the linear regression errors on period and t_zero
-
-    Parameters
-    ---------
-    p_orb: float
-        Orbital period of the eclipsing binary in days
-    t_tot: float
-        Total time base of observations
-    sigma_t: float
-        Error in the individual time measurements
-
-    Returns
-    -------
-    p_err: float
-        Error in the period
-    t_err: float
-        Error in t_zero
-    p_t_cov: float
-        Covariance between the period and t_zero
-
-    Notes
-    -----
-    The number of eclipses, computed from the period and
-    time base, is taken to be a contiguous set.
-    var_matrix:
-    [[std[0]**2          , std[0]*std[1]*corr],
-     [std[0]*std[1]*corr,           std[1]**2]]
-    """
-    # number of observed eclipses (technically contiguous)
-    n = int(abs(t_tot // p_orb)) + 1
-    # M
-    matrix = np.column_stack((np.ones(n, dtype=int), np.arange(n, dtype=int)))
-    # M^-1
-    matrix_inv = np.linalg.pinv(matrix)  # inverse (of a general matrix)
-    # M^-1 S M^-1^T, S unit matrix times some sigma (no covariance in the data)
-    var_matrix = matrix_inv @ matrix_inv.T
-    var_matrix = var_matrix * sigma_t**2
-    # errors in the period and t_zero
-    t_err = np.sqrt(var_matrix[0, 0])
-    p_err = np.sqrt(var_matrix[1, 1])
-    p_t_corr = var_matrix[0, 1] / (t_err * p_err)  # or [1, 0]
-    return p_err, t_err, p_t_corr
-
-
 @nb.njit(cache=True)
 def true_anomaly(theta, w):
     """True anomaly in terms of the phase angle and argument of periastron
@@ -2609,23 +2563,23 @@ def minima_phase_angles(e, w, i):
         Phase angle of maximum separation between 2 and 1
     """
     try:
-        opt_1 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
+        opt_1 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
         theta_1 = opt_1.root
     except ValueError:
         theta_1 = 0
     try:
-        opt_2 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi - 1, np.pi + 1))
+        opt_2 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi - 1, np.pi + 1))
         theta_2 = opt_2.root
     except ValueError:
         theta_2 = np.pi
     try:
-        opt_3 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+        opt_3 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
                                         bracket=(np.pi / 2 - 1, np.pi / 2 + 1))
         theta_3 = opt_3.root
     except ValueError:
         theta_3 = np.pi / 2
     try:
-        opt_4 = sp.optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+        opt_4 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
                                         bracket=(3 * np.pi / 2 - 1, 3 * np.pi / 2 + 1))
         theta_4 = opt_4.root
     except ValueError:
@@ -2871,22 +2825,22 @@ def root_contact_phase_angles(ecosw, esinw, cosi, phi_0):
     q1 = (-10**-5, np.pi / 2)
     args_a = (ecosw, esinw, cosi, phi_0)
     try:
-        opt_3 = sp.optimize.root_scalar(contact_angles, args=(*args_a, 1, 1), method='brentq', bracket=q1)
+        opt_3 = optimize.root_scalar(contact_angles, args=(*args_a, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = sp.optimize.root_scalar(contact_angles, args=(*args_a, 1, 2), method='brentq', bracket=q1)
+        opt_4 = optimize.root_scalar(contact_angles, args=(*args_a, 1, 2), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = sp.optimize.root_scalar(contact_angles, args=(*args_a, 2, 1), method='brentq', bracket=q1)
+        opt_5 = optimize.root_scalar(contact_angles, args=(*args_a, 2, 1), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = sp.optimize.root_scalar(contact_angles, args=(*args_a, 2, 2), method='brentq', bracket=q1)
+        opt_6 = optimize.root_scalar(contact_angles, args=(*args_a, 2, 2), method='brentq', bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
@@ -2920,22 +2874,22 @@ def root_contact_phase_angles_alt(e, w, i, phi_0):
     """
     q1 = (-10**-5, np.pi / 2)
     try:
-        opt_3 = sp.optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
+        opt_3 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = sp.optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 2), method='brentq', bracket=q1)
+        opt_4 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 2), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = sp.optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 1), method='brentq', bracket=q1)
+        opt_5 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 1), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = sp.optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 2), method='brentq', bracket=q1)
+        opt_6 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 2), method='brentq', bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
@@ -3032,25 +2986,25 @@ def root_contact_phase_angles_radii(e, w, i, r_sum_sma):
     """
     q1 = (-10**-5, np.pi / 2)
     try:
-        opt_3 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 1), method='brentq',
+        opt_3 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 1), method='brentq',
                                         bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 2), method='brentq',
+        opt_4 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 2), method='brentq',
                                         bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 1), method='brentq',
+        opt_5 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 1), method='brentq',
                                         bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = sp.optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 2), method='brentq',
+        opt_6 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 2), method='brentq',
                                         bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
@@ -3183,7 +3137,7 @@ def ecc_omega(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, cosi, phi_0):
     # phase difference between primary and secondary
     displacement = 2 * np.pi * (t_2 - t_1) / p_orb
     # solve Kepler's second law for ecosw
-    res = sp.optimize.root_scalar(root_psi, x0=displacement, x1=displacement - 0.1, args=(displacement,))
+    res = optimize.root_scalar(root_psi, x0=displacement, x1=displacement - 0.1, args=(displacement,))
     tan_psi = np.tan((res.root - np.pi) / 2)
     esinw = dur_dif / np.sin(phi_0) * (sin_i_2 * sin_p0_2 / (1 - sin_i_2 * (1 + sin_p0_2)))
     ecosw = tan_psi * np.sqrt(1 - esinw**2) / np.sqrt(1 + tan_psi**2)
@@ -3965,7 +3919,7 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
     # fit globally for: cosi, r_ratio and sb_ratio
     args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err)
     bounds = ((0, 0.7), (-3, 3), (-3, 3))
-    result = sp.optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     cosi, log_rr, log_sb = result.x
     # re-evaluate e, w
@@ -4043,13 +3997,13 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     # determine esinw and solve Kepler's second law for ecosw
     e, w, ecosw, esinw = ecc_omega(p_orb, *timings_tau[:6], cosi, phi_0)
     # improve phi_0 by iterating sum of eclipse duration
-    res_b = sp.optimize.minimize_scalar(objective_phi_0, method='bounded', bounds=(phi_0 / 2, 2 * phi_0),
+    res_b = optimize.minimize_scalar(objective_phi_0, method='bounded', bounds=(phi_0 / 2, 2 * phi_0),
                                         args=(p_orb, ecosw, esinw, cosi, timings_tau, timings_err))
     phi_0 = res_b.x
     # fit globally for: cosi, r_ratio and sb_ratio
     args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err)
     bounds = ((0, 0.7), (-3, 3), (-3, 3))
-    result = sp.optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     cosi, log_rr, log_sb = result.x
     # conversion
@@ -4114,7 +4068,7 @@ def eclipse_parameters_global(p_orb, timings_tau, depths, timings_err, depths_er
     args = (p_orb, timings_tau, depths, timings_err, depths_err)
     bounds = ((-1, 1), (-1, 1), (0, 0.7), (0, 0.9), (-3, 3), (-3, 3))
     # SLSQP is actually what it defaults to (and is more consistent than L-BFGS-B)
-    result = sp.optimize.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = optimize.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result.x
     e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
@@ -4317,10 +4271,10 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     normal_t_2 = mvn[:, 1]
     normal_p = mvn[:, 2]
     # the edges cannot surpass the midpoints so use truncnorm
-    normal_t_1_1 = sp.stats.truncnorm.rvs(-9, (normal_t_1 - t_1_1) / t_1_1_err, loc=t_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_1_2 = sp.stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, 9, loc=t_1_2, scale=t_1_2_err, size=n_gen)
-    normal_t_2_1 = sp.stats.truncnorm.rvs(-9, (normal_t_2 - t_2_1) / t_2_1_err, loc=t_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_2_2 = sp.stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, 9, loc=t_2_2, scale=t_2_2_err, size=n_gen)
+    normal_t_1_1 = stats.truncnorm.rvs(-9, (normal_t_1 - t_1_1) / t_1_1_err, loc=t_1_1, scale=t_1_1_err, size=n_gen)
+    normal_t_1_2 = stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, 9, loc=t_1_2, scale=t_1_2_err, size=n_gen)
+    normal_t_2_1 = stats.truncnorm.rvs(-9, (normal_t_2 - t_2_1) / t_2_1_err, loc=t_2_1, scale=t_2_1_err, size=n_gen)
+    normal_t_2_2 = stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, 9, loc=t_2_2, scale=t_2_2_err, size=n_gen)
     # if we have wide eclipses, they possibly overlap, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
@@ -4333,16 +4287,16 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
     # the bottom points are truncated at the edge points
-    normal_t_b_1_1 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_b_1_1_err,
+    normal_t_b_1_1 = stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_b_1_1_err,
                                             (normal_t_1_2 - t_b_1_1) / t_b_1_1_err,
                                             loc=t_b_1_1, scale=t_b_1_1_err, size=n_gen)
-    normal_t_b_1_2 = sp.stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_b_1_2_err,
+    normal_t_b_1_2 = stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_b_1_2_err,
                                             (normal_t_1_2 - t_b_1_2) / t_b_1_2_err,
                                             loc=t_b_1_2, scale=t_b_1_2_err, size=n_gen)
-    normal_t_b_2_1 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_b_2_1_err,
+    normal_t_b_2_1 = stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_b_2_1_err,
                                             (normal_t_2_2 - t_b_2_1) / t_b_2_1_err,
                                             loc=t_b_2_1, scale=t_b_2_1_err, size=n_gen)
-    normal_t_b_2_2 = sp.stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_b_2_2_err,
+    normal_t_b_2_2 = stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_b_2_2_err,
                                             (normal_t_2_2 - t_b_2_2) / t_b_2_2_err,
                                             loc=t_b_2_2, scale=t_b_2_2_err, size=n_gen)
     # likely to overlap, fixed by putting them in the middle (this is more physical than truncating in the middle)
@@ -4366,8 +4320,8 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     normal_tau_b_2_1 = normal_t_2 - normal_t_b_2_1
     normal_tau_b_2_2 = normal_t_b_2_2 - normal_t_2
     # depths are truncated at zero and upper limit of five sigma
-    normal_d_1 = sp.stats.truncnorm.rvs((0 - depth_1) / depth_1_err, 5, loc=depth_1, scale=depth_1_err, size=n_gen)
-    normal_d_2 = sp.stats.truncnorm.rvs((0 - depth_2) / depth_2_err, 5, loc=depth_2, scale=depth_2_err, size=n_gen)
+    normal_d_1 = stats.truncnorm.rvs((0 - depth_1) / depth_1_err, 5, loc=depth_1, scale=depth_1_err, size=n_gen)
+    normal_d_2 = stats.truncnorm.rvs((0 - depth_2) / depth_2_err, 5, loc=depth_2, scale=depth_2_err, size=n_gen)
     # determine the output distributions
     ecosw_vals = np.zeros(n_gen)
     esinw_vals = np.zeros(n_gen)

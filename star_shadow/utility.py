@@ -66,6 +66,31 @@ def weighted_mean(x, w):
 
 
 @nb.njit(cache=True)
+def std_unb(x, n):
+    """Unbiased standard deviation
+
+    Parameters
+    ----------
+    x: numpy.ndarray[float]
+        Values to calculate the std over
+    n: int
+        Number of degrees of freedom
+
+    Returns
+    -------
+    std: float
+        Unbiased standard deviation
+    """
+    residuals = x - np.mean(x)
+    # tested to be faster in numba than np.sum(x**2)
+    sum_r_2 = 0
+    for r in residuals:
+        sum_r_2 += r**2
+    std = np.sqrt(sum_r_2 / n)  # unbiased standard deviation of the residuals
+    return std
+
+
+@nb.njit(cache=True)
 def interp_two_points(x, xp1, yp1, xp2, yp2):
     """Interpolate on a straight line between two points
 
@@ -201,13 +226,10 @@ def signal_to_noise_threshold(times, sn_thr_punish_gap):
     # The two commented lines below are the optimal way to implement the increased SNR threshold caused by gaps.
     #  However, for some reason numba cannot figure out how to use diff, apparently because times is not contiguous which is confusing to me as it is loaded in all at once
     #  Regardless of the reason, the gap detection is now done in an ugly for-loop below
-    # if sn_thr_punish_gap and np.any(np.diff(times) > 25) : # increase SNR threshold if a sector long (at least 25 days) gap appears
-    #     sn_thr += 0.25
     if sn_thr_punish_gap : # if requested, increase SNR threshold if a sector long (at least 25 days) gap appears
-        for i in range(0,len(times)-1) :
-            if times[i+1] - times[i] > 25. :
-                sn_thr += 0.25
-                break
+        if np.min(-np.diff(times)) > 25. :
+            sn_thr += 0.25
+            break
     # logger.info("after gap check: sn_thr = "+str(sn_thr))
     sn_thr = np.round(sn_thr, 2)  # round to two decimals
     # logger.info("after rounding: sn_thr = "+str(sn_thr))
@@ -1118,7 +1140,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
     return None
 
 
-def read_parameters_hdf5(file_name, verbose=False):
+def read_parameters_hdf5(file_name, verbose=False, h5py_file_kwargs={}):
     """Read the full model parameters of the linear, sinusoid
     and eclipse models to an hdf5 file.
 
@@ -1128,6 +1150,9 @@ def read_parameters_hdf5(file_name, verbose=False):
         File name (including path) for loading the results.
     verbose: bool
         If set to True, this function will print some information.
+    h5py_file_kwargs: dict
+        Keyword arguments for opening the h5py file.
+        Example: {'locking': False}, for a drive that does not support locking.
 
     Returns
     -------
@@ -1147,7 +1172,7 @@ def read_parameters_hdf5(file_name, verbose=False):
             sinusoid parameters: f_n_hdi, a_n_hdi, ph_n_hdi
         sin_select: None, list[numpy.ndarray[bool]]
             Sinusoids that pass certain selection criteria
-            passed_sigma, passed_snr, passed_h
+            passed_sigma, passed_snr, passed_b, passed_h
         ephem: None, numpy.ndarray[float]
             Ephemerides of the EB, p_orb and t_zero
         ephem_err: None, numpy.ndarray[float]
@@ -1199,7 +1224,7 @@ def read_parameters_hdf5(file_name, verbose=False):
     if (ext != '.hdf5'):
         file_name = file_name.replace(ext, '.hdf5')
     # create the file
-    with h5py.File(file_name, 'r') as file:
+    with h5py.File(file_name, 'r', **h5py_file_kwargs) as file:
         identifier = file.attrs['identifier']
         description = file.attrs['description']
         data_id = file.attrs['data_id']
@@ -1719,7 +1744,7 @@ def save_summary(target_id, save_dir, data_id='none'):
            't_b_1_1_ind_err', 't_b_1_2_ind_err', 't_b_2_1_ind_err', 't_b_2_2_ind_err', 'd_1_ind_err', 'd_2_ind_err',
            'ecosw_form', 'esinw_form', 'cosi_form', 'phi_0_form', 'log_rr_form', 'log_sb_form',
            'e_form', 'w_form', 'i_form', 'r_sum_form', 'r_rat_form', 'sb_rat_form',
-            'ecosw_sig', 'esinw_sig', 'cosi_sig', 'phi_0_sig', 'log_rr_sig', 'log_sb_sig',
+           'ecosw_sig', 'esinw_sig', 'cosi_sig', 'phi_0_sig', 'log_rr_sig', 'log_sb_sig',
            'e_sig', 'w_sig', 'i_sig', 'r_sum_sig', 'r_rat_sig', 'sb_rat_sig',
            'ecosw_low', 'ecosw_upp', 'esinw_low', 'esinw_upp', 'cosi_low', 'cosi_upp',
            'phi_0_low', 'phi_0_upp', 'log_rr_low', 'log_rr_upp', 'log_sb_low', 'log_sb_upp',
@@ -1854,7 +1879,7 @@ def save_summary(target_id, save_dir, data_id='none'):
     return None
 
 
-def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, save_dir=None, show=True):
+def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, sn_thr, save_dir=None, show=True):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
 
@@ -1864,6 +1889,8 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, s
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. These can indicate the TESS
@@ -1881,7 +1908,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, s
     sn_thr: float
         Threshold for signal-to-noise ratio for a signal to be accepted as signficant
     save_dir: str, None
-        Path to a directory for save the plots.
+        Path to a directory for saving the plots.
         Will append <target_id> + _analysis automatically
         Directory is created if it doesn't exist yet
     show: bool
@@ -2017,7 +2044,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, s
             file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_pd_full.png')
         else:
             file_name = None
-        vis.plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
+        vis.plot_pd_full_output(times, signal, signal_err, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors,
                                 save_file=file_name, show=show)
         if np.any([len(fs) != 0 for fs in f_n_i]):
             plot_nr = np.arange(1, len(f_n_i) + 1)[[len(fs) != 0 for fs in f_n_i]][-1]
@@ -2033,7 +2060,7 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, s
             else:
                 file_name = None
             plot_data = [p_orb_i[plot_nr - 1], p_err_i[plot_nr - 1]] + plot_data
-            vis.plot_pd_single_output(times, signal, *plot_data, i_sectors, annotate=False,
+            vis.plot_pd_single_output(times, signal, signal_err, *plot_data, i_sectors, annotate=False,
                                       save_file=file_name, show=show)
             if save_dir is not None:
                 file_name = os.path.join(save_dir, f'{target_id}_frequency_analysis_lc_harmonics_{plot_nr}.png')
@@ -2112,4 +2139,89 @@ def sequential_plotting(times, signal, i_sectors, target_id, load_dir, sn_thr, s
                                        passed_b_9, ecl_par_8, i_sectors, sn_thr, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
+    return None
+
+
+def plot_all_from_file(file_name, i_sectors=None, load_dir=None, save_dir=None, show=True):
+    """Plot all diagnostic plots of the results for a given light curve file
+
+    Parameters
+    ----------
+    file_name: str
+        Path to a file containing the light curve data, with
+        timestamps, normalised flux, error values as the
+        first three columns, respectively.
+    i_sectors: numpy.ndarray[int]
+        Pair(s) of indices indicating the separately handled timespans
+        in the piecewise-linear curve. These can indicate the TESS
+        observation sectors, but taking half the sectors is recommended.
+        If only a single curve is wanted, set
+        i_sectors = np.array([[0, len(times)]]).
+    load_dir: str
+        Path to a directory for loading analysis results.
+        Will append <target_id> + _analysis automatically.
+        Assumes the same directory as file_name if None.
+    save_dir: str, None
+        Path to a directory for saving the plots.
+        Will append <target_id> + _analysis automatically.
+        Directory is created if it doesn't exist yet.
+    show: bool
+        Whether to show the plots or not.
+
+    Returns
+    -------
+    None
+    """
+    target_id = os.path.splitext(os.path.basename(file_name))[0]  # file name is used as target identifier
+    if load_dir is None:
+        load_dir = os.path.dirname(file_name)
+    # load the data
+    times, signal, signal_err = np.loadtxt(file_name, usecols=(0, 1, 2), unpack=True)
+    # if sectors not given, take full length
+    if i_sectors is None:
+        i_sectors = np.array([[0, len(times)]])  # no sector information
+    # i_half_s = i_sectors  # in this case no differentiation between half or full sectors
+    # do the plotting
+    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, sn_thr, save_dir=save_dir, show=show)
+    return None
+
+
+def plot_all_from_tic(tic, all_files, sn_thr, load_dir=None, save_dir=None, show=True):
+    """Plot all diagnostic plots of the results for a given light curve file
+
+    Parameters
+    ----------
+    tic: int
+        The TESS Input Catalog (TIC) number for loading/saving the data
+        and later reference.
+    all_files: list[str]
+        List of all the TESS data product '.fits' files. The files
+        with the corresponding TIC number are selected.
+    sn_thr: float
+        Threshold for signal-to-noise ratio for a signal to be accepted as signficant
+    load_dir: str
+        Path to a directory for loading analysis results.
+        Will append <tic> + _analysis automatically.
+        Assumes the same directory as all_files if None.
+    save_dir: str, None
+        Path to a directory for saving the plots.
+        Will append <tic> + _analysis automatically.
+        Directory is created if it doesn't exist yet.
+    show: bool
+        Whether to show the plots or not.
+
+    Returns
+    -------
+    None
+    """
+    if load_dir is None:
+        load_dir = os.path.dirname(all_files[0])
+    # load the data
+    lc_data = load_tess_lc(tic, all_files, apply_flags=True)
+    times, sap_signal, signal, signal_err, sectors, t_sectors, crowdsap = lc_data
+    i_sectors = convert_tess_t_sectors(times, t_sectors)
+    lc_processed = stitch_tess_sectors(times, signal, signal_err, i_sectors)
+    times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
+    # do the plotting
+    sequential_plotting(times, signal, signal_err, i_sectors, tic, load_dir, sn_thr, save_dir=save_dir, show=show)
     return None

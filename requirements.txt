@@ -6,3 +6,4 @@ astropy
 matplotlib
 arviz
 corner
+netcdf
