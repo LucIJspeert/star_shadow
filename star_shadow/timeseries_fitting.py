@@ -730,7 +730,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
     return res_p_orb, res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)
 def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i_sectors, f_max=0):
     """The objective function to give to scipy.scop.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
@@ -1008,7 +1008,7 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_
     return model_ecl
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)
 def objective_empirical_lc(params, times, signal, p_orb, f_max=0):
     """Objective function for a set of eclipse timings
 
@@ -1139,7 +1139,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
     return res_cubics, res_timings
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)
 def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors, f_max=0.):
     """Objective function for a set of eclipse timings and harmonics
 
@@ -1382,8 +1382,8 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat):
     return interp_model
 
 
-@nb.njit(cache=True)
-def objective_physical_lc(params, times, signal, p_orb, t_zero, fmax=0.):
+# @nb.njit(cache=True)
+def objective_physical_lc(params, times, signal, p_orb, t_zero, f_max=0):
     """Objective function for a set of eclipse parameters
 
     Parameters
@@ -1502,9 +1502,9 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
     arguments = (times, ecl_signal, p_orb, t_zero, f_max)
     # do a local fit and then a global fit within bounds to compare
     result_a = scop.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
-                                    bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
+                             bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     result_b = scop.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
-                                minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
+                             minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
     # compare objective function values
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_a.x[:6]))
     bic_a = tsf.calc_bic((ecl_signal - (model_ecl + result_a.x[6])), 2 + len(result_a.x))
@@ -1695,7 +1695,7 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
     return par_out
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)
 def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max=0.):
     """The objective function to give to scipy.scop.minimize
     for an eclipse model plus a sum of sine waves.
