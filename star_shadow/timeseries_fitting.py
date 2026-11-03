@@ -18,8 +18,7 @@ Code written by: Luc IJspeert
 
 import numpy as np
 import numba as nb
-import scipy as sp
-import scipy.optimize
+import scipy.optimize as optimize
 
 try:
     import ellc  # optional functionality
@@ -76,8 +75,8 @@ def dsin_dx(two_pi_t, f, a, ph, d='f', p_orb=0):
     return model_deriv
 
 
-@nb.njit(cache=True)
-def objective_sinusoids(params, times, signal, i_sectors):
+# @nb.njit(cache=True)
+def objective_sinusoids(params, times, signal, i_sectors, f_max=0):
     """The objective function to give to scipy.optimize.minimize for a sum of sine waves.
 
     Parameters
@@ -95,6 +94,9 @@ def objective_sinusoids(params, times, signal, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -118,14 +120,14 @@ def objective_sinusoids(params, times, signal, i_sectors):
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
 @nb.njit(cache=True)
-def jacobian_sinusoids(params, times, signal, i_sectors):
+def jacobian_sinusoids(params, times, signal, i_sectors, f_max=0.):
     """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves.
-    
+
     Parameters
     ----------
     params: numpy.ndarray[float]
@@ -141,6 +143,9 @@ def jacobian_sinusoids(params, times, signal, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -192,7 +197,7 @@ def jacobian_sinusoids(params, times, signal, i_sectors):
     return jac
 
 
-def fit_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def fit_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, f_max=0, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit.
 
     Parameters
@@ -215,6 +220,9 @@ def fit_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency to consider in the fitting
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -246,14 +254,18 @@ def fit_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, v
     # we don't want the frequencies to go lower than about 1/T/100
     t_tot = np.ptp(times)
     f_low = 0.01 / t_tot
+    if f_max > 0 :
+        f_high = f_max
+    else :
+        f_high = None
     # do the fit
     par_init = np.concatenate((res_const, res_slope, res_freqs, res_ampls, res_phases))
     par_bounds = [(None, None) for _ in range(2 * n_sect)]
-    par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
+    par_bounds = par_bounds + [(f_low, f_high) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
-    arguments = (times, signal, i_sectors)
-    result = sp.optimize.minimize(objective_sinusoids, jac=jacobian_sinusoids, x0=par_init, args=arguments,
-                                  method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
+    arguments = (times, signal, i_sectors, f_max)
+    result = optimize.minimize(objective_sinusoids, jac=jacobian_sinusoids, x0=par_init, args=arguments,
+                               method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_const = result.x[0:n_sect]
     res_slope = result.x[n_sect:2 * n_sect]
@@ -348,8 +360,8 @@ def fit_multi_sinusoid_per_group(times, signal, const, slope, f_n, a_n, ph_n, i_
     return res_const, res_slope, res_freqs, res_ampls, res_phases
 
 
-@nb.njit(cache=True)
-def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
+# @nb.njit(cache=True)
+def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors, f_max=0):
     """The objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
 
@@ -373,6 +385,9 @@ def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -405,7 +420,7 @@ def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
     model_sinusoid = tsf.sum_sines(times, freqs, ampls, phases)
     # calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
@@ -501,7 +516,7 @@ def jacobian_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
     return jac
 
 
-def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max=0, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit with harmonic frequencies.
 
     Parameters
@@ -526,6 +541,9 @@ def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -565,8 +583,8 @@ def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
-    arguments = (times, signal, harmonic_n, i_sectors)
-    result = sp.optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
+    arguments = (times, signal, harmonic_n, i_sectors, f_max)
+    result = optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
                                   x0=par_init, args=arguments, method='L-BFGS-B', bounds=par_bounds,
                                   options={'maxiter': 10**4 * len(par_init)})
     # separate results
@@ -593,7 +611,7 @@ def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
 
 
 def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors,
-                                           verbose=False):
+                                           f_max=0, verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit with harmonic frequencies
     per frequency group
 
@@ -619,6 +637,9 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -670,9 +691,9 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
     par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, resid, harmonic_n, i_sectors)
-    result = sp.optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
-                                  x0=par_init,  args=arguments, method='L-BFGS-B', bounds=par_bounds,
-                                  options={'maxiter': 10**4 * len(par_init)})
+    result = optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
+                               x0=par_init,  args=arguments, method='L-BFGS-B', bounds=par_bounds,
+                               options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_p_orb = result.x[0]
     res_const = result.x[1:1 + n_sect]
@@ -710,7 +731,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
 
 
 @nb.njit(cache=True)
-def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i_sectors):
+def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i_sectors, f_max=0):
     """The objective function to give to scipy.optimize.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
 
@@ -737,12 +758,15 @@ def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
-    
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
+
     Returns
     -------
     -ln_likelihood: float
         Minus the (natural)log-likelihood of the residuals
-    
+
     See Also
     --------
     linear_curve and sum_sines for the definition of the parameters.
@@ -760,13 +784,13 @@ def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i
     model = ut.model_crowdsap(model, 1 - light_3, i_sectors)  # incorporate third light
     # need minus the likelihood for minimisation
     resid = signal - model
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
-def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, verbose=False):
+def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, f_max=0, verbose=False):
     """Fits for the minimum amount of third light needed in each sector.
-    
+
     Since the contamination by third light can vary across (TESS) sectors,
     fully data driven fitting for third light will result in a lower bound for
     the flux fraction of contaminating light in the aperture per sector.
@@ -775,7 +799,7 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     eclipses present in the data are in the sector with the least third light.
     If we have the CROWDSAP parameter, this can be compared to check the null
     hypothesis, or we can simply use the CROWDSAP as starting point.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -798,9 +822,12 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency to search up to
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     res_light_3: float
@@ -811,7 +838,7 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
         Updated y-intercepts of a piece-wise linear curve
     slope: numpy.ndarray[float]
         Updated slopes of a piece-wise linear curve
-    
+
     Notes
     -----
     For this to work we need at least an initial harmonic model of the eclipses
@@ -830,9 +857,9 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     # start off at third light of 0.01 and stretch parameter of 1.01
     par_init = np.concatenate((np.zeros(n_sect) + 0.01, [1.01]))
     par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
-    arguments = (times, signal, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors)
+    arguments = (times, signal, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, f_max)
     # do the fit
-    result = sp.optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='L-BFGS-B',
+    result = optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_light_3 = result.x[:n_sect]
@@ -982,7 +1009,7 @@ def eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_
 
 
 @nb.njit(cache=True)
-def objective_empirical_lc(params, times, signal, p_orb):
+def objective_empirical_lc(params, times, signal, p_orb, f_max=0):
     """Objective function for a set of eclipse timings
 
     Parameters
@@ -997,6 +1024,9 @@ def objective_empirical_lc(params, times, signal, p_orb):
         Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1012,7 +1042,7 @@ def objective_empirical_lc(params, times, signal, p_orb):
     # the model
     model = eclipse_empirical_lc(times, p_orb, mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2)
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=signal - model, times=times, signal_err=None, f_max=f_max)
     # make sure we don't allow impossible stuff
     dur_zero = (dur_1 < 0) | (dur_2 < 0) | (dur_b_1 < 0) | (dur_b_2 < 0)
     if dur_zero | (dur_b_1 > dur_1) | (dur_b_2 > dur_2) | (d_1 < 0) | (d_2 < 0):
@@ -1020,7 +1050,7 @@ def objective_empirical_lc(params, times, signal, p_orb):
     return -ln_likelihood
 
 
-def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors, verbose=False):
+def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors, f_max=0, verbose=False):
     """Perform least-squares fit for improved eclipse timings using an empirical model.
 
     Parameters
@@ -1042,6 +1072,9 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -1053,7 +1086,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
     res_timings: numpy.ndarray[float]
         Eclipse timings: minima, first/last contact points, internal tangency and depths,
         t_1, t_2, t_1_1, t_1_2, t_2_1, t_2_2, t_b_1_1, t_b_1_2, t_b_2_1, t_b_2_2, depth_1, depth_2
-    
+
     See Also
     --------
     eclipse_cubic_model, objective_cubic_lc
@@ -1062,7 +1095,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
     -----
     Times of primary and secondary eclispe are measured with respect to the mean time.
     Eclipses are symmetrical in this model.
-    
+
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
     """
@@ -1086,7 +1119,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
                   (0, 3 * (t_b_1_1_err + t_b_1_2_err)), (0, 3 * (t_b_2_1_err + t_b_2_2_err)),
                   (d_1 - 3 * d_1_err, 2 * d_1), (d_2 - 3 * d_2_err, 2 * d_2), h_minmax, h_minmax)
     arguments = (times, ecl_signal, p_orb)
-    result = sp.optimize.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='L-BFGS-B',
+    result = optimize.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = result.x
     # compute the times of eclipse contact and tangency
@@ -1107,7 +1140,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
 
 
 @nb.njit(cache=True)
-def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors):
+def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors, f_max=0.):
     """Objective function for a set of eclipse timings and harmonics
 
     Parameters
@@ -1128,6 +1161,9 @@ def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1159,7 +1195,7 @@ def objective_empirical_sinusoids_lc(params, times, signal, p_orb, i_sectors):
     # calculate the likelihood (minus this for minimisation)
     model = model_linear + model_sinusoid + model_ecl
     resid = signal - model
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
@@ -1217,16 +1253,16 @@ def fit_eclipse_empirical_sinusoids(times, signal, p_orb, timings, cubic_pars, c
         Updated amplitudes of a number of sine waves
     res_phases: numpy.ndarray[float]
         Updated phases of a number of sine waves
-    
+
     See Also
     --------
     eclipse_cubic_model, objective_cubic_lc
-    
+
     Notes
     -----
     Times of primary and secondary eclispe are measured with respect to the mean time.
     Eclipses are symmetrical in this model.
-    
+
     In reducing the overall runtime of the NL-LS fit, this will improve the
     fits on just the given groups of (closely spaced) frequencies, leaving the other
     frequencies as fixed parameters.
@@ -1264,7 +1300,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, p_orb, timings, cubic_pars, c
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
         arguments = (times, resid, p_orb, i_sectors)
-        result = sp.optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='L-BFGS-B',
+        result = optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                       bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
@@ -1347,7 +1383,7 @@ def eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat):
 
 
 @nb.njit(cache=True)
-def objective_physical_lc(params, times, signal, p_orb, t_zero):
+def objective_physical_lc(params, times, signal, p_orb, t_zero, fmax=0.):
     """Objective function for a set of eclipse parameters
 
     Parameters
@@ -1364,6 +1400,9 @@ def objective_physical_lc(params, times, signal, p_orb, t_zero):
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of the deepest minimum with respect to the mean time
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1379,7 +1418,7 @@ def objective_physical_lc(params, times, signal, p_orb, t_zero):
     # check for unphysical e
     model = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat) + offset
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=signal - model, times=times, signal_err=None, f_max=f_max)
     # check periastron distance
     d_peri = 1 - e
     if (r_sum < d_peri):
@@ -1387,7 +1426,7 @@ def objective_physical_lc(params, times, signal, p_orb, t_zero):
     return -ln_likelihood
 
 
-def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sectors, verbose=False):
+def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sectors, f_max=0, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
 
@@ -1412,6 +1451,9 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -1429,7 +1471,7 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
     -----
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
     in essence identical (and numerically more stable due to the logarithm).
-    
+
     Fit is performed in the parameter space:
     ecosw, esinw, cosi, phi_0, log_rr, log_sb
     """
@@ -1457,11 +1499,11 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
                    min(max(log_rr + min(3 * log_rr_err, 1), -1), 3)),
                   (min(max(log_sb - min(3 * log_sb_err, 1), -3), 1),
                    min(max(log_sb + min(3 * log_sb_err, 1), -1), 3)), (-1, 1))
-    arguments = (times, ecl_signal, p_orb, t_zero)
+    arguments = (times, ecl_signal, p_orb, t_zero, f_max)
     # do a local fit and then a global fit within bounds to compare
-    result_a = sp.optimize.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+    result_a = optimize.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                     bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
-    result_b = sp.optimize.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
+    result_b = optimize.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
                                 minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
     # compare objective function values
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_a.x[:6]))
@@ -1493,7 +1535,7 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
 
 def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat):
     """Wrapper for a simple ELLC model with some fixed inputs
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1514,12 +1556,12 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat):
         Radius ratio r_2/r_1
     sb_rat: float
         Surface brightness ratio sb_2/sb_1
-    
+
     Returns
     -------
     model: numpy.ndarray[float]
         Eclipse light curve model for the given time points
-    
+
     Notes
     -----
     See P. F. L. Maxted 2016:
@@ -1548,9 +1590,9 @@ def wrap_ellc_lc(times, p_orb, t_zero, f_c, f_s, i, r_sum, r_rat, sb_rat):
     return model
 
 
-def objective_ellc_lc(params, times, signal, p_orb):
+def objective_ellc_lc(params, times, signal, p_orb, f_max=0):
     """Objective function for a set of eclipse parameters
-    
+
     Parameters
     ----------
     params: numpy.ndarray[float]
@@ -1563,12 +1605,15 @@ def objective_ellc_lc(params, times, signal, p_orb):
         Measurement values of the time series
     p_orb: float
         Orbital period of the eclipsing binary in days
-    
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
+
     Returns
     -------
     -ln_likelihood: float
         Minus the (natural)log-likelihood of the residuals
-    
+
     See Also
     --------
     ellc_lc_simple
@@ -1580,14 +1625,14 @@ def objective_ellc_lc(params, times, signal, p_orb):
         # (try to) catch ellc errors
         return 10**9
     # determine likelihood for the model (minus this for minimisation)
-    ln_likelihood = tsf.calc_likelihood(signal - model, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=signal - model, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
-def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors, verbose=False):
+def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors, f_max=0, verbose=False):
     """Perform least-squares fit for the orbital parameters that can be obtained
     from the eclipses in the light curve.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1609,18 +1654,21 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
-    
+
     Returns
     -------
     par_out: numpy.ndarray[float]
         Fit results from the scipy optimizer, like par_init
-    
+
     See Also
     --------
     ellc_lc_simple, objective_ellc_lc
-    
+
     Notes
     -----
     Strictly speaking it is doing a maximum log-likelihood fit, but that is
@@ -1633,8 +1681,8 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
     # initial parameters and bounds
     par_init = (f_c, f_s, i, r_sum, r_rat, sb_rat)  # no offset
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
-    arguments = (times, ecl_signal, p_orb)
-    result = sp.optimize.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+    arguments = (times, ecl_signal, p_orb, f_max)
+    result = optimize.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     par_out = result.x
     if verbose:
@@ -1648,7 +1696,7 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
 
 
 @nb.njit(cache=True)
-def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
+def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max=0.):
     """The objective function to give to scipy.optimize.minimize
     for an eclipse model plus a sum of sine waves.
 
@@ -1673,6 +1721,9 @@ def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors)
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1701,12 +1752,12 @@ def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors)
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, e, w, i, r_sum, r_rat, sb_rat)
     # make the linear model and calculate the likelihood (minus this for minimisation)
     resid = signal - model_linear - model_sinusoid - model_ecl
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
-# @nb.njit(cache=True)  # not possible due to sp.optimize.approx_fprime
-def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
+# @nb.njit(cache=True)  # not possible due to optimize.approx_fprime
+def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max):
     """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves,
     accompanying an eclipse model (no derivatives for the latter).
 
@@ -1731,6 +1782,9 @@ def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1764,16 +1818,16 @@ def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
     # numerically determine Jacobian for the params_ecl part
     resid_sin = signal - model_linear - model_sinusoid
     epsilon = 1.4901161193847656e-08
-    args = (times, resid_sin, p_orb, t_zero)
+    args = (times, resid_sin, p_orb, t_zero, f_max)
     params_ecl = np.append(params_ecl, [0])  # account for the offset parameter
-    jac_ecl = sp.optimize.approx_fprime(params_ecl, objective_physical_lc, epsilon, *args)
+    jac_ecl = optimize.approx_fprime(params_ecl, objective_physical_lc, epsilon, *args)
     jac_ecl = jac_ecl[:-1]
     jac = np.append(jac_ecl, jac_sin)
     return jac
 
 
 # @nb.njit(cache=True)  # will not work due to ellc
-def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
+def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max=0.):
     """The objective function to give to scipy.optimize.minimize
     for an ellc model plus a sum of sine waves.
 
@@ -1798,6 +1852,9 @@ def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1828,12 +1885,12 @@ def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors):
     # calculate the likelihood (minus this for minimisation)
     model = model_linear + model_sinusoid + model_ecl
     resid = signal - model
-    ln_likelihood = tsf.calc_likelihood(resid, times=times, signal_err=None, iid=True)
+    ln_likelihood = tsf.calc_likelihood(residuals=resid, times=times, signal_err=None, f_max=f_max)
     return -ln_likelihood
 
 
 def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, slope, f_n, a_n, ph_n, i_sectors,
-                                  model='simple', verbose=False):
+                                  f_max=0, model='simple', verbose=False):
     """Perform the multi-sinusoid, non-linear least-squares fit per frequency group
     and including an eclipse light curve model
 
@@ -1864,6 +1921,9 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
         Pair(s) of indices indicating the separately handled timespans
         in the piecewise-linear curve. If only a single curve is wanted,
         set i_sectors = np.array([[0, len(times)]]).
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     model: str
         Which eclipse light curve model to use. Choose 'simple' or 'ellc'
     verbose: bool
@@ -1922,12 +1982,12 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
         par_bounds = par_bounds + [(None, None) for _ in range(2 * n_sect)]
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_sin_g)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_sin_g)] + [(None, None) for _ in range(n_sin_g)]
-        arguments = (times, resid, p_orb, t_zero, i_sectors)
+        arguments = (times, resid, p_orb, t_zero, i_sectors, f_max)
         if (model == 'ellc'):
             obj_fun = objective_ellc_sinusoids
         else:
             obj_fun = objective_eclipse_sinusoids
-        result = sp.optimize.minimize(obj_fun, jac=jacobian_eclipse_sinusoids, x0=par_init, args=arguments,
+        result = optimize.minimize(obj_fun, jac=jacobian_eclipse_sinusoids, x0=par_init, args=arguments,
                                       method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
@@ -1962,9 +2022,9 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
     return res_const, res_slope, res_freqs, res_ampls, res_phases, res_ecl_par
 
 
-def delta_obj_physical_lc(par, i_par, params, obj_min, delta, times, signal, p_orb, t_zero):
+def delta_obj_physical_lc(par, i_par, params, obj_min, delta, times, signal, p_orb, t_zero, f_max=0):
     """Displaces the objective function minimum to a certain delta
-    
+
     Parameters
     ----------
     par: float
@@ -1987,6 +2047,9 @@ def delta_obj_physical_lc(par, i_par, params, obj_min, delta, times, signal, p_o
         Orbital period of the eclipsing binary in days
     t_zero: float
         Time of the deepest minimum with respect to the mean time
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1998,6 +2061,6 @@ def delta_obj_physical_lc(par, i_par, params, obj_min, delta, times, signal, p_o
     objective_physcal_lc
     """
     params[i_par] = par
-    obj = objective_physical_lc(params, times, signal, p_orb, t_zero)
+    obj = objective_physical_lc(params, times, signal, p_orb, t_zero, f_max)
     delta_obj = abs(obj - obj_min - delta)
     return delta_obj

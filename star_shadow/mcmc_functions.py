@@ -10,7 +10,6 @@ Code written by: Luc IJspeert
 
 import logging
 import numpy as np
-import scipy as sp
 import scipy.stats
 
 import arviz as az
@@ -86,11 +85,11 @@ def linear_pars_two_points(x1, y1, x2, y2):
         The y-intercept(s) of a piece-wise linear curve
     slope: float, numpy.ndarray[float]
         The slope(s) of a piece-wise linear curve
-    
+
     Notes
     -----
     Taken from timeseries_functions, but without JIT-ting
-    
+
     Determines the slope and y-intercept with respect to the center
     between the two x-values.
     """
@@ -120,7 +119,7 @@ def interp_two_points(x, xp1, yp1, xp2, yp2):
     -------
     y: numpy.ndarray[float]
         The interpolated values, same shape as x.
-    
+
     Notes
     -----
     Taken from utility, but without JIT-ting
@@ -178,7 +177,7 @@ def true_anomaly(theta, w):
     Notes
     -----
     Taken from analysis_functions, but without JIT-ting
-    
+
     ν = π / 2 - ω + θ
     """
     nu = np.pi / 2 - w + theta
@@ -205,19 +204,19 @@ def integral_kepler_2(nu_1, nu_2, e):
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     Returns the quantity 2π(t2 - t1)/P given an eccentricity (e) and
     corresponding true anomaly values ν1 and ν2.
     The indefinite integral formula is:
     2 arctan(sqrt(1 - e)sin(nu/2) / (sqrt(1 + e)cos(nu/2))) - e sqrt(1 - e**2)sin(nu) / (1 + e cos(nu))
     """
-    
+
     def indefinite_integral(nu, ecc):
         term_1 = 2 * tt.arctan2(np.sqrt(1 - ecc) * tt.sin(nu / 2), tt.sqrt(1 + ecc) * tt.cos(nu / 2))
         term_2 = - ecc * tt.sqrt(1 - ecc**2) * tt.sin(nu) / (1 + ecc * tt.cos(nu))
         mod_term = 4 * np.pi * ((nu // (2 * np.pi) + 1) // 2)  # correction term for going over 2pi
         return term_1 + term_2 + mod_term
-    
+
     end_boundary = indefinite_integral(nu_2, e)
     start_boundary = indefinite_integral(nu_1, e)
     integral = end_boundary - start_boundary
@@ -246,7 +245,7 @@ def delta_deriv(theta, e, w, i):
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     For circular orbits, delta has minima at 0 and 180 degrees, but this will deviate for
     eccentric *and* inclined orbits due to conjunction no longer lining up with the minimum
     projected separation between the stars.
@@ -280,7 +279,7 @@ def delta_deriv_2(theta, e, w, i):
     -------
     deriv: float, numpy.ndarray[float]
         Derivative value of the delta_deriv function
-        
+
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
@@ -316,7 +315,7 @@ def minima_phase_angles_2(e, w, i):
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     Other implementation for minima_phase_angles that can be JIT-ted.
     On its own it is 10x slower, but as part of other functions it can be faster
     if it means that other function can then also be JIT-ted
@@ -391,7 +390,7 @@ def projected_separation(e, w, i, theta):
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     delta^2 = a^2 (1-e^2)^2(1 - sin^2(i)cos^2(theta))/(1 - e sin(theta - w))^2
     sep = delta/a
     """
@@ -421,7 +420,7 @@ def covered_area(d, r_1, r_2):
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     For d between |r_1 - r_2| and r_1 + r_2:
     area = r_1^2 * arccos((d^2 + r_1^2 - r2^2)/(2 d r_1))
            + r_2^2 * arccos((d^2 + r_2^2 - r_1^2)/(2 d r_2))
@@ -477,7 +476,7 @@ def eclipse_depth(e, w, i, theta, r_sum_sma, r_ratio, sb_ratio, theta_3, theta_4
     Notes
     -----
     Taken from analysis_functions and adapted, and without JIT-ting
-    
+
     light_lost(1) = covered_area / (pi r_1^2 + pi r_2^2 sb_ratio)
     light_lost(2) = covered_area sb_ratio / (pi r_1^2 + pi r_2^2 sb_ratio)
     """
@@ -523,7 +522,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
     -------
     model: numpy.ndarray[float]
         Eclipse light curve model for the given time points
-    
+
     Notes
     -----
     Taken from timeseries_fitting and adapted, and without JIT-ting
@@ -548,7 +547,7 @@ def simple_eclipse_lc(times, p_orb, t_zero, e, w, i, r_sum_sma, r_ratio, sb_rati
 def sample_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, f_n_err, a_n_err, ph_n_err, noise_level,
                     i_sectors, verbose=False):
     """NUTS sampling of a linear + sinusoid + eclipse model
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -627,12 +626,12 @@ def sample_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, 
         model = model_linear + model_sinusoid
         # observed distribution
         pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
-    
+
     # do the sampling
     with lc_model:
         inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', cores=1, progressbar=verbose,
                              return_inferencedata=True)
-    
+
     if verbose:
         az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
     # stacked parameter chains
@@ -646,7 +645,7 @@ def sample_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, 
     slope_m = np.mean(slope_ch, axis=1).flatten()
     f_n_m = np.mean(f_n_ch, axis=1).flatten()
     a_n_m = np.mean(a_n_ch, axis=1).flatten()
-    ph_n_m = sp.stats.circmean(ph_n_ch, axis=1).flatten()
+    ph_n_m = scst.circmean(ph_n_ch, axis=1).flatten()
     par_means = [const_m, slope_m, f_n_m, a_n_m, ph_n_m]
     # parameter errors (from hdi) [hdi expects (chain, draw) as first two axes... annoying warnings...]
     const_e = az.hdi(np.moveaxis(const_ch[np.newaxis], 1, 2), hdi_prob=0.683)
@@ -667,7 +666,7 @@ def sample_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, c_err, sl_err, 
 def sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err, c_err, sl_err, f_n_err, a_n_err,
                       ph_n_err, noise_level, i_sectors, verbose=False):
     """NUTS sampling of a linear + sinusoid + eclipse model
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -765,12 +764,12 @@ def sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err,
         model = model_linear + model_sinusoid + model_harmonic
         # observed distribution
         pm.Normal('obs', mu=model, sigma=noise_level, observed=signal)
-    
+
     # do the sampling
     with lc_model:
         inf_data = pm.sample(draws=1000, tune=1000, init='adapt_diag', cores=1, progressbar=verbose,
                              return_inferencedata=True)
-    
+
     if verbose:
         az.summary(inf_data, round_to=2, circ_var_names=['ph_n'])
     # stacked parameter chains
@@ -789,10 +788,10 @@ def sample_sinusoid_h(times, signal, p_orb, const, slope, f_n, a_n, ph_n, p_err,
     slope_m = np.mean(slope_ch, axis=1).flatten()
     f_n_m = np.mean(f_n_ch, axis=1).flatten()
     a_n_m = np.mean(a_n_ch, axis=1).flatten()
-    ph_n_m = sp.stats.circmean(ph_n_ch, axis=1).flatten()
+    ph_n_m = scst.circmean(ph_n_ch, axis=1).flatten()
     f_h_m = harmonic_n / p_orb_m  # taking the mean from the chain leads to slightly different results and is wrong
     a_h_m = np.mean(a_h_ch, axis=1).flatten()
-    ph_h_m = sp.stats.circmean(ph_h_ch, axis=1).flatten()
+    ph_h_m = scst.circmean(ph_h_ch, axis=1).flatten()
     f_n_m = np.append(f_n_m, f_h_m)
     a_n_m = np.append(a_n_m, a_h_m)
     ph_n_m = np.append(ph_n_m, ph_h_m)
@@ -967,7 +966,7 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     slope_m = np.mean(slope_ch, axis=1).flatten()
     f_n_m = np.mean(f_n_ch, axis=1).flatten()
     a_n_m = np.mean(a_n_ch, axis=1).flatten()
-    ph_n_m = sp.stats.circmean(ph_n_ch, axis=1).flatten()
+    ph_n_m = scst.circmean(ph_n_ch, axis=1).flatten()
     ecosw_m = np.mean(ecosw_ch)
     esinw_m = np.mean(esinw_ch)
     cosi_m = np.mean(cosi_ch)
@@ -976,7 +975,7 @@ def sample_sinusoid_eclipse(times, signal, p_orb, t_zero, ecl_par, const, slope,
     log_sb_m = np.mean(log_sb_ch)
     # transformed parameter means
     e_m = np.mean(e_ch)
-    w_m = sp.stats.circmean(w_ch)
+    w_m = scst.circmean(w_ch)
     i_m = np.mean(i_ch)
     r_sum_m = np.mean(r_sum_ch)
     r_rat_m = np.mean(r_rat_ch)

@@ -10,12 +10,12 @@ Code written by: Luc IJspeert
 
 import inspect
 import numpy as np
-import scipy as sp
 import scipy.stats
 import numba as nb
 import astropy.timeseries as apy
 
 from . import analysis_functions as af
+from . import timeseries_fitting as tsf
 from . import utility as ut
 
 
@@ -112,7 +112,7 @@ def bin_folded_signal(phases, signal, bins, midpoints=False, statistic='mean'):
     if not hasattr(bins, '__len__'):
         # use as number of bins, else use as bin edges
         bins = np.linspace(-0.5, 0.5, bins + 1)
-    binned, edges, indices = sp.stats.binned_statistic(phases, signal, statistic=statistic, bins=bins)
+    binned, edges, indices = scst.binned_statistic(phases, signal, statistic=statistic, bins=bins)
     if midpoints:
         bins = (bins[1:] + bins[:-1]) / 2
     return bins, binned
@@ -999,7 +999,7 @@ def astropy_scargle(times, signal, f_max=0, f0=0, fn=0, df=0, norm='amplitude'):
     return f1, s1
 
 
-def astropy_scargle_simple_psd(times, signal, f_max):
+def astropy_scargle_simple_psd(times, signal, f_max=0):
     """Wrapper for the astropy Scargle periodogram and PSD normalisation.
 
     Parameters
@@ -1045,7 +1045,7 @@ def astropy_scargle_simple_psd(times, signal, f_max):
     t_tot = np.ptp(times_ms)
     f0 = 0
     df = 0.1 / t_tot
-    if f_max == 0:
+    if f_max <= 0:
         fn = 1 / (2 * np.min(times_ms[1:] - times_ms[:-1]))
     else :
         fn = f_max
@@ -1215,7 +1215,7 @@ def find_orbital_period(times, signal, f_n):
     return p_orb, multiple
 
 
-@nb.njit(cache=True)
+# @nb.njit(cache=True)
 def calc_iid_normal_likelihood(residuals):
     """Natural logarithm of the independent and identically distributed likelihood function.
 
@@ -1461,7 +1461,7 @@ def calc_likelihood(times=None, signal=None, residuals=None, signal_err=None, f_
     or some approximations in-between.
     """
     # make a dict of the given arguments
-    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err}
+    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err, 'f_max':f_max}
     # check what the chosen function needs
     func_args = list(inspect.signature(func).parameters)
     # make a dict of those
@@ -1510,7 +1510,7 @@ def calc_bic(residuals, n_param):
     return bic
 
 
-def calc_bic_2(residuals, n_param, signal_err=None):
+def calc_bic_2(residuals, n_param, signal_err=None, f_max=0):
     """Bayesian Information Criterion with correlated likelihood function.
 
     BIC = k ln(n) − 2 ln(L(θ))
@@ -1525,6 +1525,9 @@ def calc_bic_2(residuals, n_param, signal_err=None):
         Number of free parameters in the model
     signal_err: None, numpy.ndarray[float]
         Errors in the measurement values
+    f_max: float
+        Maximum frequency up to which to compute the noise
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -1532,7 +1535,7 @@ def calc_bic_2(residuals, n_param, signal_err=None):
         Bayesian Information Criterion
     """
     n = len(residuals)
-    bic = n_param * np.log(n) - 2 * calc_likelihood(residuals, signal_err=signal_err)
+    bic = n_param * np.log(n) - 2 * calc_likelihood(residuals, signal_err=signal_err, f_max=f_max)
     return bic
 
 
@@ -3402,7 +3405,7 @@ def reduce_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
     return const, slope, f_n, a_n, ph_n
 
 
-def select_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=False):
+def select_sinusoids(times, signal, signal_err, p_orb, const, slope, f_n, a_n, ph_n, i_sectors, sn_thr, sn_thr_punish_gap, f_max, verbose=False):
     """Selects the credible frequencies from the given set
 
     Parameters
@@ -3413,6 +3416,8 @@ def select_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
         Measurement values of the time series
         If the sinusoids exclude the eclipse model,
         this should be the residuals of the eclipse model
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period of the eclipsing binary in days.
         May be zero.
@@ -3467,7 +3472,7 @@ def select_sinusoids(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_secto
     model_lin = linear_curve(times, const, slope, i_sectors)
     model_sin = sum_sines(times, f_n, a_n, ph_n)
     residuals = signal - (model_lin + model_sin)
-    errors = formal_uncertainties(times, residuals, a_n, i_sectors)
+    errors = formal_uncertainties(times, residuals, signal_err, a_n, i_sectors)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = errors
     # find the insignificant frequencies
     remove_sigma = af.remove_insignificant_sigma(f_n, f_n_err, a_n, a_n_err, sigma_a=3, sigma_f=3)

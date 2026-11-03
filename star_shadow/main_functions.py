@@ -234,7 +234,7 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
         inf_data, par_mean, par_hdi = output
     const, slope, f_n, a_n, ph_n = par_mean
     # select frequencies based on some significance criteria
-    out_b = tsf.select_sinusoids(times, signal, 0, const, slope, f_n, a_n, ph_n, i_sectors,
+    out_b = tsf.select_sinusoids(times, signal, signal_err, 0, const, slope, f_n, a_n, ph_n, i_sectors,
                                    sn_thr, sn_thr_punish_gap, f_max, verbose=verbose)
     passed_sigma, passed_snr, passed_both, passed_h = out_b
     # main function done, do the rest for this step
@@ -244,7 +244,7 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     n_param = 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid, n_param)
     noise_level = np.std(resid)
-    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, a_n, i_sectors)
+    c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
@@ -500,7 +500,7 @@ def add_sinusoids(times, signal, signal_err, p_orb, f_n, a_n, ph_n, i_sectors, t
     t_tot, t_mean, t_mean_s, t_int = t_stats
     n_f_init = len(f_n)
     # start by looking for more harmonics
-    out_a = tsf.extract_harmonics(times, signal, signal_err, p_orb, i_sectors, bic_thr, f_max, f_n, a_n, ph_n, verbose=verbose)
+    out_a = tsf.extract_harmonics(times, signal, p_orb, i_sectors, bic_thr, f_max, f_n, a_n, ph_n, verbose=verbose)
     # look for any additional non-harmonics with the iterative scheme
     out_b = tsf.extract_sinusoids(times, signal, i_sectors, sn_thr, sn_thr_punish_gap, bic_thr, f_max, p_orb, *out_a[2:],
                                   add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step,
@@ -625,7 +625,7 @@ def optimise_sinusoid_h(times, signal, signal_err, p_orb, const, slope, f_n, a_n
     inf_data, par_mean, sin_hdi, ephem_hdi = None, None, None, None
     if method == 'fitter':
         par_mean = tsfit.fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f_n, a_n, ph_n,
-                                                                i_sectors, verbose=verbose)
+                                                                i_sectors, f_max=f_max, verbose=verbose)
     else:
         # make model including everything to calculate noise level
         model_lin = tsf.linear_curve(times, const, slope, i_sectors)
@@ -884,7 +884,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     return timings, timings_err, n_fold
 
 
-def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, data_id='none',
+def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, f_max=0, data_id='none',
                                 overwrite=False, verbose=False):
     """Obtains orbital elements from the eclipse timings
 
@@ -910,6 +910,9 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_
     file_name: str
         File name (including path) for saving the results. Also used to
         load previous analysis results if found.
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     data_id: int, str
         User defined identification for the dataset used
     overwrite: bool
@@ -975,7 +978,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_
     tau_b_2_2 = timings[9] - timings[1]  # t_b_2_2 - t_2
     timings_tau = np.append(timings_tau, [tau_b_1_1, tau_b_1_2, tau_b_2_1, tau_b_2_2])
     # minimisation procedure for parameters from formulae
-    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], verbose=verbose)
+    out_a = af.eclipse_parameters(p_orb, timings_tau, timings[10:], timings_err[:10], timings_err[10:], f_max=f_max, verbose=verbose)
     ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat = out_a
     # we first estimate the errors in ecosw, esinw, phi_0 from formulae and using a guesstimate for i_err
     i_err_est = 0.035  # fairly good guess at the inability to pinpoint i (2 degrees)
@@ -984,7 +987,7 @@ def convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_
     sigma_e, sigma_w, sigma_phi_0, sigma_r_sum, sigma_ecosw, sigma_esinw = formal_errors
     # calculate the errors for cosi, log_rr, log_sb with importance sampling
     out_b = af.error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings[:10], timings[10:],
-                                   p_err, timings_err[:10], timings_err[10:], p_t_corr, verbose=verbose)
+                                   p_err, timings_err[:10], timings_err[10:], p_t_corr, f_max=f_max, verbose=verbose)
     errors, dists_in, dists_out = out_b
     e_err, w_err, i_err, r_sum_err, r_rat_err, sb_rat_err = errors[:6]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[6:]
@@ -1185,7 +1188,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         print(f'Starting multi-sine NL-LS optimisation with physical eclipse model.')
     t_tot, t_mean, t_mean_s, t_int = t_stats
     # convert some parameters and fit initial physical model
-    out_a = tsfit.fit_eclipse_physical(times, signal, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors, verbose=verbose)
+    out_a = tsfit.fit_eclipse_physical(times, signal, p_orb, t_zero, ecl_par, ecl_par_err, i_sectors, f_max=f_max, verbose=verbose)
     # extract the leftover signal from the residuals with the iterative scheme
     model_eclipse = tsfit.eclipse_physical_lc(times, p_orb, t_zero, *out_a[:6])
     resid_ecl = signal - model_eclipse
@@ -1221,7 +1224,7 @@ def optimise_physical_elements(times, signal, signal_err, p_orb, t_zero, ecl_par
         phys_hdi = np.array(par_hdi[5:])
     else:
         out_e = tsfit.fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, out_a[:6], const, slope,
-                                                    f_n, a_n, ph_n, i_sectors, model='simple', verbose=verbose)
+                                                    f_n, a_n, ph_n, i_sectors, f_max=f_max, model='simple', verbose=verbose)
         out_d_convert = ut.convert_from_phys_space(*out_e[5])
         par_mean = list(out_e[:5]) + [*out_d_convert, *out_e[5]]
         inf_data, sin_hdi, phys_hdi = None, None, None
@@ -1848,7 +1851,7 @@ def analyse_eclipses(times, signal, signal_err, i_sectors, t_stats, target_id, s
     # ------------------------------------
     file_name = os.path.join(save_dir, f'{target_id}_analysis', f'{target_id}_analysis_7.hdf5')
     _, _, p_t_corr = tsf.linear_regression_uncertainty_ephem(times, p_orb, sigma_t=t_int / 2)
-    out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, **arg_dict)
+    out_7 = convert_timings_to_elements(p_orb, timings, p_err, timings_err, p_t_corr, f_n, a_n, file_name, f_max=f_max, **arg_dict)
     e, w, i, r_sum, r_rat, sb_rat = out_7[:6]
     errors, formal_errors, dists_in, dists_out = out_7[6:]
     ecosw_err, esinw_err, cosi_err, phi_0_err, log_rr_err, log_sb_err = errors[:6]

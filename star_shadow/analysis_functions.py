@@ -9,9 +9,9 @@ Code written by: Luc IJspeert
 """
 
 import numpy as np
-import scipy.signal
-import scipy.stats
-import scipy.optimize
+import scipy.signal as scsi
+import scipy.stats as scst
+import scipy.optimize as scop
 import numba as nb
 import itertools as itt
 
@@ -1057,7 +1057,7 @@ def mark_eclipse_peaks(deriv_1, deriv_2, noise_level):
     spanning two times the orbital period.
     """
     # find the first derivative peaks and select the 8 largest ones (those must belong to the four eclipses)
-    peaks_1, props = signal.find_peaks(np.abs(deriv_1), prominence=noise_level / 4)
+    peaks_1, props = scsi.find_peaks(np.abs(deriv_1), prominence=noise_level / 4)
     if (len(peaks_1) == 0):
         empty_output = np.zeros((8, 0), dtype=int)
         return empty_output  # No eclipse signatures found above the noise level
@@ -2563,23 +2563,23 @@ def minima_phase_angles(e, w, i):
         Phase angle of maximum separation between 2 and 1
     """
     try:
-        opt_1 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
+        opt_1 = scop.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(-1, 1))
         theta_1 = opt_1.root
     except ValueError:
         theta_1 = 0
     try:
-        opt_2 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi - 1, np.pi + 1))
+        opt_2 = scop.root_scalar(delta_deriv, args=(e, w, i), method='brentq', bracket=(np.pi - 1, np.pi + 1))
         theta_2 = opt_2.root
     except ValueError:
         theta_2 = np.pi
     try:
-        opt_3 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+        opt_3 = scop.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
                                         bracket=(np.pi / 2 - 1, np.pi / 2 + 1))
         theta_3 = opt_3.root
     except ValueError:
         theta_3 = np.pi / 2
     try:
-        opt_4 = optimize.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
+        opt_4 = scop.root_scalar(delta_deriv, args=(e, w, i), method='brentq',
                                         bracket=(3 * np.pi / 2 - 1, 3 * np.pi / 2 + 1))
         theta_4 = opt_4.root
     except ValueError:
@@ -2825,22 +2825,22 @@ def root_contact_phase_angles(ecosw, esinw, cosi, phi_0):
     q1 = (-10**-5, np.pi / 2)
     args_a = (ecosw, esinw, cosi, phi_0)
     try:
-        opt_3 = optimize.root_scalar(contact_angles, args=(*args_a, 1, 1), method='brentq', bracket=q1)
+        opt_3 = scop.root_scalar(contact_angles, args=(*args_a, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = optimize.root_scalar(contact_angles, args=(*args_a, 1, 2), method='brentq', bracket=q1)
+        opt_4 = scop.root_scalar(contact_angles, args=(*args_a, 1, 2), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = optimize.root_scalar(contact_angles, args=(*args_a, 2, 1), method='brentq', bracket=q1)
+        opt_5 = scop.root_scalar(contact_angles, args=(*args_a, 2, 1), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = optimize.root_scalar(contact_angles, args=(*args_a, 2, 2), method='brentq', bracket=q1)
+        opt_6 = scop.root_scalar(contact_angles, args=(*args_a, 2, 2), method='brentq', bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
@@ -2874,22 +2874,22 @@ def root_contact_phase_angles_alt(e, w, i, phi_0):
     """
     q1 = (-10**-5, np.pi / 2)
     try:
-        opt_3 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
+        opt_3 = scop.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 1), method='brentq', bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 2), method='brentq', bracket=q1)
+        opt_4 = scop.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 1, 2), method='brentq', bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 1), method='brentq', bracket=q1)
+        opt_5 = scop.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 1), method='brentq', bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = optimize.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 2), method='brentq', bracket=q1)
+        opt_6 = scop.root_scalar(contact_angles_alt, args=(e, w, i, phi_0, 2, 2), method='brentq', bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
         phi_2_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
@@ -2986,25 +2986,25 @@ def root_contact_phase_angles_radii(e, w, i, r_sum_sma):
     """
     q1 = (-10**-5, np.pi / 2)
     try:
-        opt_3 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 1), method='brentq',
+        opt_3 = scop.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 1), method='brentq',
                                         bracket=q1)
         phi_1_1 = opt_3.root
     except ValueError:
         phi_1_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_4 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 2), method='brentq',
+        opt_4 = scop.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 1, 2), method='brentq',
                                         bracket=q1)
         phi_1_2 = opt_4.root
     except ValueError:
         phi_1_2 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_5 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 1), method='brentq',
+        opt_5 = scop.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 1), method='brentq',
                                         bracket=q1)
         phi_2_1 = opt_5.root
     except ValueError:
         phi_2_1 = 0  # interval likely did not have different signs because it did not quite reach 0 at 0
     try:
-        opt_6 = optimize.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 2), method='brentq',
+        opt_6 = scop.root_scalar(contact_angles_radii, args=(e, w, i, r_sum_sma, 2, 2), method='brentq',
                                         bracket=q1)
         phi_2_2 = opt_6.root
     except ValueError:
@@ -3137,7 +3137,7 @@ def ecc_omega(p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, tau_2_2, cosi, phi_0):
     # phase difference between primary and secondary
     displacement = 2 * np.pi * (t_2 - t_1) / p_orb
     # solve Kepler's second law for ecosw
-    res = optimize.root_scalar(root_psi, x0=displacement, x1=displacement - 0.1, args=(displacement,))
+    res = scop.root_scalar(root_psi, x0=displacement, x1=displacement - 0.1, args=(displacement,))
     tan_psi = np.tan((res.root - np.pi) / 2)
     esinw = dur_dif / np.sin(phi_0) * (sin_i_2 * sin_p0_2 / (1 - sin_i_2 * (1 + sin_p0_2)))
     ecosw = tan_psi * np.sqrt(1 - esinw**2) / np.sqrt(1 + tan_psi**2)
@@ -3575,7 +3575,7 @@ def eclipse_depths(e, w, i, r_sum_sma, r_ratio, sb_ratio):
     return depth_1, depth_2
 
 
-def objective_phi_0(phi_0, p_orb, ecosw, esinw, cosi, timings_tau, timings_err):
+def objective_phi_0(phi_0, p_orb, ecosw, esinw, cosi, timings_tau, timings_err, f_max=0):
     """Minimise this function to obtain an estimate of cosi,
     log ratio of radii and log ratio of surface brightness
 
@@ -3600,6 +3600,9 @@ def objective_phi_0(phi_0, p_orb, ecosw, esinw, cosi, timings_tau, timings_err):
         Error estimates for the eclipse timings,
         t_1_err, t_2_err, t_1_1_err, t_1_2_err, t_2_1_err, t_2_2_err
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -3631,11 +3634,11 @@ def objective_phi_0(phi_0, p_orb, ecosw, esinw, cosi, timings_tau, timings_err):
     tau_err_tot = np.sqrt(t_1_1_err**2 + t_1_2_err**2 + t_2_1_err**2 + t_2_2_err**2)
     r_duration_sum = ((tau_1_1 + tau_1_2 + tau_2_1 + tau_2_2) - (dur_1 + dur_2)) / tau_err_tot
     resid = np.array([r_duration_sum])
-    likelihood = -tsf.calc_likelihood(resid)  # minus for minimisation
+    likelihood = -tsf.calc_likelihood(residuals=resid, f_max=f_max)  # minus for minimisation
     return likelihood
 
 
-def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err):
+def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err, f_max=0):
     """Minimise this function to obtain an estimate of cosi,
     log ratio of radii and log ratio of surface brightness
 
@@ -3664,6 +3667,9 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -3736,11 +3742,11 @@ def objective_incl_plus(params, p_orb, ecosw, esinw, phi_0, timings_tau, depths,
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
-    likelihood = -tsf.calc_likelihood(resid)  # minus for minimisation
+    likelihood = -tsf.calc_likelihood(residuals=resid, f_max=f_max)  # minus for minimisation
     return likelihood
 
 
-def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_err):
+def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_err, f_max=0):
     """Minimise this function to obtain an estimate of all eclipse parameters
 
     Parameters
@@ -3762,6 +3768,9 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
 
     Returns
     -------
@@ -3832,11 +3841,11 @@ def objective_ecl_param(params, p_orb, timings_tau, depths, timings_err, depths_
     # calculate the error-normalised residuals
     resid = np.array([r_displacement, r_duration_dif, r_duration_sum, r_depth_dif, r_depth_sum, r_b_duration_dif,
                       r_b_duration_sum])
-    likelihood = -tsf.calc_likelihood(resid)  # minus for minimisation
+    likelihood = -tsf.calc_likelihood(residuals=resid, f_max=f_max)  # minus for minimisation
     return likelihood
 
 
-def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
+def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_err, f_max=0, verbose=False):
     """Determine all eclipse parameters using approximate formulae
     and partially with an iterative procedure of the exact formulae
 
@@ -3857,6 +3866,9 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -3917,9 +3929,9 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
     # else:
     #     log_rr_bounds = (np.log10(r_small / r_large / 1.1), np.log10(r_large / r_small * 1.1))
     # fit globally for: cosi, r_ratio and sb_ratio
-    args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err)
+    args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err, f_max)
     bounds = ((0, 0.7), (-3, 3), (-3, 3))
-    result = optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = scop.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     cosi, log_rr, log_sb = result.x
     # re-evaluate e, w
@@ -3930,7 +3942,7 @@ def eclipse_parameters_approx(p_orb, timings_tau, depths, timings_err, depths_er
     return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat
 
 
-def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
+def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False, f_max=0):
     """Determine all eclipse parameters using approximate formulae
     and partially with an iterative procedure of the exact formulae
 
@@ -3980,6 +3992,9 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
         Radius ratio r_2/r_1
     sb_rat: float
         Surface brightness ratio sb_2/sb_1
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
 
     Notes
     -----
@@ -3997,13 +4012,13 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     # determine esinw and solve Kepler's second law for ecosw
     e, w, ecosw, esinw = ecc_omega(p_orb, *timings_tau[:6], cosi, phi_0)
     # improve phi_0 by iterating sum of eclipse duration
-    res_b = optimize.minimize_scalar(objective_phi_0, method='bounded', bounds=(phi_0 / 2, 2 * phi_0),
-                                        args=(p_orb, ecosw, esinw, cosi, timings_tau, timings_err))
+    res_b = scop.minimize_scalar(objective_phi_0, method='bounded', bounds=(phi_0 / 2, 2 * phi_0),
+                                        args=(p_orb, ecosw, esinw, cosi, timings_tau, timings_err, f_max))
     phi_0 = res_b.x
     # fit globally for: cosi, r_ratio and sb_ratio
-    args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err)
+    args = (p_orb, ecosw, esinw, phi_0, timings_tau, depths, timings_err, depths_err, f_max)
     bounds = ((0, 0.7), (-3, 3), (-3, 3))
-    result = optimize.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = scop.shgo(objective_incl_plus, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     cosi, log_rr, log_sb = result.x
     # conversion
@@ -4013,7 +4028,7 @@ def eclipse_parameters(p_orb, timings_tau, depths, timings_err, depths_err, verb
     return ecosw, esinw, cosi, phi_0, log_rr, log_sb, e, w, i, r_sum, r_rat, sb_rat
 
 
-def eclipse_parameters_global(p_orb, timings_tau, depths, timings_err, depths_err, verbose=False):
+def eclipse_parameters_global(p_orb, timings_tau, depths, timings_err, depths_err, f_max=0, verbose=False):
     """Determine all eclipse parameters using an iterative procedure
     with exact formulae and a global minimiser
 
@@ -4034,6 +4049,9 @@ def eclipse_parameters_global(p_orb, timings_tau, depths, timings_err, depths_er
         t_b_1_1_err, t_b_1_2_err, t_b_2_1_err, t_b_2_2_err
     depths_err: numpy.ndarray[float]
         Error estimates for the depths
+    f_max: float
+        Maximum frequency to use when computing the likelihood
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -4065,10 +4083,10 @@ def eclipse_parameters_global(p_orb, timings_tau, depths, timings_err, depths_er
         Surface brightness ratio sb_2/sb_1
     """
     # fit globally for: ecosw, esinw, cosi, phi_0, log_rr, log_sb
-    args = (p_orb, timings_tau, depths, timings_err, depths_err)
+    args = (p_orb, timings_tau, depths, timings_err, depths_err, f_max)
     bounds = ((-1, 1), (-1, 1), (0, 0.7), (0, 0.9), (-3, 3), (-3, 3))
     # SLSQP is actually what it defaults to (and is more consistent than L-BFGS-B)
-    result = optimize.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
+    result = scop.shgo(objective_ecl_param, args=args, bounds=bounds, minimizer_kwargs={'method': 'SLSQP'},
                               options={'minimize_every_iter': True})
     ecosw, esinw, cosi, phi_0, log_rr, log_sb = result.x
     e, w, i, r_sum, r_rat, sb_rat = ut.convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb)
@@ -4190,7 +4208,7 @@ def formal_uncertainties(e, w, i, p_orb, t_1, t_2, tau_1_1, tau_1_2, tau_2_1, ta
 
 
 def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timings, depths, p_err, timings_err,
-                        depths_err, p_t_corr, verbose=False):
+                        depths_err, p_t_corr, f_max=0, verbose=False):
     """Estimate errors using importance sampling and
     the highest density interval (HDI)
 
@@ -4227,6 +4245,9 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
         Error estimates for the depths
     p_t_corr: float
         Correlation between orbital period and t_zero/t_1/t_2
+    f_max: float
+        Maximum frequency of sinusoids to search
+        Set to zero to automatically use Nyquist frequency
     verbose: bool
         If set to True, this function will print some information
 
@@ -4271,10 +4292,10 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     normal_t_2 = mvn[:, 1]
     normal_p = mvn[:, 2]
     # the edges cannot surpass the midpoints so use truncnorm
-    normal_t_1_1 = stats.truncnorm.rvs(-9, (normal_t_1 - t_1_1) / t_1_1_err, loc=t_1_1, scale=t_1_1_err, size=n_gen)
-    normal_t_1_2 = stats.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, 9, loc=t_1_2, scale=t_1_2_err, size=n_gen)
-    normal_t_2_1 = stats.truncnorm.rvs(-9, (normal_t_2 - t_2_1) / t_2_1_err, loc=t_2_1, scale=t_2_1_err, size=n_gen)
-    normal_t_2_2 = stats.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, 9, loc=t_2_2, scale=t_2_2_err, size=n_gen)
+    normal_t_1_1 = scst.truncnorm.rvs(-9, (normal_t_1 - t_1_1) / t_1_1_err, loc=t_1_1, scale=t_1_1_err, size=n_gen)
+    normal_t_1_2 = scst.truncnorm.rvs((normal_t_1 - t_1_2) / t_1_2_err, 9, loc=t_1_2, scale=t_1_2_err, size=n_gen)
+    normal_t_2_1 = scst.truncnorm.rvs(-9, (normal_t_2 - t_2_1) / t_2_1_err, loc=t_2_1, scale=t_2_1_err, size=n_gen)
+    normal_t_2_2 = scst.truncnorm.rvs((normal_t_2 - t_2_2) / t_2_2_err, 9, loc=t_2_2, scale=t_2_2_err, size=n_gen)
     # if we have wide eclipses, they possibly overlap, fix by putting point in the middle
     overlap_1_2 = (normal_t_1_2 > normal_t_2_1)
     if np.any(overlap_1_2):
@@ -4287,16 +4308,16 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
         normal_t_1_1[overlap_2_1] = middle - p_orb
         normal_t_2_2[overlap_2_1] = middle
     # the bottom points are truncated at the edge points
-    normal_t_b_1_1 = stats.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_b_1_1_err,
+    normal_t_b_1_1 = scst.truncnorm.rvs((normal_t_1_1 - t_b_1_1) / t_b_1_1_err,
                                             (normal_t_1_2 - t_b_1_1) / t_b_1_1_err,
                                             loc=t_b_1_1, scale=t_b_1_1_err, size=n_gen)
-    normal_t_b_1_2 = stats.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_b_1_2_err,
+    normal_t_b_1_2 = scst.truncnorm.rvs((normal_t_1_1 - t_b_1_2) / t_b_1_2_err,
                                             (normal_t_1_2 - t_b_1_2) / t_b_1_2_err,
                                             loc=t_b_1_2, scale=t_b_1_2_err, size=n_gen)
-    normal_t_b_2_1 = stats.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_b_2_1_err,
+    normal_t_b_2_1 = scst.truncnorm.rvs((normal_t_2_1 - t_b_2_1) / t_b_2_1_err,
                                             (normal_t_2_2 - t_b_2_1) / t_b_2_1_err,
                                             loc=t_b_2_1, scale=t_b_2_1_err, size=n_gen)
-    normal_t_b_2_2 = stats.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_b_2_2_err,
+    normal_t_b_2_2 = scst.truncnorm.rvs((normal_t_2_1 - t_b_2_2) / t_b_2_2_err,
                                             (normal_t_2_2 - t_b_2_2) / t_b_2_2_err,
                                             loc=t_b_2_2, scale=t_b_2_2_err, size=n_gen)
     # likely to overlap, fixed by putting them in the middle (this is more physical than truncating in the middle)
@@ -4320,8 +4341,8 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
     normal_tau_b_2_1 = normal_t_2 - normal_t_b_2_1
     normal_tau_b_2_2 = normal_t_b_2_2 - normal_t_2
     # depths are truncated at zero and upper limit of five sigma
-    normal_d_1 = stats.truncnorm.rvs((0 - depth_1) / depth_1_err, 5, loc=depth_1, scale=depth_1_err, size=n_gen)
-    normal_d_2 = stats.truncnorm.rvs((0 - depth_2) / depth_2_err, 5, loc=depth_2, scale=depth_2_err, size=n_gen)
+    normal_d_1 = scst.truncnorm.rvs((0 - depth_1) / depth_1_err, 5, loc=depth_1, scale=depth_1_err, size=n_gen)
+    normal_d_2 = scst.truncnorm.rvs((0 - depth_2) / depth_2_err, 5, loc=depth_2, scale=depth_2_err, size=n_gen)
     # determine the output distributions
     ecosw_vals = np.zeros(n_gen)
     esinw_vals = np.zeros(n_gen)
@@ -4345,7 +4366,7 @@ def error_estimates_hdi(ecosw, esinw, cosi, phi_0, log_rr, log_sb, p_orb, timing
             i_delete.append(k)
             continue
         depths_k = np.array([normal_d_1[k], normal_d_2[k]])
-        out = eclipse_parameters(normal_p[k], timings_tau_dist, depths_k, timings_err, depths_err, verbose=False)
+        out = eclipse_parameters(normal_p[k], timings_tau_dist, depths_k, timings_err, depths_err, f_max=f_max, verbose=False)
         ecosw_vals[k] = out[0]
         esinw_vals[k] = out[1]
         cosi_vals[k] = out[2]
