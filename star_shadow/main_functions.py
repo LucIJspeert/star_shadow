@@ -2168,24 +2168,34 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
         Fitter is much faster and still accurate
     data_id: int, str
         User defined identification for the dataset used
+    enforce_settings: bool
+        Whether to use non-default values for the six optional parameters below
+        even when going beyond the frequencies stage.
+        Only recommended for experienced users
     sn_thr: float
         Threshold for signal-to-noise ratio for a signal to be accepted as signficant
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     sn_thr_punish_gap: bool
         Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
         Only relevant if sn_thr == -1
         This assumes the time column in the light curve is measured in days
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     bic_thr: float
         Threshold for reduction in BIC for a signal to be accepted as significant
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     f_max: float
         Maximum allowed frequency at which signals are extracted
         Set to zero to automatically use Nyquist frequency
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     add_SNR_stop_crit: bool
         If set to True, the signal-to-noise ratio is used as a second stopping criterion
         on top of the demanded decrease in BIC.
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     fit_each_step:
         If set to True, a non-linear least-squares fit of all extracted sinusoids in groups
         is performed after each extracted frequency.
         While this increases the quality of the extracted signals, it drastically slows down the code.
+        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
@@ -2219,6 +2229,31 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
     if i_sectors is None:
         i_sectors = np.array([[0, len(times)]])  # no sector information
     i_half_s = i_sectors  # in this case no differentiation between half or full sectors
+    # Check if binary analysis is requested while any of the frequency analysis
+    # settings are altered from the default settings. These optional parameters
+    # should only be used when pre-whitening a light curve for non-binary
+    # purposes and when overfitting the light curve is problematic, for instance
+    # when one aims to use the extracted frequencies for asteroseismic modelling.
+    # The default settings are strongly recommended for the analysis of
+    # eclipsing binaries, which is enforced here, unless the user really demands
+    # to use the optional parameters.
+    if (stage not in ['frequencies', 'freq', 'f']) and (not enforce_settings) :
+        # Check if non-default settings were requested and write a warning if so
+        if (sn_thr != -1) or sn_thr_punish_gap=False or (bic_thr != 2) or (f_max != 0) or (add_SNR_stop_crit != False) or (fit_each_step != False) :
+            print("WARNING : USER-REQUESTED SETTINGS ARE POTENTIALLY UNSOUND!")
+            print("The frequency analysis settings reverted to their defaults: ")
+            print("sn_thr = -1  ;  meaning the SNR threshold is computed using the equation of Baran & Koen (2021)")
+            print("sn_thr_punish_gap = False")
+            print("bic_thr = 2")
+            print("f_max = 0  ;  meaning the upper limit on frequency is set by the Nyquist frequency")
+            print("add_SNR_stop_crit = False")
+            print("fit_each_step = False")
+            print()
+            print("When analysing a (potential) eclipsing binary signal, it is strongly recommended to use the default settings for the frequency analysis.")
+            print("Non-default frequency analysis settings should only be used when one only uses STAR SHADOW's pre-whitening procedures and not its binary analysis.")
+            print("If you only , set stage='frequencies'.")
+            print("If you really want to use the non-default settings in the binary analysis, set enforce_settings = True".)
+            return None
     # do the analysis
     analyse_light_curve(times, signal, signal_err, p_orb, i_half_s, target_id, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
                         save_dir, add_SNR_stop_crit=add_SNR_stop_crit, fit_each_step=fit_each_step, stage=stage,
