@@ -18,7 +18,7 @@ Code written by: Luc IJspeert
 
 import numpy as np
 import numba as nb
-import scipy.optimize as optimize
+import scipy.optimize as scop
 
 try:
     import ellc  # optional functionality
@@ -77,7 +77,7 @@ def dsin_dx(two_pi_t, f, a, ph, d='f', p_orb=0):
 
 # @nb.njit(cache=True)
 def objective_sinusoids(params, times, signal, i_sectors, f_max=0):
-    """The objective function to give to scipy.optimize.minimize for a sum of sine waves.
+    """The objective function to give to scipy.scop.minimize for a sum of sine waves.
 
     Parameters
     ----------
@@ -126,7 +126,7 @@ def objective_sinusoids(params, times, signal, i_sectors, f_max=0):
 
 @nb.njit(cache=True)
 def jacobian_sinusoids(params, times, signal, i_sectors, f_max=0.):
-    """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves.
+    """The jacobian function to give to scipy.scop.minimize for a sum of sine waves.
 
     Parameters
     ----------
@@ -264,7 +264,7 @@ def fit_multi_sinusoid(times, signal, const, slope, f_n, a_n, ph_n, i_sectors, f
     par_bounds = par_bounds + [(f_low, f_high) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     arguments = (times, signal, i_sectors, f_max)
-    result = optimize.minimize(objective_sinusoids, jac=jacobian_sinusoids, x0=par_init, args=arguments,
+    result = scop.minimize(objective_sinusoids, jac=jacobian_sinusoids, x0=par_init, args=arguments,
                                method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     # separate results
     res_const = result.x[0:n_sect]
@@ -362,7 +362,7 @@ def fit_multi_sinusoid_per_group(times, signal, const, slope, f_n, a_n, ph_n, i_
 
 # @nb.njit(cache=True)
 def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors, f_max=0):
-    """The objective function to give to scipy.optimize.minimize for a sum of sine waves
+    """The objective function to give to scipy.scop.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
 
     Parameters
@@ -426,7 +426,7 @@ def objective_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors, 
 
 @nb.njit(cache=True)
 def jacobian_sinusoids_harmonics(params, times, signal, harmonic_n, i_sectors):
-    """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves
+    """The jacobian function to give to scipy.scop.minimize for a sum of sine waves
     plus a set of harmonic frequencies.
 
     Parameters
@@ -584,7 +584,7 @@ def fit_multi_sinusoid_harmonics(times, signal, p_orb, const, slope, f_n, a_n, p
     par_bounds = par_bounds + [(0, None) for _ in range(n_sin)] + [(None, None) for _ in range(n_sin)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, signal, harmonic_n, i_sectors, f_max)
-    result = optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
+    result = scop.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
                                   x0=par_init, args=arguments, method='L-BFGS-B', bounds=par_bounds,
                                   options={'maxiter': 10**4 * len(par_init)})
     # separate results
@@ -691,7 +691,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
     par_bounds = [(0, None)] + [(None, None) for _ in range(2 * n_sect)]
     par_bounds = par_bounds + [(0, None) for _ in range(n_harm)] + [(None, None) for _ in range(n_harm)]
     arguments = (times, resid, harmonic_n, i_sectors)
-    result = optimize.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
+    result = scop.minimize(objective_sinusoids_harmonics, jac=jacobian_sinusoids_harmonics,
                                x0=par_init,  args=arguments, method='L-BFGS-B', bounds=par_bounds,
                                options={'maxiter': 10**4 * len(par_init)})
     # separate results
@@ -732,7 +732,7 @@ def fit_multi_sinusoid_harmonics_per_group(times, signal, p_orb, const, slope, f
 
 @nb.njit(cache=True)
 def objective_third_light(params, times, signal, p_orb, a_h, ph_h, harmonic_n, i_sectors, f_max=0):
-    """The objective function to give to scipy.optimize.minimize for a sum of sine waves
+    """The objective function to give to scipy.scop.minimize for a sum of sine waves
     plus a set of harmonic frequencies and the effect of third light.
 
     Parameters
@@ -859,7 +859,7 @@ def fit_minimum_third_light(times, signal, p_orb, const, slope, f_n, a_n, ph_n, 
     par_bounds = [(0, 1) if (i < n_sect) else (1, None) for i in range(n_sect + 1)]
     arguments = (times, signal, p_orb, a_n[harmonics], ph_n[harmonics], harmonic_n, i_sectors, f_max)
     # do the fit
-    result = optimize.minimize(objective_third_light, x0=par_init, args=arguments, method='L-BFGS-B',
+    result = scop.minimize(objective_third_light, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxfev': 10**4 * len(par_init)})
     # separate results
     res_light_3 = result.x[:n_sect]
@@ -1119,7 +1119,7 @@ def fit_eclipse_empirical(times, signal, p_orb, timings, timings_err, i_sectors,
                   (0, 3 * (t_b_1_1_err + t_b_1_2_err)), (0, 3 * (t_b_2_1_err + t_b_2_2_err)),
                   (d_1 - 3 * d_1_err, 2 * d_1), (d_2 - 3 * d_2_err, 2 * d_2), h_minmax, h_minmax)
     arguments = (times, ecl_signal, p_orb)
-    result = optimize.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='L-BFGS-B',
+    result = scop.minimize(objective_empirical_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     mid_1, mid_2, dur_1, dur_2, dur_b_1, dur_b_2, d_1, d_2, h_1, h_2 = result.x
     # compute the times of eclipse contact and tangency
@@ -1300,7 +1300,7 @@ def fit_eclipse_empirical_sinusoids(times, signal, p_orb, timings, cubic_pars, c
         par_bounds = par_bounds + [(f_low, None) for _ in range(n_gr)]
         par_bounds = par_bounds + [(0, None) for _ in range(n_gr)] + [(None, None) for _ in range(n_gr)]
         arguments = (times, resid, p_orb, i_sectors)
-        result = optimize.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='L-BFGS-B',
+        result = scop.minimize(objective_empirical_sinusoids_lc, x0=par_init, args=arguments, method='L-BFGS-B',
                                       bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
@@ -1501,9 +1501,9 @@ def fit_eclipse_physical(times, signal, p_orb, t_zero, par_init, par_err, i_sect
                    min(max(log_sb + min(3 * log_sb_err, 1), -1), 3)), (-1, 1))
     arguments = (times, ecl_signal, p_orb, t_zero, f_max)
     # do a local fit and then a global fit within bounds to compare
-    result_a = optimize.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+    result_a = scop.minimize(objective_physical_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                     bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
-    result_b = optimize.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
+    result_b = scop.shgo(objective_physical_lc, args=arguments, bounds=par_bounds,
                                 minimizer_kwargs={'method': 'SLSQP'}, options={'minimize_every_iter': True})
     # compare objective function values
     model_ecl = eclipse_physical_lc(times, p_orb, t_zero, *ut.convert_to_phys_space(*result_a.x[:6]))
@@ -1682,7 +1682,7 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
     par_init = (f_c, f_s, i, r_sum, r_rat, sb_rat)  # no offset
     par_bounds = ((-1, 1), (-1, 1), (0, np.pi / 2), (0, 1), (0.001, 1000), (0.001, 1000))
     arguments = (times, ecl_signal, p_orb, f_max)
-    result = optimize.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='Nelder-Mead',
+    result = scop.minimize(objective_ellc_lc, x0=par_init, args=arguments, method='Nelder-Mead',
                                   bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
     par_out = result.x
     if verbose:
@@ -1697,7 +1697,7 @@ def fit_ellc_lc(times, signal, p_orb, t_zero, const, slope, par_init, i_sectors,
 
 @nb.njit(cache=True)
 def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max=0.):
-    """The objective function to give to scipy.optimize.minimize
+    """The objective function to give to scipy.scop.minimize
     for an eclipse model plus a sum of sine waves.
 
     Parameters
@@ -1756,9 +1756,9 @@ def objective_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors,
     return -ln_likelihood
 
 
-# @nb.njit(cache=True)  # not possible due to optimize.approx_fprime
+# @nb.njit(cache=True)  # not possible due to scop.approx_fprime
 def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max):
-    """The jacobian function to give to scipy.optimize.minimize for a sum of sine waves,
+    """The jacobian function to give to scipy.scop.minimize for a sum of sine waves,
     accompanying an eclipse model (no derivatives for the latter).
 
     Parameters
@@ -1820,7 +1820,7 @@ def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, 
     epsilon = 1.4901161193847656e-08
     args = (times, resid_sin, p_orb, t_zero, f_max)
     params_ecl = np.append(params_ecl, [0])  # account for the offset parameter
-    jac_ecl = optimize.approx_fprime(params_ecl, objective_physical_lc, epsilon, *args)
+    jac_ecl = scop.approx_fprime(params_ecl, objective_physical_lc, epsilon, *args)
     jac_ecl = jac_ecl[:-1]
     jac = np.append(jac_ecl, jac_sin)
     return jac
@@ -1828,7 +1828,7 @@ def jacobian_eclipse_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, 
 
 # @nb.njit(cache=True)  # will not work due to ellc
 def objective_ellc_sinusoids(params, times, signal, p_orb, t_zero, i_sectors, f_max=0.):
-    """The objective function to give to scipy.optimize.minimize
+    """The objective function to give to scipy.scop.minimize
     for an ellc model plus a sum of sine waves.
 
     Parameters
@@ -1987,7 +1987,7 @@ def fit_eclipse_physical_sinusoid(times, signal, p_orb, t_zero, ecl_par, const, 
             obj_fun = objective_ellc_sinusoids
         else:
             obj_fun = objective_eclipse_sinusoids
-        result = optimize.minimize(obj_fun, jac=jacobian_eclipse_sinusoids, x0=par_init, args=arguments,
+        result = scop.minimize(obj_fun, jac=jacobian_eclipse_sinusoids, x0=par_init, args=arguments,
                                       method='L-BFGS-B', bounds=par_bounds, options={'maxiter': 10**4 * len(par_init)})
         # separate results
         n_sin_g = len(res_freqs[group])
