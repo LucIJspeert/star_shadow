@@ -2248,13 +2248,13 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
                   "f_max = 0  ;  meaning the upper limit on frequency is set by the Nyquist frequency \n" +
                   "add_SNR_stop_crit = False \n" +
                   "fit_each_step = False \n" +
-                  "\n \n" +
+                  "\n" +
                   "When analysing a (potential) eclipsing binary signal, it is strongly recommended to use the default settings for the frequency analysis. \n" +
                   "Non-default frequency analysis settings should only be used when one only uses STAR SHADOW's pre-whitening procedures and not its binary analysis. \n" +
                   "If you only , set stage='frequencies'. \n" +
                   "If you really want to use the non-default settings in the binary analysis, set enforce_settings = True. \n" +
                   "\n" +
-                  "\n"
+                  "\n")
             return None
     # do the analysis
     analyse_light_curve(times, signal, signal_err, p_orb, i_half_s, target_id, sn_thr, sn_thr_punish_gap, bic_thr, f_max,
