@@ -2174,28 +2174,29 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
         Only recommended for experienced users
     sn_thr: float
         Threshold for signal-to-noise ratio for a signal to be accepted as signficant
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     sn_thr_punish_gap: bool
         Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
         Only relevant if sn_thr == -1
         This assumes the time column in the light curve is measured in days
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     bic_thr: float
         Threshold for reduction in BIC for a signal to be accepted as significant
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     f_max: float
         Maximum allowed frequency at which signals are extracted
         Set to zero to automatically use Nyquist frequency
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     add_SNR_stop_crit: bool
         If set to True, the signal-to-noise ratio is used as a second stopping criterion
         on top of the demanded decrease in BIC.
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        Can only be used if stage=='frequencies', unless if enforce_settings==True
     fit_each_step:
-        If set to True, a non-linear least-squares fit of all extracted sinusoids in groups
-        is performed after each extracted frequency.
-        While this increases the quality of the extracted signals, it drastically slows down the code.
-        Ignored if stage goes beyond the frequencies step, unless if enforce_settings is turned on
+        If set to True, a non-linear least-squares fit of all extracted
+        sinusoids in groups is performed after each extracted frequency.
+        While this increases the quality of the extracted signals, it
+        drastically slows down the code.
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
