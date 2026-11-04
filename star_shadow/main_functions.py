@@ -2188,11 +2188,11 @@ def analyse_lc_from_file(file_name, p_orb=0, i_sectors=None, stage='all', method
         Set to zero to automatically use Nyquist frequency
         Can only be used if stage=='frequencies', unless enforce_settings==True
     add_SNR_stop_crit: bool
-        If set to True, the signal-to-noise ratio is used as a second stopping criterion
+        If True, the signal-to-noise ratio is used as a second stopping criterion
         on top of the demanded decrease in BIC.
         Can only be used if stage=='frequencies', unless if enforce_settings==True
     fit_each_step:
-        If set to True, a non-linear least-squares fit of all extracted
+        If True, a non-linear least-squares fit of all extracted
         sinusoids in groups is performed after each extracted frequency.
         While this increases the quality of the extracted signals, it
         drastically slows down the code.
@@ -2289,24 +2289,35 @@ def analyse_lc_from_tic(tic, all_files, p_orb=0, stage='all', method='fitter', d
         Fitter is much faster and still accurate
     data_id: int, str
         User defined identification for the dataset used
+    enforce_settings: bool
+        Whether to use non-default values for the six optional parameters below
+        even when going beyond the frequencies stage.
+        Only recommended for experienced users
     sn_thr: float
         Threshold for signal-to-noise ratio for a signal to be accepted as signficant
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     sn_thr_punish_gap: bool
-        Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
-        Only relevant if sn_thr == -1
+        Whether to increase the SNR threshold by 0.25 if there is at least one
+        sector-long gap. Only relevant if sn_thr == -1.
         This assumes the time column in the light curve is measured in days
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     bic_thr: float
         Threshold for reduction in BIC for a signal to be accepted as significant
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     f_max: float
         Maximum allowed frequency at which signals are extracted
         Set to zero to automatically use Nyquist frequency
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     add_SNR_stop_crit: bool
-        If set to True, the signal-to-noise ratio is used as a second stopping criterion
+        If True, the signal-to-noise ratio is used as a second stopping criterion
         on top of the demanded decrease in BIC.
+        Can only be used if stage=='frequencies', unless if enforce_settings==True
     fit_each_step:
-        If set to True, a non-linear least-squares fit of all extracted sinusoids in groups
-        is performed after each extracted frequency.
-        While this increases the quality of the extracted signals, it drastically slows down the code.
+        If True, a non-linear least-squares fit of all extracted
+        sinusoids in groups is performed after each extracted frequency.
+        While this increases the quality of the extracted signals, it
+        drastically slows down the code.
+        Can only be used if stage=='frequencies', unless enforce_settings==True
     save_dir: str
         Path to a directory for saving the results. Also used to load
         previous analysis results.
