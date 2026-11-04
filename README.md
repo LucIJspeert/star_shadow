@@ -11,19 +11,20 @@
 
 ## Table of contents
 
-1. [What is STAR SHADOW?](#WhatisSTARSHADOW?)
-    1. [Reference material](#ReferenceMaterial)
-2. [Getting started](#GettingStarted)
-    1. [Installation](#Installation)
-    2. [Example use](#ExampleUse)
-    3. [Explanation of output](#Explanationofoutput)
-    4. [Diagnostic plots](#Diagnosticplots)
-    5. [Alternate pre-whitening settings](#Alternateprewhiteningsettings)
-3. [Bugs and Issues](#BugsandIssues)
-4. [Contact](#Contact)
+1. [What is STAR SHADOW?](#what-is-star-shadow)
+    1. [Reference material](#reference-material)
+2. [Getting started](#getting-started)
+    1. [Installation](#installation)
+    2. [Example use](#example-use)
+    3. [Explanation of output](#explanation-of-output)
+    4. [Diagnostic plots](#diagnostic-plots)
+    5. [Alternate pre-whitening settings](#alternate-pre-whitening-settings)
+3. [Bugs and Issues](#bugs-and-issues)
+4. [Contact](#contact)
 
 
-## What is STAR SHADOW? <a name="WhatisSTARSHADOW"></a>
+## What is STAR SHADOW?
+
 STAR SHADOW is a Python code that is aimed at the automatic analysis of space based light curves of eclipsing binaries
 and provide a measurement of eccentricity, among other parameters. It provides a recipe to measure timings of eclipses
 using the time derivatives of the light curves, using a model of orbital harmonics obtained from an initial iterative
@@ -37,14 +38,14 @@ for more information.
 ![Example of an analysed EB light curve](star_shadow/data/images/Star_Shadow_dark.png)
 
 
-### Reference material <a name="ReferenceMaterial"></a>
+### Reference material
 
 This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
-## Getting started <a name="GettingStarted"></a>
+## Getting started
 
 
-### Installation <a name="Installation"></a>
+### Installation
 
 The easiest way to install STAR SHADOW is to use pip:
 
@@ -86,7 +87,7 @@ script run_first_use.py.
 
 Note: there is a known incompatibility with Windows and the `np.int_` types used for Numba. Changing these to `np.int64` should resolve this issue on Windows.
 
-### Example use <a name="ExampleUse"></a>
+### Example use
 
 Since the main feature of STAR SHADOW is its fully automated operation, taking advantage of its functionality is
 as simple as running one function:
@@ -119,7 +120,7 @@ Either function can be used for a set of light curves by using:
 ```
 
 
-### Explanation of output <a name="Explanationofoutput"></a>
+### Explanation of output
 
 Results are saved mainly in hdf5 files, in addition to csv and sometimes nc4 files. A plain text log file keeps track
 of the start and end time of the analysis and can contain important messages about the operation of the algorithm,
@@ -137,7 +138,7 @@ with the functions of STAR SHADOW). The .hdf5 files can also be translated into 
 `convert_hdf5_to_ascii`. The .nc4 files (a wrapper for hdf5) contain pymc3 sampling chains.
 
 
-### Diagnostic plots <a name="Diagnosticplots"></a>
+### Diagnostic plots
 
 ![Example of an analysed EB light curve](star_shadow/data/sim_042_lc_readme_img.png?raw=true)
 
@@ -151,7 +152,7 @@ saves and/or shows most of the available plots for one target. Unfortunately mat
 the main thread, so when processing a whole set of light curves in parallel, this function will have to be run
 sequentially on the results afterwards (hence the name).
 
-### Alternate pre-whitening settings <a name="Alternateprewhiteningsettings"></a>
+### Alternate pre-whitening settings
 
 Thanks to its rapid frequency analysis, STAR SHADOW is also used to perform pre-whitening in asteroseismic studies
 (e.g. [Jannsen et al. (2025)](https://ui.adsabs.harvard.edu/abs/2025A%26A...694A.185J/abstract),
@@ -168,7 +169,7 @@ However, STAR SHADOW usually extracts many more frequencies than desirable for a
 Changing these settings can have a detrimental effect on the analysis of eclipses, which generally benefits from as many sinusoids being extracted from the light curve as possible. Consequently, these features should only be used when one only uses STAR SHADOW for its pre-whitening procedures. By default, STAR SHADOW will refuse to perform a binary analysis when these settings are changed from their defaults, so one can only use non-default values if `stage` equals `frequencies`, `freq`, or `f`. An experienced user can force STAR SHADOW to use the non-default settings on an ecplising binary analysis by settting `enforce_settings = True`.
 
 
-## Bugs and Issues <a name="BugsandIssues"></a>
+## Bugs and Issues
 
 Despite all the testing, I am certain that there are still bugs in this code, or will be created in future versions.
 
@@ -181,7 +182,7 @@ If you are (going to be) working on new or improved features, I would love to he
 implemented in the source code.
 
 
-## Contact <a name="Contact"></a>
+## Contact
 
 For questions and suggestions, please open an issue.
 
