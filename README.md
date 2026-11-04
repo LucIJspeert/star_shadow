@@ -12,22 +12,22 @@
 ## Table of contents
 
 1. [What is STAR SHADOW?](#WhatisSTARSHADOW?)
-2. [Reference material](#ReferenceMaterial)
-3. [Getting started](#GettingStarted)
+    1. [Reference material](#ReferenceMaterial)
+2. [Getting started](#GettingStarted)
     1. [Installation](#Installation)
     2. [Example use](#ExampleUse)
     3. [Explanation of output](#Explanationofoutput)
     4. [Diagnostic plots](#Diagnosticplots)
     5. [Alternate pre-whitening settings](#Alternateprewhiteningsettings)
-4. [Bugs and Issues](#BugsandIssues)
-5. [Contact](#Contact)
+3. [Bugs and Issues](#BugsandIssues)
+4. [Contact](#Contact)
 
 
 ## What is STAR SHADOW? <a name="WhatisSTARSHADOW"></a>
 STAR SHADOW is a Python code that is aimed at the automatic analysis of space based light curves of eclipsing binaries
 and provide a measurement of eccentricity, among other parameters. It provides a recipe to measure timings of eclipses
 using the time derivatives of the light curves, using a model of orbital harmonics obtained from an initial iterative
-prewhitening of sinusoids. Since the algorithm extracts the harmonics from the rest of the sinusoidal variability
+pre-whitening of sinusoids. Since the algorithm extracts the harmonics from the rest of the sinusoidal variability
 eclipse timings can be measured even in the presence of other (astrophysical) signals. The aim is to determine
 the orbital eccentricity automatically from the light curve along with information about the other variability present
 in the light curve. The output includes, but is not limited to, a sinusoid plus linear model of
@@ -39,7 +39,7 @@ for more information.
 
 ### Reference material <a name="ReferenceMaterial"></a>
 
-* This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
+This algorithm has been documented, tested and applied in the publication: [Automated eccentricity measurement from raw eclipsing binary light curves with intrinsic variability](https://ui.adsabs.harvard.edu/abs/2024arXiv240206084I/abstract)
 
 ## Getting started <a name="GettingStarted"></a>
 
