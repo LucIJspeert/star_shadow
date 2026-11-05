@@ -557,7 +557,7 @@ def scargle(times, signal, f_max, f0=0, fn=0, df=0, norm='amplitude'):
         s1 = np.sqrt(4 / n) * np.sqrt(s1)
     elif norm == 'density':  # power density
         s1 = (4 / n) * s1 * t_tot
-    else: # unnormalised (PSD?)
+    else:  # unnormalised (PSD?)
         s1 = s1
     return f1, s1
 

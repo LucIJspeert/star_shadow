@@ -25,8 +25,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))  # absolute dir the scri
 plt.style.use(os.path.join(script_dir, 'data', 'mpl_stylesheet.dat'))
 
 
-def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_sectors, annotate=True,
-                          save_file=None, show=True):
+def plot_pd_single_output(times, signal, signal_err, p_orb, p_err, const, slope, f_n, a_n, ph_n, i_sectors,
+                          annotate=True, save_file=None, show=True):
     """Plot the periodogram with one output of the analysis recipe.
 
     Parameters
@@ -35,6 +35,8 @@ def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, p
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     p_orb: float
         Orbital period
     p_err: float
@@ -77,7 +79,7 @@ def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, p
     freq_range = np.ptp(freqs)
     freqs_r, ampls_r = tsf.astropy_scargle(times, signal - model)
     # get error values
-    errors = tsf.formal_uncertainties(times, signal - model, a_n, i_sectors)
+    errors = tsf.formal_uncertainties(times, signal - model, signal_err, a_n, i_sectors)
     # max plot value
     y_max = max(np.max(ampls), np.max(a_n))
     # plot
@@ -114,7 +116,8 @@ def plot_pd_single_output(times, signal, p_orb, p_err, const, slope, f_n, a_n, p
     return
 
 
-def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors, save_file=None, show=True):
+def plot_pd_full_output(times, signal, signal_err, models, p_orb_i, p_err_i, f_n_i, a_n_i, i_sectors, save_file=None,
+                        show=True):
     """Plot the periodogram with the full output of the analysis recipe.
 
     Parameters
@@ -123,6 +126,8 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
         Timestamps of the time series
     signal: numpy.ndarray[float]
         Measurement values of the time series
+    signal_err: numpy.ndarray[float]
+        Errors in the measurement values
     models: list[numpy.ndarray[float]]
         List of model signals for different stages of the analysis
     p_orb_i: list[float]
@@ -159,11 +164,11 @@ def plot_pd_full_output(times, signal, models, p_orb_i, p_err_i, f_n_i, a_n_i, i
     freqs_4, ampls_4 = tsf.astropy_scargle(times, signal - models[3] - np.all(models[3] == 0) * np.mean(signal))
     freqs_5, ampls_5 = tsf.astropy_scargle(times, signal - models[4] - np.all(models[4] == 0) * np.mean(signal))
     # get error values
-    err_1 = tsf.formal_uncertainties(times, signal - models[0], a_n_i[0], i_sectors)
-    err_2 = tsf.formal_uncertainties(times, signal - models[1], a_n_i[1], i_sectors)
-    err_3 = tsf.formal_uncertainties(times, signal - models[2], a_n_i[2], i_sectors)
-    err_4 = tsf.formal_uncertainties(times, signal - models[3], a_n_i[3], i_sectors)
-    err_5 = tsf.formal_uncertainties(times, signal - models[4], a_n_i[4], i_sectors)
+    err_1 = tsf.formal_uncertainties(times, signal - models[0], signal_err, a_n_i[0], i_sectors)
+    err_2 = tsf.formal_uncertainties(times, signal - models[1], signal_err, a_n_i[1], i_sectors)
+    err_3 = tsf.formal_uncertainties(times, signal - models[2], signal_err, a_n_i[2], i_sectors)
+    err_4 = tsf.formal_uncertainties(times, signal - models[3], signal_err, a_n_i[3], i_sectors)
+    err_5 = tsf.formal_uncertainties(times, signal - models[4], signal_err, a_n_i[4], i_sectors)
     # max plot value
     if (len(f_n_i[4]) > 0):
         y_max = max(np.max(ampls), np.max(a_n_i[4]))

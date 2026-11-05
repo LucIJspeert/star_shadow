@@ -802,7 +802,7 @@ def find_eclipse_timings(times, signal, p_orb, const, slope, f_n, a_n, ph_n, i_s
     large_dur_diff = (abs(dur_2 - dur_1) / p_orb > 0.2)
     large_asym = (abs((t_2_2 - t_2) - (t_2 - t_2_1)) / p_orb > 0.1)
     bad_sec = sec_shallow & ((large_offset & medium_dur_diff) | (~large_offset & medium_asym)
-                                        | (medium_offset & large_dur_diff) | large_asym)
+                             | (medium_offset & large_dur_diff) | large_asym)
     if depth_insig | depth_snr | dur_insig | dur_diff | bad_sec:
         if depth_insig | depth_snr:
             message = f'One of the eclipses too shallow, depths: {d_1}, {d_2}, err: {depth_1_err}, {depth_2_err}, ' \
