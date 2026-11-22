@@ -10,7 +10,7 @@ Code written by: Luc IJspeert
 
 import inspect
 import numpy as np
-import scipy.stats
+import scipy.stats as scst
 import numba as nb
 import astropy.timeseries as apy
 
