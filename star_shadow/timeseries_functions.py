@@ -1461,7 +1461,7 @@ def calc_likelihood(times=None, signal=None, residuals=None, signal_err=None, f_
     or some approximations in-between.
     """
     # make a dict of the given arguments
-    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err, 'f_max':f_max}
+    kwargs = {'times': times, 'signal': signal, 'residuals': residuals, 'signal_err': signal_err, 'f_max': f_max}
     # check what the chosen function needs
     func_args = list(inspect.signature(func).parameters)
     # make a dict of those
