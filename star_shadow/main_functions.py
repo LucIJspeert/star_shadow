@@ -243,7 +243,7 @@ def optimise_sinusoid(times, signal, signal_err, const, slope, f_n, a_n, ph_n, i
     resid = signal - model_linear - model_sinusoid
     n_param = 2 * len(const) + 3 * len(f_n)
     bic = tsf.calc_bic(resid, n_param)
-    noise_level = np.std(resid)
+    noise_level = ut.std_unb(resid, len(times) - n_param)
     c_err, sl_err, f_n_err, a_n_err, ph_n_err = tsf.formal_uncertainties(times, resid, signal_err, a_n, i_sectors)
     # save the result
     sin_mean = [const, slope, f_n, a_n, ph_n]
