@@ -159,7 +159,7 @@ def remove_insignificant_snr(a_n, noise_at_f, times, sn_thr, sn_thr_punish_gap):
     times: numpy.ndarray[float]
         Time of each datapoint in the light curve
     sn_thr:
-        Inputted signal-to-noise-ratio threshold
+        Input signal-to-noise-ratio threshold
     sn_thr_punish_gap: bool
         Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
         Only relevant if sn_thr == -1
