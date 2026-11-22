@@ -2082,7 +2082,6 @@ def analyse_light_curve(times, signal, signal_err, p_orb, i_sectors, target_id, 
     # time series stats
     t_tot = np.ptp(times)  # total time base of observations
     if f_max <= 0 :
-        # f_max = 1 / (2 * t_tot)
         f_max = 1 / (2 * np.min(np.diff(times)))  # nyquist frequency
     t_mean = np.mean(times)  # mean time of observations
     t_mean_s = np.array([np.mean(times[s[0]:s[1]]) for s in i_sectors])  # mean time per observation sector
