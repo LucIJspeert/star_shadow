@@ -25,14 +25,14 @@ from . import visualisation as vis
 @nb.njit(cache=True)
 def float_to_str(x, dec=2):
     """Convert float to string for Numba up to some decimal place
-    
+
     Parameters
     ----------
     x: float
         Value to convert
     dec: int
         Number of decimals (be careful with large numbers here)
-    
+
     Returns
     -------
     s: str
@@ -48,14 +48,14 @@ def float_to_str(x, dec=2):
 @nb.njit(cache=True)
 def weighted_mean(x, w):
     """Weighted mean since Numba doesn't support numpy.average
-    
+
     Parameters
     ----------
     x: numpy.ndarray[float]
         Values to calculate the mean over
     w: numpy.ndarray[float]
         Weights corresponding to each value
-    
+
     Returns
     -------
     w_mean: float
@@ -122,14 +122,14 @@ def interp_two_points(x, xp1, yp1, xp2, yp2):
 def decimal_figures(x, n_sf):
     """Determine the number of decimal figures to print given a target
     number of significant figures
-    
+
     Parameters
     ----------
     x: float
         Value to determine the number of decimals for
     n_sf: int
         Number of significant figures to compute
-    
+
     Returns
     -------
     decimals: int
@@ -144,21 +144,21 @@ def decimal_figures(x, n_sf):
 
 def bounds_multiplicity_check(bounds, value):
     """Some bounds can have multiple intervals
-    
+
     Parameters
     ----------
     bounds: numpy.ndarray
         One or more sets of bounding values
     value: float
         Value that is bounded (by one of the bounds)
-    
+
     Returns
     -------
     bounds_1: numpy.ndarray[float]
         Bounds that contain the value
     bounds_2: numpy.ndarray[float], None
         Bounds that do not contain the value
-    
+
     Notes
     -----
     If the value is not contained within one of the bounds
@@ -198,27 +198,40 @@ def bounds_multiplicity_check(bounds, value):
 
 
 @nb.njit(cache=True)
-def signal_to_noise_threshold(n_points):
+def signal_to_noise_threshold(times, sn_thr_punish_gap):
     """Determine the signal-to-noise threshold for accepting frequencies
-    based on the number of points
-    
+    based on the number of points and gaps
+
     Parameters
     ----------
-    n_points: int
-        Number of data points in the time series
-    
+    times: np.ndarray[float]
+        Time of each datapoint in the light curve
+    sn_thr_punish_gap: bool
+        Whether to increase the SNR threshold by 0.25 if there is at least one sector-long gap.
+        Only relevant if sn_thr == -1
+
     Returns
     -------
     sn_thr: float
         Signal-to-noise threshold for this data set
-    
+
     Notes
     -----
     Baran & Koen 2021, eq 6.
     (https://ui.adsabs.harvard.edu/abs/2021AcA....71..113B/abstract)
     """
+    n_points = len(times)
     sn_thr = 1.201 * np.sqrt(1.05 * np.log(n_points) + 7.184)
+    # logger.info("before gap check: sn_thr = "+str(sn_thr))
+    # The two commented lines below are the optimal way to implement the increased SNR threshold caused by gaps.
+    #  However, for some reason numba cannot figure out how to use diff, apparently because times is not contiguous which is confusing to me as it is loaded in all at once
+    #  Regardless of the reason, the gap detection is now done in an ugly for-loop below
+    if sn_thr_punish_gap : # if requested, increase SNR threshold if a sector long (at least 25 days) gap appears
+        if np.max(times[1:] - times[:-1]) > 25. :
+            sn_thr += 0.25
+    # logger.info("after gap check: sn_thr = "+str(sn_thr))
     sn_thr = np.round(sn_thr, 2)  # round to two decimals
+    # logger.info("after rounding: sn_thr = "+str(sn_thr))
     return sn_thr
 
 
@@ -226,7 +239,7 @@ def signal_to_noise_threshold(n_points):
 def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
     """Median-normalises flux (counts or otherwise, should be positive) by
     dividing by the median.
-    
+
     Parameters
     ----------
     flux_counts: numpy.ndarray[float]
@@ -238,7 +251,7 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
         wanted, set i_half_s = np.array([[0, len(times)]]).
     flux_counts_err: numpy.ndarray[float], None
         Errors in the flux measurements
-    
+
     Returns
     -------
     flux_norm: numpy.ndarray[float]
@@ -247,7 +260,7 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
         Median flux counts per sector
     flux_err_norm: numpy.ndarray[float]
         Normalised flux errors (zeros if flux_counts_err is None)
-    
+
     Notes
     -----
     The result is positive and varies around one.
@@ -267,19 +280,19 @@ def normalise_counts(flux_counts, i_sectors, flux_counts_err=None):
 def get_tess_sectors(times, bjd_ref=2457000.0):
     """Load the times of the TESS sectors from a file and return a set of
     indices indicating the separate sectors in the time series.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
     bjd_ref: float
         BJD reference date
-        
+
     Returns
     -------
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
-    
+
     Notes
     -----
     Make sure to use the appropriate Baricentric Julian Date (BJD)
@@ -300,14 +313,14 @@ def get_tess_sectors(times, bjd_ref=2457000.0):
 
 def convert_tess_t_sectors(times, t_sectors):
     """Converts from the sector start and end times to the indices in the array.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
     t_sectors: numpy.ndarray[float]
         Pair(s) of times indicating the timespans of each sector
-    
+
     Returns
     -------
     i_sectors: numpy.ndarray[int]
@@ -324,21 +337,21 @@ def convert_tess_t_sectors(times, t_sectors):
 @nb.njit(cache=True)
 def time_zero_points(times, i_sectors):
     """Determines the time reference points to zero the time series
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
         Timestamps of the time series
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
-    
+
     Returns
     -------
     times_fzp: float
         Zero point of the full time series
     times_szp: numpy.ndarray[float]
         Zero point(s) of the time series per observing sector
-    
+
     Notes
     -----
     Mean-center the time array to reduce correlations
@@ -352,12 +365,12 @@ def time_zero_points(times, i_sectors):
 
 def load_tess_data(file_name):
     """Load in the data from a single fits file, TESS specific.
-    
+
     Parameters
     ----------
     file_name: str
         File name (including path) for loading the results.
-    
+
     Returns
     -------
     times: numpy.ndarray[float]
@@ -375,7 +388,7 @@ def load_tess_data(file_name):
         Sector number of the TESS observations
     crowdsap: float
         Light contamination parameter (1-third_light)
-    
+
     Notes
     -----
     The SAP flux is Simple Aperture Photometry, the processed data
@@ -413,7 +426,7 @@ def load_tess_data(file_name):
 
 def load_tess_lc(tic, all_files, apply_flags=True):
     """Load in the data from (potentially) multiple TESS specific fits files.
-    
+
     Parameters
     ----------
     tic: int
@@ -424,7 +437,7 @@ def load_tess_lc(tic, all_files, apply_flags=True):
         This list is searched for files with the correct tic number.
     apply_flags: bool
         Whether to apply the quality flags to the time series data
-        
+
     Returns
     -------
     times: numpy.ndarray[float]
@@ -496,7 +509,7 @@ def load_tess_lc(tic, all_files, apply_flags=True):
 
 def stitch_tess_sectors(times, signal, signal_err, i_sectors):
     """Stitches the different TESS sectors of a light curve together.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -507,7 +520,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
         Errors in the measurement values
     i_sectors: numpy.ndarray[int]
         Pair(s) of indices indicating the TESS observing sectors
-    
+
     Returns
     -------
     times: numpy.ndarray[float]
@@ -522,7 +535,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
         Pair(s) of times indicating the timespans of each half sector
     i_half_s: numpy.ndarray[int]
         Pair(s) of indices indicating the timespans of each half sector
-    
+
     Notes
     -----
     The flux/counts are median-normalised per sector. The median values are returned.
@@ -546,7 +559,7 @@ def stitch_tess_sectors(times, signal, signal_err, i_sectors):
 
 def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
     """Groups frequencies into sets of g_min to g_max for multi-sine fitting
-    
+
     Parameters
     ----------
     a_n: numpy.ndarray[float]
@@ -555,12 +568,12 @@ def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
         Minimum group size
     g_max: int
         Maximum group size (g_max > g_min)
-    
+
     Returns
     -------
     groups: list[numpy.ndarray[int]]
         List of sets of indices indicating the groups
-    
+
     Notes
     -----
     To make the task of fitting more manageable, the free parameters are binned into groups,
@@ -590,7 +603,7 @@ def group_frequencies_for_fit(a_n, g_min=20, g_max=25):
 @nb.njit(cache=True)
 def convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb):
     """Convert eclipse parameters to physical space
-    
+
     Parameters
     ----------
     ecosw: float, numpy.ndarray[float]
@@ -605,7 +618,7 @@ def convert_to_phys_space(ecosw, esinw, cosi, phi_0, log_rr, log_sb):
         Logarithm of the radius ratio r_2/r_1
     log_sb: float, numpy.ndarray[float]
         Logarithm of the surface brightness ratio sb_2/sb_1
-    
+
     Returns
     -------
     e: float, numpy.ndarray[float]
@@ -648,7 +661,7 @@ def convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat):
         Radius ratio r_2/r_1
     sb_rat: float, numpy.ndarray[float]
         Surface brightness ratio sb_2/sb_1
-    
+
     Returns
     -------
     ecosw: float, numpy.ndarray[float]
@@ -676,7 +689,7 @@ def convert_from_phys_space(e, w, i, r_sum, r_rat, sb_rat):
 @nb.njit(cache=True)
 def correct_for_crowdsap(signal, crowdsap, i_sectors):
     """Correct the signal for flux contribution of a third source
-    
+
     Parameters
     ----------
     signal: numpy.ndarray[float]
@@ -688,13 +701,13 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
         wanted, set i_half_s = np.array([[0, len(times)]]).
-    
+
     Returns
     -------
     cor_signal: numpy.ndarray[float]
         Measurement values of the time series corrected for
         contaminating light
-    
+
     Notes
     -----
     Uses the parameter CROWDSAP included with some TESS data.
@@ -713,7 +726,7 @@ def correct_for_crowdsap(signal, crowdsap, i_sectors):
 @nb.njit(cache=True)
 def model_crowdsap(signal, crowdsap, i_sectors):
     """Incorporate flux contribution of a third source into the signal
-    
+
     Parameters
     ----------
     signal: numpy.ndarray[float]
@@ -725,12 +738,12 @@ def model_crowdsap(signal, crowdsap, i_sectors):
         These can indicate the TESS observation sectors, but taking
         half the sectors is recommended. If only a single curve is
         wanted, set i_half_s = np.array([[0, len(times)]]).
-    
+
     Returns
     -------
     model: numpy.ndarray[float]
         Model of the signal incorporating light contamination
-    
+
     Notes
     -----
     Does the opposite as correct_for_crowdsap, to be able to model the effect of
@@ -759,7 +772,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
         Light contamination parameter (1-third_light) listed per sector
     verbose: bool
         If set to True, this function will print some information.
-    
+
     Returns
     -------
     corr: float
@@ -767,7 +780,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
         and crowdsap paramter
     check: bool
         Can be used to decide whether the data needs a manual check
-    
+
     Notes
     -----
     If the CROWDSAP parameter from the TESS data is anti-correlated with the similar
@@ -815,7 +828,7 @@ def check_crowdsap_correlation(min_third_light, i_sectors, crowdsap, verbose=Fal
     else:  # (corr <= -0.7)
         check = True
         s1, s2 = 'a strong', ', indicative that the target might not be the EB'
-    
+
     if verbose:
         print(f'There is {s1} correlation between measured minimum third light and '
               f'CROWDSAP parameter{s2}. Corr={corr:1.3f}')
@@ -894,7 +907,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
         Optional description of the saved results
     data_id: int, str
         Optional identifier for the data set used
-    
+
     Returns
     -------
     None
@@ -903,7 +916,7 @@ def save_parameters_hdf5(file_name, sin_mean=None, sin_err=None, sin_hdi=None, s
     -----
     The file contains the data sets (array-like) and attributes
     to describe the data, in hdf5 format.
-    
+
     Any missing data is filled up with -1, 0 or True
     """
     # check for Nones
@@ -1286,7 +1299,7 @@ def read_parameters_hdf5(file_name, verbose=False, h5py_file_kwargs={}):
         ratios_2 = np.copy(file['ratios_2'])
         ratios_3 = np.copy(file['ratios_3'])
         ratios_4 = np.copy(file['ratios_4'])
-    
+
     sin_mean = [const, slope, f_n, a_n, ph_n]
     sin_err = [c_err, sl_err, f_n_err, a_n_err, ph_n_err]
     sin_hdi = [c_hdi, sl_hdi, f_n_hdi, a_n_hdi, ph_n_hdi]
@@ -1327,16 +1340,16 @@ def read_parameters_hdf5(file_name, verbose=False, h5py_file_kwargs={}):
 
 def convert_hdf5_to_ascii(file_name):
     """Convert a save file in hdf5 format to multiple ascii save files
-    
+
     Parameters
     ----------
     file_name: str
         File name (including path) for saving the results.
-    
+
     Returns
     -------
     None
-    
+
     Notes
     -----
     Only saves text files of certain groups of values when they
@@ -1524,7 +1537,7 @@ def read_results_ecl_indices(file_name):
 
 def save_results_dists(file_name, dists_in, dists_out, data_id='none'):
     """Save the distributions of the determination of orbital elements
-    
+
     Parameters
     ----------
     file_name: str
@@ -1536,7 +1549,7 @@ def save_results_dists(file_name, dists_in, dists_out, data_id='none'):
         Full output distributions for the same parameters as intervals
     data_id: int, str
         Identification for the dataset used
-    
+
     Returns
     -------
     None
@@ -1582,7 +1595,7 @@ def read_results_dists(file_name):
 
 def save_inference_data(file_name, inf_data):
     """Save the inference data object from Arviz/PyMC3
-    
+
         Parameters
     ----------
     file_name: str
@@ -1596,7 +1609,7 @@ def save_inference_data(file_name, inf_data):
     """
     if inf_data is None:
         return None
-    
+
     fn_ext = os.path.splitext(os.path.basename(file_name))[1]
     file_name_mc = file_name.replace(fn_ext, '_dists.nc4')
     inf_data.to_netcdf(file_name_mc)
@@ -1624,7 +1637,7 @@ def read_inference_data(file_name):
 
 def save_summary(target_id, save_dir, data_id='none'):
     """Create a summary file from the results of the analysis
-    
+
     Parameters
     ----------
     target_id: int, str
@@ -1635,11 +1648,11 @@ def save_summary(target_id, save_dir, data_id='none'):
         previous analysis results.
     data_id: int, str
         Identification for the dataset used
-    
+
     Returns
     -------
     None
-    
+
     Notes
     -----
     Meant both as a quick overview of the results and to facilitate
@@ -1865,10 +1878,10 @@ def save_summary(target_id, save_dir, data_id='none'):
     return None
 
 
-def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=None, show=True):
+def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, sn_thr, save_dir=None, show=True):
     """Due to plotting not working under multiprocessing this function is
     made to make plots after running the analysis in parallel.
-    
+
     Parameters
     ----------
     times: numpy.ndarray[float]
@@ -1891,13 +1904,15 @@ def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_di
     load_dir: str
         Path to a directory for loading analysis results.
         Will append <target_id> + _analysis automatically
+    sn_thr: float
+        Threshold for signal-to-noise ratio for a signal to be accepted as signficant
     save_dir: str, None
         Path to a directory for saving the plots.
         Will append <target_id> + _analysis automatically
         Directory is created if it doesn't exist yet
     show: bool
         Whether to show the plots or not.
-    
+
     Returns
     -------
     None
@@ -2120,7 +2135,7 @@ def sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_di
         else:
             file_name = None
         vis.plot_pd_leftover_sinusoids(times, signal, p_orb_5, t_zero_8, const_8, slope_8, f_n_8, a_n_8, ph_n_8,
-                                       passed_b_9, ecl_par_8, i_sectors, save_file=file_name, show=show)
+                                       passed_b_9, ecl_par_8, i_sectors, sn_thr, save_file=file_name, show=show)
     except NameError:
         pass  # some variable wasn't loaded (file did not exist)
     return None
@@ -2166,11 +2181,11 @@ def plot_all_from_file(file_name, i_sectors=None, load_dir=None, save_dir=None, 
         i_sectors = np.array([[0, len(times)]])  # no sector information
     # i_half_s = i_sectors  # in this case no differentiation between half or full sectors
     # do the plotting
-    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, save_dir=save_dir, show=show)
+    sequential_plotting(times, signal, signal_err, i_sectors, target_id, load_dir, sn_thr, save_dir=save_dir, show=show)
     return None
 
 
-def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
+def plot_all_from_tic(tic, all_files, sn_thr, load_dir=None, save_dir=None, show=True):
     """Plot all diagnostic plots of the results for a given light curve file
 
     Parameters
@@ -2181,6 +2196,8 @@ def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
     all_files: list[str]
         List of all the TESS data product '.fits' files. The files
         with the corresponding TIC number are selected.
+    sn_thr: float
+        Threshold for signal-to-noise ratio for a signal to be accepted as signficant
     load_dir: str
         Path to a directory for loading analysis results.
         Will append <tic> + _analysis automatically.
@@ -2205,5 +2222,5 @@ def plot_all_from_tic(tic, all_files, load_dir=None, save_dir=None, show=True):
     lc_processed = stitch_tess_sectors(times, signal, signal_err, i_sectors)
     times, signal, signal_err, sector_medians, t_combined, i_half_s = lc_processed
     # do the plotting
-    sequential_plotting(times, signal, signal_err, i_sectors, tic, load_dir, save_dir=save_dir, show=show)
+    sequential_plotting(times, signal, signal_err, i_sectors, tic, load_dir, sn_thr, save_dir=save_dir, show=show)
     return None
